@@ -1,28 +1,48 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Leaf, Loader2 } from 'lucide-react';
+import { Loader2, Rocket, GraduationCap } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
+
+type AppRole = Database['public']['Enums']['app_role'];
+
+const COUNTRIES = [
+  'Sénégal', "Côte d'Ivoire", 'Burkina Faso', 'Mali', 'Bénin', 'Togo',
+  'Niger', 'Cameroun', 'RD Congo', 'Maroc', 'Algérie', 'Tunisie',
+  'Kenya', 'Nigeria', 'Ghana', 'Rwanda',
+];
 
 export default function Register() {
+  const [searchParams] = useSearchParams();
+  const initialRole = (searchParams.get('role') as AppRole) || 'entrepreneur';
+
+  const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [country, setCountry] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp } = useAuth();
+
+  const { signUp, setRole } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accepted) {
+      toast.error("Veuillez accepter les conditions d'utilisation");
+      return;
+    }
     setIsLoading(true);
     try {
-      await signUp(email, password, fullName);
-      toast.success('Compte créé ! Vérifiez votre email pour confirmer.');
-      navigate('/login');
+      await signUp(email, password, fullName, selectedRole);
+      toast.success('Compte créé avec succès !');
+      navigate('/dashboard');
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'inscription");
     } finally {
@@ -31,68 +51,145 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md animate-fade-in">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-            <Leaf className="h-6 w-6 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+      <div className="w-full max-w-lg">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">
+            <span className="text-lg font-display font-bold text-primary-foreground">ES</span>
           </div>
-          <h1 className="text-2xl font-display font-bold text-foreground">ESONO BIS</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">
+            Créer votre compte {selectedRole === 'coach' ? 'Coach' : 'Entrepreneur'}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {selectedRole === 'entrepreneur'
+              ? 'Structurez votre projet et générez vos livrables investisseurs.'
+              : 'Accompagnez vos entrepreneurs et suivez leur progression.'}
+          </p>
         </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="font-display text-xl">Créer un compte</CardTitle>
-            <CardDescription>Rejoignez la plateforme de coaching</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Nom complet</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Jean Dupont"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="votre@email.com"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  minLength={6}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                S'inscrire
-              </Button>
-            </form>
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              Déjà un compte ?{' '}
-              <Link to="/login" className="text-primary hover:underline font-medium">
-                Se connecter
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+        {/* Role tabs */}
+        <div className="flex mb-6 bg-muted rounded-lg p-1">
+          <button
+            onClick={() => setSelectedRole('entrepreneur')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors ${
+              selectedRole === 'entrepreneur'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Rocket className="h-4 w-4" />
+            Entrepreneur
+          </button>
+          <button
+            onClick={() => setSelectedRole('coach')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors ${
+              selectedRole === 'coach'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <GraduationCap className="h-4 w-4" />
+            Coach
+          </button>
+        </div>
+
+        {/* Form card */}
+        <div className="bg-card rounded-xl border p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">
+                Nom complet <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Awa Traoré"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">
+                Email <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="awa@startup.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="password">
+                Mot de passe <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                minLength={6}
+                required
+              />
+              <p className="text-xs text-muted-foreground">Minimum 6 caractères</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                Pays <span className="text-destructive">*</span>
+              </Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un pays" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox
+                id="terms"
+                checked={accepted}
+                onCheckedChange={(v) => setAccepted(v === true)}
+              />
+              <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                J'accepte les conditions d'utilisation et la politique de confidentialité.
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || !accepted || !country}
+              className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Création en cours...
+                </>
+              ) : (
+                `Créer mon compte ${selectedRole === 'coach' ? 'Coach' : 'Entrepreneur'}`
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Déjà inscrit ?{' '}
+          <Link to="/login" className="text-primary hover:underline font-medium">
+            Se connecter
+          </Link>
+        </p>
       </div>
     </div>
   );
