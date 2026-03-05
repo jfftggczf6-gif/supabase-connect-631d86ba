@@ -412,71 +412,118 @@ export default function EntrepreneurDashboard() {
             </p>
           </div>
 
-          {/* CENTER: Dashboard & Modules */}
+          {/* CENTER: Content viewer */}
           <div className="lg:col-span-6 space-y-6">
-            {/* Score overview */}
-            <Card className="bg-gradient-to-br from-[hsl(222,47%,15%)] to-[hsl(222,47%,22%)] text-white border-0">
-              <CardContent className="py-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-white/60 text-xs uppercase tracking-wider">Score Global</p>
-                    <p className="text-4xl font-display font-bold">{globalScore > 0 ? globalScore : '—'}</p>
-                    <p className="text-white/60 text-sm">Investment Readiness</p>
+            {/* Score overview bar */}
+            <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <p className="text-xs uppercase tracking-wider opacity-60">Investment Readiness</p>
+                    <p className="text-3xl font-display font-bold">{globalScore > 0 ? `${globalScore}/100` : '—'}</p>
                   </div>
-                  <div className="text-right space-y-1">
+                  <div className="flex items-center gap-3">
                     {['BMC', 'SIC', 'Framework'].map(dim => {
                       const typeMap: Record<string, string> = { BMC: 'bmc_analysis', SIC: 'sic_analysis', Framework: 'framework_data' };
                       const deliv = getDeliverable(typeMap[dim]);
                       const score = deliv?.score || 0;
                       return (
-                        <div key={dim} className="flex items-center gap-2 text-xs">
-                          <span className="text-white/50 w-16 text-right">{dim}</span>
-                          <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div key={dim} className="flex items-center gap-1.5 text-xs">
+                          <span className="opacity-50">{dim}</span>
+                          <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
                             <div className="h-full rounded-full bg-white/60 transition-all" style={{ width: `${score}%` }} />
                           </div>
-                          <span className="text-white/40 w-6">{score > 0 ? score : '—'}</span>
+                          <span className="opacity-40 w-4">{score > 0 ? score : '—'}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-                {generating && (
-                  <div className="flex items-center gap-2 text-white/70 text-xs">
+                {(generating || generatingModule) && (
+                  <div className="flex items-center gap-2 text-primary-foreground/70 text-xs mt-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Analyse IA en cours...
+                    Analyse IA en cours{generatingModule ? ` (${generatingModule.toUpperCase()})` : ''}...
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* 8 Module cards */}
-            <div>
-              <h2 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground mb-3">8 Modules</h2>
-              <div className="grid grid-cols-2 gap-3">
+            {/* Selected module content */}
+            <div className="min-h-[400px]">
+              {selectedModule === 'bmc' && (() => {
+                const bmcDeliv = getDeliverable('bmc_analysis');
+                if (bmcDeliv?.data && typeof bmcDeliv.data === 'object') {
+                  return <BmcViewer data={bmcDeliv.data} />;
+                }
+                return (
+                  <Card className="flex flex-col items-center justify-center py-20 text-center">
+                    <LayoutGrid className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                    <h3 className="font-display font-semibold text-lg mb-2">Business Model Canvas</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Uploadez vos documents puis générez l'analyse BMC par l'IA
+                    </p>
+                    <Button
+                      onClick={() => handleGenerateModule('bmc')}
+                      disabled={!!generatingModule}
+                      className="gap-2"
+                    >
+                      {generatingModule === 'bmc' ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Génération...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" /> Générer le BMC</>
+                      )}
+                    </Button>
+                  </Card>
+                );
+              })()}
+              {selectedModule !== 'bmc' && (
+                <Card className="flex flex-col items-center justify-center py-20 text-center">
+                  {(() => {
+                    const mod = MODULE_CONFIG.find(m => m.code === selectedModule);
+                    const Icon = mod?.icon || FileText;
+                    return (
+                      <>
+                        <Icon className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                        <h3 className="font-display font-semibold text-lg mb-2">{mod?.title}</h3>
+                        <p className="text-sm text-muted-foreground">Agent IA à venir — en cours de développement</p>
+                      </>
+                    );
+                  })()}
+                </Card>
+              )}
+            </div>
+
+            {/* Horizontal module bar (like reference) */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
                 {MODULE_CONFIG.map(mod => {
                   const data = getModuleData(mod.code);
                   const Icon = mod.icon;
-                  const isAuto = mod.category === 'automatic';
+                  const isSelected = selectedModule === mod.code;
                   return (
-                    <div
+                    <button
                       key={mod.code}
-                      onClick={() => navigate(`/module/${mod.code}`)}
-                      className="bg-card border rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all group"
+                      onClick={() => setSelectedModule(mod.code)}
+                      className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border-2 transition-all min-w-[80px] ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 shadow-sm'
+                          : 'border-transparent hover:bg-muted/50'
+                      }`}
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-                          <Icon className="h-4 w-4 text-primary" />
+                      <div className="relative">
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${
+                          isSelected ? 'bg-primary/15' : 'bg-muted'
+                        }`}>
+                          <Icon className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
                         </div>
-                        <div className="flex items-center gap-1">
-                          {isAuto && <span className="text-[10px] px-1.5 py-0.5 rounded bg-info/10 text-info font-medium">IA</span>}
-                          {data.status === 'completed' && <CheckCircle2 className="h-4 w-4 text-success" />}
-                          {data.status === 'in_progress' && <Clock className="h-3.5 w-3.5 text-warning" />}
-                        </div>
+                        {data.status === 'completed' && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success absolute -top-1 -right-1 bg-background rounded-full" />
+                        )}
                       </div>
-                      <p className="text-xs font-medium leading-tight">{mod.title}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{mod.description}</p>
-                      {data.progress > 0 && <Progress value={data.progress} className="h-1 mt-2" />}
-                    </div>
+                      <span className={`text-[10px] font-medium text-center leading-tight ${
+                        isSelected ? 'text-primary' : 'text-muted-foreground'
+                      }`}>{mod.title}</span>
+                    </button>
                   );
                 })}
               </div>
