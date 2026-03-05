@@ -1,1 +1,4 @@
 project_id = "vppsiryckhqchucmphuu"
+
+[functions.generate-deliverables]
+verify_jwt = false
