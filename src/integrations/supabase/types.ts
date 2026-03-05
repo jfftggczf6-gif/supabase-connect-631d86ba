@@ -14,16 +14,240 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      deliverables: {
+        Row: {
+          ai_generated: boolean | null
+          created_at: string
+          data: Json | null
+          enterprise_id: string
+          file_url: string | null
+          html_content: string | null
+          id: string
+          score: number | null
+          type: Database["public"]["Enums"]["deliverable_type"]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          created_at?: string
+          data?: Json | null
+          enterprise_id: string
+          file_url?: string | null
+          html_content?: string | null
+          id?: string
+          score?: number | null
+          type: Database["public"]["Enums"]["deliverable_type"]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          ai_generated?: boolean | null
+          created_at?: string
+          data?: Json | null
+          enterprise_id?: string
+          file_url?: string | null
+          html_content?: string | null
+          id?: string
+          score?: number | null
+          type?: Database["public"]["Enums"]["deliverable_type"]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliverables_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enterprise_modules: {
+        Row: {
+          created_at: string
+          data: Json | null
+          enterprise_id: string
+          id: string
+          module: Database["public"]["Enums"]["module_code"]
+          progress: number | null
+          status: Database["public"]["Enums"]["module_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          enterprise_id: string
+          id?: string
+          module: Database["public"]["Enums"]["module_code"]
+          progress?: number | null
+          status?: Database["public"]["Enums"]["module_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          enterprise_id?: string
+          id?: string
+          module?: Database["public"]["Enums"]["module_code"]
+          progress?: number | null
+          status?: Database["public"]["Enums"]["module_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enterprise_modules_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enterprises: {
+        Row: {
+          city: string | null
+          coach_id: string | null
+          country: string | null
+          created_at: string
+          creation_date: string | null
+          description: string | null
+          employees_count: number | null
+          id: string
+          legal_form: string | null
+          logo_url: string | null
+          name: string
+          sector: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city?: string | null
+          coach_id?: string | null
+          country?: string | null
+          created_at?: string
+          creation_date?: string | null
+          description?: string | null
+          employees_count?: number | null
+          id?: string
+          legal_form?: string | null
+          logo_url?: string | null
+          name: string
+          sector?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string | null
+          coach_id?: string | null
+          country?: string | null
+          created_at?: string
+          creation_date?: string | null
+          description?: string | null
+          employees_count?: number | null
+          id?: string
+          legal_form?: string | null
+          logo_url?: string | null
+          name?: string
+          sector?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "coach" | "entrepreneur"
+      deliverable_type:
+        | "bmc_analysis"
+        | "bmc_html"
+        | "sic_analysis"
+        | "sic_html"
+        | "inputs_data"
+        | "inputs_html"
+        | "framework_data"
+        | "framework_html"
+        | "framework_excel"
+        | "diagnostic_data"
+        | "diagnostic_html"
+        | "diagnostic_analyses"
+        | "plan_ovo"
+        | "business_plan"
+        | "odd_analysis"
+      module_code:
+        | "bmc"
+        | "sic"
+        | "inputs"
+        | "framework"
+        | "diagnostic"
+        | "plan_ovo"
+        | "business_plan"
+        | "odd"
+      module_status: "not_started" | "in_progress" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +374,36 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["coach", "entrepreneur"],
+      deliverable_type: [
+        "bmc_analysis",
+        "bmc_html",
+        "sic_analysis",
+        "sic_html",
+        "inputs_data",
+        "inputs_html",
+        "framework_data",
+        "framework_html",
+        "framework_excel",
+        "diagnostic_data",
+        "diagnostic_html",
+        "diagnostic_analyses",
+        "plan_ovo",
+        "business_plan",
+        "odd_analysis",
+      ],
+      module_code: [
+        "bmc",
+        "sic",
+        "inputs",
+        "framework",
+        "diagnostic",
+        "plan_ovo",
+        "business_plan",
+        "odd",
+      ],
+      module_status: ["not_started", "in_progress", "completed"],
+    },
   },
 } as const
