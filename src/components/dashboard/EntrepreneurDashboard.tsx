@@ -52,9 +52,10 @@ export default function EntrepreneurDashboard() {
   const [newName, setNewName] = useState('');
   const [newSector, setNewSector] = useState('');
   const [creating, setCreating] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const finInputRef = useRef<HTMLInputElement>(null);
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -80,10 +81,10 @@ export default function EntrepreneurDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, category: string) => {
     const files = e.target.files;
     if (!files || !enterprise) return;
-    setUploading(true);
+    setUploading(category);
 
     try {
       for (const file of Array.from(files)) {
@@ -96,8 +97,9 @@ export default function EntrepreneurDashboard() {
     } catch (err: any) {
       toast.error(err.message || "Erreur d'upload");
     } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setUploading(null);
+      if (docInputRef.current) docInputRef.current.value = '';
+      if (finInputRef.current) finInputRef.current.value = '';
     }
   };
 
@@ -279,26 +281,34 @@ export default function EntrepreneurDashboard() {
               <h2 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground">Documents</h2>
             </div>
 
-            {/* Upload zone */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".docx,.xlsx,.xls,.pdf,.csv,.txt"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
+            {/* Upload zone 1: BMC / SIC */}
+            <input ref={docInputRef} type="file" multiple accept=".docx,.doc,.pdf,.txt" className="hidden" onChange={e => handleFileUpload(e, 'doc')} />
             <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/40 transition-colors cursor-pointer group"
+              onClick={() => docInputRef.current?.click()}
+              className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
             >
-              {uploading ? (
+              {uploading === 'doc' ? (
                 <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
               ) : (
-                <FileUp className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
+                <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
               )}
-              <p className="text-xs font-medium">BMC, SIC (DOCX) / Inputs (XLSX)</p>
-              <p className="text-xs text-muted-foreground mt-1">Cliquez ou glissez vos fichiers</p>
+              <p className="text-xs font-medium">BMC / SIC (DOCX)</p>
+              <p className="text-xs text-muted-foreground mt-1">Glissez ou cliquez</p>
+            </div>
+
+            {/* Upload zone 2: Inputs Financiers */}
+            <input ref={finInputRef} type="file" multiple accept=".xlsx,.xls,.csv" className="hidden" onChange={e => handleFileUpload(e, 'fin')} />
+            <div
+              onClick={() => finInputRef.current?.click()}
+              className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
+            >
+              {uploading === 'fin' ? (
+                <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
+              ) : (
+                <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
+              )}
+              <p className="text-xs font-medium">Inputs Financiers (XLSX)</p>
+              <p className="text-xs text-muted-foreground mt-1">Glissez ou cliquez</p>
             </div>
 
             {/* Uploaded files list */}
