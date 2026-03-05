@@ -166,8 +166,26 @@ Génère une analyse complète avec les livrables suivants. Réponds en JSON ave
       "diagnostic_data", "plan_ovo", "business_plan", "odd_analysis"
     ];
 
+    // Check which deliverables already have rich data (e.g. from generate-bmc)
+    const { data: existingDeliverables } = await supabase
+      .from("deliverables")
+      .select("type, data")
+      .eq("enterprise_id", enterprise_id)
+      .in("type", deliverableTypes);
+
+    const richDeliverables = new Set(
+      (existingDeliverables || [])
+        .filter((d: any) => d.data && typeof d.data === "object" && d.data.canvas)
+        .map((d: any) => d.type)
+    );
+
     for (const type of deliverableTypes) {
       if (analysis[type]) {
+        // Skip if a richer version already exists (e.g. BMC with full canvas)
+        if (richDeliverables.has(type)) {
+          console.log(`Skipping ${type}: rich data already exists from dedicated agent`);
+          continue;
+        }
         await supabase.from("deliverables").upsert({
           enterprise_id,
           type,
@@ -192,6 +210,8 @@ Génère une analyse complète avec les livrables suivants. Réponds en JSON ave
 
     for (const [delivType, modCode] of Object.entries(moduleMapping)) {
       if (analysis[delivType]) {
+        // Skip module update if rich data already exists
+        if (richDeliverables.has(delivType)) continue;
         await supabase.from("enterprise_modules")
           .update({ status: "completed", progress: 100, data: analysis[delivType] })
           .eq("enterprise_id", enterprise_id)
