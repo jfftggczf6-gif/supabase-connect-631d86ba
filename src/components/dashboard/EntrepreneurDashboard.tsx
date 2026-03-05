@@ -33,14 +33,14 @@ const MODULE_CONFIG = [
 ];
 
 const DELIVERABLE_CONFIG = [
-  { type: 'bmc_analysis', label: 'BMC Analysé', ext: '.docx', icon: '📄', color: 'text-info' },
-  { type: 'sic_analysis', label: 'SIC Analysé', ext: '.docx', icon: '📄', color: 'text-info' },
-  { type: 'inputs_html', label: 'Inputs HTML', ext: '.html', icon: '🌐', color: 'text-primary' },
-  { type: 'framework_data', label: 'Framework Excel', ext: '.xlsx', icon: '📊', color: 'text-success' },
-  { type: 'diagnostic_data', label: 'Diagnostic Expert', ext: '.html', icon: '🌐', color: 'text-primary' },
-  { type: 'plan_ovo', label: 'Plan OVO', ext: '.xlsx', icon: '📊', color: 'text-success' },
-  { type: 'business_plan', label: 'Business Plan', ext: '.docx', icon: '📄', color: 'text-info' },
-  { type: 'odd_analysis', label: 'Due Diligence ODD', ext: '.xlsx', icon: '📊', color: 'text-success' },
+  { type: 'bmc_analysis', label: 'BMC Analysé', ext: '.html', icon: '📊', color: 'text-info' },
+  { type: 'sic_analysis', label: 'SIC Analysé', ext: '.html', icon: '🌍', color: 'text-info' },
+  { type: 'inputs_data', label: 'Données Financières', ext: '.html', icon: '💰', color: 'text-primary' },
+  { type: 'framework_data', label: 'Framework Financier', ext: '.html', icon: '📈', color: 'text-success' },
+  { type: 'diagnostic_data', label: 'Diagnostic Expert', ext: '.html', icon: '🩺', color: 'text-primary' },
+  { type: 'plan_ovo', label: 'Plan OVO', ext: '.html', icon: '📋', color: 'text-success' },
+  { type: 'business_plan', label: 'Business Plan', ext: '.html', icon: '📄', color: 'text-info' },
+  { type: 'odd_analysis', label: 'Due Diligence ODD', ext: '.html', icon: '✅', color: 'text-success' },
 ];
 
 export default function EntrepreneurDashboard() {
