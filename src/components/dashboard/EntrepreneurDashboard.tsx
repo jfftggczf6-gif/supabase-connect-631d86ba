@@ -53,7 +53,10 @@ export default function EntrepreneurDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSector, setNewSector] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [newCountry, setNewCountry] = useState("Côte d'Ivoire");
+  const [newCity, setNewCity] = useState('');
+  const [newLegalForm, setNewLegalForm] = useState('');
+  const [newDescription, setNewDescription] = useState('');
   const [uploading, setUploading] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingModule, setGeneratingModule] = useState<string | null>(null);
