@@ -210,6 +210,8 @@ Génère une analyse complète avec les livrables suivants. Réponds en JSON ave
 
     for (const [delivType, modCode] of Object.entries(moduleMapping)) {
       if (analysis[delivType]) {
+        // Skip module update if rich data already exists
+        if (richDeliverables.has(delivType)) continue;
         await supabase.from("enterprise_modules")
           .update({ status: "completed", progress: 100, data: analysis[delivType] })
           .eq("enterprise_id", enterprise_id)
