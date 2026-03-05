@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.download-deliverable]
 verify_jwt = false
+
+[functions.generate-bmc]
+verify_jwt = false
