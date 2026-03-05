@@ -176,7 +176,7 @@ export default function EntrepreneurDashboard() {
     }
   };
 
-
+  const createEnterprise = async () => {
     if (!user || !newName.trim()) return;
     setCreating(true);
     try {
