@@ -8,3 +8,24 @@ verify_jwt = false
 
 [functions.generate-bmc]
 verify_jwt = false
+
+[functions.generate-sic]
+verify_jwt = false
+
+[functions.generate-inputs]
+verify_jwt = false
+
+[functions.generate-framework]
+verify_jwt = false
+
+[functions.generate-diagnostic]
+verify_jwt = false
+
+[functions.generate-plan-ovo]
+verify_jwt = false
+
+[functions.generate-business-plan]
+verify_jwt = false
+
+[functions.generate-odd]
+verify_jwt = false
