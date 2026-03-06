@@ -39,6 +39,158 @@ const TC_KEYS = ['probleme', 'activites', 'outputs', 'outcomes', 'impact'];
 const MATURITY_LEVELS = ['idee', 'test_pilote', 'deploye', 'mesure', 'scale'];
 const MATURITY_LABELS = ['Idée', 'Test/Pilote', 'Déployé', 'Mesuré', 'Scalé'];
 
+/** Normalize flat DB structure (canvas.*, beneficiaires.*, odd_alignment[], etc.)
+ *  into the nested format expected by the viewer */
+function normalizeData(raw: any) {
+  // If data already has the expected structure, return as-is
+  if (raw.dimensions && raw.canvas_blocs) {
+    return {
+      score_global: raw.score_global ?? raw.score ?? 0,
+      label: raw.label || raw.palier || '',
+      synthese_impact: raw.synthese_impact || '',
+      dimensions: raw.dimensions || {},
+      chiffres_cles: raw.chiffres_cles || {},
+      canvas_blocs: raw.canvas_blocs || {},
+      risques_attenuation: raw.risques_attenuation || { risques: [] },
+      theorie_du_changement: raw.theorie_du_changement || raw.theorie_changement || {},
+      changements: raw.changements || {},
+      recommandations: raw.recommandations || [],
+      swot: raw.swot || {},
+      parties_prenantes: raw.parties_prenantes || [],
+      odd_detail: raw.odd_detail || [],
+      alignement_modele: raw.alignement_modele || {},
+      evolution_score: raw.evolution_score || [],
+      niveau_maturite: raw.niveau_maturite || '',
+    };
+  }
+
+  // === Flat DB structure: map fields ===
+  const score = raw.score_global ?? raw.score ?? 0;
+  const oddAlign = raw.odd_alignment || [];
+  const beneficiaires = raw.beneficiaires || {};
+  const canvas = raw.canvas || {};
+  const tc = raw.theorie_changement || raw.theorie_du_changement || {};
+  const indicators = raw.indicateurs_impact || [];
+  const risques = raw.risques_sociaux || [];
+  const recos = raw.recommandations || [];
+
+  // Build ODD detail with colors
+  const oddDetail = oddAlign.map((o: any) => ({
+    numero: o.odd_number || o.numero,
+    nom: o.odd_name || o.nom || ODD_NAMES[o.odd_number || o.numero] || '',
+    couleur: o.couleur || ODD_COLORS[o.odd_number || o.numero] || '#666',
+    alignement: (o.level || o.alignement || 'moyen').toLowerCase(),
+    contribution: o.contribution || o.justification || '',
+  }));
+
+  // Build canvas blocs from flat data
+  const canvasBlocs: any = {
+    probleme_social: { titre: 'PROBLÈME SOCIAL', points: raw.probleme_social ? [raw.probleme_social] : [] },
+    transformation_visee: { titre: 'TRANSFORMATION VISÉE', points: canvas.resultats_attendus || [] },
+    beneficiaires: {
+      titre: 'BÉNÉFICIAIRES',
+      points: [
+        ...(beneficiaires.directs || []),
+        ...(beneficiaires.indirects || []),
+      ],
+    },
+    solution_activites: {
+      titre: 'SOLUTION & ACTIVITÉS À IMPACT',
+      points: canvas.activites_impact || [],
+    },
+    indicateurs_mesure: {
+      titre: 'INDICATEURS & MESURE',
+      indicateurs: indicators.map((ind: any) => ({
+        nom: `${ind.indicateur}: ${fmtNum(ind.valeur_actuelle)} → ${fmtNum(ind.cible)} ${ind.unite || ''}`,
+        type: 'outcome',
+      })),
+      methode: canvas.mesure_impact || '',
+      frequence: '',
+    },
+    odd_cibles: {
+      titre: 'ODD CIBLÉS',
+      odds: oddDetail,
+    },
+  };
+
+  // Build chiffres clés
+  const directCount = beneficiaires.directs?.length || 0;
+  const indirectCount = beneficiaires.indirects?.length || 0;
+  // Try to extract numbers from text
+  const extractNum = (arr: string[]) => {
+    if (!arr || arr.length === 0) return 0;
+    for (const s of arr) {
+      const m = s.match(/([\d\s]+[\d])/);
+      if (m) return parseInt(m[1].replace(/\s/g, ''));
+    }
+    return arr.length;
+  };
+
+  const chiffres = {
+    beneficiaires_directs: { nombre: extractNum(beneficiaires.directs || []) || directCount, horizon: '3 ans' },
+    beneficiaires_indirects: { nombre: extractNum(beneficiaires.indirects || []) || indirectCount },
+    impact_total_projete: { nombre: (extractNum(beneficiaires.directs || []) || 0) + (extractNum(beneficiaires.indirects || []) || 0) },
+    odd_adresses: { nombre: oddAlign.length },
+  };
+
+  // Build théorie du changement from nested arrays or strings
+  const flattenTc = (val: any) => {
+    if (!val) return '—';
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) return val.join(' • ');
+    return String(val);
+  };
+
+  const theorieDuChangement = {
+    probleme: flattenTc(tc.probleme) !== '—' ? flattenTc(tc.probleme) : raw.probleme_social || '—',
+    activites: flattenTc(tc.activites),
+    outputs: flattenTc(tc.outputs),
+    outcomes: flattenTc(tc.outcomes),
+    impact: flattenTc(tc.impact),
+  };
+
+  // Build risques
+  const risquesAttenuation = {
+    risques: risques.map((r: string, i: number) => ({
+      risque: r,
+      mitigation: (canvas.ressources_impact || [])[i] || '—',
+    })),
+  };
+
+  // Build recommandations
+  const formattedRecos = recos.map((r: any, i: number) => {
+    if (typeof r === 'string') return { priorite: i + 1, titre: r, detail: '', impact_score: '' };
+    return r;
+  });
+
+  // Build parties prenantes from canvas
+  const partiesPrenantes = (canvas.parties_prenantes || []).map((pp: string) => ({
+    nom: pp,
+    role: '—',
+    implication: '—',
+  }));
+
+  return {
+    score_global: score,
+    label: raw.label || raw.palier || '',
+    synthese_impact: raw.mission_sociale || raw.synthese_impact || '',
+    dimensions: raw.dimensions || {},
+    chiffres_cles: chiffres,
+    canvas_blocs: canvasBlocs,
+    risques_attenuation: risquesAttenuation,
+    theorie_du_changement: theorieDuChangement,
+    changements: raw.changements || {},
+    recommandations: formattedRecos,
+    swot: raw.swot || {},
+    parties_prenantes: partiesPrenantes,
+    odd_detail: oddDetail,
+    alignement_modele: raw.alignement_modele || {},
+    evolution_score: raw.evolution_score || [],
+    niveau_maturite: raw.niveau_maturite || '',
+  };
+}
+
+
 export default function SicViewer({ data }: SicViewerProps) {
   const [expandedDim, setExpandedDim] = useState<string | null>(null);
 
