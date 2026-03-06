@@ -338,9 +338,9 @@ export default function EntrepreneurDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur-sm">
+      <header className="flex-none z-50 border-b bg-card/95 backdrop-blur-sm">
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
@@ -377,263 +377,260 @@ export default function EntrepreneurDashboard() {
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 container py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" style={{ minHeight: 'calc(100vh - 120px)' }}>
-          {/* LEFT: Upload & Documents */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Upload className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground">Documents</h2>
-            </div>
-
-            {/* Upload zone 1: BMC / SIC */}
-            <input ref={docInputRef} type="file" multiple accept=".docx,.doc,.pdf,.txt" className="hidden" onChange={e => handleFileUpload(e, 'doc')} />
-            <div
-              onClick={() => docInputRef.current?.click()}
-              className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
-            >
-              {uploading === 'doc' ? (
-                <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
-              ) : (
-                <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
-              )}
-              <p className="text-xs font-medium">BMC / SIC (DOCX)</p>
-              <p className="text-xs text-muted-foreground mt-1">Glissez ou cliquez</p>
-            </div>
-
-            {/* Upload zone 2: Inputs Financiers */}
-            <input ref={finInputRef} type="file" multiple accept=".xlsx,.xls,.csv" className="hidden" onChange={e => handleFileUpload(e, 'fin')} />
-            <div
-              onClick={() => finInputRef.current?.click()}
-              className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
-            >
-              {uploading === 'fin' ? (
-                <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
-              ) : (
-                <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
-              )}
-              <p className="text-xs font-medium">Inputs Financiers (XLSX)</p>
-              <p className="text-xs text-muted-foreground mt-1">Glissez ou cliquez</p>
-            </div>
-
-            {/* Uploaded files list */}
-            {uploadedFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Fichiers uploadés :</p>
-                {uploadedFiles.map(f => (
-                  <div key={f} className="flex items-center gap-2 text-xs p-2 rounded bg-muted/50">
-                    <CheckCircle2 className="h-3 w-3 text-success flex-shrink-0" />
-                    <span className="truncate">{f}</span>
-                  </div>
-                ))}
+      {/* Main content - fixed height, no page scroll */}
+      <div className="flex-1 min-h-0">
+        <div className="h-full container">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 h-full">
+            {/* LEFT: Upload & Documents - fixed panel */}
+            <div className="lg:col-span-3 overflow-y-auto border-r border-border p-4 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground">Documents</h2>
               </div>
-            )}
 
-            {/* Generate button */}
-            <Button
-              className="w-full gap-2 mt-4"
-              size="lg"
-              onClick={handleGenerate}
-              disabled={generating}
-            >
-              {generating ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Génération en cours...</>
-              ) : (
-                <><Sparkles className="h-4 w-4" /> Générer tous les livrables</>
-              )}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              L'IA analyse vos documents et génère 8+ livrables
-            </p>
-          </div>
-
-          {/* CENTER: Content viewer */}
-          <div className="lg:col-span-6 space-y-6">
-            {/* Score overview bar */}
-            <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <p className="text-xs uppercase tracking-wider opacity-60">Investment Readiness</p>
-                    <p className="text-3xl font-display font-bold">{globalScore > 0 ? `${globalScore}/100` : '—'}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {['BMC', 'SIC', 'Framework'].map(dim => {
-                      const typeMap: Record<string, string> = { BMC: 'bmc_analysis', SIC: 'sic_analysis', Framework: 'framework_data' };
-                      const deliv = getDeliverable(typeMap[dim]);
-                      const score = deliv?.score || 0;
-                      return (
-                        <div key={dim} className="flex items-center gap-1.5 text-xs">
-                          <span className="opacity-50">{dim}</span>
-                          <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                            <div className="h-full rounded-full bg-white/60 transition-all" style={{ width: `${score}%` }} />
-                          </div>
-                          <span className="opacity-40 w-4">{score > 0 ? score : '—'}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                {(generating || generatingModule) && (
-                  <div className="flex items-center gap-2 text-primary-foreground/70 text-xs mt-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Analyse IA en cours{generatingModule ? ` (${generatingModule.toUpperCase()})` : ''}...
-                  </div>
+              {/* Upload zone 1: BMC / SIC */}
+              <input ref={docInputRef} type="file" multiple accept=".docx,.doc,.pdf,.txt" className="hidden" onChange={e => handleFileUpload(e, 'doc')} />
+              <div
+                onClick={() => docInputRef.current?.click()}
+                className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
+              >
+                {uploading === 'doc' ? (
+                  <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
+                ) : (
+                  <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
                 )}
-              </CardContent>
-            </Card>
+                <p className="text-xs font-medium">BMC / SIC (DOCX)</p>
+                <p className="text-xs text-muted-foreground mt-1">Glissez ou cliquez</p>
+              </div>
 
-            {/* Selected module content */}
-            <div className="min-h-[400px]">
-              {selectedModule === 'bmc' && (() => {
-                const bmcDeliv = getDeliverable('bmc_analysis');
-                if (bmcDeliv?.data && typeof bmcDeliv.data === 'object') {
-                  return <BmcViewer data={bmcDeliv.data} />;
-                }
-                return (
-                  <Card className="flex flex-col items-center justify-center py-20 text-center">
-                    <LayoutGrid className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                    <h3 className="font-display font-semibold text-lg mb-2">Business Model Canvas</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Uploadez vos documents puis générez l'analyse BMC par l'IA
-                    </p>
-                    <Button
-                      onClick={() => handleGenerateModule('bmc')}
-                      disabled={!!generatingModule}
-                      className="gap-2"
-                    >
-                      {generatingModule === 'bmc' ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> Génération...</>
-                      ) : (
-                        <><Sparkles className="h-4 w-4" /> Générer le BMC</>
-                      )}
-                    </Button>
-                  </Card>
-                );
-              })()}
-              {selectedModule !== 'bmc' && (() => {
-                const mod = MODULE_CONFIG.find(m => m.code === selectedModule);
-                const Icon = mod?.icon || FileText;
-                // Map module code to deliverable type
-                const delivTypeMap: Record<string, string> = {
-                  sic: 'sic_analysis', inputs: 'inputs_data', framework: 'framework_data',
-                  diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
-                };
-                const delivType = delivTypeMap[selectedModule];
-                const deliv = delivType ? getDeliverable(delivType) : null;
+              {/* Upload zone 2: Inputs Financiers */}
+              <input ref={finInputRef} type="file" multiple accept=".xlsx,.xls,.csv" className="hidden" onChange={e => handleFileUpload(e, 'fin')} />
+              <div
+                onClick={() => finInputRef.current?.click()}
+                className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
+              >
+                {uploading === 'fin' ? (
+                  <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
+                ) : (
+                  <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
+                )}
+                <p className="text-xs font-medium">Inputs Financiers (XLSX)</p>
+                <p className="text-xs text-muted-foreground mt-1">Glissez ou cliquez</p>
+              </div>
 
-                if (deliv?.data && typeof deliv.data === 'object') {
-                  return <DeliverableViewer moduleCode={selectedModule} data={deliv.data} />;
-                }
+              {/* Uploaded files list */}
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Fichiers uploadés :</p>
+                  {uploadedFiles.map(f => (
+                    <div key={f} className="flex items-center gap-2 text-xs p-2 rounded bg-muted/50">
+                      <CheckCircle2 className="h-3 w-3 text-success flex-shrink-0" />
+                      <span className="truncate">{f}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                return (
-                  <Card className="flex flex-col items-center justify-center py-20 text-center">
-                    <Icon className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                    <h3 className="font-display font-semibold text-lg mb-2">{mod?.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {mod?.category === 'hybrid'
-                        ? "Uploadez vos documents puis générez l'analyse par l'IA"
-                        : "Ce module sera généré automatiquement par l'IA"}
-                    </p>
-                    <Button
-                      onClick={() => handleGenerateModule(selectedModule)}
-                      disabled={!!generatingModule}
-                      className="gap-2"
-                    >
-                      {generatingModule === selectedModule ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> Génération...</>
-                      ) : (
-                        <><Sparkles className="h-4 w-4" /> Générer {mod?.title}</>
-                      )}
-                    </Button>
-                  </Card>
-                );
-              })()}
+              {/* Generate button */}
+              <Button
+                className="w-full gap-2 mt-4"
+                size="lg"
+                onClick={handleGenerate}
+                disabled={generating}
+              >
+                {generating ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Génération en cours...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" /> Générer tous les livrables</>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                L'IA analyse vos documents et génère 8+ livrables
+              </p>
             </div>
 
-            {/* Horizontal module bar (like reference) */}
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                {MODULE_CONFIG.map(mod => {
-                  const data = getModuleData(mod.code);
-                  const Icon = mod.icon;
-                  const isSelected = selectedModule === mod.code;
-                  return (
-                    <button
-                      key={mod.code}
-                      onClick={() => setSelectedModule(mod.code)}
-                      className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border-2 transition-all min-w-[80px] ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'border-transparent hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="relative">
-                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${
-                          isSelected ? 'bg-primary/15' : 'bg-muted'
-                        }`}>
-                          <Icon className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+            {/* CENTER: Content viewer - scrollable */}
+            <div className="lg:col-span-6 flex flex-col min-h-0 h-full">
+              {/* Module tabs bar - fixed at top */}
+              <div className="flex-none border-b bg-card/50 px-4 py-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  {MODULE_CONFIG.map(mod => {
+                    const data = getModuleData(mod.code);
+                    const Icon = mod.icon;
+                    const isSelected = selectedModule === mod.code;
+                    return (
+                      <button
+                        key={mod.code}
+                        onClick={() => setSelectedModule(mod.code)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap text-xs ${
+                          isSelected
+                            ? 'border-primary bg-primary/5 text-primary font-semibold shadow-sm'
+                            : 'border-transparent hover:bg-muted/50 text-muted-foreground'
+                        }`}
+                      >
+                        <div className="relative">
+                          <Icon className={`h-3.5 w-3.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                          {data.status === 'completed' && (
+                            <CheckCircle2 className="h-2.5 w-2.5 text-success absolute -top-1 -right-1 bg-background rounded-full" />
+                          )}
                         </div>
-                        {data.status === 'completed' && (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-success absolute -top-1 -right-1 bg-background rounded-full" />
-                        )}
+                        <span className="hidden xl:inline">{mod.title}</span>
+                        <span className="xl:hidden">{mod.code.toUpperCase()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Scrollable content area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Score overview bar */}
+                <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <p className="text-xs uppercase tracking-wider opacity-60">Investment Readiness</p>
+                        <p className="text-3xl font-display font-bold">{globalScore > 0 ? `${globalScore}/100` : '—'}</p>
                       </div>
-                      <span className={`text-[10px] font-medium text-center leading-tight ${
-                        isSelected ? 'text-primary' : 'text-muted-foreground'
-                      }`}>{mod.title}</span>
-                    </button>
+                      <div className="flex items-center gap-3">
+                        {['BMC', 'SIC', 'Framework'].map(dim => {
+                          const typeMap: Record<string, string> = { BMC: 'bmc_analysis', SIC: 'sic_analysis', Framework: 'framework_data' };
+                          const deliv = getDeliverable(typeMap[dim]);
+                          const score = deliv?.score || 0;
+                          return (
+                            <div key={dim} className="flex items-center gap-1.5 text-xs">
+                              <span className="opacity-50">{dim}</span>
+                              <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                <div className="h-full rounded-full bg-white/60 transition-all" style={{ width: `${score}%` }} />
+                              </div>
+                              <span className="opacity-40 w-4">{score > 0 ? score : '—'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {(generating || generatingModule) && (
+                      <div className="flex items-center gap-2 text-primary-foreground/70 text-xs mt-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Analyse IA en cours{generatingModule ? ` (${generatingModule.toUpperCase()})` : ''}...
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Selected module content */}
+                {selectedModule === 'bmc' && (() => {
+                  const bmcDeliv = getDeliverable('bmc_analysis');
+                  if (bmcDeliv?.data && typeof bmcDeliv.data === 'object') {
+                    return <BmcViewer data={bmcDeliv.data} />;
+                  }
+                  return (
+                    <Card className="flex flex-col items-center justify-center py-20 text-center">
+                      <LayoutGrid className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                      <h3 className="font-display font-semibold text-lg mb-2">Business Model Canvas</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Uploadez vos documents puis générez l'analyse BMC par l'IA
+                      </p>
+                      <Button
+                        onClick={() => handleGenerateModule('bmc')}
+                        disabled={!!generatingModule}
+                        className="gap-2"
+                      >
+                        {generatingModule === 'bmc' ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" /> Génération...</>
+                        ) : (
+                          <><Sparkles className="h-4 w-4" /> Générer le BMC</>
+                        )}
+                      </Button>
+                    </Card>
                   );
-                })}
+                })()}
+                {selectedModule !== 'bmc' && (() => {
+                  const mod = MODULE_CONFIG.find(m => m.code === selectedModule);
+                  const Icon = mod?.icon || FileText;
+                  const delivTypeMap: Record<string, string> = {
+                    sic: 'sic_analysis', inputs: 'inputs_data', framework: 'framework_data',
+                    diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
+                  };
+                  const delivType = delivTypeMap[selectedModule];
+                  const deliv = delivType ? getDeliverable(delivType) : null;
+
+                  if (deliv?.data && typeof deliv.data === 'object') {
+                    return <DeliverableViewer moduleCode={selectedModule} data={deliv.data} />;
+                  }
+
+                  return (
+                    <Card className="flex flex-col items-center justify-center py-20 text-center">
+                      <Icon className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                      <h3 className="font-display font-semibold text-lg mb-2">{mod?.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {mod?.category === 'hybrid'
+                          ? "Uploadez vos documents puis générez l'analyse par l'IA"
+                          : "Ce module sera généré automatiquement par l'IA"}
+                      </p>
+                      <Button
+                        onClick={() => handleGenerateModule(selectedModule)}
+                        disabled={!!generatingModule}
+                        className="gap-2"
+                      >
+                        {generatingModule === selectedModule ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" /> Génération...</>
+                        ) : (
+                          <><Sparkles className="h-4 w-4" /> Générer {mod?.title}</>
+                        )}
+                      </Button>
+                    </Card>
+                  );
+                })()}
               </div>
             </div>
-          </div>
 
-          {/* RIGHT: Deliverables */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Download className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground">Livrables</h2>
-            </div>
+            {/* RIGHT: Deliverables - fixed panel */}
+            <div className="lg:col-span-3 overflow-y-auto border-l border-border p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Download className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground">Livrables</h2>
+              </div>
 
-            {DELIVERABLE_CONFIG.map(dc => {
-              const deliv = getDeliverable(dc.type);
-              const isReady = !!deliv;
-              return (
-                <div
-                  key={dc.type}
-                  className={`p-3 rounded-lg border bg-card ${!isReady ? 'opacity-60' : ''}`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{dc.icon}</span>
-                      <p className="text-xs font-medium">{dc.label}</p>
+              {DELIVERABLE_CONFIG.map(dc => {
+                const deliv = getDeliverable(dc.type);
+                const isReady = !!deliv;
+                return (
+                  <div
+                    key={dc.type}
+                    className={`p-3 rounded-lg border bg-card ${!isReady ? 'opacity-60' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{dc.icon}</span>
+                        <p className="text-xs font-medium">{dc.label}</p>
+                      </div>
+                      {isReady ? (
+                        <Badge variant="default" className="text-[10px] bg-success/10 text-success border-success/20">
+                          {deliv.score ? `${deliv.score}/100` : 'Prêt'}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">En attente</Badge>
+                      )}
                     </div>
-                    {isReady ? (
-                      <Badge variant="default" className="text-[10px] bg-success/10 text-success border-success/20">
-                        {deliv.score ? `${deliv.score}/100` : 'Prêt'}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px]">En attente</Badge>
+                    {isReady && (
+                      <div className="flex gap-1 mt-1">
+                        {dc.formats.map(fmt => (
+                          <button
+                            key={fmt}
+                            onClick={() => handleDownload(dc.type, fmt)}
+                            className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-muted hover:bg-muted-foreground/10 transition-colors text-muted-foreground"
+                          >
+                            <Download className="h-2.5 w-2.5" />
+                            {fmt.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {isReady && (
-                    <div className="flex gap-1 mt-1">
-                      {dc.formats.map(fmt => (
-                        <button
-                          key={fmt}
-                          onClick={() => handleDownload(dc.type, fmt)}
-                          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-muted hover:bg-muted-foreground/10 transition-colors text-muted-foreground"
-                        >
-                          <Download className="h-2.5 w-2.5" />
-                          {fmt.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
