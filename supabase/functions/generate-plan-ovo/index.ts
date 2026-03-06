@@ -80,6 +80,18 @@ Génère le JSON suivant avec des valeurs réalistes basées sur les données:
   },
   "funding_need": 0,
   "break_even_year": "string",
+  "investment_metrics": {
+    "van": 0,
+    "tri": 0,
+    "cagr_revenue": 0,
+    "cagr_ebitda": 0,
+    "roi": 0,
+    "payback_years": 0,
+    "dscr": 0,
+    "multiple_ebitda": 0,
+    "discount_rate": 0.12,
+    "cost_of_capital": 0.12
+  },
   "key_assumptions": ["string"],
   "scenarios": {
     "optimiste": {
@@ -87,21 +99,27 @@ Génère le JSON suivant avec des valeurs réalistes basées sur les données:
       "taux_croissance_ca": "xx%/an",
       "revenue_year5": 0,
       "ebitda_year5": 0,
-      "net_profit_year5": 0
+      "net_profit_year5": 0,
+      "van": 0,
+      "tri": 0
     },
     "realiste": {
       "hypotheses": "description",
       "taux_croissance_ca": "xx%/an",
       "revenue_year5": 0,
       "ebitda_year5": 0,
-      "net_profit_year5": 0
+      "net_profit_year5": 0,
+      "van": 0,
+      "tri": 0
     },
     "pessimiste": {
       "hypotheses": "description",
       "taux_croissance_ca": "xx%/an",
       "revenue_year5": 0,
       "ebitda_year5": 0,
-      "net_profit_year5": 0
+      "net_profit_year5": 0,
+      "van": 0,
+      "tri": 0
     }
   },
   "recommandations": ["string"]
