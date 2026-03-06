@@ -610,7 +610,52 @@ export default function EntrepreneurDashboard() {
               </div>
             )}
 
-            {selectedDeliv?.data && typeof selectedDeliv.data === 'object' ? (
+            {/* Green generation bar for Plan OVO module */}
+            {selectedModule === 'plan_ovo' && (
+              <div className="mx-6 mt-4 mb-2 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-900">Plan Financier OVO (Excel)</p>
+                      <p className="text-xs text-emerald-600">Génère le fichier Excel .xlsm rempli avec vos données financières</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {generatingOvoPlan ? (
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération en cours… (30-60 secondes)
+                      </div>
+                    ) : ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url ? (
+                      <>
+                        <button
+                          onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Télécharger mon Plan Financier Excel
+                        </button>
+                        <button
+                          onClick={handleGenerateOvoPlan}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" /> Regénérer
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleGenerateOvoPlan}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Générer mon Plan Financier OVO
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
               <div className="p-6">
                 {selectedModule === 'bmc' ? (
                   <BmcViewer data={selectedDeliv.data} />
