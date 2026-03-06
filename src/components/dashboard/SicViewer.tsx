@@ -44,22 +44,25 @@ export default function SicViewer({ data }: SicViewerProps) {
 
   if (!data) return null;
 
-  const score = data.score_global ?? data.score ?? 0;
+  // === NORMALIZE: map flat DB structure to expected viewer structure ===
+  const d = normalizeData(data);
+
+  const score = d.score_global;
   const color = scoreColor(score);
-  const dims = data.dimensions || {};
-  const chiffres = data.chiffres_cles || {};
-  const canvas = data.canvas_blocs || {};
-  const risques = data.risques_attenuation?.risques || [];
-  const tc = data.theorie_du_changement || data.theorie_changement || {};
-  const changements = data.changements || {};
-  const recos = data.recommandations || [];
+  const dims = d.dimensions;
+  const chiffres = d.chiffres_cles;
+  const canvas = d.canvas_blocs;
+  const risques = d.risques_attenuation?.risques || [];
+  const tc = d.theorie_du_changement;
+  const changements = d.changements;
+  const recos = d.recommandations;
   const oddBloc = canvas.odd_cibles || {};
-  const swot = data.swot || {};
-  const partiesPrenantes = data.parties_prenantes || [];
-  const oddDetail = data.odd_detail || oddBloc.odds || [];
-  const alignement = data.alignement_modele || {};
-  const evolution = data.evolution_score || [];
-  const maturite = data.niveau_maturite || '';
+  const swot = d.swot;
+  const partiesPrenantes = d.parties_prenantes;
+  const oddDetail = d.odd_detail.length > 0 ? d.odd_detail : (oddBloc.odds || []);
+  const alignement = d.alignement_modele;
+  const evolution = d.evolution_score;
+  const maturite = d.niveau_maturite;
 
   const dimOrder = ['probleme_vision', 'beneficiaires', 'mesure_impact', 'alignement_odd', 'gestion_risques'];
   const maturityIdx = MATURITY_LEVELS.indexOf(maturite);
