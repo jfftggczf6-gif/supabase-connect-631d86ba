@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeDiagnostic } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un consultant expert en diagnostic d'entreprises africaines. Tu réalises des diagnostics stratégiques complets combinant analyses qualitatives et quantitatives.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -52,9 +53,10 @@ serve(async (req) => {
       framework: ctx.deliverableMap["framework_data"] || {},
     };
 
-    const data = await callAI(SYSTEM_PROMPT, userPrompt(
+    const rawData = await callAI(SYSTEM_PROMPT, userPrompt(
       ent.name, ent.sector || "", ent.country || "", ctx.documentContent, allData
     ));
+    const data = normalizeDiagnostic(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "diagnostic_data", data, "diagnostic");
 

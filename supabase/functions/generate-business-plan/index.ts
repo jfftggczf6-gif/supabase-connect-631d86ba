@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeBusinessPlan } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un rédacteur expert de Business Plans pour les PME africaines cherchant des financements. Tu rédiges des BP professionnels, convaincants et structurés selon les standards des investisseurs.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -87,9 +88,10 @@ serve(async (req) => {
       plan_ovo: ctx.deliverableMap["plan_ovo"] || {},
     };
 
-    const data = await callAI(SYSTEM_PROMPT, userPrompt(
+    const rawData = await callAI(SYSTEM_PROMPT, userPrompt(
       ent.name, ent.sector || "", ent.country || "", ctx.documentContent, allData
     ));
+    const data = normalizeBusinessPlan(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "business_plan", data, "business_plan");
 

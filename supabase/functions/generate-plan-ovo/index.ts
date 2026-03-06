@@ -93,6 +93,8 @@ serve(async (req) => {
     const data = await callAI(SYSTEM_PROMPT, userPrompt(
       ent.name, ent.sector || "", ctx.documentContent, allData
     ));
+    // plan_ovo doesn't need heavy normalization, score is straightforward
+    if (!data.score && data.score_global) data.score = data.score_global;
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "plan_ovo", data, "plan_ovo");
 

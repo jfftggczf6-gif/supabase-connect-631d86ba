@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeSic } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en impact social et ODD (Objectifs de Développement Durable) pour les PME africaines. Tu produis des analyses SIC (Social Impact Canvas) professionnelles.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -51,9 +52,10 @@ serve(async (req) => {
     const ent = ctx.enterprise;
     const bmcData = ctx.deliverableMap["bmc_analysis"] || ctx.moduleMap["bmc"] || {};
 
-    const data = await callAI(SYSTEM_PROMPT, userPrompt(
+    const rawData = await callAI(SYSTEM_PROMPT, userPrompt(
       ent.name, ent.sector || "", ent.country || "", ctx.documentContent, bmcData
     ));
+    const data = normalizeSic(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "sic_analysis", data, "sic");
 

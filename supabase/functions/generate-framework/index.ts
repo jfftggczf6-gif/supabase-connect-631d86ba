@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeFramework } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un analyste financier expert spécialisé dans les PME africaines (zone UEMOA/CEMAC). Tu calcules les ratios financiers et produis des analyses complètes.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -52,9 +53,10 @@ serve(async (req) => {
     const ent = ctx.enterprise;
     const inputsData = ctx.deliverableMap["inputs_data"] || ctx.moduleMap["inputs"] || {};
 
-    const data = await callAI(SYSTEM_PROMPT, userPrompt(
+    const rawData = await callAI(SYSTEM_PROMPT, userPrompt(
       ent.name, ent.sector || "", ctx.documentContent, inputsData
     ));
+    const data = normalizeFramework(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "framework_data", data, "framework");
 

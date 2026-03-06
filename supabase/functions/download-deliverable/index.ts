@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateXlsxFile, buildInputsXlsx, buildFrameworkXlsx, buildPlanOvoXlsx } from "../_shared/xlsx-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -369,52 +370,7 @@ function generateCSV(data: any): string {
   return "Champ,Valeur\n" + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
 }
 
-// ===== XLSX GENERATOR (Office Open XML) =====
-function generateXlsx(data: any, title: string): Uint8Array {
-  // We generate a minimal XLSX using raw XML + JSZip would be ideal,
-  // but since we don't have JSZip in this function, we'll create an XML spreadsheet (Excel-compatible)
-  // Actually, let's return an HTML table that Excel opens natively
-  const rows: [string, string][] = [];
-  const flatten = (obj: any, prefix = "") => {
-    if (!obj || typeof obj !== "object") return;
-    if (Array.isArray(obj)) {
-      obj.forEach((item, i) => {
-        if (typeof item === "object") flatten(item, `${prefix}[${i}]`);
-        else rows.push([`${prefix}[${i}]`, String(item)]);
-      });
-    } else {
-      Object.entries(obj).forEach(([key, val]) => {
-        const fullKey = prefix ? `${prefix}.${key}` : key;
-        if (typeof val === "object" && val !== null) flatten(val, fullKey);
-        else rows.push([fullKey, String(val)]);
-      });
-    }
-  };
-  flatten(data);
-
-  // Excel XML Spreadsheet format
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles>
-<Style ss:ID="Header"><Font ss:Bold="1" ss:Size="12"/><Interior ss:Color="#1a2744" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
-<Style ss:ID="Amount"><NumberFormat ss:Format="#,##0"/><Alignment ss:Horizontal="Right"/></Style>
-</Styles>
-<Worksheet ss:Name="${title.substring(0, 31)}">
-<Table>
-<Column ss:Width="250"/><Column ss:Width="200"/>
-<Row ss:StyleID="Header"><Cell><Data ss:Type="String">Champ</Data></Cell><Cell><Data ss:Type="String">Valeur</Data></Cell></Row>
-${rows.map(([k, v]) => {
-  const isNum = !isNaN(Number(v)) && v.trim() !== '';
-  return `<Row><Cell><Data ss:Type="String">${k.replace(/_/g, ' ')}</Data></Cell><Cell${isNum ? ' ss:StyleID="Amount"' : ''}><Data ss:Type="${isNum ? 'Number' : 'String'}">${v.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</Data></Cell></Row>`;
-}).join('\n')}
-</Table>
-</Worksheet>
-</Workbook>`;
-
-  return new TextEncoder().encode(xml);
-}
+// (XLSX generation moved to _shared/xlsx-generator.ts)
 
 // ===== MAIN HANDLER =====
 serve(async (req) => {
@@ -481,11 +437,18 @@ serve(async (req) => {
       });
     }
 
-    // XLSX format
+    // XLSX format - real Office Open XML
     if (format === "xlsx") {
-      const xlsxData = generateXlsx(deliv.data, title);
+      const xlsxBuilders: Record<string, (d: any) => any> = {
+        inputs_data: buildInputsXlsx,
+        framework_data: buildFrameworkXlsx,
+        plan_ovo: buildPlanOvoXlsx,
+      };
+      const builder = xlsxBuilders[deliverableType];
+      const sheets = builder ? builder(deliv.data) : [{ name: title.substring(0, 31), headers: ['Champ', 'Valeur'], rows: Object.entries(deliv.data as Record<string, any>).filter(([_, v]) => typeof v !== 'object').map(([k, v]) => [k, String(v)]) }];
+      const xlsxData = await generateXlsxFile(sheets);
       return new Response(xlsxData, {
-        headers: { ...corsHeaders, "Content-Type": "application/vnd.ms-excel", "Content-Disposition": `attachment; filename="${safeName}_${deliverableType}.xls"` },
+        headers: { ...corsHeaders, "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${safeName}_${deliverableType}.xlsx"` },
       });
     }
 

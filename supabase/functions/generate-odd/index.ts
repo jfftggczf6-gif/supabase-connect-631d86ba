@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeOdd } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en due diligence et investment readiness pour les PME africaines. Tu évalues la maturité des entreprises selon les critères des investisseurs d'impact et DFI.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -60,9 +61,10 @@ serve(async (req) => {
       business_plan: ctx.deliverableMap["business_plan"] || {},
     };
 
-    const data = await callAI(SYSTEM_PROMPT, userPrompt(
+    const rawData = await callAI(SYSTEM_PROMPT, userPrompt(
       ent.name, ent.sector || "", ent.country || "", ctx.documentContent, allData
     ));
+    const data = normalizeOdd(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "odd_analysis", data, "odd");
 
