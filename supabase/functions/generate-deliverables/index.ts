@@ -77,6 +77,7 @@ serve(async (req) => {
 
     const results: { step: string; success: boolean; score?: number; skipped?: boolean; error?: string }[] = [];
     let completedCount = 0;
+    let creditError = false;
 
     // Run pipeline sequentially
     for (const step of PIPELINE_STEPS) {
@@ -108,7 +109,18 @@ serve(async (req) => {
         } else {
           const err = await response.json().catch(() => ({ error: "Unknown" }));
           console.error(`${step.name} failed:`, err);
-          // Don't stop pipeline on individual failure, continue
+          
+          // Detect credit/rate limit errors and stop pipeline immediately
+          if (response.status === 402 || err.error?.includes('Crédits') || err.error?.includes('insuffisants')) {
+            creditError = true;
+            results.push({ step: step.name, success: false, error: err.error });
+            break; // No point continuing if credits are exhausted
+          }
+          if (response.status === 429) {
+            results.push({ step: step.name, success: false, error: "Limite de requêtes atteinte, réessayez plus tard." });
+            break;
+          }
+          
           results.push({ step: step.name, success: false, error: err.error });
         }
       } catch (e) {
@@ -120,6 +132,15 @@ serve(async (req) => {
       await new Promise(r => setTimeout(r, 1000));
     }
 
+    // If credit error, return specific error response
+    if (creditError && completedCount === 0) {
+      return new Response(JSON.stringify({
+        error: "Crédits IA insuffisants. Veuillez recharger vos crédits dans Settings → Workspace → Usage.",
+        credit_error: true,
+        results,
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Calculate global score
     const scores = results.filter(r => r.success && r.score).map(r => r.score!);
     const globalScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
@@ -129,6 +150,7 @@ serve(async (req) => {
       global_score: globalScore,
       deliverables_count: completedCount,
       results,
+      ...(creditError ? { warning: "Certains modules n'ont pas pu être générés : crédits IA insuffisants." } : {}),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
