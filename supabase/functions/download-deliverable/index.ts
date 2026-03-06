@@ -245,28 +245,129 @@ ${val?.commentaire?`<p style="font-size:10px;color:#64748b;margin-top:6px">${val
 
 // ===== SIC HTML =====
 function sicHTML(data: any, ent: string): string {
+  const score = data.score_global ?? data.score ?? 0;
+  const dims = data.dimensions || {};
+  const chiffres = data.chiffres_cles || {};
+  const canvas = data.canvas_blocs || {};
+  const risques = data.risques_attenuation?.risques || [];
+  const tc = data.theorie_du_changement || data.theorie_changement || {};
+  const changements = data.changements || {};
+  const recos = data.recommandations || [];
+  const oddBloc = canvas.odd_cibles || {};
+  const palierColor = score >= 86 ? '#16a34a' : score >= 71 ? '#22c55e' : score >= 51 ? '#eab308' : score >= 31 ? '#f97316' : '#ef4444';
+
   let body = '';
-  if (data.mission_sociale) body += `<div class="card"><h2>🎯 Mission Sociale</h2><p style="font-size:15px;font-weight:500">${data.mission_sociale}</p>${data.probleme_social ? `<h3>Problème adressé</h3><p>${data.probleme_social}</p>` : ''}</div>`;
 
-  if (data.theorie_changement) {
-    const tc = data.theorie_changement;
-    body += `<div class="card"><h2>🔄 Théorie du Changement</h2>
-<div class="grid-4" style="grid-template-columns:repeat(5,1fr)">
-${['inputs','activites','outputs','outcomes','impact'].map(k => `<div class="metric"><div class="lbl">${k.toUpperCase()}</div><ul style="margin-top:8px">${(tc[k]||[]).map((s:string)=>`<li style="font-size:11px">${s}</li>`).join('')}</ul></div>`).join('')}
+  // Score Hero
+  body += `<div style="background:linear-gradient(135deg,#1a2744,#2d4a7c,#1a2744);padding:40px;border-radius:16px;color:#fff;margin-bottom:24px">
+<div style="font-size:48px;font-weight:900;line-height:1">${score}<span style="font-size:24px;opacity:.4">/100</span></div>
+<div style="width:100%;height:12px;background:rgba(255,255,255,.1);border-radius:6px;margin:12px 0;overflow:hidden"><div style="width:${score}%;height:100%;border-radius:6px;background:${palierColor}"></div></div>
+<div style="font-size:18px;font-weight:600;color:${palierColor}">${data.label || data.palier || ''}</div>
+${data.synthese_impact ? `<p style="font-size:14px;color:rgba(255,255,255,.6);font-style:italic;margin-top:12px;max-width:700px;line-height:1.6">${data.synthese_impact}</p>` : ''}
+</div>`;
+
+  // Dimensions
+  const dimOrder = ['probleme_vision','beneficiaires','mesure_impact','alignement_odd','gestion_risques'];
+  body += `<div class="card"><h2>SCORES PAR DIMENSION</h2>`;
+  for (const key of dimOrder) {
+    const dim = dims[key]; if (!dim) continue;
+    const s = dim.score || 0;
+    const c = s >= 80 ? '#22c55e' : s >= 50 ? '#eab308' : '#ef4444';
+    body += `<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+<span style="font-weight:600;font-size:13px;min-width:200px">${dim.label || key}</span>
+<span style="font-weight:700;font-size:14px;color:${c}">${s}%</span></div>
+<div class="progress-bar" style="height:10px"><div class="progress-fill" style="width:${s}%;background:${c};height:100%;border-radius:4px"></div></div>
+${dim.commentaire ? `<p style="font-size:12px;color:#64748b;margin-top:6px">${dim.commentaire}</p>` : ''}</div>`;
+  }
+  body += `</div>`;
+
+  // Chiffres clés
+  body += `<div class="grid-4" style="margin-bottom:24px">`;
+  const kpis = [
+    { val: chiffres.beneficiaires_directs?.nombre, label: `Bénéf. directs${chiffres.beneficiaires_directs?.horizon ? ` (${chiffres.beneficiaires_directs.horizon})` : ''}` },
+    { val: chiffres.beneficiaires_indirects?.nombre, label: 'Bénéf. indirects' },
+    { val: chiffres.impact_total_projete?.nombre, label: 'Impact total projeté' },
+    { val: chiffres.odd_adresses?.nombre, label: 'ODD adressés' },
+  ];
+  for (const kpi of kpis) {
+    body += `<div style="background:linear-gradient(135deg,#1a2744,#2d4a7c);padding:20px;border-radius:12px;text-align:center;color:#fff">
+<div style="font-size:32px;font-weight:900">${fmt(kpi.val)}</div>
+<div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px">${kpi.label}</div></div>`;
+  }
+  body += `</div>`;
+
+  // Canvas (6 blocs)
+  const canvasBlock = (icon: string, title: string, points: string[]) =>
+    `<div style="background:#fff;padding:16px;min-height:180px;border:1px solid #e2e8f0">
+<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a2744;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:8px">${icon} ${title}</div>
+${(points||[]).map(p => `<div style="font-size:11px;color:#475569;margin-bottom:3px">• ${p}</div>`).join('')}</div>`;
+
+  body += `<div class="card" style="padding:0;overflow:hidden"><h2 style="padding:20px;margin:0;border:0">SOCIAL IMPACT CANVAS</h2>`;
+  // Row 1: 4 cols
+  body += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#e2e8f0">
+${canvasBlock('🔴', canvas.probleme_social?.titre || 'PROBLÈME SOCIAL', canvas.probleme_social?.points || [])}
+${canvasBlock('🟢', canvas.transformation_visee?.titre || 'TRANSFORMATION VISÉE', canvas.transformation_visee?.points || [])}
+${canvasBlock('👥', canvas.beneficiaires?.titre || 'BÉNÉFICIAIRES', canvas.beneficiaires?.points || [])}
+<div style="background:#fff;padding:16px;min-height:180px;border:1px solid #e2e8f0">
+<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a2744;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:8px">🎯 ODD CIBLÉS</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+${(oddBloc.odds||[]).map((o:any) => `<div style="width:40px;height:40px;border-radius:4px;background:${o.couleur||'#666'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;border:${o.alignement==='fort'?'3px solid #fff':o.alignement==='faible'?'1px dashed rgba(255,255,255,.5)':'1px solid rgba(255,255,255,.7)'}">${o.numero}</div>`).join('')}
+</div>
+${(oddBloc.odds||[]).map((o:any) => `<div style="font-size:10px;color:#64748b">${o.nom}</div>`).join('')}
 </div></div>`;
+
+  // Row 2: 2 cols
+  body += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e2e8f0;border-top:1px solid #e2e8f0">
+<div style="background:#fff;padding:16px;min-height:180px">
+<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a2744;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:8px">📏 INDICATEURS & MESURE</div>
+${(canvas.indicateurs_mesure?.indicateurs||[]).map((ind:any) => `<div style="font-size:11px;color:#475569;margin-bottom:4px"><span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;${ind.type==='impact'?'background:#dcfce7;color:#166534':ind.type==='outcome'?'background:#dbeafe;color:#1e40af':'background:#f1f5f9;color:#475569'}">${ind.type}</span> ${ind.nom}</div>`).join('')}
+${canvas.indicateurs_mesure?.cible_1_an ? `<p style="font-size:10px;color:#64748b;margin-top:8px">🎯 Cible 1 an: ${canvas.indicateurs_mesure.cible_1_an}</p>` : ''}
+${canvas.indicateurs_mesure?.methode ? `<p style="font-size:10px;color:#64748b">📐 ${canvas.indicateurs_mesure.methode}</p>` : ''}
+</div>
+${canvasBlock('💡', canvas.solution_activites?.titre || 'SOLUTION & ACTIVITÉS', canvas.solution_activites?.points || [])}
+</div></div>`;
+
+  // Risques
+  if (risques.length) {
+    body += `<div class="card"><h2>⚠️ RISQUES & ATTÉNUATION</h2>
+<table><tr><th>Risque</th><th>Atténuation</th></tr>
+${risques.map((r:any,i:number) => `<tr${i%2?'':' style="background:#f8fafc"'}><td>${r.risque}</td><td>${r.mitigation}</td></tr>`).join('')}</table></div>`;
   }
 
-  if (data.odd_alignment?.length) {
-    body += `<div class="card"><h2>🌍 Alignement ODD</h2><table><tr><th>ODD</th><th>Nom</th><th>Contribution</th><th>Niveau</th></tr>
-${data.odd_alignment.map((o:any)=>`<tr><td><strong>ODD ${o.odd_number}</strong></td><td>${o.odd_name}</td><td>${o.contribution}</td><td>${verdictBadge(o.level)}</td></tr>`).join('')}</table></div>`;
+  // Théorie du changement
+  const tcColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e'];
+  const tcLabels = ['PROBLÈME','ACTIVITÉS','OUTPUTS','OUTCOMES','IMPACT'];
+  const tcKeys = ['probleme','activites','outputs','outcomes','impact'];
+  body += `<div class="card"><h2>🔄 THÉORIE DU CHANGEMENT</h2>
+<div style="display:flex;align-items:stretch;gap:4px">
+${tcKeys.map((k,i) => `<div style="flex:1;padding:12px;border-radius:8px;background:${tcColors[i]}15;border-left:4px solid ${tcColors[i]};min-height:90px">
+<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:${tcColors[i]};margin-bottom:6px">${tcLabels[i]}</div>
+<div style="font-size:11px;color:#1e293b;line-height:1.4">${tc[k]||'—'}</div>
+</div>${i<4?'<div style="display:flex;align-items:center;font-size:16px;color:#94a3b8">→</div>':''}`).join('')}
+</div></div>`;
+
+  // Changements
+  if (changements.court_terme || changements.moyen_terme || changements.long_terme) {
+    const chColors = ['#22c55e','#3b82f6','#8b5cf6'];
+    const chLabels = ['Court terme (0-12 mois)','Moyen terme (1-3 ans)','Long terme (3-5 ans)'];
+    const chKeys = ['court_terme','moyen_terme','long_terme'];
+    body += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+${chKeys.map((k,i) => `<div style="border:1px solid #e2e8f0;border-left:4px solid ${chColors[i]};border-radius:12px;padding:20px;background:#fff">
+<h3 style="font-size:13px;font-weight:700;margin-bottom:8px">${chLabels[i]}</h3>
+<p style="font-size:13px;color:#64748b;line-height:1.5">${changements[k]||''}</p></div>`).join('')}</div>`;
   }
 
-  if (data.indicateurs_impact?.length) {
-    body += `<div class="card"><h2>📊 Indicateurs d'Impact</h2><table><tr><th>Indicateur</th><th>Valeur actuelle</th><th>Cible</th><th>Unité</th></tr>
-${data.indicateurs_impact.map((i:any)=>`<tr><td>${i.indicateur}</td><td class="amount">${i.valeur_actuelle}</td><td class="amount">${i.cible}</td><td>${i.unite}</td></tr>`).join('')}</table></div>`;
+  // Recommandations
+  if (recos.length) {
+    body += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+${recos.slice(0,3).map((r:any,i:number) => `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;background:#fff;position:relative">
+<div style="position:absolute;top:-8px;left:-8px;width:28px;height:28px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${r.priorite||i+1}</div>
+<h3 style="font-size:14px;font-weight:700;margin-top:8px;margin-bottom:8px">${r.titre}</h3>
+<p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:12px">${r.detail}</p>
+${r.impact_score?`<span style="display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534">${r.impact_score}</span>`:''}</div>`).join('')}</div>`;
   }
 
-  return htmlShell('Social Impact Canvas', data.score, body, ent);
+  return htmlShell('Social Impact Canvas', score, body, ent);
 }
 
 // ===== INPUTS HTML =====

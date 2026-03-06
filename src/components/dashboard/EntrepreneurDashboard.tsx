@@ -438,6 +438,8 @@ export default function EntrepreneurDashboard() {
               <div className="p-6">
                 {selectedModule === 'bmc' ? (
                   <BmcViewer data={selectedDeliv.data} />
+                ) : selectedModule === 'sic' ? (
+                  <SicViewer data={selectedDeliv.data} />
                 ) : (
                   <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} />
                 )}
