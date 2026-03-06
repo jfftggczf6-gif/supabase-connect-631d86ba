@@ -648,18 +648,189 @@ ${croisBmc.synthese?`<p style="font-size:13px;color:#64748b;margin-bottom:12px">
   return htmlShell("Framework d'Analyse Financière PME", data.score, body, ent);
 }
 
-// ===== FRAMEWORK HTML =====
+// ===== FRAMEWORK HTML (Rich version matching PDF reference) =====
 function frameworkHTML(data: any, ent: string): string {
   let body = '';
   const ratios = data.ratios || {};
+  const kpis = data.kpis || {};
+  const alertes = data.alertes || [];
+  const croisements = data.croisements_bmc_fin || [];
+  const tresBfr = data.tresorerie_bfr || {};
+  const sante = data.sante_financiere || {};
+  const marge = data.analyse_marge || {};
+  const proj = data.projection_5ans || {};
+  const seuil = data.seuil_rentabilite || {};
+  const scenarios = data.scenarios || {};
+  const planAction = data.plan_action || [];
+  const risques = data.risques_cles || [];
+  const bailleurs = data.bailleurs_potentiels || [];
+  const croisBmc = data.croisement_bmc_financiers || {};
+  const manquantes = data.donnees_manquantes || [];
 
+  // KPIs bar
+  if (kpis.ca_annee_n) {
+    body += `<div class="grid-4">
+${[['Marge EBITDA', kpis.marge_ebitda], ['CA Année N (FCFA)', fmt(kpis.ca_annee_n)], ['EBITDA (FCFA)', fmt(kpis.ebitda)], ['CA An 5 projeté (FCFA)', fmt(kpis.ca_an5_projete)]].map(([l,v])=>`<div class="metric"><div class="lbl">${l}</div><div class="val" style="font-size:16px">${v}</div></div>`).join('')}</div>`;
+  }
+
+  // Alertes
+  if (alertes.length) {
+    body += `<div class="card" style="border-left:4px solid #eab308;background:#fefce8"><h2>⚠️ Alertes & Points de vigilance</h2><ul>
+${alertes.map((a:any)=>`<li style="color:#854d0e">${typeof a==='string'?a:a.message}${a.detail?` — <span style="color:#64748b">${a.detail}</span>`:''}</li>`).join('')}</ul></div>`;
+  }
+
+  // Croisements BMC ↔ Fin
+  if (croisements.length) {
+    body += `<div class="card"><h2>🔗 Croisement BMC ↔ Financiers</h2>`;
+    croisements.forEach((c:any) => {
+      body += `<div style="border-left:3px solid #3b82f6;padding:12px 16px;margin-bottom:12px;border-radius:0 8px 8px 0;background:#eff6ff">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span class="badge badge-blue">[BMC↔Fin] ${c.bloc_bmc}</span><strong>${c.titre}</strong></div>
+<p style="font-size:12px;color:#475569">${c.recommandation}</p></div>`;
+    });
+    body += '</div>';
+  }
+
+  // Indicateurs Clés + Verdict
+  if (data.indicateurs_cles) {
+    body += `<div class="card"><h2>📈 Indicateurs Clés</h2><div class="grid-4">${Object.entries(data.indicateurs_cles).map(([k,v])=>`<div class="metric"><div class="lbl">${k.replace(/_/g,' ')}</div><div class="val" style="font-size:18px">${v}</div></div>`).join('')}</div>`;
+    if (data.verdict_indicateurs) body += `<p style="font-size:13px;color:#64748b;font-style:italic;margin-top:16px;padding:12px;border-left:3px solid #e2e8f0">${data.verdict_indicateurs}</p>`;
+    body += '</div>';
+  }
+
+  // Ratios historiques
+  if (data.ratios_historiques?.length) {
+    body += `<div class="card"><h2>📊 Évolution des Ratios</h2><table><tr><th>Ratio</th><th>Année N-2</th><th>Année N-1</th><th>Année N</th><th>Benchmark</th></tr>
+${data.ratios_historiques.map((r:any,i:number)=>`<tr${i%2?'':' style="background:#f8fafc"'}><td>${r.ratio}</td><td>${r.n_moins_2}</td><td>${r.n_moins_1}</td><td><strong>${r.n}</strong></td><td style="color:#64748b">${r.benchmark}</td></tr>`).join('')}</table></div>`;
+  }
+
+  // Ratios par catégorie
   for (const [cat, group] of Object.entries(ratios) as [string, any][]) {
     body += `<div class="card"><h2>${cat === 'rentabilite' ? '💰' : cat === 'liquidite' ? '💧' : cat === 'solvabilite' ? '🏦' : '📊'} ${cat.replace(/_/g,' ').replace(/\b\w/g,(c:string)=>c.toUpperCase())}</h2>
 <table><tr><th>Ratio</th><th>Valeur</th><th>Benchmark/Seuil</th><th>Verdict</th></tr>
 ${Object.entries(group).map(([k,v]:any)=>`<tr><td>${k.replace(/_/g,' ')}</td><td class="amount">${v?.valeur||v}</td><td>${v?.benchmark||v?.seuil||'—'}</td><td>${verdictBadge(v?.verdict||'')}</td></tr>`).join('')}</table></div>`;
   }
 
-  if (data.points_forts?.length || data.points_faibles?.length) {
+  // Trésorerie & BFR
+  if (tresBfr.tresorerie_nette || tresBfr.composantes?.length) {
+    body += `<div class="card"><h2>💧 Trésorerie & BFR</h2>
+<div class="grid-4">${[['Trésorerie nette',fmt(tresBfr.tresorerie_nette)],['Cash-flow opérationnel',fmt(tresBfr.cashflow_operationnel)],['CAF',fmt(tresBfr.caf)],['DSCR',tresBfr.dscr||'—']].map(([l,v])=>`<div class="metric"><div class="lbl">${l}</div><div class="val" style="font-size:16px">${v}</div></div>`).join('')}</div>`;
+    if (tresBfr.composantes?.length) {
+      body += `<table style="margin-top:16px"><tr><th>Composante</th><th>Valeur</th><th>Benchmark</th></tr>
+${tresBfr.composantes.map((c:any)=>`<tr><td>${c.indicateur}</td><td><strong>${c.valeur}</strong></td><td style="color:#64748b">${c.benchmark}</td></tr>`).join('')}</table>`;
+    }
+    if (tresBfr.verdict) body += `<p style="font-size:13px;color:#64748b;font-style:italic;margin-top:12px;padding:12px;border-left:3px solid #e2e8f0">${tresBfr.verdict}</p>`;
+    body += '</div>';
+  }
+
+  // SLIDE 1 — État de santé financière
+  if (sante.forces?.length || sante.faiblesses?.length) {
+    body += `<div class="card"><h2>SLIDE 1 — ÉTAT DE SANTÉ FINANCIÈRE</h2>`;
+    if (sante.resume_chiffres?.length) body += `<div style="margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:8px"><h3>Ce que montrent les chiffres</h3><ul>${sante.resume_chiffres.map((c:string)=>`<li><strong>${c}</strong></li>`).join('')}</ul></div>`;
+    body += `<div class="grid-2">
+<div class="card" style="background:#f0fdf4;border-color:#bbf7d0"><h2 style="color:#166534;font-size:15px">✅ Forces</h2><ul>${(sante.forces||[]).map((f:string)=>`<li>${f}</li>`).join('')}</ul></div>
+<div class="card" style="background:#fefce8;border-color:#fef08a"><h2 style="color:#854d0e;font-size:15px">⚠️ Faiblesses</h2><ul>${(sante.faiblesses||[]).map((f:string)=>`<li>${f}</li>`).join('')}</ul></div>
+</div></div>`;
+  }
+
+  // SLIDE 2 — Analyse marge
+  if (marge.activites?.length) {
+    body += `<div class="card"><h2>SLIDE 2 — OÙ SE CRÉE LA MARGE</h2>`;
+    if (marge.verdict) body += `<p style="font-size:13px;color:#64748b;font-style:italic;margin-bottom:16px;padding:12px;border-left:3px solid #e2e8f0">${marge.verdict}</p>`;
+    body += `<table><tr><th>Activité</th><th style="text-align:right">CA (FCFA)</th><th style="text-align:right">Marge Brute</th><th style="text-align:right">Marge %</th><th>Classification</th></tr>
+${marge.activites.map((a:any)=>`<tr><td>${a.nom}</td><td class="amount">${fmt(a.ca)}</td><td class="amount">${fmt(a.marge_brute)}</td><td class="amount"><strong>${a.marge_pct}</strong></td><td><span class="badge ${a.classification==='RENFORCER'?'badge-green':a.classification==='RESTRUCTURER'?'badge-red':'badge-yellow'}">${a.classification}</span></td></tr>`).join('')}</table>`;
+    if (marge.message_cle) body += `<p style="font-size:13px;font-weight:600;margin-top:12px;color:#1a2744">💡 ${marge.message_cle}</p>`;
+    body += '</div>';
+  }
+
+  // Projection 5 ans
+  if (proj.lignes?.length) {
+    body += `<div class="card"><h2>📈 Projection Financière 5 Ans</h2>`;
+    if (proj.verdict) body += `<p style="font-size:13px;color:#64748b;font-style:italic;margin-bottom:16px;padding:12px;border-left:3px solid #e2e8f0">${proj.verdict}</p>`;
+    body += `<table><tr><th>Poste</th><th style="text-align:right">Année 1</th><th style="text-align:right">Année 2</th><th style="text-align:right">Année 3</th><th style="text-align:right">Année 4</th><th style="text-align:right">Année 5</th><th style="text-align:right">CAGR</th></tr>
+${proj.lignes.map((l:any)=>`<tr${l.poste.includes('CA')||l.poste.includes('Trésorerie')?` style="font-weight:700"`:''}>
+<td>${l.poste}</td><td class="amount">${fmt(l.an1)}</td><td class="amount">${fmt(l.an2)}</td><td class="amount">${fmt(l.an3)}</td><td class="amount">${fmt(l.an4)}</td><td class="amount">${fmt(l.an5)}</td><td class="amount" style="color:#3b82f6;font-weight:700">${l.cagr||''}</td></tr>`).join('')}</table></div>`;
+  }
+
+  // Seuil de rentabilité
+  if (seuil.ca_point_mort) {
+    body += `<div class="card"><h2>🎯 Seuil de Rentabilité (Année 1)</h2>
+<p style="font-size:15px">CA au point mort = <strong>${fmt(seuil.ca_point_mort)} FCFA</strong> · Atteint en <strong>${seuil.atteint_en}</strong></p>
+${seuil.verdict?`<p style="font-size:13px;color:#64748b;font-style:italic;margin-top:8px">${seuil.verdict}</p>`:''}</div>`;
+  }
+
+  // Scénarios
+  if (scenarios.tableau?.length) {
+    body += `<div class="card"><h2>🔄 Analyse par Scénarios (Année 5)</h2>`;
+    if (scenarios.verdict) body += `<p style="font-size:13px;color:#64748b;font-style:italic;margin-bottom:16px;padding:12px;border-left:3px solid #e2e8f0">${scenarios.verdict}</p>`;
+    body += `<table><tr><th>Indicateur</th><th style="text-align:right">Prudent</th><th style="text-align:right;color:#3b82f6">Central</th><th style="text-align:right;color:#22c55e">Ambitieux</th></tr>
+${scenarios.tableau.map((r:any,i:number)=>`<tr${i%2?'':' style="background:#f8fafc"'}${r.indicateur==='ROI'?' style="font-weight:700"':''}><td>${r.indicateur}</td><td class="amount">${r.prudent}</td><td class="amount" style="font-weight:700">${r.central}</td><td class="amount">${r.ambitieux}</td></tr>`).join('')}</table>`;
+    if (scenarios.sensibilite?.length) body += `<div style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px"><h3 style="font-size:13px">Analyse de Sensibilité (±10%)</h3><ul>${scenarios.sensibilite.map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>`;
+    if (scenarios.recommandation_scenario) body += `<p style="font-size:13px;font-weight:600;margin-top:12px;color:#1a2744">📌 Recommandation : ${scenarios.recommandation_scenario}</p>`;
+    body += '</div>';
+  }
+
+  // SLIDE 3 — Plan d'action
+  if (planAction.length) {
+    body += `<div class="card"><h2>SLIDE 3 — PLAN D'ACTION & TRAJECTOIRE 5 ANS</h2><h3>Décisions recommandées</h3>`;
+    const horizonColors: Record<string,string> = { COURT: '#22c55e', MOYEN: '#3b82f6', LONG: '#8b5cf6' };
+    const horizonBg: Record<string,string> = { COURT: '#f0fdf4', MOYEN: '#eff6ff', LONG: '#f5f3ff' };
+    planAction.forEach((a:any, i:number) => {
+      body += `<div style="border-left:4px solid ${horizonColors[a.horizon]||'#e2e8f0'};padding:12px 16px;margin-bottom:8px;border-radius:0 8px 8px 0;background:${horizonBg[a.horizon]||'#f8fafc'}">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+<strong style="color:${horizonColors[a.horizon]||'#64748b'}">${i+1}.</strong>
+${a.horizon?`<span style="font-size:11px;font-weight:700;color:${horizonColors[a.horizon]||'#64748b'};background:white;padding:2px 8px;border-radius:12px;border:1px solid ${horizonColors[a.horizon]||'#e2e8f0'}">${a.horizon}</span>`:''}
+</div>
+<div style="font-size:13px;color:#334155;">${a.action} ${a.cout?`<span style="color:#64748b">(${a.cout})</span>`:''}</div>
+${a.impact?`<div style="font-size:12px;color:#475569;margin-top:4px">→ ${a.impact}</div>`:''}</div>`;
+    });
+    body += '</div>';
+  }
+
+  // Impact + Besoins
+  if (data.impact_attendu || data.besoins_financiers) {
+    body += '<div class="grid-2">';
+    if (data.impact_attendu) body += `<div class="card" style="background:#f0fdf4;border-color:#bbf7d0"><h2 style="color:#166534;font-size:15px">📈 Impact attendu</h2>${Object.entries(data.impact_attendu).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span style="color:#64748b">${k.replace(/_/g,' ')}</span><strong>${v}</strong></div>`).join('')}</div>`;
+    if (data.besoins_financiers) body += `<div class="card" style="background:#eff6ff;border-color:#bfdbfe"><h2 style="color:#1e40af;font-size:15px">💰 Besoins financiers</h2><p style="font-size:14px">CAPEX total (5 ans) : <strong>${data.besoins_financiers.capex_total}</strong></p><p style="font-size:12px;color:#64748b">Timing : ${data.besoins_financiers.timing}</p></div>`;
+    body += '</div>';
+  }
+
+  // Synthèse expert
+  if (data.synthese_expert) body += `<div class="card" style="background:linear-gradient(135deg,#f8fafc,#eff6ff)"><h2>🧠 Synthèse Expert</h2><p style="font-size:14px;line-height:1.7;color:#334155">${data.synthese_expert}</p></div>`;
+
+  // Score d'investissabilité
+  if (data.score_investissabilite != null) {
+    body += `<div class="card" style="text-align:center;padding:32px"><h2>Score d'Investissabilité (IA)</h2>
+<div style="font-size:48px;font-weight:900;color:#1a2744">${data.score_investissabilite} <span style="font-size:24px;color:#94a3b8">/ 100</span></div>
+${data.analyse_scenarios_ia?`<p style="font-size:13px;color:#64748b;margin-top:16px;max-width:600px;margin-left:auto;margin-right:auto">${data.analyse_scenarios_ia}</p>`:''}</div>`;
+  }
+
+  // Risques clés
+  if (risques.length) {
+    body += `<div class="card" style="border-left:4px solid #ef4444"><h2>🚨 Risques Clés</h2><ul>
+${risques.map((r:any)=>`<li>${r.risque} — <span class="badge ${r.severite==='HAUTE'||r.severite==='CRITIQUE'?'badge-red':'badge-yellow'}">${r.severite}</span></li>`).join('')}</ul></div>`;
+  }
+
+  // Bailleurs
+  if (bailleurs.length) {
+    body += `<div class="card"><h2>🏦 Bailleurs Potentiels</h2><ul>
+${bailleurs.map((b:any)=>`<li><strong>${b.nom}</strong> — ${b.raison}</li>`).join('')}</ul></div>`;
+  }
+
+  // Incohérences BMC ↔ Financiers
+  if (croisBmc.incoherences?.length) {
+    body += `<div class="card"><h2>⚠️ Incohérences détectées (${croisBmc.incoherences.length})</h2>
+${croisBmc.synthese?`<p style="font-size:13px;color:#64748b;margin-bottom:12px">${croisBmc.synthese}</p>`:''}
+<ul>${croisBmc.incoherences.map((inc:any)=>`<li><span class="badge ${inc.severite==='CRITIQUE'?'badge-red':inc.severite==='HAUTE'?'badge-red':'badge-yellow'}">${inc.severite}</span> ${inc.description}</li>`).join('')}</ul></div>`;
+  }
+
+  // Données manquantes
+  if (manquantes.length) body += `<div class="card"><h2>📋 Données manquantes détectées</h2><ul>${manquantes.map((d:string)=>`<li>${d}</li>`).join('')}</ul></div>`;
+
+  // Hypothèses
+  if (data.hypotheses?.length) body += `<div class="card" style="border-left:4px solid #eab308;background:#fefce8"><h2>⚠️ Hypothèses</h2><ul>${data.hypotheses.map((h:string)=>`<li>${h}</li>`).join('')}</ul></div>`;
+
+  // Legacy: points forts/faibles + recommandations
+  if (!sante.forces?.length && (data.points_forts?.length || data.points_faibles?.length)) {
     body += `<div class="grid-2">
 <div class="card" style="border-left:4px solid #22c55e"><h2>✅ Points forts</h2><ul>${(data.points_forts||[]).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
 <div class="card" style="border-left:4px solid #ef4444"><h2>⚠️ Points faibles</h2><ul>${(data.points_faibles||[]).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div></div>`;
