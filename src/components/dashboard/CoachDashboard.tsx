@@ -85,7 +85,7 @@ export default function CoachDashboard() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ enterprise_id: enterpriseId }),
+          body: JSON.stringify({ enterprise_id: enterpriseId, force: true }),
         }
       );
       if (!response.ok) { const err = await response.json(); throw new Error(err.error); }

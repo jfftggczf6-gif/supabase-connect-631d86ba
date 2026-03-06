@@ -118,7 +118,7 @@ export default function EntrepreneurDashboard() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ enterprise_id: enterprise.id }),
+          body: JSON.stringify({ enterprise_id: enterprise.id, force: true }),
         }
       );
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }

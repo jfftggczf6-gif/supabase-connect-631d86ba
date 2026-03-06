@@ -27,7 +27,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { enterprise_id } = await req.json();
+    const { enterprise_id, force } = await req.json();
     if (!enterprise_id) {
       return new Response(JSON.stringify({ error: "enterprise_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -82,8 +82,8 @@ serve(async (req) => {
     for (const step of PIPELINE_STEPS) {
       const delivType = fnToDelivType[step.function];
       
-      // Skip if rich data already exists
-      if (delivType && richTypes.has(delivType)) {
+      // Skip if rich data already exists (unless force=true)
+      if (!force && delivType && richTypes.has(delivType)) {
         console.log(`Skipping ${step.name}: rich data already exists`);
         results.push({ step: step.name, success: true, skipped: true });
         completedCount++;
