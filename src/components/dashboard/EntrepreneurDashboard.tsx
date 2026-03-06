@@ -122,8 +122,17 @@ export default function EntrepreneurDashboard() {
           body: JSON.stringify({ enterprise_id: enterprise.id, force: true }),
         }
       );
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
+      if (!response.ok) {
+        const err = await response.json();
+        if (response.status === 402) {
+          throw new Error("Crédits IA insuffisants. Rechargez vos crédits dans Settings → Workspace → Usage.");
+        }
+        throw new Error(err.error || 'Erreur de génération');
+      }
       const result = await response.json();
+      if (result.warning) {
+        toast.warning(result.warning);
+      }
       toast.success(`${result.deliverables_count} livrables générés ! Score: ${result.global_score}/100`);
       await fetchData();
     } catch (err: any) {
