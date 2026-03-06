@@ -51,7 +51,7 @@ export default function Livrables() {
       const response = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } });
       if (!response.ok) throw new Error('Erreur de téléchargement');
       const blob = await response.blob();
-      const ext = format === 'csv' ? '.csv' : format === 'json' ? '.json' : '.html';
+      const ext = format === 'csv' ? '.csv' : format === 'json' ? '.json' : format === 'xlsx' ? '.xlsx' : '.html';
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `${enterprise.name.replace(/[^a-zA-Z0-9]/g, '_')}_${type}${ext}`;
@@ -136,6 +136,11 @@ export default function Livrables() {
                       <Button size="sm" variant="outline" className="gap-1 text-xs h-8" onClick={() => handleDownload(config.type, 'html')}>
                         <Download className="h-3 w-3" /> HTML
                       </Button>
+                      {['inputs_data', 'framework_data', 'plan_ovo'].includes(config.type) && (
+                        <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleDownload(config.type, 'xlsx')}>
+                          XLSX
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => handleDownload(config.type, 'json')}>
                         JSON
                       </Button>
