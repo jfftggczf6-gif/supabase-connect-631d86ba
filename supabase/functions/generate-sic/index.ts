@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeSic } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en impact social et ODD (Objectifs de Développement Durable) pour les PME africaines. Tu produis des analyses SIC (Social Impact Canvas) professionnelles.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
