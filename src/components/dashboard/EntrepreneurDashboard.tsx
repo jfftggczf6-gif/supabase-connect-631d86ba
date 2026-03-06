@@ -479,9 +479,13 @@ export default function EntrepreneurDashboard() {
       });
       if (!response.ok) throw new Error('Erreur de téléchargement');
       const blob = await response.blob();
+      // Try to get real file name from deliverable data
+      const ovoDeliv = deliverables.find((d: any) => d.type === 'plan_ovo_excel');
+      const realName = (ovoDeliv?.data as any)?.file_name;
+      const downloadName = realName || `${enterprise?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'entreprise'}_PlanFinancierOVO.xlsm`;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${enterprise?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'entreprise'}_PlanFinancierOVO.xlsm`;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
