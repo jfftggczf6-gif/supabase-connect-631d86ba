@@ -253,8 +253,9 @@ export default function EntrepreneurDashboard() {
   const getDeliverable = (type: string) => deliverables.find((d: any) => d.type === type);
 
   const completedCount = modules.filter((m: any) => m.status === 'completed').length;
-  const globalScore = deliverables.length > 0
-    ? Math.round(deliverables.reduce((sum: number, d: any) => sum + (d.score || 0), 0) / deliverables.filter((d: any) => d.score).length || 0)
+  const scoredDeliverables = deliverables.filter((d: any) => d.score != null);
+  const globalScore = scoredDeliverables.length > 0
+    ? Math.round(scoredDeliverables.reduce((sum: number, d: any) => sum + (d.score || 0), 0) / scoredDeliverables.length)
     : 0;
 
   const maturityLabel = globalScore >= 80 ? 'Excellent' : globalScore >= 60 ? 'Très bien' : globalScore >= 40 ? 'Moyen' : globalScore > 0 ? 'À améliorer' : '—';
