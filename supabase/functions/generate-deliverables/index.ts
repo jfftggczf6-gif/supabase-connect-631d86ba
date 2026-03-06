@@ -27,7 +27,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { enterprise_id } = await req.json();
+    const { enterprise_id, force } = await req.json();
     if (!enterprise_id) {
       return new Response(JSON.stringify({ error: "enterprise_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
