@@ -1,17 +1,28 @@
 
 
-## Upload du template Excel OVO dans le bucket `ovo-templates`
+## Plan : Bouton "Générer mon Plan Financier OVO" dans le module Plan Financier Final
 
-Le fichier `251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY-2.xlsm` doit être uploadé dans le bucket Storage `ovo-templates` avec le nom exact attendu par la Edge Function : `251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY.xlsm`.
+### Modification unique : `src/components/dashboard/EntrepreneurDashboard.tsx`
 
-### Étapes
+**1. Ajouter deux états :**
+- `generatingOvoPlan: boolean` (loader)
+- `ovoDownloadUrl: string | null` (URL du fichier généré)
 
-1. **Créer une Edge Function utilitaire temporaire** `upload-template` qui :
-   - Reçoit le fichier en base64 dans le body
-   - L'upload dans le bucket `ovo-templates` sous le nom `251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY.xlsm`
-   - Utilise le `service_role` key (le bucket est privé, pas de RLS policies)
+**2. Ajouter une fonction `handleGenerateOvoPlan` :**
+- Récupère la session auth
+- Construit le payload depuis `enterprise` + deliverables existants (BMC, inputs)
+- POST vers `generate-ovo-plan`
+- À la réception : stocke `download_url`, déclenche un téléchargement direct (via `fetch` + `blob` + `<a download>`, pas d'ouverture dans un nouvel onglet)
+- Sauvegarde `file_url` dans la table `deliverables` (upsert type `plan_ovo`)
+- Erreur → toast "La génération a échoué, veuillez réessayer"
 
-2. **Alternative plus simple** : Créer un petit script dans une page admin ou utiliser `supabase--curl_edge_functions` pour uploader directement.
+**3. Ajouter un bloc UI vert** (lignes ~519, après le bloc framework) :
+- Condition : `selectedModule === 'plan_ovo'`
+- Même style que le bloc emerald du framework (lignes 491-518)
+- Contenu :
+  - **État initial** : bouton vert "Générer mon Plan Financier OVO"
+  - **Pendant génération** : `Loader2` animé + "Génération en cours… (30-60 secondes)"
+  - **Après génération** : bouton "Télécharger mon Plan Financier Excel" qui télécharge directement le fichier (fetch blob → download, pas de nouvel onglet)
 
-**Note importante** : Le fichier uploadé s'appelle `...EMPTY-2.xlsm` mais la Edge Function attend `...EMPTY.xlsm`. Le renommage sera fait lors de l'upload.
+Les boutons de téléchargement HTML/XLSX existants en haut restent inchangés.
 
