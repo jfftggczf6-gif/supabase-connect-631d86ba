@@ -12,6 +12,18 @@ Paramètres:
 - Taux de croissance PME réaliste: 15-30%/an max sauf si données historiques justifient plus
 - Taux de change EUR: 655.957
 
+CALCULS OBLIGATOIRES - investment_metrics:
+- VAN (Valeur Actuelle Nette): somme des cashflows actualisés au taux de 12%, moins investissement initial
+- TRI (Taux de Rendement Interne): taux qui annule la VAN
+- CAGR Revenue: taux de croissance annuel composé du CA entre année courante et année 5
+- CAGR EBITDA: taux de croissance annuel composé de l'EBITDA
+- ROI: cumul des résultats nets / investissement total
+- Payback: nombre d'années pour récupérer l'investissement via les cashflows cumulés
+- DSCR: EBITDA année courante / service de la dette annuel total
+- Multiple EBITDA: valorisation estimée / EBITDA (multiple sectoriel typique 4-8x)
+
+Calcule aussi VAN et TRI pour chaque scénario (optimiste, réaliste, pessimiste).
+
 IMPORTANT: Réponds UNIQUEMENT en JSON valide. Pas de markdown, pas de backticks, pas de texte avant ou après.`;
 
 const userPrompt = (name: string, sector: string, docs: string, allData: any) => `
@@ -68,6 +80,18 @@ Génère le JSON suivant avec des valeurs réalistes basées sur les données:
   },
   "funding_need": 0,
   "break_even_year": "string",
+  "investment_metrics": {
+    "van": 0,
+    "tri": 0,
+    "cagr_revenue": 0,
+    "cagr_ebitda": 0,
+    "roi": 0,
+    "payback_years": 0,
+    "dscr": 0,
+    "multiple_ebitda": 0,
+    "discount_rate": 0.12,
+    "cost_of_capital": 0.12
+  },
   "key_assumptions": ["string"],
   "scenarios": {
     "optimiste": {
@@ -75,21 +99,27 @@ Génère le JSON suivant avec des valeurs réalistes basées sur les données:
       "taux_croissance_ca": "xx%/an",
       "revenue_year5": 0,
       "ebitda_year5": 0,
-      "net_profit_year5": 0
+      "net_profit_year5": 0,
+      "van": 0,
+      "tri": 0
     },
     "realiste": {
       "hypotheses": "description",
       "taux_croissance_ca": "xx%/an",
       "revenue_year5": 0,
       "ebitda_year5": 0,
-      "net_profit_year5": 0
+      "net_profit_year5": 0,
+      "van": 0,
+      "tri": 0
     },
     "pessimiste": {
       "hypotheses": "description",
       "taux_croissance_ca": "xx%/an",
       "revenue_year5": 0,
       "ebitda_year5": 0,
-      "net_profit_year5": 0
+      "net_profit_year5": 0,
+      "van": 0,
+      "tri": 0
     }
   },
   "recommandations": ["string"]

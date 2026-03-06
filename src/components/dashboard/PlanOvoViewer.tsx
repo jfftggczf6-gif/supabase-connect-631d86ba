@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import { useMemo } from 'react';
 
 const YEAR_KEYS = ['year_minus_2', 'year_minus_1', 'current_year', 'year2', 'year3', 'year4', 'year5', 'year6'] as const;
 
@@ -34,6 +35,77 @@ function getYearSeries(obj: any): number[] {
   return YEAR_KEYS.map(k => Number(obj[k]) || 0);
 }
 
+// ===== Financial Calculations (fallback) =====
+function calcCAGR(start: number, end: number, years: number): number | null {
+  if (!start || start <= 0 || !end || end <= 0 || years <= 0) return null;
+  return (Math.pow(end / start, 1 / years) - 1) * 100;
+}
+
+function calcNPV(cashflows: number[], rate: number, initialInvestment: number): number {
+  let npv = -initialInvestment;
+  for (let i = 0; i < cashflows.length; i++) {
+    npv += cashflows[i] / Math.pow(1 + rate, i + 1);
+  }
+  return npv;
+}
+
+function calcIRR(cashflows: number[], initialInvestment: number): number | null {
+  // Newton's method to find rate where NPV = 0
+  let rate = 0.1;
+  for (let iter = 0; iter < 100; iter++) {
+    let npv = -initialInvestment;
+    let dnpv = 0;
+    for (let i = 0; i < cashflows.length; i++) {
+      const t = i + 1;
+      const d = Math.pow(1 + rate, t);
+      npv += cashflows[i] / d;
+      dnpv -= t * cashflows[i] / Math.pow(1 + rate, t + 1);
+    }
+    if (Math.abs(npv) < 1) return rate * 100;
+    if (dnpv === 0) return null;
+    rate -= npv / dnpv;
+    if (rate < -0.99 || rate > 10) return null;
+  }
+  return null;
+}
+
+function calcPayback(cashflows: number[], investment: number): number | null {
+  let cumulative = 0;
+  for (let i = 0; i < cashflows.length; i++) {
+    cumulative += cashflows[i];
+    if (cumulative >= investment) return i + 1;
+  }
+  return null;
+}
+
+// ===== Metric Card =====
+function MetricCard({ label, value, unit, status, description }: {
+  label: string; value: string; unit?: string; status: 'good' | 'warning' | 'bad' | 'neutral'; description?: string;
+}) {
+  const statusStyles = {
+    good: 'border-green-500/30 bg-green-500/5',
+    warning: 'border-yellow-500/30 bg-yellow-500/5',
+    bad: 'border-red-500/30 bg-red-500/5',
+    neutral: 'border-border bg-muted/10',
+  };
+  const dotStyles = {
+    good: 'bg-green-500',
+    warning: 'bg-yellow-500',
+    bad: 'bg-red-500',
+    neutral: 'bg-muted-foreground',
+  };
+  return (
+    <div className={`p-3 rounded-lg border ${statusStyles[status]}`}>
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className={`w-2 h-2 rounded-full ${dotStyles[status]}`} />
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+      </div>
+      <p className="text-lg font-bold text-foreground">{value}{unit && <span className="text-xs font-normal text-muted-foreground ml-1">{unit}</span>}</p>
+      {description && <p className="text-[9px] text-muted-foreground mt-0.5">{description}</p>}
+    </div>
+  );
+}
+
 // ===== KPI Card =====
 function KpiCard({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
@@ -58,6 +130,55 @@ export default function PlanOvoViewer({ data }: { data: any }) {
   const ebitdaPctSeries = getYearSeries(data.ebitda_margin_pct);
   const npSeries = getYearSeries(data.net_profit);
   const cfSeries = getYearSeries(data.cashflow);
+
+  // Investment metrics - AI provided or fallback calculation
+  const metrics = useMemo(() => {
+    const ai = data.investment_metrics;
+    const currentIdx = 2;
+    // Future cashflows: year2..year6 (indices 3-7)
+    const futureCf = cfSeries.slice(3);
+    const futureEbitda = ebitdaSeries.slice(3);
+    // Total investment
+    const capexTotal = (data.capex || []).reduce((s: number, c: any) => s + (Number(c.acquisition_value) || 0), 0);
+    const fundingNeed = Number(data.funding_need) || 0;
+    const totalInvestment = Math.max(fundingNeed, capexTotal) || 1;
+    // Debt service
+    const loans = data.loans || {};
+    let annualDebtService = 0;
+    for (const l of Object.values(loans)) {
+      const loan = l as { amount?: number; term_years?: number; rate?: number };
+      const amount = Number(loan?.amount) || 0;
+      const term = Number(loan?.term_years) || 1;
+      const rate = Number(loan?.rate) || 0;
+      if (amount > 0) annualDebtService += amount * (rate + 1 / term);
+    }
+
+    const discountRate = ai?.discount_rate || 0.12;
+    const nYears = 5;
+
+    return {
+      van: ai?.van ?? calcNPV(futureCf, discountRate, totalInvestment),
+      tri: ai?.tri ?? calcIRR(futureCf, totalInvestment),
+      cagr_revenue: ai?.cagr_revenue ?? calcCAGR(revSeries[currentIdx], revSeries[7], nYears),
+      cagr_ebitda: ai?.cagr_ebitda ?? calcCAGR(ebitdaSeries[currentIdx], ebitdaSeries[7], nYears),
+      roi: ai?.roi ?? (totalInvestment > 0 ? (npSeries.slice(3).reduce((a, b) => a + b, 0) / totalInvestment) * 100 : null),
+      payback_years: ai?.payback_years ?? calcPayback(futureCf, totalInvestment),
+      dscr: ai?.dscr ?? (annualDebtService > 0 ? ebitdaSeries[currentIdx] / annualDebtService : null),
+      multiple_ebitda: ai?.multiple_ebitda ?? null,
+      discount_rate: discountRate * 100,
+      cost_of_capital: (ai?.cost_of_capital || 0.12) * 100,
+    };
+  }, [data, cfSeries, ebitdaSeries, revSeries, npSeries]);
+
+  // Status thresholds
+  const vanStatus = (v: number | null) => v == null ? 'neutral' as const : v > 0 ? 'good' as const : v > -1e6 ? 'warning' as const : 'bad' as const;
+  const triStatus = (v: number | null) => v == null ? 'neutral' as const : v > 15 ? 'good' as const : v > 8 ? 'warning' as const : 'bad' as const;
+  const cagrStatus = (v: number | null) => v == null ? 'neutral' as const : v > 20 ? 'good' as const : v > 10 ? 'warning' as const : 'bad' as const;
+  const roiStatus = (v: number | null) => v == null ? 'neutral' as const : v > 50 ? 'good' as const : v > 20 ? 'warning' as const : 'bad' as const;
+  const paybackStatus = (v: number | null) => v == null ? 'neutral' as const : v <= 3 ? 'good' as const : v <= 5 ? 'warning' as const : 'bad' as const;
+  const dscrStatus = (v: number | null) => v == null ? 'neutral' as const : v > 1.5 ? 'good' as const : v > 1 ? 'warning' as const : 'bad' as const;
+
+  const fmtMetric = (v: number | null, suffix = '') => v == null ? '—' : `${v.toFixed(1)}${suffix}`;
 
   // Chart data
   const chartData = YEAR_KEYS.map((k, i) => ({
@@ -86,7 +207,7 @@ export default function PlanOvoViewer({ data }: { data: any }) {
     { label: 'Cash-Flow', values: cfSeries },
   ];
 
-  const currentIdx = 2; // current_year index
+  const currentIdx = 2;
 
   return (
     <div className="space-y-5">
@@ -115,6 +236,98 @@ export default function PlanOvoViewer({ data }: { data: any }) {
         <KpiCard label="EBITDA" value={fmt(ebitdaSeries[currentIdx])} icon="📈" />
         <KpiCard label="Résultat net" value={fmt(npSeries[currentIdx])} icon="🎯" />
       </div>
+
+      {/* ===== INVESTMENT METRICS ===== */}
+      <Card>
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm">📐 Indicateurs de décision d'investissement</CardTitle>
+        </CardHeader>
+        <CardContent className="py-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <MetricCard
+              label="VAN (NPV)"
+              value={metrics.van != null ? fmt(metrics.van) : '—'}
+              unit="FCFA"
+              status={vanStatus(metrics.van)}
+              description={`Taux d'actualisation: ${metrics.discount_rate.toFixed(0)}%`}
+            />
+            <MetricCard
+              label="TRI (IRR)"
+              value={fmtMetric(metrics.tri, '%')}
+              status={triStatus(metrics.tri)}
+              description={metrics.tri != null && metrics.cost_of_capital ? `vs coût du capital ${metrics.cost_of_capital.toFixed(0)}%` : undefined}
+            />
+            <MetricCard
+              label="CAGR Revenue"
+              value={fmtMetric(metrics.cagr_revenue, '%')}
+              status={cagrStatus(metrics.cagr_revenue)}
+              description="Croissance annuelle composée du CA"
+            />
+            <MetricCard
+              label="CAGR EBITDA"
+              value={fmtMetric(metrics.cagr_ebitda, '%')}
+              status={cagrStatus(metrics.cagr_ebitda)}
+              description="Croissance annuelle composée EBITDA"
+            />
+            <MetricCard
+              label="ROI"
+              value={fmtMetric(metrics.roi, '%')}
+              status={roiStatus(metrics.roi)}
+              description="Retour sur investissement cumulé"
+            />
+            <MetricCard
+              label="Payback"
+              value={metrics.payback_years != null ? `${metrics.payback_years}` : '—'}
+              unit="ans"
+              status={paybackStatus(metrics.payback_years)}
+              description="Délai de récupération"
+            />
+            <MetricCard
+              label="DSCR"
+              value={metrics.dscr != null ? metrics.dscr.toFixed(2) : '—'}
+              unit="x"
+              status={dscrStatus(metrics.dscr)}
+              description="Couverture du service de la dette"
+            />
+            <MetricCard
+              label="Multiple EBITDA"
+              value={metrics.multiple_ebitda != null ? `${Number(metrics.multiple_ebitda).toFixed(1)}` : '—'}
+              unit="x"
+              status={metrics.multiple_ebitda != null && Number(metrics.multiple_ebitda) >= 4 ? 'good' : 'neutral'}
+              description="Valorisation / EBITDA"
+            />
+          </div>
+
+          {/* TRI vs Cost of Capital gauge */}
+          {metrics.tri != null && metrics.cost_of_capital > 0 && (
+            <div className="mt-4 p-3 rounded-lg border bg-muted/10">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="text-muted-foreground">TRI vs Coût du capital</span>
+                <span className="font-semibold">
+                  {metrics.tri.toFixed(1)}% / {metrics.cost_of_capital.toFixed(0)}%
+                </span>
+              </div>
+              <div className="relative h-3 bg-muted rounded-full overflow-hidden">
+                {/* Cost of capital marker */}
+                <div
+                  className="absolute top-0 h-full w-0.5 bg-destructive z-10"
+                  style={{ left: `${Math.min(metrics.cost_of_capital / Math.max(metrics.tri, metrics.cost_of_capital, 30) * 100, 100)}%` }}
+                />
+                {/* TRI bar */}
+                <div
+                  className={`h-full rounded-full transition-all ${metrics.tri > metrics.cost_of_capital ? 'bg-green-500' : 'bg-red-500'}`}
+                  style={{ width: `${Math.min(metrics.tri / Math.max(metrics.tri, metrics.cost_of_capital, 30) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
+                <span>0%</span>
+                <span className="text-destructive font-semibold">Seuil: {metrics.cost_of_capital.toFixed(0)}%</span>
+                <span>{Math.max(metrics.tri, metrics.cost_of_capital, 30).toFixed(0)}%</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Summary Table */}
       <Card>
@@ -322,12 +535,12 @@ export default function PlanOvoViewer({ data }: { data: any }) {
 
       {/* Break-even */}
       {data.break_even_year && (
-        <Card className="border-success/30 bg-success/5">
+        <Card className="border-green-500/30 bg-green-500/5">
           <CardContent className="py-3 px-4 flex items-center gap-3">
             <span className="text-2xl">🎯</span>
             <div>
-              <p className="text-xs font-semibold text-success">Point mort atteint en</p>
-              <p className="text-lg font-bold text-success">{data.break_even_year}</p>
+              <p className="text-xs font-semibold text-green-600">Point mort atteint en</p>
+              <p className="text-lg font-bold text-green-600">{data.break_even_year}</p>
             </div>
           </CardContent>
         </Card>
@@ -363,10 +576,10 @@ export default function PlanOvoViewer({ data }: { data: any }) {
               const s = data.scenarios[key];
               if (!s) return null;
               const icons: Record<string, string> = { optimiste: '🚀', realiste: '📊', pessimiste: '⚠️' };
-              const colors: Record<string, string> = { 
-                optimiste: 'border-success/30 bg-success/5', 
-                realiste: 'border-primary/30 bg-primary/5', 
-                pessimiste: 'border-warning/30 bg-warning/5' 
+              const colors: Record<string, string> = {
+                optimiste: 'border-green-500/30 bg-green-500/5',
+                realiste: 'border-primary/30 bg-primary/5',
+                pessimiste: 'border-yellow-500/30 bg-yellow-500/5',
               };
               return (
                 <div key={key} className={`p-3 rounded-lg border ${colors[key]}`}>
@@ -377,8 +590,9 @@ export default function PlanOvoViewer({ data }: { data: any }) {
                     {s.revenue_year5 != null && <div><span className="text-muted-foreground">CA An 5:</span> <span className="font-semibold">{fmt(s.revenue_year5)}</span></div>}
                     {s.ebitda_year5 != null && <div><span className="text-muted-foreground">EBITDA An 5:</span> <span className="font-semibold">{fmt(s.ebitda_year5)}</span></div>}
                     {s.net_profit_year5 != null && <div><span className="text-muted-foreground">Résultat An 5:</span> <span className="font-semibold">{fmt(s.net_profit_year5)}</span></div>}
+                    {s.van != null && <div><span className="text-muted-foreground">VAN:</span> <span className="font-semibold">{fmt(s.van)}</span></div>}
+                    {s.tri != null && <div><span className="text-muted-foreground">TRI:</span> <span className="font-semibold">{pct(s.tri)}</span></div>}
                   </div>
-                  {/* Support legacy projections array */}
                   {s.projections?.length > 0 && (
                     <div className="mt-2 overflow-x-auto">
                       <table className="w-full text-[11px]">
@@ -401,6 +615,55 @@ export default function PlanOvoViewer({ data }: { data: any }) {
                 </div>
               );
             })}
+
+            {/* Scenario Comparison Table */}
+            <div className="mt-2">
+              <p className="text-xs font-semibold mb-2">📊 Comparaison des scénarios</p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Indicateur</TableHead>
+                      <TableHead className="text-xs text-right">🚀 Optimiste</TableHead>
+                      <TableHead className="text-xs text-right">📊 Réaliste</TableHead>
+                      <TableHead className="text-xs text-right">⚠️ Pessimiste</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="text-xs font-medium">CA An 5</TableCell>
+                      {(['optimiste', 'realiste', 'pessimiste'] as const).map(k => (
+                        <TableCell key={k} className="text-xs text-right">{fmt(data.scenarios[k]?.revenue_year5)}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="text-xs font-medium">EBITDA An 5</TableCell>
+                      {(['optimiste', 'realiste', 'pessimiste'] as const).map(k => (
+                        <TableCell key={k} className="text-xs text-right">{fmt(data.scenarios[k]?.ebitda_year5)}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="text-xs font-medium">Résultat net An 5</TableCell>
+                      {(['optimiste', 'realiste', 'pessimiste'] as const).map(k => (
+                        <TableCell key={k} className="text-xs text-right">{fmt(data.scenarios[k]?.net_profit_year5)}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow className="bg-muted/20">
+                      <TableCell className="text-xs font-semibold">VAN</TableCell>
+                      {(['optimiste', 'realiste', 'pessimiste'] as const).map(k => (
+                        <TableCell key={k} className="text-xs text-right font-semibold">{fmt(data.scenarios[k]?.van)}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow className="bg-muted/20">
+                      <TableCell className="text-xs font-semibold">TRI</TableCell>
+                      {(['optimiste', 'realiste', 'pessimiste'] as const).map(k => (
+                        <TableCell key={k} className="text-xs text-right font-semibold">{data.scenarios[k]?.tri != null ? pct(data.scenarios[k].tri) : '—'}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
