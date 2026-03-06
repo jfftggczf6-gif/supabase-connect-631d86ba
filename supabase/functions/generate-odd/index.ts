@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { normalizeOdd } from "../_shared/normalizers.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en due diligence et investment readiness pour les PME africaines. Tu évalues la maturité des entreprises selon les critères des investisseurs d'impact et DFI.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
