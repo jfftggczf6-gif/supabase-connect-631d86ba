@@ -241,9 +241,50 @@ export async function callAI(systemPrompt: string, userPrompt: string) {
   const content = aiResult.choices?.[0]?.message?.content || "";
 
   try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);
-  } catch {
+    // Clean markdown wrapping
+    let cleaned = content
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+
+    // Find JSON boundaries
+    const jsonStart = cleaned.search(/[\{\[]/);
+    const jsonEnd = cleaned.lastIndexOf(jsonStart !== -1 && cleaned[jsonStart] === '[' ? ']' : '}');
+
+    if (jsonStart === -1 || jsonEnd === -1) {
+      console.error("No JSON found in AI response:", cleaned.substring(0, 300));
+      throw { status: 500, message: "Erreur de parsing IA - pas de JSON détecté" };
+    }
+
+    cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // Fix common issues: trailing commas, control chars
+      cleaned = cleaned
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*]/g, "]")
+        .replace(/[\x00-\x1F\x7F]/g, "");
+
+      // Attempt to fix truncated JSON by closing open braces/brackets
+      const openBraces = (cleaned.match(/{/g) || []).length;
+      const closeBraces = (cleaned.match(/}/g) || []).length;
+      const openBrackets = (cleaned.match(/\[/g) || []).length;
+      const closeBrackets = (cleaned.match(/\]/g) || []).length;
+
+      if (openBrackets > closeBrackets || openBraces > closeBraces) {
+        console.warn("Truncated JSON detected, attempting repair...");
+        // Remove trailing incomplete value
+        cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^}\]]*$/, "");
+        for (let i = 0; i < openBrackets - closeBrackets; i++) cleaned += "]";
+        for (let i = 0; i < openBraces - closeBraces; i++) cleaned += "}";
+      }
+
+      return JSON.parse(cleaned);
+    }
+  } catch (e: any) {
+    if (e.status) throw e;
     console.error("Failed to parse AI response:", content.substring(0, 500));
     throw { status: 500, message: "Erreur de parsing IA" };
   }
