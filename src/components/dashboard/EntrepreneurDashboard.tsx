@@ -25,10 +25,11 @@ const MODULE_CONFIG = [
   { code: 'diagnostic' as const, title: 'Diagnostic Expert Global', shortTitle: 'Diagnostic Expert Global', icon: Stethoscope, color: 'bg-orange-100 text-orange-600', step: 1 },
   { code: 'bmc' as const, title: 'Business Model Canvas', shortTitle: 'Business Model Canvas', icon: LayoutGrid, color: 'bg-emerald-100 text-emerald-600', step: 2 },
   { code: 'sic' as const, title: 'Social Impact Canvas', shortTitle: 'Social Impact Canvas', icon: Globe, color: 'bg-teal-100 text-teal-600', step: 3 },
-  { code: 'inputs' as const, title: 'Plan Financier Intermédiaire', shortTitle: 'Plan Financier Intermédiaire', icon: FileSpreadsheet, color: 'bg-blue-100 text-blue-600', step: 4 },
-  { code: 'framework' as const, title: 'Plan Financier Final', shortTitle: 'Plan Financier Final', icon: BarChart3, color: 'bg-purple-100 text-purple-600', step: 5 },
-  { code: 'business_plan' as const, title: 'Business Plan', shortTitle: 'Business Plan', icon: FileText, color: 'bg-indigo-100 text-indigo-600', step: 6 },
-  { code: 'odd' as const, title: 'ODD', shortTitle: 'ODD', icon: Target, color: 'bg-red-100 text-red-600', step: 7 },
+  { code: 'inputs' as const, title: 'Inputs Financiers', shortTitle: 'Inputs Financiers', icon: FileSpreadsheet, color: 'bg-blue-100 text-blue-600', step: 4 },
+  { code: 'framework' as const, title: 'Plan Financier Intermédiaire', shortTitle: 'Plan Financier Intermédiaire', icon: BarChart3, color: 'bg-purple-100 text-purple-600', step: 5 },
+  { code: 'plan_ovo' as const, title: 'Plan Financier Final', shortTitle: 'Plan Financier Final', icon: ListChecks, color: 'bg-amber-100 text-amber-600', step: 6 },
+  { code: 'business_plan' as const, title: 'Business Plan', shortTitle: 'Business Plan', icon: FileText, color: 'bg-indigo-100 text-indigo-600', step: 7 },
+  { code: 'odd' as const, title: 'ODD', shortTitle: 'ODD', icon: Target, color: 'bg-red-100 text-red-600', step: 8 },
 ];
 
 const DELIVERABLE_CONFIG = [
