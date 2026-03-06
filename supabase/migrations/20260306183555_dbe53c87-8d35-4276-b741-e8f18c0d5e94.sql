@@ -1,0 +1,1 @@
+ALTER TYPE public.deliverable_type ADD VALUE IF NOT EXISTS 'plan_ovo_excel';

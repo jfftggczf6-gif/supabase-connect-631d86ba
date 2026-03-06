@@ -136,9 +136,14 @@ export default function Livrables() {
                       <Button size="sm" variant="outline" className="gap-1 text-xs h-8" onClick={() => handleDownload(config.type, 'html')}>
                         <Download className="h-3 w-3" /> HTML
                       </Button>
-                      {['inputs_data', 'framework_data', 'plan_ovo'].includes(config.type) && (
+                      {['inputs_data', 'framework_data'].includes(config.type) && (
                         <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleDownload(config.type, 'xlsx')}>
                           XLSX
+                        </Button>
+                      )}
+                      {config.type === 'plan_ovo' && (
+                        <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleDownload(config.type, 'xlsx')}>
+                          XLSM
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => handleDownload(config.type, 'json')}>

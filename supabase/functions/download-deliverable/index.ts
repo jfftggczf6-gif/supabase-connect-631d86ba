@@ -1126,6 +1126,44 @@ serve(async (req) => {
         }
       }
 
+      // PRIORITY 0 for plan_ovo: Serve pre-built .xlsm from DB
+      if (deliverableType === "plan_ovo") {
+        const { data: prebuiltOvo } = await supabase
+          .from("deliverables")
+          .select("html_content")
+          .eq("enterprise_id", enterpriseId)
+          .eq("type", "plan_ovo_excel")
+          .maybeSingle();
+
+        if (prebuiltOvo?.html_content && prebuiltOvo.html_content.length > 1000) {
+          const binary = atob(prebuiltOvo.html_content);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return new Response(bytes, {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/vnd.ms-excel.sheet.macroEnabled.12",
+              "Content-Disposition": `attachment; filename="${safeName}_PlanFinancier_OVO.xlsm"`,
+            },
+          });
+        }
+
+        // PRIORITY 1: Generate on-the-fly from Storage template
+        try {
+          const { fillPlanOvoExcelTemplate } = await import("../_shared/plan-ovo-excel-template.ts");
+          const xlsmBytes = await fillPlanOvoExcelTemplate(deliv.data, ent.name, supabase);
+          return new Response(xlsmBytes, {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/vnd.ms-excel.sheet.macroEnabled.12",
+              "Content-Disposition": `attachment; filename="${safeName}_PlanFinancier_OVO.xlsm"`,
+            },
+          });
+        } catch (templateErr) {
+          console.warn("[download] OVO template filling failed, falling back:", templateErr);
+        }
+      }
+
       // FALLBACK: XLSX basique existant
       const xlsxBuilders: Record<string, (d: any) => any> = {
         inputs_data: buildInputsXlsx,

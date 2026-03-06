@@ -241,6 +241,7 @@ export type Database = {
         | "plan_ovo"
         | "business_plan"
         | "odd_analysis"
+        | "plan_ovo_excel"
       module_code:
         | "bmc"
         | "sic"
@@ -395,6 +396,7 @@ export const Constants = {
         "plan_ovo",
         "business_plan",
         "odd_analysis",
+        "plan_ovo_excel",
       ],
       module_code: [
         "bmc",
