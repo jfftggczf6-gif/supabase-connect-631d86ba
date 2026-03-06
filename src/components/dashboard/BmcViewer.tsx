@@ -1,5 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
 interface BmcViewerProps {
@@ -18,17 +16,19 @@ const BLOC_LABELS: Record<string, string> = {
   structure_couts: 'Structure de Coûts',
 };
 
-const BLOC_ICONS: Record<string, string> = {
-  proposition_valeur: '💎',
-  activites_cles: '⚙️',
-  ressources_cles: '🏗️',
-  segments_clients: '👥',
-  relations_clients: '❤️',
-  flux_revenus: '💵',
-  partenaires_cles: '🤝',
-  canaux: '📦',
-  structure_couts: '💰',
-};
+function toArr(val: any): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(v => typeof v === 'string' ? v : v?.item || v?.libelle || v?.description || v?.nom || JSON.stringify(v));
+  if (typeof val === 'object') {
+    if (val.items) return toArr(val.items);
+    if (val.postes) return toArr(val.postes);
+    if (val.enonce) return [val.enonce, ...(val.avantages || [])];
+    if (val.principal) return [val.principal];
+    return [];
+  }
+  if (typeof val === 'string') return [val];
+  return [];
+}
 
 export default function BmcViewer({ data }: BmcViewerProps) {
   if (!data) return null;
@@ -40,233 +40,254 @@ export default function BmcViewer({ data }: BmcViewerProps) {
   const scores = diag.scores_par_bloc || {};
 
   const scoreColor = (s: number) =>
-    s >= 80 ? 'text-success' : s >= 60 ? 'text-warning' : 'text-destructive';
-  const scoreBg = (s: number) =>
-    s >= 80 ? 'bg-success/10' : s >= 60 ? 'bg-warning/10' : 'bg-destructive/10';
+    s >= 80 ? '#22c55e' : s >= 60 ? '#eab308' : '#ef4444';
 
   return (
-    <div className="space-y-6">
-      {/* Header with score */}
-      <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
-        <CardContent className="py-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h2 className="text-2xl font-display font-bold">Business Model Canvas</h2>
-              {data.resume && (
-                <p className="mt-2 text-sm opacity-80 italic">"{data.resume}"</p>
-              )}
-              <div className="flex flex-wrap gap-2 mt-3">
-                {(data.tags || []).map((tag: string, i: number) => (
-                  <span key={i} className="px-2.5 py-1 rounded-full bg-white/15 text-xs font-medium">{tag}</span>
-                ))}
-              </div>
-            </div>
-            <div className="text-center ml-6">
-              <p className="text-5xl font-display font-black">{data.score_global || '—'}</p>
-              <p className="text-xs opacity-60 mt-1">Score BMC</p>
-              {data.maturite && (
-                <Badge className="mt-2 bg-white/20 text-primary-foreground border-0 text-[10px]">{data.maturite}</Badge>
-              )}
-            </div>
+    <div className="max-w-[900px] mx-auto" style={{ fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif" }}>
+      {/* ===== HERO HEADER ===== */}
+      <div className="relative rounded-2xl overflow-hidden mb-8" style={{ background: 'linear-gradient(135deg, #1a2744 0%, #2d4a7c 50%, #1a2744 100%)' }}>
+        <div className="px-10 py-10 text-white">
+          <h1 className="text-3xl font-black tracking-tight">BUSINESS MODEL CANVAS</h1>
+          <p className="text-lg font-semibold mt-1 opacity-90">{data.entreprise || data.enterprise_name || ''}</p>
+          {data.resume && (
+            <p className="text-sm opacity-70 italic mt-3 max-w-[600px]">"{data.resume}"</p>
+          )}
+          <div className="flex flex-wrap gap-2 mt-4">
+            {(data.tags || []).map((tag: string, i: number) => (
+              <span key={i} className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.15)' }}>{tag}</span>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+          {data.maturite && (
+            <p className="text-xs opacity-60 mt-3">Maturité du business model</p>
+          )}
+        </div>
+        {/* Score circle */}
+        <div className="absolute right-10 top-1/2 -translate-y-1/2 text-center text-white">
+          <div className="w-24 h-24 rounded-full border-4 flex flex-col items-center justify-center" style={{ borderColor: 'rgba(255,255,255,0.3)' }}>
+            <span className="text-4xl font-black leading-none">{data.score_global ?? data.score ?? '—'}</span>
+            <span className="text-[10px] opacity-50">%</span>
+          </div>
+          <p className="text-[10px] opacity-50 mt-2">Score BMC Global</p>
+        </div>
+      </div>
 
-      {/* Canvas Grid - simplified for in-app display */}
-      <div>
-        <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          Canvas — Vue d'ensemble
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {/* Proposition de valeur - full width */}
-          <CanvasBlock
-            title="💎 Proposition de Valeur"
-            className="md:col-span-3"
-          >
-            <p className="font-semibold text-sm mb-1">{canvas.proposition_valeur?.enonce}</p>
-            <ul className="text-xs space-y-0.5">
-              {(canvas.proposition_valeur?.avantages || []).map((a: string, i: number) => (
-                <li key={i} className="flex items-start gap-1.5">
-                  <span className="text-success mt-0.5">✓</span>
-                  <span>{a}</span>
-                </li>
-              ))}
-            </ul>
-          </CanvasBlock>
+      {/* ===== CANVAS — VUE D'ENSEMBLE ===== */}
+      <SectionTitle>CANVAS — VUE D'ENSEMBLE</SectionTitle>
 
-          <CanvasBlock title="🤝 Partenaires Clés">
-            <BulletList items={canvas.partenaires_cles?.items} />
-            {canvas.partenaires_cles?.element_critique && (
-              <p className="text-[10px] text-destructive font-medium mt-1">⚠ {canvas.partenaires_cles.element_critique}</p>
-            )}
-          </CanvasBlock>
+      {/* 5-column grid row */}
+      <div className="grid grid-cols-5 gap-px bg-border rounded-xl overflow-hidden mb-px">
+        <CanvasCell title="PARTENAIRES CLÉS" items={toArr(canvas.partenaires_cles)} critical={canvas.partenaires_cles?.element_critique} />
+        <CanvasCell title="ACTIVITÉS CLÉS" items={toArr(canvas.activites_cles)} critical={canvas.activites_cles?.element_critique} />
+        <CanvasCell title="PROPOSITION DE VALEUR" items={canvas.proposition_valeur?.enonce ? [canvas.proposition_valeur.enonce, ...(canvas.proposition_valeur.avantages || [])] : toArr(canvas.proposition_valeur)} highlight />
+        <CanvasCell title="RELATIONS CLIENTS" items={[canvas.relations_clients?.type, ...toArr(canvas.relations_clients?.items || canvas.relations_clients)].filter(Boolean)} />
+        <CanvasCell title="SEGMENTS CLIENTS" items={[
+          canvas.segments_clients?.principal,
+          canvas.segments_clients?.zone ? `Zone: ${canvas.segments_clients.zone}` : null,
+          canvas.segments_clients?.type_marche ? `Type: ${canvas.segments_clients.type_marche}` : null,
+          canvas.segments_clients?.probleme_resolu ? `Problème résolu: ${canvas.segments_clients.probleme_resolu}` : null,
+          canvas.segments_clients?.taille_marche ? `Taille marché: ${canvas.segments_clients.taille_marche}` : null,
+          canvas.segments_clients?.intensite_besoin ? `Intensité besoin: ${canvas.segments_clients.intensite_besoin}` : null,
+        ].filter(Boolean) as string[]} />
+      </div>
 
-          <CanvasBlock title="⚙️ Activités Clés">
-            <BulletList items={canvas.activites_cles?.items} />
-          </CanvasBlock>
+      {/* RESSOURCES CLÉS (full width below canvas) */}
+      <div className="bg-card border border-t-0 border-border rounded-b-xl p-5 mb-6">
+        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">RESSOURCES CLÉS</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
+          {canvas.ressources_cles?.categories ? (
+            Object.entries(canvas.ressources_cles.categories).map(([key, val]: [string, any]) => (
+              <div key={key}>
+                <span className="font-semibold text-foreground capitalize">{key}: </span>
+                <span>{val}</span>
+              </div>
+            ))
+          ) : (
+            toArr(canvas.ressources_cles).map((item, i) => (
+              <div key={i}>• {item}</div>
+            ))
+          )}
+        </div>
+        {canvas.ressources_cles?.element_critique && (
+          <p className="text-[11px] text-destructive font-semibold mt-2">⚠ CRITIQUE: {canvas.ressources_cles.element_critique}</p>
+        )}
+      </div>
 
-          <CanvasBlock title="🏗️ Ressources Clés">
-            <BulletList items={canvas.ressources_cles?.items} />
-            {canvas.ressources_cles?.element_critique && (
-              <p className="text-[10px] text-destructive font-medium mt-1">⚠ {canvas.ressources_cles.element_critique}</p>
-            )}
-          </CanvasBlock>
-
-          <CanvasBlock title="👥 Segments Clients">
-            <p className="text-xs font-medium">{canvas.segments_clients?.principal}</p>
-            <p className="text-[10px] text-muted-foreground">{canvas.segments_clients?.zone} • {canvas.segments_clients?.type_marche}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">Problème: {canvas.segments_clients?.probleme_resolu}</p>
-          </CanvasBlock>
-
-          <CanvasBlock title="❤️ Relations Clients">
-            <p className="text-xs font-medium">{canvas.relations_clients?.type}</p>
-            <BulletList items={canvas.relations_clients?.items} />
-          </CanvasBlock>
-
-          <CanvasBlock title="📦 Canaux">
-            <BulletList items={canvas.canaux?.items} />
-          </CanvasBlock>
-
-          {/* Cost & Revenue - bottom row */}
-          <CanvasBlock title="💰 Structure de Coûts" className="md:col-span-2">
-            {(canvas.structure_couts?.postes || []).slice(0, 4).map((p: any, i: number) => (
-              <div key={i} className="flex justify-between text-[11px] py-0.5">
-                <span>{p.libelle}</span>
-                <span className="text-muted-foreground">{p.montant} ({p.pourcentage}%)</span>
+      {/* STRUCTURE DE COÛTS + FLUX DE REVENUS (bottom row) */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        {/* Coûts */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">STRUCTURE DE COÛTS</h4>
+          <div className="space-y-1.5">
+            {(canvas.structure_couts?.postes || []).map((p: any, i: number) => (
+              <div key={i} className="flex justify-between text-xs">
+                <span className="text-foreground">{p.libelle}</span>
+                <span className="text-muted-foreground">{p.montant} ({p.type || ''} · {p.pourcentage}%)</span>
               </div>
             ))}
-            <p className="text-xs font-bold mt-1 pt-1 border-t border-border">Total ≈ {canvas.structure_couts?.total_mensuel}</p>
-          </CanvasBlock>
+          </div>
+          {canvas.structure_couts?.total_mensuel && (
+            <p className="text-sm font-bold mt-3 pt-2 border-t border-border">TOTAL ≈ {canvas.structure_couts.total_mensuel}</p>
+          )}
+          {canvas.structure_couts?.cout_critique && (
+            <p className="text-[11px] text-destructive font-medium mt-1">Coût critique: {canvas.structure_couts.cout_critique}</p>
+          )}
+        </div>
 
-          <CanvasBlock title="💵 Flux de Revenus">
-            <p className="text-xs font-medium">{canvas.flux_revenus?.produit_principal}</p>
-            <p className="text-[11px] text-muted-foreground">CA ≈ {canvas.flux_revenus?.ca_mensuel}</p>
-            <p className="text-[11px] text-muted-foreground">Marge ≈ {canvas.flux_revenus?.marge_brute}</p>
-          </CanvasBlock>
+        {/* Revenus */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">FLUX DE REVENUS</h4>
+          <div className="space-y-1.5 text-xs">
+            {canvas.flux_revenus?.produit_principal && <Row label="Produit principal" val={canvas.flux_revenus.produit_principal} />}
+            {canvas.flux_revenus?.prix_moyen && <Row label="Prix moyen" val={canvas.flux_revenus.prix_moyen} />}
+            {canvas.flux_revenus?.frequence_achat && <Row label="Fréquence d'achat" val={canvas.flux_revenus.frequence_achat} />}
+            {canvas.flux_revenus?.volume_estime && <Row label="Volume estimé" val={canvas.flux_revenus.volume_estime} />}
+            {canvas.flux_revenus?.mode_paiement && <Row label="Mode de paiement" val={canvas.flux_revenus.mode_paiement} />}
+          </div>
+          <div className="mt-3 pt-2 border-t border-border flex justify-between">
+            {canvas.flux_revenus?.ca_mensuel && <div><p className="text-[10px] text-muted-foreground">CA mensuel</p><p className="text-sm font-bold">≈ {canvas.flux_revenus.ca_mensuel}</p></div>}
+            {canvas.flux_revenus?.marge_brute && <div><p className="text-[10px] text-muted-foreground">Marge brute</p><p className="text-sm font-bold">≈ {canvas.flux_revenus.marge_brute}</p></div>}
+          </div>
         </div>
       </div>
 
-      {/* Diagnostic scores */}
-      <div>
-        <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          📊 Diagnostic — Scores par bloc
-        </h3>
-        <div className="grid grid-cols-3 gap-2">
-          {Object.entries(scores).map(([key, val]: [string, any]) => (
-            <div key={key} className={`rounded-lg p-3 ${scoreBg(val?.score || 0)}`}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xs">{BLOC_ICONS[key] || '📌'}</span>
-                <span className="text-[11px] font-semibold">{BLOC_LABELS[key] || key}</span>
+      {/* ===== DIAGNOSTIC EXPERT ===== */}
+      <SectionTitle>DIAGNOSTIC EXPERT</SectionTitle>
+      <p className="text-xs text-muted-foreground mb-4">
+        Scores par bloc BMC — Score global : <strong className="text-foreground">{data.score_global ?? data.score ?? '—'}%</strong>
+      </p>
+
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {Object.entries(scores).map(([key, val]: [string, any]) => {
+          const s = val?.score || 0;
+          const color = scoreColor(s);
+          return (
+            <div key={key} className="bg-card border border-border rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-semibold text-foreground">{BLOC_LABELS[key] || key}</span>
+                <span className="text-xs font-bold" style={{ color }}>{s}%</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Progress value={val?.score || 0} className="h-1.5 flex-1" />
-                <span className={`text-xs font-bold ${scoreColor(val?.score || 0)}`}>{val?.score}%</span>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${s}%`, backgroundColor: color }} />
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">{val?.commentaire}</p>
+              {val?.commentaire && <p className="text-[10px] text-muted-foreground mt-1.5">{val.commentaire}</p>}
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {/* Forces & Points de vigilance */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="bg-card border rounded-xl p-5" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+          <h4 className="text-sm font-bold mb-3" style={{ color: '#166534' }}>✅ Forces</h4>
+          <ul className="space-y-1.5">
+            {(diag.forces || []).map((f: string, i: number) => (
+              <li key={i} className="text-xs text-foreground">• {f}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-card border rounded-xl p-5" style={{ borderColor: '#fef08a', background: '#fefce8' }}>
+          <h4 className="text-sm font-bold mb-3" style={{ color: '#854d0e' }}>⚠️ Points de vigilance</h4>
+          <ul className="space-y-1.5">
+            {(diag.points_vigilance || []).map((p: string, i: number) => (
+              <li key={i} className="text-xs text-foreground">• {p}</li>
+            ))}
+          </ul>
         </div>
       </div>
 
-      {/* Forces & Vigilance */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="border-success/20 bg-success/5">
-          <CardContent className="py-4">
-            <h4 className="text-xs font-bold text-success mb-2">✅ Forces</h4>
-            <ul className="space-y-1">
-              {(diag.forces || []).map((f: string, i: number) => (
-                <li key={i} className="text-xs text-foreground">{f}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-        <Card className="border-warning/20 bg-warning/5">
-          <CardContent className="py-4">
-            <h4 className="text-xs font-bold text-warning mb-2">⚠️ Points de vigilance</h4>
-            <ul className="space-y-1">
-              {(diag.points_vigilance || []).map((p: string, i: number) => (
-                <li key={i} className="text-xs text-foreground">{p}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+      {/* ===== MATRICE SWOT ===== */}
+      <SectionTitle>MATRICE SWOT SYNTHÉTIQUE</SectionTitle>
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        <SwotBox title="FORCES" items={swot.forces} bg="#f0fdf4" border="#bbf7d0" />
+        <SwotBox title="FAIBLESSES" items={swot.faiblesses} bg="#fef2f2" border="#fecaca" />
+        <SwotBox title="OPPORTUNITÉS" items={swot.opportunites} bg="#eff6ff" border="#bfdbfe" />
+        <SwotBox title="MENACES" items={swot.menaces} bg="#fefce8" border="#fef08a" />
       </div>
 
-      {/* SWOT */}
-      <div>
-        <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          🧭 Matrice SWOT
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          <SwotBox title="Forces" items={swot.forces} className="bg-success/5 border-success/20" />
-          <SwotBox title="Faiblesses" items={swot.faiblesses} className="bg-destructive/5 border-destructive/20" />
-          <SwotBox title="Opportunités" items={swot.opportunites} className="bg-info/5 border-info/20" />
-          <SwotBox title="Menaces" items={swot.menaces} className="bg-warning/5 border-warning/20" />
-        </div>
+      {/* ===== RECOMMANDATIONS STRATÉGIQUES ===== */}
+      <SectionTitle>RECOMMANDATIONS STRATÉGIQUES</SectionTitle>
+      <div className="space-y-4 mb-8">
+        {reco.court_terme && (
+          <RecoBlock emoji="📌" title="Court terme — Consolider les fondations" text={reco.court_terme} color="#22c55e" />
+        )}
+        {reco.moyen_terme && (
+          <RecoBlock emoji="📈" title="Moyen terme — Croissance maîtrisée" text={reco.moyen_terme} color="#3b82f6" />
+        )}
+        {reco.long_terme && (
+          <RecoBlock emoji="🚀" title="Long terme — Industrialisation et marque" text={reco.long_terme} color="#8b5cf6" />
+        )}
       </div>
 
-      {/* Recommandations */}
-      <Card>
-        <CardContent className="py-4 space-y-3">
-          <h3 className="text-sm font-display font-semibold">🎯 Recommandations Stratégiques</h3>
-          {reco.court_terme && (
-            <div>
-              <p className="text-[11px] font-bold text-primary">📌 Court terme</p>
-              <p className="text-xs text-muted-foreground">{reco.court_terme}</p>
-            </div>
-          )}
-          {reco.moyen_terme && (
-            <div>
-              <p className="text-[11px] font-bold text-primary">📈 Moyen terme</p>
-              <p className="text-xs text-muted-foreground">{reco.moyen_terme}</p>
-            </div>
-          )}
-          {reco.long_terme && (
-            <div>
-              <p className="text-[11px] font-bold text-primary">🚀 Long terme</p>
-              <p className="text-xs text-muted-foreground">{reco.long_terme}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Footer */}
+      <div className="text-center py-6 border-t border-border">
+        <p className="text-[11px] text-muted-foreground">
+          Document généré par ESONO — Investment Readiness Platform • {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+        <p className="text-[10px] text-muted-foreground/60 mt-1 italic">
+          "Les chiffres ne servent pas à juger le passé, mais à décider le futur."
+        </p>
+      </div>
     </div>
   );
 }
 
-function CanvasBlock({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
+/* ===== Sub-components ===== */
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`bg-card border rounded-lg p-3 ${className}`}>
-      <h4 className="text-[11px] font-bold uppercase tracking-wider text-primary mb-2 pb-1.5 border-b border-border">
+    <h2 className="text-sm font-black uppercase tracking-[0.2em] text-foreground mb-4 pb-2 border-b-2 border-border">
+      {children}
+    </h2>
+  );
+}
+
+function CanvasCell({ title, items, critical, highlight }: { title: string; items: string[]; critical?: string; highlight?: boolean }) {
+  return (
+    <div className={`bg-card p-4 min-h-[160px] ${highlight ? 'bg-primary/5' : ''}`}>
+      <h4 className="text-[9px] font-black uppercase tracking-[0.12em] text-primary mb-2 pb-1.5 border-b border-border">
         {title}
       </h4>
-      {children}
+      <ul className="space-y-1">
+        {items.map((item, i) => (
+          <li key={i} className={`text-[11px] ${highlight && i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+            {highlight && i > 0 ? `✓ ${item}` : `• ${item}`}
+          </li>
+        ))}
+      </ul>
+      {critical && (
+        <p className="text-[10px] text-destructive font-semibold mt-2">⚠ CRITIQUE: {critical}</p>
+      )}
     </div>
   );
 }
 
-function BulletList({ items }: { items?: string[] }) {
-  if (!items?.length) return null;
+function Row({ label, val }: { label: string; val: string }) {
   return (
-    <ul className="space-y-0.5">
-      {items.map((item, i) => (
-        <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
-          <span className="text-primary mt-0.5">•</span>
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground font-medium">{val}</span>
+    </div>
   );
 }
 
-function SwotBox({ title, items, className = '' }: { title: string; items?: string[]; className?: string }) {
+function SwotBox({ title, items, bg, border }: { title: string; items?: string[]; bg: string; border: string }) {
   return (
-    <div className={`rounded-lg border p-3 ${className}`}>
-      <h4 className="text-xs font-bold mb-1.5">{title}</h4>
-      <ul className="space-y-0.5">
+    <div className="rounded-xl p-4" style={{ background: bg, border: `1px solid ${border}` }}>
+      <h4 className="text-xs font-bold mb-2">{title}</h4>
+      <ul className="space-y-1">
         {(items || []).map((item, i) => (
           <li key={i} className="text-[11px] text-foreground">• {item}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function RecoBlock({ emoji, title, text, color }: { emoji: string; title: string; text: string; color: string }) {
+  return (
+    <div className="bg-card border border-border rounded-xl p-5" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+      <h4 className="text-sm font-bold mb-2">{emoji} {title}</h4>
+      <p className="text-xs text-muted-foreground leading-relaxed">{text}</p>
     </div>
   );
 }

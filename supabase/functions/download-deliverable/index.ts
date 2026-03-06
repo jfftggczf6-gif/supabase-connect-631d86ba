@@ -103,37 +103,144 @@ function toArr(val: any): string[] {
 // ===== BMC HTML =====
 function bmcHTML(data: any, ent: string): string {
   const c = data.canvas || {};
-  const canvasGrid = `<div class="card"><h2>📊 Business Model Canvas</h2>
-<table><tr>
-<th>Partenaires clés</th><th>Activités clés</th><th>Proposition de valeur</th><th>Relation client</th><th>Segments clients</th>
-</tr><tr>
-<td>${toArr(c.partenaires_cles).map((s:string)=>`• ${s}`).join('<br>')}</td>
-<td>${toArr(c.activites_cles).map((s:string)=>`• ${s}`).join('<br>')}</td>
-<td>${toArr(c.proposition_valeur).map((s:string)=>`• ${s}`).join('<br>')}</td>
-<td>${toArr(c.relation_client || c.relations_clients).map((s:string)=>`• ${s}`).join('<br>')}</td>
-<td>${toArr(c.segments_clients).map((s:string)=>`• ${s}`).join('<br>')}</td>
-</tr><tr>
-<th colspan="2">Structure de coûts</th><th>Ressources clés</th><th colspan="2">Flux de revenus</th>
-</tr><tr>
-<td colspan="2">${toArr(c.structure_couts).map((s:string)=>`• ${s}`).join('<br>')}</td>
-<td>${toArr(c.ressources_cles).map((s:string)=>`• ${s}`).join('<br>')}</td>
-<td colspan="2">${toArr(c.flux_revenus).map((s:string)=>`• ${s}`).join('<br>')}</td>
-</tr></table></div>`;
+  const diag = data.diagnostic || {};
+  const swot = data.swot || {};
+  const reco = data.recommandations || {};
+  const scores = diag.scores_par_bloc || {};
+  const scoreGlobal = data.score_global ?? data.score ?? null;
 
-  let swotHtml = '';
-  if (data.swot) {
-    swotHtml = `<div class="card"><h2>🧭 Analyse SWOT</h2><div class="swot-grid">
-<div class="swot-box swot-s"><h4>✅ Forces</h4><ul>${toArr(data.swot.forces).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
-<div class="swot-box swot-w"><h4>⚠️ Faiblesses</h4><ul>${toArr(data.swot.faiblesses).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
-<div class="swot-box swot-o"><h4>🚀 Opportunités</h4><ul>${toArr(data.swot.opportunites).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
-<div class="swot-box swot-t"><h4>🔴 Menaces</h4><ul>${toArr(data.swot.menaces).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
+  const blocLabels: Record<string,string> = {
+    proposition_valeur:'Proposition de Valeur',activites_cles:'Activités Clés',ressources_cles:'Ressources Clés',
+    segments_clients:'Segments Clients',relations_clients:'Relations Clients',flux_revenus:'Flux de Revenus',
+    partenaires_cles:'Partenaires Clés',canaux:'Canaux',structure_couts:'Structure de Coûts',
+  };
+  const barColor = (s:number) => s>=80?'green':s>=60?'yellow':'red';
+
+  // Hero
+  let body = `<div class="hero">
+<h1>BUSINESS MODEL CANVAS</h1>
+<p class="enterprise">${ent}</p>
+${data.resume ? `<p class="sub" style="font-style:italic;max-width:600px">"${data.resume}"</p>` : ''}
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+${(data.tags||[]).map((t:string)=>`<span style="padding:4px 12px;border-radius:20px;background:rgba(255,255,255,0.15);font-size:11px;font-weight:600">${t}</span>`).join('')}
+</div>
+${scoreGlobal!=null?`<div class="score-circle"><span class="num">${scoreGlobal}</span><span class="lbl">%</span></div>`:''}
+</div>`;
+
+  // Canvas 5-col grid
+  const cellStyle = 'style="vertical-align:top;padding:16px;border:1px solid #e2e8f0;background:#fff;min-height:160px"';
+  const cellTitle = (t:string) => `<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a2744;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:8px">${t}</div>`;
+
+  const segItems = [
+    c.segments_clients?.principal,
+    c.segments_clients?.zone?`Zone: ${c.segments_clients.zone}`:null,
+    c.segments_clients?.type_marche?`Type: ${c.segments_clients.type_marche}`:null,
+    c.segments_clients?.probleme_resolu?`Problème résolu: ${c.segments_clients.probleme_resolu}`:null,
+    c.segments_clients?.taille_marche?`Taille marché: ${c.segments_clients.taille_marche}`:null,
+  ].filter(Boolean);
+
+  const relItems = [c.relations_clients?.type, ...toArr(c.relations_clients?.items||c.relations_clients)].filter(Boolean);
+
+  const pvItems = c.proposition_valeur?.enonce
+    ? [`<strong>${c.proposition_valeur.enonce}</strong>`, ...(c.proposition_valeur.avantages||[]).map((a:string)=>`✓ ${a}`)]
+    : toArr(c.proposition_valeur);
+
+  body += `<div class="card" style="padding:0;overflow:hidden"><h2 style="padding:20px 20px 12px;margin:0;border:0">CANVAS — VUE D'ENSEMBLE</h2>
+<table style="margin:0;border-collapse:collapse;table-layout:fixed"><tr>
+<td ${cellStyle}>${cellTitle('PARTENAIRES CLÉS')}${toArr(c.partenaires_cles).map(s=>`<div style="font-size:11px;color:#475569;margin-bottom:3px">• ${s}</div>`).join('')}${c.partenaires_cles?.element_critique?`<div style="font-size:10px;color:#dc2626;font-weight:600;margin-top:6px">⚠ CRITIQUE: ${c.partenaires_cles.element_critique}</div>`:''}</td>
+<td ${cellStyle}>${cellTitle('ACTIVITÉS CLÉS')}${toArr(c.activites_cles).map(s=>`<div style="font-size:11px;color:#475569;margin-bottom:3px">• ${s}</div>`).join('')}</td>
+<td ${cellStyle} style="vertical-align:top;padding:16px;border:1px solid #e2e8f0;background:#f0f4ff;min-height:160px">${cellTitle('PROPOSITION DE VALEUR')}${pvItems.map(s=>`<div style="font-size:11px;color:#475569;margin-bottom:3px">${s}</div>`).join('')}</td>
+<td ${cellStyle}>${cellTitle('RELATIONS CLIENTS')}${relItems.map(s=>`<div style="font-size:11px;color:#475569;margin-bottom:3px">• ${s}</div>`).join('')}</td>
+<td ${cellStyle}>${cellTitle('SEGMENTS CLIENTS')}${segItems.map(s=>`<div style="font-size:11px;color:#475569;margin-bottom:3px">• ${s}</div>`).join('')}</td>
+</tr></table>`;
+
+  // Ressources clés row
+  body += `<div style="padding:16px 20px;border-top:1px solid #e2e8f0">
+<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a2744;margin-bottom:8px">RESSOURCES CLÉS</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;color:#475569">`;
+  if (c.ressources_cles?.categories) {
+    for (const [k,v] of Object.entries(c.ressources_cles.categories)) {
+      body += `<div><strong style="text-transform:capitalize">${k}:</strong> ${v}</div>`;
+    }
+  } else {
+    toArr(c.ressources_cles).forEach(s => { body += `<div>• ${s}</div>`; });
+  }
+  body += `</div></div></div>`;
+
+  // Structure de coûts + Flux de revenus
+  body += `<div class="grid-2">`;
+  // Coûts
+  body += `<div class="card"><h2 style="font-size:15px">STRUCTURE DE COÛTS</h2>`;
+  (c.structure_couts?.postes||[]).forEach((p:any) => {
+    body += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f1f5f9"><span>${p.libelle}</span><span style="color:#64748b">${p.montant} (${p.type||''} · ${p.pourcentage}%)</span></div>`;
+  });
+  if (c.structure_couts?.total_mensuel) body += `<p style="font-weight:700;margin-top:12px;padding-top:8px;border-top:2px solid #e2e8f0">TOTAL ≈ ${c.structure_couts.total_mensuel}</p>`;
+  if (c.structure_couts?.cout_critique) body += `<p style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px">Coût critique: ${c.structure_couts.cout_critique}</p>`;
+  body += `</div>`;
+  // Revenus
+  body += `<div class="card"><h2 style="font-size:15px">FLUX DE REVENUS</h2>`;
+  const revFields = [
+    ['Produit principal', c.flux_revenus?.produit_principal],
+    ['Prix moyen', c.flux_revenus?.prix_moyen],
+    ["Fréquence d'achat", c.flux_revenus?.frequence_achat],
+    ['Volume estimé', c.flux_revenus?.volume_estime],
+    ['Mode de paiement', c.flux_revenus?.mode_paiement],
+  ];
+  revFields.forEach(([l,v]) => {
+    if (v) body += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#64748b">${l}</span><span style="font-weight:500">${v}</span></div>`;
+  });
+  if (c.flux_revenus?.ca_mensuel || c.flux_revenus?.marge_brute) {
+    body += `<div style="margin-top:12px;padding-top:8px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between">`;
+    if (c.flux_revenus?.ca_mensuel) body += `<div><div style="font-size:10px;color:#64748b">CA mensuel</div><div style="font-size:14px;font-weight:700">≈ ${c.flux_revenus.ca_mensuel}</div></div>`;
+    if (c.flux_revenus?.marge_brute) body += `<div><div style="font-size:10px;color:#64748b">Marge brute</div><div style="font-size:14px;font-weight:700">≈ ${c.flux_revenus.marge_brute}</div></div>`;
+    body += `</div>`;
+  }
+  body += `</div></div>`;
+
+  // Diagnostic Expert
+  body += `<div class="card"><h2>DIAGNOSTIC EXPERT</h2>
+<p style="font-size:12px;color:#64748b;margin-bottom:16px">Scores par bloc BMC — Score global : <strong style="color:#1e293b">${scoreGlobal??'—'}%</strong></p>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">`;
+  for (const [key,val] of Object.entries(scores) as [string,any][]) {
+    const s = val?.score||0;
+    const col = barColor(s);
+    body += `<div style="padding:12px;border:1px solid #e2e8f0;border-radius:8px">
+<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;font-weight:600">${blocLabels[key]||key}</span><span style="font-size:12px;font-weight:700" class="badge badge-${col}">${s}%</span></div>
+<div class="progress-bar"><div class="progress-fill ${col}" style="width:${s}%"></div></div>
+${val?.commentaire?`<p style="font-size:10px;color:#64748b;margin-top:6px">${val.commentaire}</p>`:''}
+</div>`;
+  }
+  body += `</div></div>`;
+
+  // Forces & Points de vigilance
+  body += `<div class="grid-2">
+<div class="card" style="background:#f0fdf4;border-color:#bbf7d0"><h2 style="color:#166534">✅ Forces</h2><ul>${(diag.forces||[]).map((f:string)=>`<li>${f}</li>`).join('')}</ul></div>
+<div class="card" style="background:#fefce8;border-color:#fef08a"><h2 style="color:#854d0e">⚠️ Points de vigilance</h2><ul>${(diag.points_vigilance||[]).map((p:string)=>`<li>${p}</li>`).join('')}</ul></div>
+</div>`;
+
+  // SWOT
+  if (swot.forces || swot.faiblesses || swot.opportunites || swot.menaces) {
+    body += `<div class="card"><h2>MATRICE SWOT SYNTHÉTIQUE</h2><div class="swot-grid">
+<div class="swot-box swot-s"><h4>FORCES</h4><ul>${(swot.forces||[]).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
+<div class="swot-box swot-w"><h4>FAIBLESSES</h4><ul>${(swot.faiblesses||[]).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
+<div class="swot-box swot-o"><h4>OPPORTUNITÉS</h4><ul>${(swot.opportunites||[]).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
+<div class="swot-box swot-t"><h4>MENACES</h4><ul>${(swot.menaces||[]).map((s:string)=>`<li>${s}</li>`).join('')}</ul></div>
 </div></div>`;
   }
 
-  const recsArr = toArr(data.recommandations);
-  const recs = recsArr.length > 0 ? `<div class="card"><h2>🎯 Recommandations</h2><ul>${recsArr.map((r:string)=>`<li>${r}</li>`).join('')}</ul></div>` : '';
+  // Recommandations
+  if (reco.court_terme || reco.moyen_terme || reco.long_terme) {
+    body += `<div class="card"><h2>RECOMMANDATIONS STRATÉGIQUES</h2>`;
+    if (reco.court_terme) body += `<div style="border-left:4px solid #22c55e;padding:12px 16px;margin-bottom:12px;border-radius:0 8px 8px 0;background:#f0fdf4"><h3 style="margin:0 0 4px">📌 Court terme — Consolider les fondations</h3><p style="font-size:12px;color:#475569">${reco.court_terme}</p></div>`;
+    if (reco.moyen_terme) body += `<div style="border-left:4px solid #3b82f6;padding:12px 16px;margin-bottom:12px;border-radius:0 8px 8px 0;background:#eff6ff"><h3 style="margin:0 0 4px">📈 Moyen terme — Croissance maîtrisée</h3><p style="font-size:12px;color:#475569">${reco.moyen_terme}</p></div>`;
+    if (reco.long_terme) body += `<div style="border-left:4px solid #8b5cf6;padding:12px 16px;margin-bottom:12px;border-radius:0 8px 8px 0;background:#f5f3ff"><h3 style="margin:0 0 4px">🚀 Long terme — Industrialisation et marque</h3><p style="font-size:12px;color:#475569">${reco.long_terme}</p></div>`;
+    body += `</div>`;
+  }
 
-  return htmlShell('Business Model Canvas', data.score, canvasGrid + swotHtml + recs, ent);
+  // Footer quote
+  body += `<div style="text-align:center;margin-top:24px;padding:16px;font-size:12px;color:#94a3b8;font-style:italic">"Les chiffres ne servent pas à juger le passé, mais à décider le futur."</div>`;
+
+  return htmlShell('Business Model Canvas', scoreGlobal, body, ent);
 }
 
 // ===== SIC HTML =====
