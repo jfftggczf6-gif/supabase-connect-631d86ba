@@ -210,7 +210,7 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 8000,
+          max_tokens: 16384,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
         }),
@@ -221,19 +221,47 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
       }
 
       const result = await response.json();
+      
+      // Vérifier si la réponse a été tronquée
+      const stopReason = result.stop_reason;
+      if (stopReason === "max_tokens") {
+        console.warn("[Claude] Response truncated (max_tokens reached), attempting JSON repair...");
+      }
+
       const rawText = result.content
         .filter((b: { type: string }) => b.type === "text")
         .map((b: { text: string }) => b.text)
         .join("");
 
       // Nettoyer les backticks markdown si présents
-      const cleaned = rawText
+      let cleaned = rawText
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
         .replace(/\s*```$/i, "")
         .trim();
 
-      const parsed = JSON.parse(cleaned);
+      // Tentative de réparation JSON si tronqué
+      try {
+        return JSON.parse(cleaned);
+      } catch (parseErr) {
+        if (stopReason === "max_tokens") {
+          console.warn("[Claude] Repairing truncated JSON...");
+          // Supprimer la dernière entrée incomplète
+          cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^}\]]*$/, "");
+          cleaned = cleaned.replace(/,\s*\{[^}]*$/, "");
+          // Fermer les structures ouvertes
+          const openBraces = (cleaned.match(/{/g) || []).length;
+          const closeBraces = (cleaned.match(/}/g) || []).length;
+          const openBrackets = (cleaned.match(/\[/g) || []).length;
+          const closeBrackets = (cleaned.match(/]/g) || []).length;
+          for (let i = 0; i < openBrackets - closeBrackets; i++) cleaned += "]";
+          for (let i = 0; i < openBraces - closeBraces; i++) cleaned += "}";
+          const parsed = JSON.parse(cleaned);
+          console.log("[Claude] JSON repair successful");
+          return parsed;
+        }
+        throw parseErr;
+      }
       console.log(`[Claude] OK — products: ${parsed.products?.length}, services: ${parsed.services?.length}`);
       return parsed;
 
