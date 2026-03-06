@@ -268,9 +268,13 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
       } catch (parseErr) {
         if (stopReason === "max_tokens") {
           console.warn("[Claude] Repairing truncated JSON...");
-          // Supprimer la dernière entrée incomplète
-          cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^}\]]*$/, "");
-          cleaned = cleaned.replace(/,\s*\{[^}]*$/, "");
+          // Supprimer les entrées incomplètes (per_year arrays, objets partiels)
+          cleaned = cleaned.replace(/,\s*\{[^}]*$/g, "");
+          cleaned = cleaned.replace(/,\s*\[[^\]]*$/g, "");
+          cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^}\]]*$/g, "");
+          cleaned = cleaned.replace(/,\s*"per_year"\s*:\s*\[[^\]]*$/g, "");
+          // Nettoyer les virgules trailing
+          cleaned = cleaned.replace(/,\s*([}\]])/g, "$1");
           // Fermer les structures ouvertes
           const openBraces = (cleaned.match(/{/g) || []).length;
           const closeBraces = (cleaned.match(/}/g) || []).length;
