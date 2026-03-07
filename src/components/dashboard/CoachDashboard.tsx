@@ -1,114 +1,302 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 import DashboardLayout from './DashboardLayout';
+import DeliverableViewer from './DeliverableViewer';
+import BmcViewer from './BmcViewer';
+import SicViewer from './SicViewer';
+import BusinessPlanPreview from './BusinessPlanPreview';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Users, Building2, CheckCircle2, Clock, ChevronRight, LayoutGrid, Globe, BarChart3, Stethoscope, ListChecks, FileText, Target, Download, Sparkles, Loader2, X, FileBarChart } from 'lucide-react';
-import BmcViewer from './BmcViewer';
-import SicViewer from './SicViewer';
-import DeliverableViewer from './DeliverableViewer';
-import BusinessPlanPreview from './BusinessPlanPreview';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import {
+  Users, Building2, CheckCircle2, TrendingUp, ChevronRight,
+  Plus, Download, Sparkles, Loader2, ArrowLeft, Eye, Lock,
+  Share2, FileText, BarChart3, Globe, LayoutGrid, FileSpreadsheet,
+  Stethoscope, ListChecks, Target, Upload, X, RefreshCw,
+  AlertCircle, FileCheck, UserPlus, Search, Filter
+} from 'lucide-react';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const MODULE_CONFIG = [
-  { code: 'bmc' as const, title: 'Business Model Canvas', icon: LayoutGrid },
-  { code: 'sic' as const, title: 'Social Impact Canvas', icon: Globe },
-  { code: 'framework' as const, title: 'Plan Financier Intermédiaire', icon: BarChart3 },
-  { code: 'diagnostic' as const, title: 'Diagnostic Expert', icon: Stethoscope },
-  { code: 'plan_ovo' as const, title: 'Plan Financier Final', icon: ListChecks },
-  { code: 'business_plan' as const, title: 'Business Plan', icon: FileText },
-  { code: 'odd' as const, title: 'Due Diligence ODD', icon: Target },
+  { code: 'bmc',           title: 'Business Model Canvas',       icon: LayoutGrid,      color: '#059669' },
+  { code: 'sic',           title: 'Social Impact Canvas',        icon: Globe,           color: '#7c3aed' },
+  { code: 'inputs',        title: 'Données Financières',         icon: FileSpreadsheet, color: '#d97706' },
+  { code: 'framework',     title: 'Plan Financier Interm.',      icon: BarChart3,       color: '#2563eb' },
+  { code: 'diagnostic',    title: 'Diagnostic Expert',           icon: Stethoscope,     color: '#1e3a5f' },
+  { code: 'plan_ovo',      title: 'Plan Financier Final',        icon: ListChecks,      color: '#ea580c' },
+  { code: 'business_plan', title: 'Business Plan',               icon: FileText,        color: '#4338ca' },
+  { code: 'odd',           title: 'Due Diligence ODD',           icon: Target,          color: '#0891b2' },
 ];
 
 const DELIV_MAP: Record<string, string> = {
-  bmc: 'bmc_analysis', sic: 'sic_analysis',
+  bmc: 'bmc_analysis', sic: 'sic_analysis', inputs: 'inputs_data',
   framework: 'framework_data', diagnostic: 'diagnostic_data',
   plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
 };
 
+const PIPELINE = [
+  { name: 'BMC',           fn: 'generate-bmc',           type: 'bmc_analysis'    },
+  { name: 'SIC',           fn: 'generate-sic',           type: 'sic_analysis'    },
+  { name: 'Inputs',        fn: 'generate-inputs',        type: 'inputs_data'     },
+  { name: 'Framework',     fn: 'generate-framework',     type: 'framework_data'  },
+  { name: 'Diagnostic',    fn: 'generate-diagnostic',    type: 'diagnostic_data' },
+  { name: 'Plan OVO',      fn: 'generate-plan-ovo',      type: 'plan_ovo'        },
+  { name: 'Business Plan', fn: 'generate-business-plan', type: 'business_plan'   },
+  { name: 'ODD',           fn: 'generate-odd',           type: 'odd_analysis'    },
+];
+
+const SECTORS = [
+  'Agriculture / Agroalimentaire', 'Tech / Digital', 'Commerce / Distribution',
+  'Services / Conseil', 'Industrie / Manufacture', 'BTP / Construction',
+  'Énergie / Environnement', 'Santé / Pharma', 'Éducation / Formation',
+  'Transport / Logistique', 'Finance / Assurance', 'Artisanat', 'Autre',
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getScoreBg(score: number) {
+  if (score >= 70) return 'bg-green-100 text-green-700 border-green-200';
+  if (score >= 40) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  return 'bg-red-100 text-red-700 border-red-200';
+}
+
+function getPhaseLabel(phase: string) {
+  switch (phase) {
+    case 'identite': return { label: 'Identité', color: '#7c3aed' };
+    case 'finance':  return { label: 'Finance',  color: '#2563eb' };
+    case 'dossier':  return { label: 'Dossier',  color: '#059669' };
+    default:         return { label: 'Identité', color: '#7c3aed' };
+  }
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type View = 'list' | 'detail';
+type DetailTab = 'parcours' | 'mirror' | 'livrables';
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function CoachDashboard() {
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
+
+  const [view, setView] = useState<View>('list');
+  const [selectedEnt, setSelectedEnt] = useState<any>(null);
+  const [detailTab, setDetailTab] = useState<DetailTab>('parcours');
+  const [selectedModule, setSelectedModule] = useState('diagnostic');
+
   const [enterprises, setEnterprises] = useState<any[]>([]);
   const [modulesMap, setModulesMap] = useState<Record<string, any[]>>({});
   const [deliverablesMap, setDeliverablesMap] = useState<Record<string, any[]>>({});
-  const [selectedEnterprise, setSelectedEnterprise] = useState<any>(null);
-  const [selectedModule, setSelectedModule] = useState<string>('bmc');
+  const [uploadsMap, setUploadsMap] = useState<Record<string, any[]>>({});
+
+  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingMirror, setGeneratingMirror] = useState(false);
+  const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
+  const [sharingId, setSharingId] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [filterPhase, setFilterPhase] = useState('');
+  const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', contact_name: '', contact_email: '', contact_phone: '', sector: '', country: "Côte d'Ivoire" });
+  const [addLoading, setAddLoading] = useState(false);
+
+  const bmcInputRef = useRef<HTMLInputElement>(null);
+  const inputsInputRef = useRef<HTMLInputElement>(null);
+  const suppInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Data loading ─────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from('enterprises').select('*').eq('coach_id', user.id);
-    setEnterprises(data || []);
+    setLoading(true);
+    try {
+      const { data: ents } = await supabase
+        .from('enterprises')
+        .select('*')
+        .eq('coach_id', user.id)
+        .order('updated_at', { ascending: false });
 
-    if (data && data.length > 0) {
-      const ids = data.map(e => e.id);
-      const [modsRes, delivsRes] = await Promise.all([
-        supabase.from('enterprise_modules').select('*').in('enterprise_id', ids),
-        supabase.from('deliverables').select('*').in('enterprise_id', ids),
-      ]);
+      setEnterprises(ents || []);
 
-      const modMap: Record<string, any[]> = {};
-      (modsRes.data || []).forEach(m => {
-        if (!modMap[m.enterprise_id]) modMap[m.enterprise_id] = [];
-        modMap[m.enterprise_id].push(m);
-      });
-      setModulesMap(modMap);
+      if (ents && ents.length > 0) {
+        const ids = ents.map(e => e.id);
+        const [modsRes, delivsRes, uploadsRes] = await Promise.all([
+          supabase.from('enterprise_modules').select('*').in('enterprise_id', ids),
+          supabase.from('deliverables').select('*').in('enterprise_id', ids),
+          supabase.from('coach_uploads').select('*').eq('coach_id', user.id).in('enterprise_id', ids),
+        ]);
 
-      const delMap: Record<string, any[]> = {};
-      (delivsRes.data || []).forEach(d => {
-        if (!delMap[d.enterprise_id]) delMap[d.enterprise_id] = [];
-        delMap[d.enterprise_id].push(d);
-      });
-      setDeliverablesMap(delMap);
+        const modMap: Record<string, any[]> = {};
+        (modsRes.data || []).forEach(m => {
+          if (!modMap[m.enterprise_id]) modMap[m.enterprise_id] = [];
+          modMap[m.enterprise_id].push(m);
+        });
+        setModulesMap(modMap);
+
+        const delMap: Record<string, any[]> = {};
+        (delivsRes.data || []).forEach(d => {
+          if (!delMap[d.enterprise_id]) delMap[d.enterprise_id] = [];
+          delMap[d.enterprise_id].push(d);
+        });
+        setDeliverablesMap(delMap);
+
+        const upMap: Record<string, any[]> = {};
+        (uploadsRes.data || []).forEach(u => {
+          if (!upMap[u.enterprise_id]) upMap[u.enterprise_id] = [];
+          upMap[u.enterprise_id].push(u);
+        });
+        setUploadsMap(upMap);
+      }
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ─── KPIs ─────────────────────────────────────────────────────────────────
+
   const totalEntreprises = enterprises.length;
-  const completedModules = Object.values(modulesMap).flat().filter(m => m.status === 'completed').length;
-  const totalModules = Object.values(modulesMap).flat().length;
+  const allScores = enterprises.map((e: any) => e.score_ir || 0).filter((s: number) => s > 0);
+  const avgScore = allScores.length > 0 ? Math.round(allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length) : 0;
+  const allDelivs = Object.values(deliverablesMap).flat();
+  const delivsThisWeek = allDelivs.filter(d => {
+    const date = new Date(d.created_at || d.updated_at);
+    return Date.now() - date.getTime() < 7 * 24 * 60 * 60 * 1000;
+  }).length;
+  const allMods = Object.values(modulesMap).flat();
+  const completedMods = allMods.filter(m => m.status === 'completed').length;
 
-  const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+  // ─── Add Entrepreneur ────────────────────────────────────────────────────
 
-  const PIPELINE = [
-    { name: "BMC", fn: "generate-bmc", type: "bmc_analysis" },
-    { name: "SIC", fn: "generate-sic", type: "sic_analysis" },
-    { name: "Inputs", fn: "generate-inputs", type: "inputs_data" },
-    { name: "Framework", fn: "generate-framework", type: "framework_data" },
-    { name: "Diagnostic", fn: "generate-diagnostic", type: "diagnostic_data" },
-    { name: "Plan OVO", fn: "generate-plan-ovo", type: "plan_ovo" },
-    { name: "Business Plan", fn: "generate-business-plan", type: "business_plan" },
-    { name: "ODD", fn: "generate-odd", type: "odd_analysis" },
-  ];
+  const handleAddEntrepreneur = async () => {
+    if (!addForm.name.trim() || !user) return;
+    setAddLoading(true);
+    try {
+      const { error } = await supabase.from('enterprises').insert({
+        name: addForm.name.trim(),
+        sector: addForm.sector || null,
+        country: addForm.country,
+        contact_name: addForm.contact_name || null,
+        contact_email: addForm.contact_email || null,
+        contact_phone: addForm.contact_phone || null,
+        coach_id: user.id,
+        user_id: user.id,
+        phase: 'identite',
+        score_ir: 0,
+      } as any);
 
-  const handleGenerateAll = async (enterpriseId: string, force = false) => {
+      if (error) throw error;
+
+      toast.success(`${addForm.name} ajouté avec succès`);
+      setShowAddModal(false);
+      setAddForm({ name: '', contact_name: '', contact_email: '', contact_phone: '', sector: '', country: "Côte d'Ivoire" });
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'ajout");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  // ─── Upload (Parcours Rapide) ─────────────────────────────────────────────
+
+  const handleUpload = async (file: File, category: string, enterpriseId: string) => {
+    if (!file || !user) return;
+    setUploadingCategory(category);
+    try {
+      const filePath = `${enterpriseId}/coach/${category}/${Date.now()}_${file.name}`;
+      const { error: storageError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, { upsert: true });
+
+      if (storageError) throw storageError;
+
+      if (category === 'bmc_sic') {
+        const existingUploads = uploadsMap[enterpriseId] || [];
+        const toDelete = existingUploads.filter((u: any) => u.category === 'bmc' || u.category === 'sic');
+        for (const u of toDelete) {
+          await supabase.from('coach_uploads').delete().eq('id', u.id);
+          await supabase.storage.from('documents').remove([u.storage_path]);
+        }
+        await supabase.from('coach_uploads').insert([
+          { coach_id: user.id, enterprise_id: enterpriseId, category: 'bmc', filename: file.name, file_size: file.size, storage_path: filePath },
+          { coach_id: user.id, enterprise_id: enterpriseId, category: 'sic', filename: file.name, file_size: file.size, storage_path: filePath },
+        ]);
+      } else {
+        const existingUploads = uploadsMap[enterpriseId] || [];
+        const existing = existingUploads.filter((u: any) => u.category === category);
+        for (const u of existing) {
+          await supabase.from('coach_uploads').delete().eq('id', u.id);
+          await supabase.storage.from('documents').remove([u.storage_path]);
+        }
+        await supabase.from('coach_uploads').insert({
+          coach_id: user.id, enterprise_id: enterpriseId,
+          category, filename: file.name, file_size: file.size, storage_path: filePath,
+        });
+      }
+
+      toast.success(`${file.name} uploadé`);
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur d'upload");
+    } finally {
+      setUploadingCategory(null);
+    }
+  };
+
+  const handleRemoveUpload = async (uploadId: string, storagePath: string) => {
+    if (!confirm('Supprimer ce fichier ?')) return;
+    try {
+      await supabase.from('coach_uploads').delete().eq('id', uploadId);
+      await supabase.storage.from('documents').remove([storagePath]);
+      toast.success('Fichier supprimé');
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  // ─── Generate (Parcours Rapide) ───────────────────────────────────────────
+
+  const handleGenerateCoach = async (enterpriseId: string) => {
+    if (!user) return;
     setGenerating(true);
+    const entUploads = uploadsMap[enterpriseId] || [];
+    if (entUploads.length === 0) {
+      toast.error('Uploadez au moins un document avant de générer');
+      setGenerating(false);
+      return;
+    }
+
     let completed = 0;
-    const scores: number[] = [];
     const errors: string[] = [];
-    const delivs = deliverablesMap[enterpriseId] || [];
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { toast.error('Non authentifié'); setGenerating(false); return; }
+
+    const stepsToRun = PIPELINE.filter(step => {
+      const hasBmc = entUploads.some((u: any) => u.category === 'bmc');
+      const hasSic = entUploads.some((u: any) => u.category === 'sic');
+      const hasInputs = entUploads.some((u: any) => u.category === 'inputs');
+      if (step.type === 'bmc_analysis') return hasBmc;
+      if (step.type === 'sic_analysis') return hasSic;
+      if (step.type === 'inputs_data') return hasInputs;
+      if (['framework_data', 'diagnostic_data', 'plan_ovo'].includes(step.type)) return hasBmc || hasInputs;
+      if (['business_plan', 'odd_analysis'].includes(step.type)) return hasBmc && hasSic && hasInputs;
+      return true;
+    });
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non authentifié");
-
-      for (let i = 0; i < PIPELINE.length; i++) {
-        const step = PIPELINE[i];
-        setGenerationProgress({ current: i + 1, total: PIPELINE.length, name: step.name });
-
-        const existing = delivs.find((d: any) => d.type === step.type);
-        if (!force && existing?.data && typeof existing.data === 'object' && Object.keys(existing.data as object).length > 0) {
-          completed++;
-          if (existing.score) scores.push(existing.score);
-          continue;
-        }
+      for (let i = 0; i < stepsToRun.length; i++) {
+        const step = stepsToRun[i];
+        setGenerationProgress({ current: i + 1, total: stepsToRun.length, name: step.name });
 
         try {
           const response = await fetch(
@@ -121,11 +309,14 @@ export default function CoachDashboard() {
           );
 
           if (response.ok) {
-            const result = await response.json();
             completed++;
-            if (result.score) scores.push(result.score);
+            await response.json();
+            await supabase.from('deliverables')
+              .update({ generated_by: 'coach', visibility: 'private', coach_id: user.id } as any)
+              .eq('enterprise_id', enterpriseId)
+              .eq('type', step.type as any);
           } else {
-            const err = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+            const err = await response.json().catch(() => ({ error: 'Erreur' }));
             if (response.status === 402) {
               toast.error("Crédits IA insuffisants.");
               break;
@@ -133,276 +324,883 @@ export default function CoachDashboard() {
             errors.push(`${step.name}: ${err.error || 'Erreur'}`);
           }
         } catch (e: any) {
-          errors.push(`${step.name}: ${e.message || 'Erreur réseau'}`);
+          errors.push(`${step.name}: ${e.message}`);
         }
       }
 
-      const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-      toast.success(`${completed} livrables générés ! Score: ${avgScore}/100`);
+      toast.success(`${completed} livrable(s) générés — 🔒 privés par défaut`);
       if (errors.length > 0) toast.warning(`${errors.length} module(s) en erreur`);
       await fetchData();
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
     } finally {
       setGenerating(false);
       setGenerationProgress(null);
     }
   };
 
-  const handleDownloadCoachingReport = async (enterpriseId: string) => {
+  // ─── Generate Mirror (Vue Miroir) ─────────────────────────────────────────
+
+  const handleGenerateMirror = async (enterpriseId: string) => {
+    if (!user) return;
+    setGeneratingMirror(true);
+    const entUploads = uploadsMap[enterpriseId] || [];
+    if (entUploads.length === 0) {
+      toast.error('Uploadez des documents dans la sidebar avant de générer');
+      setGeneratingMirror(false);
+      return;
+    }
+
+    let completed = 0;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { toast.error('Non authentifié'); setGeneratingMirror(false); return; }
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non authentifié");
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=coaching_report&enterprise_id=${enterpriseId}&format=html`;
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } });
-      if (!response.ok) throw new Error('Erreur');
-      const blob = await response.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `rapport_coaching.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
-      toast.success('Rapport coaching téléchargé !');
+      for (let i = 0; i < PIPELINE.length; i++) {
+        const step = PIPELINE[i];
+        setGenerationProgress({ current: i + 1, total: PIPELINE.length, name: step.name });
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.fn}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({ enterprise_id: enterpriseId }),
+            }
+          );
+          if (response.ok) {
+            completed++;
+            await supabase.from('deliverables')
+              .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() } as any)
+              .eq('enterprise_id', enterpriseId)
+              .eq('type', step.type as any);
+          }
+        } catch {}
+      }
+      toast.success(`${completed} livrable(s) — visibles par l'entrepreneur`);
+      await fetchData();
+    } finally {
+      setGeneratingMirror(false);
+      setGenerationProgress(null);
+    }
+  };
+
+  // ─── Share / Unshare ──────────────────────────────────────────────────────
+
+  const handleShare = async (deliverableId: string) => {
+    setSharingId(deliverableId);
+    try {
+      await supabase.from('deliverables')
+        .update({ visibility: 'shared', shared_at: new Date().toISOString() } as any)
+        .eq('id', deliverableId);
+      toast.success("Livrable partagé avec l'entrepreneur");
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSharingId(null);
+    }
+  };
+
+  const handleShareAll = async (enterpriseId: string) => {
+    if (!confirm("Partager tous les livrables privés avec l'entrepreneur ?")) return;
+    try {
+      const now = new Date().toISOString();
+      await supabase.from('deliverables')
+        .update({ visibility: 'shared', shared_at: now } as any)
+        .eq('enterprise_id', enterpriseId)
+        .eq('visibility' as any, 'private');
+      toast.success('Tous les livrables partagés !');
+      await fetchData();
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  const handleDownload = async (type: string, enterpriseId: string) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non authentifié");
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterpriseId}&format=html`;
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } });
-      if (!response.ok) throw new Error('Erreur');
-      const blob = await response.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${type}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
-      toast.success('Téléchargé !');
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
+  // ─── Download Report ──────────────────────────────────────────────────────
 
-  // Enterprise detail view
-  if (selectedEnterprise) {
-    const ent = selectedEnterprise;
-    const mods = modulesMap[ent.id] || [];
+  const handleDownloadReport = (ent: any) => {
     const delivs = deliverablesMap[ent.id] || [];
-    const getDeliverable = (type: string) => delivs.find(d => d.type === type);
-    const getModuleData = (code: string) => {
-      const mod = mods.find(m => m.module === code);
-      return { status: mod?.status || 'not_started', progress: mod?.progress || 0 };
+    const mods = modulesMap[ent.id] || [];
+    const entAvgScore = delivs.length > 0
+      ? Math.round(delivs.reduce((s: number, d: any) => s + (d.score || 0), 0) / delivs.length)
+      : ent.score_ir || 0;
+    const completed = mods.filter((m: any) => m.status === 'completed').length;
+    const total = mods.length || 8;
+
+    const scoreColor = entAvgScore >= 70 ? '#059669' : entAvgScore >= 40 ? '#d97706' : '#dc2626';
+    const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const moduleRows = MODULE_CONFIG.map(mod => {
+      const m = mods.find((x: any) => x.module === mod.code);
+      const d = delivs.find((x: any) => x.type === DELIV_MAP[mod.code]);
+      const status = m?.status || 'not_started';
+      const score = d?.score || 0;
+      const statusLabel = status === 'completed' ? '✅ Terminé' : status === 'in_progress' ? '🔄 En cours' : '⏳ À démarrer';
+      return `<tr>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:13px">${mod.title}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:12px">${statusLabel}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:12px;color:${score > 0 ? scoreColor : '#94a3b8'}">${score > 0 ? `${score}/100` : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Rapport d'avancement — ${ent.name}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:#f8fafc; color:#1e293b; padding:40px; }
+    .header { background:linear-gradient(135deg,#1e3a5f,#2563eb); color:white; padding:32px 40px; border-radius:16px; margin-bottom:32px; }
+    .header h1 { font-size:24px; font-weight:800; margin-bottom:4px; }
+    .header p { opacity:0.8; font-size:14px; }
+    .score-circle { display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.15); font-size:22px; font-weight:800; margin-top:16px; }
+    .section { background:white; border:1px solid #e2e8f0; border-radius:14px; padding:24px; margin-bottom:20px; }
+    .section h2 { font-size:15px; font-weight:700; color:#1e293b; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    table { width:100%; border-collapse:collapse; }
+    th { padding:10px 14px; text-align:left; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+    .footer { text-align:center; color:#94a3b8; font-size:12px; margin-top:32px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${ent.name}</h1>
+    <p>${ent.sector || ''} • ${ent.country || ''} • Rapport généré le ${date}</p>
+    <div class="score-circle">${entAvgScore}/100</div>
+  </div>
+  <div class="section">
+    <h2>📊 Progression globale</h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:12px">${completed} modules terminés sur ${total} (${Math.round((completed / total) * 100)}%)</p>
+    <div style="height:12px;background:#f1f5f9;border-radius:99px;overflow:hidden">
+      <div style="height:100%;width:${Math.round((completed / total) * 100)}%;background:linear-gradient(90deg,${scoreColor},#3b82f6);border-radius:99px"></div>
+    </div>
+  </div>
+  <div class="section">
+    <h2>📋 Modules & Livrables</h2>
+    <table>
+      <thead><tr><th>Module</th><th>Statut</th><th>Score</th></tr></thead>
+      <tbody>${moduleRows}</tbody>
+    </table>
+  </div>
+  <div class="footer">Rapport généré par ESONO — ${date}</div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Rapport_${ent.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Rapport téléchargé');
+  };
+
+  // ─── Filtered Enterprises ─────────────────────────────────────────────────
+
+  const filteredEnts = enterprises.filter(e => {
+    const matchSearch = !search || e.name.toLowerCase().includes(search.toLowerCase()) ||
+      (e.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (e.contact_email || '').toLowerCase().includes(search.toLowerCase());
+    const matchPhase = !filterPhase || e.phase === filterPhase;
+    return matchSearch && matchPhase;
+  });
+
+  // ─── RENDER: Detail View ──────────────────────────────────────────────────
+
+  if (view === 'detail' && selectedEnt) {
+    const ent = selectedEnt;
+    const entDelivs = deliverablesMap[ent.id] || [];
+    const entUploads = uploadsMap[ent.id] || [];
+    const entMods = modulesMap[ent.id] || [];
+
+    const uploadsByCategory = {
+      bmc: entUploads.filter((u: any) => u.category === 'bmc'),
+      sic: entUploads.filter((u: any) => u.category === 'sic'),
+      inputs: entUploads.filter((u: any) => u.category === 'inputs'),
+      supplementary: entUploads.filter((u: any) => u.category === 'supplementary'),
     };
+    const hasBmcSic = uploadsByCategory.bmc.length > 0 && uploadsByCategory.sic.length > 0;
+
+    const coachDelivs = entDelivs.filter((d: any) => d.generated_by === 'coach');
+    const privateDelivs = coachDelivs.filter((d: any) => d.visibility === 'private');
 
     const delivType = DELIV_MAP[selectedModule];
-    const deliv = delivType ? getDeliverable(delivType) : null;
+    const selectedDeliv = delivType ? entDelivs.find((d: any) => d.type === delivType) : null;
+
+    const renderDeliverableContent = (deliv: any) => {
+      if (!deliv?.data || typeof deliv.data !== 'object') return null;
+      if (selectedModule === 'bmc') return <BmcViewer data={deliv.data} />;
+      if (selectedModule === 'sic') return <SicViewer data={deliv.data} />;
+      if (selectedModule === 'business_plan') return <BusinessPlanPreview data={deliv.data as Record<string, any>} />;
+      return <DeliverableViewer moduleCode={selectedModule} data={deliv.data} />;
+    };
 
     return (
       <DashboardLayout
         title={ent.name}
-        subtitle={`${ent.sector || 'Secteur non défini'} • ${ent.city || ''} ${ent.country || ''}`}
+        subtitle={`${ent.sector || 'Secteur non défini'} • ${ent.country || ''}`}
       >
-        <div className="flex items-center gap-3 mb-4">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setSelectedEnterprise(null)}>
-            ← Retour à la liste
-          </Button>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => handleDownloadCoachingReport(ent.id)}
-            >
-              <FileBarChart className="h-4 w-4" /> Rapport Coaching
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => { setView('list'); setSelectedEnt(null); }}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Retour
             </Button>
-            <Button onClick={() => handleGenerateAll(ent.id)} disabled={generating} size="sm" className="gap-2">
-              {generating && generationProgress ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> {generationProgress.name} ({generationProgress.current}/{generationProgress.total})...</>
-              ) : (
-                <><Sparkles className="h-4 w-4" /> Générer tous les livrables</>
-              )}
+            <div>
+              <h2 className="text-xl font-display font-bold">{ent.name}</h2>
+              {ent.contact_name && <p className="text-sm text-muted-foreground">{ent.contact_name} {ent.contact_email && `• ${ent.contact_email}`}</p>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {(ent.score_ir || 0) > 0 && (
+              <Badge variant="outline" className={`text-sm font-bold px-3 py-1 ${getScoreBg(ent.score_ir)}`}>
+                {ent.score_ir}/100
+              </Badge>
+            )}
+            <Button variant="outline" size="sm" onClick={() => handleDownloadReport(ent)}>
+              <Download className="h-4 w-4 mr-1" /> Rapport
             </Button>
           </div>
         </div>
 
-        {/* Module tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4 border-b">
-          {MODULE_CONFIG.map(mod => {
-            const data = getModuleData(mod.code);
-            const Icon = mod.icon;
-            const isSelected = selectedModule === mod.code;
-            return (
-              <button
-                key={mod.code}
-                onClick={() => setSelectedModule(mod.code)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all whitespace-nowrap ${
-                  isSelected ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50'
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                <span className={`text-xs font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>{mod.title}</span>
-                {data.status === 'completed' && <CheckCircle2 className="h-3 w-3 text-success" />}
-              </button>
-            );
-          })}
+        {/* Tabs */}
+        <div className="flex border-b border-border mb-6 gap-1">
+          {([
+            { key: 'parcours' as DetailTab, label: '📤 Parcours Rapide', desc: 'Espace privé coach' },
+            { key: 'mirror' as DetailTab, label: '👁 Vue Entrepreneur', desc: 'Espace partagé' },
+            { key: 'livrables' as DetailTab, label: '📁 Livrables', desc: `${entDelivs.length} générés` },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setDetailTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                detailTab === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+              <span className="text-xs text-muted-foreground hidden sm:inline">({tab.desc})</span>
+            </button>
+          ))}
         </div>
 
-        {/* Module content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            {deliv?.data && typeof deliv.data === 'object' ? (
-              selectedModule === 'bmc' ? (
-                <BmcViewer data={deliv.data} />
-              ) : selectedModule === 'sic' ? (
-                <SicViewer data={deliv.data} />
-              ) : selectedModule === 'business_plan' ? (
-                <BusinessPlanPreview data={deliv.data as Record<string, any>} />
+        {/* ═══ TAB: PARCOURS RAPIDE ═══ */}
+        {detailTab === 'parcours' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Phase 1 */}
+              <Card className="border-2">
+                <CardContent className="p-5">
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                    <span className="h-6 w-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-black">1</span>
+                    Identité & Impact
+                  </h3>
+                  <div
+                    className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                      hasBmcSic ? 'border-green-400 bg-green-50' : 'border-muted hover:border-primary/50 hover:bg-primary/5'
+                    }`}
+                    onClick={() => bmcInputRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleUpload(f, 'bmc_sic', ent.id); }}
+                  >
+                    {uploadingCategory === 'bmc_sic' ? (
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
+                    ) : hasBmcSic ? (
+                      <FileCheck className="h-6 w-6 mx-auto text-green-600 mb-2" />
+                    ) : (
+                      <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    )}
+                    <p className="text-xs font-semibold">{hasBmcSic ? 'BMC & SIC uploadés' : 'Questionnaire BMC & Impact Social'}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">.docx, .pdf</p>
+                    {hasBmcSic && uploadsByCategory.bmc[0] && (
+                      <div className="mt-2 flex items-center justify-between gap-2 p-2 bg-white rounded-lg border text-xs">
+                        <span className="truncate text-green-700 font-medium">{uploadsByCategory.bmc[0].filename}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleRemoveUpload(uploadsByCategory.bmc[0].id, uploadsByCategory.bmc[0].storage_path); }}
+                          className="text-red-400 hover:text-red-600 flex-none"
+                        ><X className="h-3 w-3" /></button>
+                      </div>
+                    )}
+                  </div>
+                  <input ref={bmcInputRef} type="file" accept=".docx,.doc,.pdf" className="hidden"
+                    onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0], 'bmc_sic', ent.id); e.target.value = ''; }} />
+                </CardContent>
+              </Card>
+
+              {/* Phase 2 */}
+              <Card className="border-2">
+                <CardContent className="p-5">
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                    <span className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-black">2</span>
+                    Finance
+                  </h3>
+                  <div
+                    className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                      uploadsByCategory.inputs.length > 0 ? 'border-green-400 bg-green-50' : 'border-muted hover:border-primary/50 hover:bg-primary/5'
+                    }`}
+                    onClick={() => inputsInputRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleUpload(f, 'inputs', ent.id); }}
+                  >
+                    {uploadingCategory === 'inputs' ? (
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
+                    ) : uploadsByCategory.inputs.length > 0 ? (
+                      <FileCheck className="h-6 w-6 mx-auto text-green-600 mb-2" />
+                    ) : (
+                      <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    )}
+                    <p className="text-xs font-semibold">{uploadsByCategory.inputs.length > 0 ? 'Inputs uploadés' : 'Inputs Financiers'}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">.xlsx, .csv</p>
+                    {uploadsByCategory.inputs.map((u: any) => (
+                      <div key={u.id} className="mt-2 flex items-center justify-between gap-2 p-2 bg-white rounded-lg border text-xs">
+                        <span className="truncate text-green-700 font-medium">{u.filename}</span>
+                        <button onClick={e => { e.stopPropagation(); handleRemoveUpload(u.id, u.storage_path); }} className="text-red-400 hover:text-red-600 flex-none">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <input ref={inputsInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                    onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0], 'inputs', ent.id); e.target.value = ''; }} />
+                </CardContent>
+              </Card>
+
+              {/* Phase 3 */}
+              <Card className="border-2 border-dashed">
+                <CardContent className="p-5">
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                    <span className="h-6 w-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-black">3</span>
+                    Dossier Investisseur
+                  </h3>
+                  <div className="p-4 text-center text-muted-foreground">
+                    <Sparkles className="h-8 w-8 mx-auto text-purple-400 mb-2" />
+                    <p className="text-xs font-semibold">Auto-généré</p>
+                    <p className="text-[10px] mt-1">Business Plan & ODD créés à partir des phases 1 et 2</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Documents supplémentaires */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => suppInputRef.current?.click()}
+                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border border-dashed border-muted hover:border-primary/50 rounded-lg px-3 py-2 transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" /> Documents supplémentaires
+              </button>
+              {uploadsByCategory.supplementary.length > 0 && (
+                <span className="text-xs text-muted-foreground">{uploadsByCategory.supplementary.length} doc(s)</span>
+              )}
+              <input ref={suppInputRef} type="file" multiple accept=".docx,.doc,.pdf,.xlsx,.xls,.csv,.txt" className="hidden"
+                onChange={e => { Array.from(e.target.files || []).forEach(f => handleUpload(f, 'supplementary', ent.id)); e.target.value = ''; }} />
+            </div>
+
+            {/* Bouton Générer */}
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-primary to-primary/70 rounded-xl text-primary-foreground">
+              <div>
+                <p className="font-bold text-sm flex items-center gap-2"><Sparkles className="h-4 w-4" /> Générer les livrables</p>
+                <p className="text-xs opacity-80 mt-0.5">
+                  {entUploads.length} document(s) • 🔒 Livrables privés par défaut
+                  {generationProgress && ` • ${generationProgress.name} (${generationProgress.current}/${generationProgress.total})`}
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={generating || entUploads.length === 0}
+                onClick={() => handleGenerateCoach(ent.id)}
+                className="gap-2 font-bold"
+              >
+                {generating ? <><Loader2 className="h-4 w-4 animate-spin" /> En cours...</> : <><Sparkles className="h-4 w-4" /> Générer</>}
+              </Button>
+            </div>
+
+            {/* Livrables générés (parcours rapide) */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Livrables générés ({coachDelivs.length})
+                </h3>
+                {privateDelivs.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => handleShareAll(ent.id)} className="gap-1.5 text-xs">
+                    <Share2 className="h-3.5 w-3.5" /> Tout partager ({privateDelivs.length})
+                  </Button>
+                )}
+              </div>
+
+              {coachDelivs.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="py-10 text-center text-muted-foreground">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm font-medium">Aucun livrable généré</p>
+                    <p className="text-xs mt-1">Uploadez des documents et cliquez sur "Générer"</p>
+                  </CardContent>
+                </Card>
               ) : (
-                <DeliverableViewer moduleCode={selectedModule} data={deliv.data} />
-              )
-            ) : (
-              <Card className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-muted-foreground mb-4">Aucune donnée générée pour ce module.</p>
-                <Button onClick={() => handleGenerateAll(ent.id)} disabled={generating} className="gap-2">
-                  {generating && generationProgress ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> {generationProgress.name} ({generationProgress.current}/{generationProgress.total})...</>
-                  ) : (
-                    <><Sparkles className="h-4 w-4" /> Générer tous les livrables</>
-                  )}
-                </Button>
+                <div className="space-y-2">
+                  {MODULE_CONFIG.map(mod => {
+                    const dType = DELIV_MAP[mod.code];
+                    const d = coachDelivs.find((x: any) => x.type === dType);
+                    if (!d) return null;
+                    const isShared = d.visibility === 'shared';
+                    const Icon = mod.icon;
+                    return (
+                      <div key={mod.code} className="flex items-center justify-between p-3 bg-card border rounded-xl hover:shadow-sm transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: `${mod.color}15`, color: mod.color }}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold">{mod.title}</p>
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                              {isShared ? (
+                                <><Share2 className="h-2.5 w-2.5 text-green-500" /><span className="text-green-600">Partagé</span></>
+                              ) : (
+                                <><Lock className="h-2.5 w-2.5" /><span>Privé</span></>
+                              )}
+                              {d.score ? ` · ${d.score}/100` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                            onClick={() => { setSelectedModule(mod.code); setDetailTab('livrables'); }}>
+                            <Eye className="h-3 w-3 mr-1" /> Voir
+                          </Button>
+                          {!isShared && (
+                            <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1 text-purple-600 border-purple-200"
+                              disabled={sharingId === d.id}
+                              onClick={() => handleShare(d.id)}>
+                              {sharingId === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+                              Partager
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ TAB: VUE MIROIR ═══ */}
+        {detailTab === 'mirror' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white text-sm font-medium">
+              <Users className="h-4 w-4 flex-none" />
+              <span>Vous agissez en tant que coach pour <strong>{ent.name}</strong> — Les actions ici sont visibles par l'entrepreneur</span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Sidebar gauche : sources */}
+              <div className="lg:col-span-1 space-y-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                      <Upload className="h-4 w-4 text-primary" /> Sources
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">Ajoutez vos documents d'inputs</p>
+
+                    {/* Templates */}
+                    <div className="space-y-2 mb-4 p-3 bg-muted/30 rounded-lg">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Templates vierges</p>
+                      <a href="/templates" className="flex items-center gap-2 text-xs text-primary hover:underline">
+                        <FileText className="h-3 w-3" /> Questionnaire BMC & Impact Social
+                      </a>
+                      <a href="/templates" className="flex items-center gap-2 text-xs text-primary hover:underline">
+                        <FileSpreadsheet className="h-3 w-3" /> Inputs Financiers
+                      </a>
+                    </div>
+
+                    {/* Upload BMC/SIC */}
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all mb-2 ${
+                        hasBmcSic ? 'border-green-400 bg-green-50' : 'border-muted hover:border-primary/50'
+                      }`}
+                      onClick={() => bmcInputRef.current?.click()}
+                    >
+                      {hasBmcSic ? <FileCheck className="h-5 w-5 mx-auto text-green-600 mb-1" /> : <Upload className="h-5 w-5 mx-auto text-muted-foreground mb-1" />}
+                      <p className="text-[11px] font-semibold">{hasBmcSic ? uploadsByCategory.bmc[0]?.filename : 'BMC & Impact Social'}</p>
+                      <p className="text-[10px] text-muted-foreground">.docx</p>
+                    </div>
+
+                    {/* Upload Inputs */}
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all mb-2 ${
+                        uploadsByCategory.inputs.length > 0 ? 'border-green-400 bg-green-50' : 'border-muted hover:border-primary/50'
+                      }`}
+                      onClick={() => inputsInputRef.current?.click()}
+                    >
+                      {uploadsByCategory.inputs.length > 0 ? <FileCheck className="h-5 w-5 mx-auto text-green-600 mb-1" /> : <Upload className="h-5 w-5 mx-auto text-muted-foreground mb-1" />}
+                      <p className="text-[11px] font-semibold">{uploadsByCategory.inputs[0]?.filename || 'Inputs Financiers'}</p>
+                      <p className="text-[10px] text-muted-foreground">.xlsx, .csv</p>
+                    </div>
+
+                    {/* Supplémentaires */}
+                    <button
+                      onClick={() => suppInputRef.current?.click()}
+                      className="w-full text-xs text-muted-foreground border border-dashed border-muted rounded-lg py-2 hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="h-3 w-3" /> Documents supplémentaires
+                    </button>
+
+                    {/* CTA Générer */}
+                    <Button
+                      className="w-full mt-4 gap-2"
+                      disabled={generatingMirror || entUploads.length === 0}
+                      onClick={() => handleGenerateMirror(ent.id)}
+                    >
+                      {generatingMirror ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> {generationProgress?.name || 'Génération...'}</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" /> Générer les livrables</>
+                      )}
+                    </Button>
+                    <p className="text-[10px] text-center text-muted-foreground mt-1">Visibles immédiatement par l'entrepreneur</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Centre : contenu du livrable sélectionné */}
+              <div className="lg:col-span-2">
+                <Card className="h-full">
+                  <CardContent className="p-4">
+                    {renderDeliverableContent(selectedDeliv) || (
+                      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-center">
+                        <Stethoscope className="h-10 w-10 mb-3 opacity-20" />
+                        <p className="font-medium text-sm">Aucune donnée pour ce livrable</p>
+                        <p className="text-xs mt-1">Uploadez des documents et générez les livrables</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Grille 8 icônes livrables (bas) */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  {MODULE_CONFIG.map(mod => {
+                    const dType = DELIV_MAP[mod.code];
+                    const d = entDelivs.find((x: any) => x.type === dType);
+                    const isSelected = selectedModule === mod.code;
+                    const Icon = mod.icon;
+                    return (
+                      <button
+                        key={mod.code}
+                        onClick={() => setSelectedModule(mod.code)}
+                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all text-center ${
+                          isSelected ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="relative">
+                          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: `${mod.color}15`, color: mod.color }}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          {d && <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-green-500 rounded-full flex items-center justify-center"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
+                        </div>
+                        <span className="text-[9px] font-medium text-center leading-tight">{mod.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ═══ TAB: LIVRABLES ═══ */}
+        {detailTab === 'livrables' && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {MODULE_CONFIG.map(mod => {
+                const dType = DELIV_MAP[mod.code];
+                const d = entDelivs.find((x: any) => x.type === dType);
+                const Icon = mod.icon;
+                return (
+                  <button
+                    key={mod.code}
+                    onClick={() => setSelectedModule(mod.code)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all ${
+                      selectedModule === mod.code ? 'border-primary bg-primary/5 text-primary' : 'border-transparent hover:bg-muted/50 text-muted-foreground'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {mod.title}
+                    {d && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {renderDeliverableContent(selectedDeliv) || (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="font-medium">Aucune donnée pour ce module</p>
+                  <p className="text-sm mt-1">Générez les livrables depuis l'onglet "Parcours Rapide"</p>
+                </CardContent>
               </Card>
             )}
           </div>
-
-          {/* Right: downloads */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wide text-muted-foreground mb-2">Livrables</h3>
-            {Object.entries(DELIV_MAP).map(([code, type]) => {
-              const d = getDeliverable(type);
-              const mod = MODULE_CONFIG.find(m => m.code === code);
-              return (
-                <div
-                  key={type}
-                  onClick={() => d && handleDownload(type, ent.id)}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border bg-card text-xs ${
-                    d ? 'hover:bg-muted/50 cursor-pointer' : 'opacity-50'
-                  }`}
-                >
-                  <span className="font-medium">{mod?.title || type}</span>
-                  {d ? (
-                    <div className="flex items-center gap-1">
-                      <Badge variant="default" className="text-[9px] bg-success/10 text-success border-success/20">
-                        {d.score ? `${d.score}/100` : 'Prêt'}
-                      </Badge>
-                      <Download className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <Badge variant="outline" className="text-[9px]">—</Badge>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        )}
       </DashboardLayout>
     );
   }
 
-  // List view
+  // ─── RENDER: List View ────────────────────────────────────────────────────
+
   return (
     <DashboardLayout
       title={`Bonjour, ${profile?.full_name || 'Coach'} 👋`}
       subtitle="Tableau de bord de coaching"
     >
-      {/* Stats */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Users} color="primary" value={totalEntreprises} label="Entrepreneurs" />
-        <StatCard icon={CheckCircle2} color="success" value={completedModules} label="Modules terminés" />
-        <StatCard icon={Clock} color="warning" value={totalModules - completedModules} label="En attente" />
-        <StatCard icon={Building2} color="info" value={totalModules > 0 ? `${Math.round((completedModules / totalModules) * 100)}%` : '0%'} label="Progression" />
+        <KpiCard icon={Users} color="purple" value={totalEntreprises} label="Entrepreneurs suivis" />
+        <KpiCard icon={TrendingUp} color="blue" value={`${avgScore}/100`} label="Score moyen IR" gauge={avgScore} />
+        <KpiCard icon={CheckCircle2} color="green" value={completedMods} label="Modules complétés" />
+        <KpiCard icon={Sparkles} color="orange" value={delivsThisWeek} label="Livrables cette semaine" />
       </div>
 
-      {/* Entrepreneurs list */}
-      <h2 className="text-lg font-display font-semibold mb-4">Vos entrepreneurs</h2>
-      {enterprises.length === 0 ? (
+      {/* Actions rapides */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <Button onClick={() => setShowAddModal(true)} className="gap-2">
+          <UserPlus className="h-4 w-4" /> Ajouter un entrepreneur
+        </Button>
+        <Button variant="outline" asChild className="gap-2">
+          <a href="/templates"><Download className="h-4 w-4" /> Templates vierges</a>
+        </Button>
+      </div>
+
+      {/* Barre de recherche + filtres */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Rechercher par nom, contact, email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <select
+          value={filterPhase}
+          onChange={e => setFilterPhase(e.target.value)}
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
+        >
+          <option value="">Toutes les phases</option>
+          <option value="identite">Identité</option>
+          <option value="finance">Finance</option>
+          <option value="dossier">Dossier</option>
+        </select>
+      </div>
+
+      {/* Tableau des entrepreneurs */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : filteredEnts.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-40" />
-            <p>Aucun entrepreneur assigné pour le moment.</p>
-            <p className="text-sm mt-1">Les entrepreneurs vous seront assignés par l'administrateur.</p>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
+            <p className="font-medium">{search || filterPhase ? 'Aucun résultat' : 'Aucun entrepreneur'}</p>
+            <p className="text-sm mt-1">
+              {search || filterPhase ? "Essayez avec d'autres critères de recherche" : 'Cliquez sur "Ajouter un entrepreneur" pour commencer'}
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {enterprises.map(ent => {
-            const mods = modulesMap[ent.id] || [];
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-muted/30 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            <div className="col-span-3">Entreprise</div>
+            <div className="col-span-2 hidden md:block">Contact</div>
+            <div className="col-span-2 hidden lg:block">Secteur</div>
+            <div className="col-span-1">Score</div>
+            <div className="col-span-1 hidden sm:block">Phase</div>
+            <div className="col-span-3 text-right">Actions</div>
+          </div>
+
+          {filteredEnts.map(ent => {
             const delivs = deliverablesMap[ent.id] || [];
-            const completed = mods.filter(m => m.status === 'completed').length;
+            const mods = modulesMap[ent.id] || [];
+            const completed = mods.filter((m: any) => m.status === 'completed').length;
             const total = mods.length || 8;
             const pct = Math.round((completed / total) * 100);
-            const avgScore = delivs.length > 0
-              ? Math.round(delivs.reduce((s: number, d: any) => s + (d.score || 0), 0) / delivs.length)
-              : 0;
+            const score = ent.score_ir || (delivs.length > 0 ? Math.round(delivs.reduce((s: number, d: any) => s + (d.score || 0), 0) / delivs.length) : 0);
+            const phase = getPhaseLabel(ent.phase || 'identite');
 
             return (
-              <Card
-                key={ent.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => { setSelectedEnterprise(ent); setSelectedModule('bmc'); }}
-              >
-                <CardContent className="py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-display font-semibold">{ent.name}</h3>
-                      <p className="text-sm text-muted-foreground">{ent.sector || 'Secteur non défini'} • {ent.city || ent.country || ''}</p>
+              <div key={ent.id} className="grid grid-cols-12 gap-2 px-4 py-3.5 border-b border-border/50 hover:bg-muted/20 transition-colors items-center">
+                <div className="col-span-3 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-none">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{ent.name}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Progress value={pct} className="h-1 w-14" />
+                      <span className="text-[10px] text-muted-foreground">{pct}%</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    {avgScore > 0 && (
-                      <div className="text-right hidden md:block">
-                        <p className="text-xs text-muted-foreground">Score</p>
-                        <p className="text-sm font-bold">{avgScore}/100</p>
-                      </div>
-                    )}
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-muted-foreground">{completed}/{total} modules</p>
-                      <Progress value={pct} className="h-1.5 w-24 mt-1" />
-                    </div>
-                    <Badge variant={pct === 100 ? 'default' : 'outline'}>{pct}%</Badge>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="col-span-2 hidden md:block">
+                  {ent.contact_name && <p className="text-xs font-medium truncate">{ent.contact_name}</p>}
+                  {ent.contact_email && <p className="text-[10px] text-muted-foreground truncate">{ent.contact_email}</p>}
+                  {!ent.contact_name && !ent.contact_email && <span className="text-xs text-muted-foreground">—</span>}
+                </div>
+                <div className="col-span-2 hidden lg:block">
+                  <span className="text-xs text-muted-foreground">{ent.sector || '—'}</span>
+                </div>
+                <div className="col-span-1">
+                  {score > 0 ? (
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${getScoreBg(score)}`}>
+                      {score}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </div>
+                <div className="col-span-1 hidden sm:block">
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: phase.color, background: `${phase.color}15` }}>
+                    {phase.label}
+                  </span>
+                </div>
+                <div className="col-span-3 flex items-center justify-end gap-1.5">
+                  <Button
+                    variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1"
+                    onClick={() => { setSelectedEnt(ent); setView('detail'); setDetailTab('parcours'); }}
+                  >
+                    <Eye className="h-3 w-3" /> Voir
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleDownloadReport(ent)}>
+                    <Download className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
+
+      {/* Modal: Ajouter entrepreneur */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" /> Nouvel entrepreneur
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Nom de l'entreprise *</label>
+              <input
+                type="text" placeholder="SARL Mon Entreprise"
+                value={addForm.name}
+                onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Nom du contact</label>
+                <input type="text" placeholder="Prénom Nom"
+                  value={addForm.contact_name}
+                  onChange={e => setAddForm(f => ({ ...f, contact_name: e.target.value }))}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Téléphone</label>
+                <input type="tel" placeholder="+225 07 00 00 00"
+                  value={addForm.contact_phone}
+                  onChange={e => setAddForm(f => ({ ...f, contact_phone: e.target.value }))}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Email</label>
+              <input type="email" placeholder="contact@entreprise.com"
+                value={addForm.contact_email}
+                onChange={e => setAddForm(f => ({ ...f, contact_email: e.target.value }))}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Secteur</label>
+                <select value={addForm.sector} onChange={e => setAddForm(f => ({ ...f, sector: e.target.value }))}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
+                >
+                  <option value="">— Sélectionner —</option>
+                  {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Pays</label>
+                <select value={addForm.country} onChange={e => setAddForm(f => ({ ...f, country: e.target.value }))}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
+                >
+                  {["Côte d'Ivoire", "Sénégal", "Mali", "Burkina Faso", "Togo", "Bénin", "Guinée", "Niger"].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>Annuler</Button>
+              <Button onClick={handleAddEntrepreneur} disabled={addLoading || !addForm.name.trim()} className="gap-2">
+                {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Ajouter
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
 
-function StatCard({ icon: Icon, color, value, label }: { icon: any; color: string; value: any; label: string }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function KpiCard({ icon: Icon, color, value, label, gauge }: { icon: any; color: string; value: any; label: string; gauge?: number }) {
+  const colorMap: Record<string, string> = {
+    purple: 'bg-purple-100 text-purple-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    orange: 'bg-orange-100 text-orange-600',
+  };
+  const gaugeColorMap: Record<string, string> = {
+    purple: 'bg-purple-500', blue: 'bg-blue-500', green: 'bg-green-500', orange: 'bg-orange-500',
+  };
   return (
     <Card>
-      <CardContent className="pt-6 flex items-center gap-3">
-        <div className={`h-10 w-10 rounded-lg bg-${color}/10 flex items-center justify-center`}>
-          <Icon className={`h-5 w-5 text-${color}`} />
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-center gap-3 mb-1">
+          <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-none ${colorMap[color]}`}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-2xl font-display font-black leading-none">{value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-2xl font-display font-bold">{value}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
-        </div>
+        {gauge !== undefined && (
+          <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${gaugeColorMap[color]}`} style={{ width: `${gauge}%` }} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Livrables from "./pages/Livrables";
 import BmcModule from "./pages/modules/BmcModule";
 import GenericModule from "./pages/modules/GenericModule";
+import Templates from "./pages/Templates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
