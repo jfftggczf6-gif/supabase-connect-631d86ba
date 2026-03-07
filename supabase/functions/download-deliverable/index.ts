@@ -872,35 +872,104 @@ function diagnosticHTML(data: any, ent: string): string {
   return htmlShell('Diagnostic Expert', data.score, body, ent);
 }
 
-// ===== PLAN OVO HTML =====
+// ===== PLAN OVO HTML (aligned with PlanOvoViewer data format) =====
 function planOvoHTML(data: any, ent: string): string {
   let body = '';
-
-  if (data.hypotheses_base) {
-    body += `<div class="card"><h2>📐 Hypothèses de base</h2><div class="grid-4">${Object.entries(data.hypotheses_base).map(([k,v])=>`<div class="metric"><div class="lbl">${k.replace(/_/g,' ')}</div><div class="val" style="font-size:16px">${v}</div></div>`).join('')}</div></div>`;
-  }
-
-  const scenarioConfig: Record<string, { emoji: string; color: string }> = {
-    optimiste: { emoji: '🚀', color: '#22c55e' },
-    realiste: { emoji: '📊', color: '#3b82f6' },
-    pessimiste: { emoji: '⚠️', color: '#eab308' },
+  const YEAR_KEYS = ['year_minus_2', 'year_minus_1', 'current_year', 'year2', 'year3', 'year4', 'year5', 'year6'];
+  const years = data.years || {};
+  const yearLabel = (key: string) => {
+    if (years[key]) return String(years[key]);
+    const map: Record<string, string> = { year_minus_2: 'N-2', year_minus_1: 'N-1', current_year: 'N', year2: 'N+1', year3: 'N+2', year4: 'N+3', year5: 'N+4', year6: 'N+5' };
+    return map[key] || key;
   };
+  const labels = YEAR_KEYS.map(yearLabel);
+  const getSeries = (obj: any) => YEAR_KEYS.map(k => Number(obj?.[k]) || 0);
 
-  for (const [name, cfg] of Object.entries(scenarioConfig)) {
-    const s = (data.scenarios || {})[name];
-    if (!s) continue;
-    body += `<div class="card" style="border-left:4px solid ${cfg.color}"><h2>${cfg.emoji} Scénario ${name.charAt(0).toUpperCase()+name.slice(1)}</h2>
-<p style="font-size:13px;color:#64748b;margin-bottom:8px">${s.hypotheses||''}</p>
-<p>Croissance CA: <strong>${s.taux_croissance_ca||'—'}</strong></p>`;
-    if (s.projections?.length) {
-      body += `<table><tr><th>Année</th><th style="text-align:right">CA</th><th style="text-align:right">Résultat Net</th><th style="text-align:right">Trésorerie</th></tr>
-${s.projections.map((p:any)=>`<tr><td>${p.annee}</td><td class="amount">${fmt(p.ca)}</td><td class="amount">${fmt(p.resultat_net)}</td><td class="amount">${fmt(p.tresorerie)}</td></tr>`).join('')}</table>`;
+  const revSeries = getSeries(data.revenue);
+  const cogsSeries = getSeries(data.cogs);
+  const gpSeries = getSeries(data.gross_profit);
+  const gpPctSeries = getSeries(data.gross_margin_pct);
+  const ebitdaSeries = getSeries(data.ebitda);
+  const ebitdaPctSeries = getSeries(data.ebitda_margin_pct);
+  const npSeries = getSeries(data.net_profit);
+  const cfSeries = getSeries(data.cashflow);
+
+  // Investment Metrics
+  const im = data.investment_metrics || {};
+  const metricsHtml = [
+    { label: 'VAN (NPV)', value: im.van != null ? fmt(im.van) + ' FCFA' : '—', color: im.van > 0 ? 'green' : 'red' },
+    { label: 'TRI (IRR)', value: im.tri != null ? Number(im.tri).toFixed(1) + '%' : '—', color: im.tri > 15 ? 'green' : im.tri > 8 ? 'yellow' : 'red' },
+    { label: 'CAGR Revenue', value: im.cagr_revenue != null ? Number(im.cagr_revenue).toFixed(1) + '%' : '—', color: im.cagr_revenue > 20 ? 'green' : 'yellow' },
+    { label: 'CAGR EBITDA', value: im.cagr_ebitda != null ? Number(im.cagr_ebitda).toFixed(1) + '%' : '—', color: im.cagr_ebitda > 20 ? 'green' : 'yellow' },
+    { label: 'ROI', value: im.roi != null ? Number(im.roi).toFixed(1) + '%' : '—', color: im.roi > 50 ? 'green' : im.roi > 20 ? 'yellow' : 'red' },
+    { label: 'Payback', value: im.payback_years != null ? im.payback_years + ' ans' : '—', color: im.payback_years <= 3 ? 'green' : im.payback_years <= 5 ? 'yellow' : 'red' },
+    { label: 'DSCR', value: im.dscr != null ? Number(im.dscr).toFixed(2) + 'x' : '—', color: im.dscr > 1.5 ? 'green' : im.dscr > 1 ? 'yellow' : 'red' },
+    { label: 'Multiple EBITDA', value: im.multiple_ebitda != null ? Number(im.multiple_ebitda).toFixed(1) + 'x' : '—', color: 'blue' },
+  ];
+
+  body += `<div class="card"><h2>📐 Indicateurs de décision d'investissement</h2><div class="grid-4">${metricsHtml.map(m =>
+    `<div class="metric"><div class="lbl">${m.label}</div><div class="val" style="font-size:18px;color:${m.color === 'green' ? '#16a34a' : m.color === 'red' ? '#dc2626' : m.color === 'yellow' ? '#ca8a04' : '#2563eb'}">${m.value}</div></div>`
+  ).join('')}</div></div>`;
+
+  // P&L Table
+  const rows = [
+    { label: "Chiffre d'affaires", values: revSeries, bold: true },
+    { label: "Coûts directs (COGS)", values: cogsSeries },
+    { label: "Marge brute", values: gpSeries, bold: true },
+    { label: "Marge brute %", values: gpPctSeries, isPct: true },
+    { label: "EBITDA", values: ebitdaSeries, bold: true },
+    { label: "Marge EBITDA %", values: ebitdaPctSeries, isPct: true },
+    { label: "Résultat net", values: npSeries, bold: true },
+    { label: "Cash-Flow", values: cfSeries },
+  ];
+
+  body += `<div class="card"><h2>📋 Compte de résultat prévisionnel (8 ans)</h2><table><tr><th>Poste</th>${labels.map(l => `<th style="text-align:right">${l}</th>`).join('')}</tr>`;
+  for (const row of rows) {
+    const style = row.bold ? 'font-weight:700;background:#f8fafc' : 'padding-left:24px;color:#64748b';
+    body += `<tr style="${style}"><td>${row.label}</td>${row.values.map(v => `<td class="amount">${row.isPct ? (v ? v.toFixed(1) + '%' : '—') : fmt(v)}</td>`).join('')}</tr>`;
+  }
+  body += '</table></div>';
+
+  // OPEX breakdown
+  const opex = data.opex || {};
+  const opexLabels: Record<string, string> = { staff_salaries: 'Salaires', marketing: 'Marketing', office_costs: 'Bureaux', travel: 'Déplacements', insurance: 'Assurances', maintenance: 'Maintenance', third_parties: 'Prestataires', other: 'Autres' };
+  const opexEntries = Object.entries(opexLabels).filter(([k]) => opex[k]);
+  if (opexEntries.length > 0) {
+    body += `<div class="card"><h2>💼 Détail OPEX</h2><table><tr><th>Poste</th>${labels.map(l => `<th style="text-align:right">${l}</th>`).join('')}</tr>`;
+    for (const [key, label] of opexEntries) {
+      const vals = getSeries(opex[key]);
+      body += `<tr><td>${label}</td>${vals.map(v => `<td class="amount">${fmt(v)}</td>`).join('')}</tr>`;
     }
-    body += '</div>';
+    body += '</table></div>';
   }
 
-  if (data.indicateurs_cles) {
-    body += `<div class="card"><h2>📈 Indicateurs Clés</h2><div class="grid-4">${Object.entries(data.indicateurs_cles).map(([k,v])=>`<div class="metric"><div class="lbl">${k.replace(/_/g,' ')}</div><div class="val" style="font-size:16px">${v}</div></div>`).join('')}</div></div>`;
+  // CAPEX
+  if (data.capex?.length) {
+    body += `<div class="card"><h2>🏗️ CAPEX</h2><table><tr><th>Actif</th><th style="text-align:right">Valeur</th><th style="text-align:right">Durée</th><th>Type</th></tr>`;
+    for (const c of data.capex) {
+      body += `<tr><td>${c.name || '—'}</td><td class="amount">${fmt(c.acquisition_value)}</td><td class="amount">${c.useful_life || '—'} ans</td><td><span class="tag">${c.type || '—'}</span></td></tr>`;
+    }
+    body += '</table></div>';
+  }
+
+  // Loans
+  const loans = data.loans || {};
+  const loanEntries = Object.entries(loans).filter(([_, v]: any) => v?.amount > 0);
+  if (loanEntries.length > 0) {
+    body += `<div class="card"><h2>🏦 Prêts</h2><table><tr><th>Prêt</th><th style="text-align:right">Montant</th><th style="text-align:right">Durée</th><th style="text-align:right">Taux</th></tr>`;
+    for (const [name, l] of loanEntries as [string, any][]) {
+      body += `<tr><td>${name}</td><td class="amount">${fmt(l.amount)}</td><td class="amount">${l.term_years || '—'} ans</td><td class="amount">${l.rate ? (l.rate * 100).toFixed(1) + '%' : '—'}</td></tr>`;
+    }
+    body += '</table></div>';
+  }
+
+  // Staff
+  if (data.staff?.length) {
+    body += `<div class="card"><h2>👥 Effectifs</h2><table><tr><th>Poste</th><th style="text-align:right">Nombre</th><th style="text-align:right">Salaire mensuel</th></tr>`;
+    for (const s of data.staff) {
+      body += `<tr><td>${s.title || s.role || '—'}</td><td class="amount">${s.count || s.headcount || '—'}</td><td class="amount">${fmt(s.monthly_salary || s.salary)}</td></tr>`;
+    }
+    body += '</table></div>';
   }
 
   return htmlShell('Plan Financier OVO', data.score, body, ent);
@@ -908,93 +977,197 @@ ${s.projections.map((p:any)=>`<tr><td>${p.annee}</td><td class="amount">${fmt(p.
 
 // ===== BUSINESS PLAN HTML =====
 function businessPlanHTML(data: any, ent: string): string {
-  let body = '';
-  const re = data.resume_executif || {};
-
-  // Table of contents
-  body += `<div class="toc"><h3>📑 Table des matières</h3><ol>
-<li>Résumé Exécutif</li><li>Analyse de Marché</li><li>Stratégie Commerciale</li><li>Plan Opérationnel</li><li>Plan Financier</li><li>Risques & Mitigations</li>
-</ol></div>`;
-
-  if (Object.keys(re).length) {
-    body += `<div class="card"><h2>1. Résumé Exécutif</h2>`;
-    for (const [k, v] of Object.entries(re)) {
-      if (v) body += `<h3>${k.replace(/_/g,' ').replace(/\b\w/g,(c:string)=>c.toUpperCase())}</h3><p>${v}</p>`;
-    }
-    body += '</div>';
-  }
-
-  if (data.analyse_marche) {
-    const am = data.analyse_marche;
-    body += `<div class="card"><h2>2. Analyse de Marché</h2>
-${am.taille_marche ? `<div class="metric" style="margin-bottom:16px"><div class="lbl">Taille du marché</div><div class="val">${am.taille_marche}</div></div>` : ''}
-${am.positionnement ? `<h3>Positionnement</h3><p>${am.positionnement}</p>` : ''}
-${am.tendances?.length ? `<h3>Tendances</h3><ul>${am.tendances.map((t:string)=>`<li>${t}</li>`).join('')}</ul>` : ''}
-${am.concurrents?.length ? `<h3>Concurrents</h3><table><tr><th>Concurrent</th><th>Forces</th><th>Faiblesses</th></tr>${am.concurrents.map((c:any)=>`<tr><td>${c.nom||c}</td><td>${c.forces||'—'}</td><td>${c.faiblesses||'—'}</td></tr>`).join('')}</table>` : ''}
-</div>`;
-  }
-
-  if (data.strategie_commerciale) {
-    const sc = data.strategie_commerciale;
-    body += `<div class="card"><h2>3. Stratégie Commerciale</h2>`;
-    for (const [k, v] of Object.entries(sc)) {
-      if (Array.isArray(v)) body += `<h3>${k.replace(/_/g,' ')}</h3><ul>${v.map((i:any)=>`<li>${typeof i==='string'?i:JSON.stringify(i)}</li>`).join('')}</ul>`;
-      else if (v) body += `<h3>${k.replace(/_/g,' ')}</h3><p>${v}</p>`;
-    }
-    body += '</div>';
-  }
-
-  if (data.plan_financier_resume) {
-    const pf = data.plan_financier_resume;
-    body += `<div class="card"><h2>5. Plan Financier</h2>`;
-    if (pf.montant_recherche) body += `<div class="metric" style="margin-bottom:16px"><div class="lbl">Montant recherché</div><div class="val">${pf.montant_recherche}</div></div>`;
-    if (pf.utilisation_fonds?.length) {
-      body += `<h3>Utilisation des fonds</h3><table><tr><th>Poste</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr>
-${pf.utilisation_fonds.map((f:any)=>`<tr><td>${f.poste}</td><td class="amount">${f.montant}</td><td class="amount">${f.pourcentage}%</td></tr>`).join('')}</table>`;
-    }
-    body += '</div>';
-  }
-
-  if (data.risques_et_mitigations?.length) {
-    body += `<div class="card"><h2>6. Risques & Mitigations</h2><table><tr><th>Risque</th><th>Probabilité</th><th>Impact</th><th>Mitigation</th></tr>
-${data.risques_et_mitigations.map((r:any)=>`<tr><td>${r.risque}</td><td>${verdictBadge(r.probabilite||'')}</td><td>${verdictBadge(r.impact||'')}</td><td>${r.mitigation}</td></tr>`).join('')}</table></div>`;
-  }
-
-  if (data.conclusion) body += `<div class="card" style="background:linear-gradient(135deg,#eff6ff,#f0fdf4)"><h2>Conclusion</h2><p style="font-size:15px;font-style:italic">${data.conclusion}</p></div>`;
-
-  return htmlShell('Business Plan', data.score, body, ent);
+  // ... keep existing code
 }
 
-// ===== ODD HTML =====
+// ===== ODD HTML (aligned with OddViewer data format) =====
 function oddHTML(data: any, ent: string): string {
-  let body = '';
-  if (data.synthese) body += `<div class="card"><h2>📋 Synthèse</h2><p style="font-size:15px">${data.synthese}</p>${data.readiness_level ? `<p style="margin-top:8px"><span class="badge badge-blue">${data.readiness_level}</span></p>` : ''}</div>`;
+  const ODD_COLORS: Record<string, string> = {
+    "1":"#E5243B","2":"#DDA63A","3":"#4C9F38","4":"#C5192D","5":"#FF3A21",
+    "6":"#26BDE2","7":"#FCC30B","8":"#A21942","9":"#FD6925","10":"#DD1367",
+    "11":"#FD9D24","12":"#BF8B2E","13":"#3F7E44","14":"#0A97D9","15":"#56C02B",
+    "16":"#00689D","17":"#19486A",
+  };
+  const ODD_NAMES: Record<string, string> = {
+    "1":"Éliminer la pauvreté","2":"Éliminer la faim","3":"Bonne santé",
+    "4":"Éducation de qualité","5":"Égalité des genres","6":"Eau propre",
+    "7":"Énergie propre","8":"Travail décent","9":"Innovation",
+    "10":"Réduction inégalités","11":"Villes durables","12":"Consommation responsable",
+    "13":"Lutte climatique","14":"Vie aquatique","15":"Vie terrestre",
+    "16":"Paix et justice","17":"Partenariats",
+  };
 
-  if (data.scores_par_categorie) {
-    body += `<div class="card"><h2>📊 Scores par catégorie</h2>`;
-    for (const [k, cat] of Object.entries(data.scores_par_categorie) as [string, any][]) {
-      const color = cat.score >= 70 ? 'green' : cat.score >= 50 ? 'yellow' : 'red';
-      body += `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between"><span style="font-weight:600;font-size:13px">${k}</span><span class="badge badge-${color}">${cat.score}% (${cat.items_pass}/${cat.items_total})</span></div>
-<div class="progress-bar"><div class="progress-fill ${color}" style="width:${cat.score}%"></div></div></div>`;
+  let body = '';
+  const cibles = data.evaluation_cibles_odd?.cibles ?? [];
+  const resumeOdd = data.evaluation_cibles_odd?.resume_par_odd ?? {};
+  const indicateurs = data.indicateurs_impact?.indicateurs ?? [];
+  const synthese = data.synthese || {};
+  const circularite = data.circularite || {};
+
+  const totalPositifs = cibles.filter((c: any) => c.evaluation === "positif").length;
+  const totalNeutres = cibles.filter((c: any) => c.evaluation === "neutre").length;
+  const totalNegatifs = cibles.filter((c: any) => c.evaluation === "negatif").length;
+  const scoreGlobal = cibles.length > 0 ? Math.round((totalPositifs / cibles.length) * 100) : 0;
+
+  // Score summary
+  body += `<div class="card"><h2>🌍 Score ODD global</h2><div class="grid-4">
+<div class="metric" style="background:#dbeafe"><div class="val" style="color:#1e40af">${scoreGlobal}%</div><div class="lbl">Score global</div></div>
+<div class="metric" style="background:#dcfce7"><div class="val" style="color:#166534">${totalPositifs}</div><div class="lbl">Positif</div></div>
+<div class="metric" style="background:#fef9c3"><div class="val" style="color:#854d0e">${totalNeutres}</div><div class="lbl">Neutre</div></div>
+<div class="metric" style="background:#fef2f2"><div class="val" style="color:#991b1b">${totalNegatifs}</div><div class="lbl">Négatif</div></div>
+</div>${synthese.contribution_globale ? `<p style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px;font-size:13px;color:#475569">${synthese.contribution_globale}</p>` : ''}</div>`;
+
+  // Summary by SDG
+  if (Object.keys(resumeOdd).length > 0) {
+    body += `<div class="card"><h2>📊 Résumé par ODD</h2><div class="grid-2">`;
+    for (const [key, odd] of Object.entries(resumeOdd) as [string, any][]) {
+      const oddNum = key.replace("odd_", "");
+      const color = ODD_COLORS[oddNum] || "#666";
+      const total = Math.max(odd.cibles_positives + odd.cibles_neutres + odd.cibles_negatives, 1);
+      body += `<div style="padding:12px;border-radius:10px;border:1px solid #e2e8f0;border-top:3px solid ${color}">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+<span style="background:${color};color:#fff;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${oddNum}</span>
+<span style="font-size:13px;font-weight:600">${ODD_NAMES[oddNum] || odd.nom}</span>
+<span class="badge badge-blue" style="margin-left:auto">${odd.score}%</span>
+</div>
+<div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden">
+<div style="width:${(odd.cibles_positives/total)*100}%;background:#4ade80;border-radius:3px"></div>
+<div style="width:${(odd.cibles_neutres/total)*100}%;background:#facc15;border-radius:3px"></div>
+<div style="width:${(odd.cibles_negatives/total)*100}%;background:#f87171;border-radius:3px"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-top:4px"><span>+${odd.cibles_positives}</span><span>-${odd.cibles_negatives}</span></div>
+</div>`;
+    }
+    body += '</div></div>';
+  }
+
+  // All targets
+  if (cibles.length > 0) {
+    body += `<div class="card"><h2>🎯 Évaluation des ${cibles.length} cibles ODD</h2><table><tr><th>Cible</th><th>Description</th><th>Évaluation</th><th>Justification</th></tr>`;
+    for (const c of cibles) {
+      const evalColor = c.evaluation === 'positif' ? 'green' : c.evaluation === 'neutre' ? 'yellow' : 'red';
+      const evalEmoji = c.evaluation === 'positif' ? '🟢' : c.evaluation === 'neutre' ? '🟡' : '🔴';
+      body += `<tr><td><span style="background:${ODD_COLORS[c.odd_parent] || '#666'};color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700">${c.target_id}</span></td>
+<td style="font-size:12px">${c.target_description || ''}</td>
+<td><span class="badge badge-${evalColor}">${evalEmoji} ${c.evaluation}</span></td>
+<td style="font-size:11px;color:#64748b">${c.justification || ''}</td></tr>`;
+    }
+    body += '</table></div>';
+  }
+
+  // Indicators
+  if (indicateurs.length > 0) {
+    body += `<div class="card"><h2>📈 Indicateurs d'impact</h2><table><tr><th>Cible</th><th>Indicateur ONU</th><th>Indicateur OVO</th><th>Valeur</th></tr>`;
+    for (const ind of indicateurs) {
+      body += `<tr><td style="font-family:monospace;font-size:11px">${ind.target_id}</td><td style="font-size:12px">${ind.indicateur_officiel_onu || ''}</td><td style="font-size:12px;color:#3b82f6">${ind.indicateur_ovo || '—'}</td><td style="font-weight:600">${ind.valeur || '—'}</td></tr>`;
+    }
+    body += '</table></div>';
+  }
+
+  // Synthesis
+  const oddPrioritaires = Array.isArray(synthese.odd_prioritaires) ? synthese.odd_prioritaires : [];
+  const recommandations = Array.isArray(synthese.recommandations) ? synthese.recommandations : [];
+
+  if (oddPrioritaires.length > 0) {
+    body += `<div class="card"><h2>⭐ ODD Prioritaires</h2><div style="display:flex;flex-wrap:wrap;gap:8px">`;
+    for (const num of oddPrioritaires) {
+      body += `<span style="background:${ODD_COLORS[num] || '#666'};color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600">ODD ${num} — ${ODD_NAMES[num] || ''}</span>`;
+    }
+    body += '</div></div>';
+  }
+
+  if (recommandations.length > 0) {
+    body += `<div class="card"><h2>💡 Recommandations</h2><ul>${recommandations.map((r: string) => `<li style="margin-bottom:8px"><span style="color:#3b82f6;font-weight:700">→</span> ${r}</li>`).join('')}</ul></div>`;
+  }
+
+  // Circular economy
+  if (circularite.evaluation) {
+    body += `<div class="card"><h2>♻️ Économie Circulaire</h2><p style="font-size:14px;margin-bottom:12px">${circularite.evaluation}</p>`;
+    if (circularite.pratiques?.length) {
+      body += `<ul>${circularite.pratiques.map((p: string) => `<li>♻ ${p}</li>`).join('')}</ul>`;
+    }
+    if (circularite.cibles_odd_liees?.length) {
+      body += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">${circularite.cibles_odd_liees.map((id: string) => `<span class="tag" style="background:#dcfce7;color:#166534">${id}</span>`).join('')}</div>`;
     }
     body += '</div>';
   }
 
-  if (data.checklist?.length) {
-    body += `<div class="card"><h2>✅ Checklist Due Diligence</h2><table><tr><th>Critère</th><th>Catégorie</th><th>Status</th><th>Commentaire</th></tr>
-${data.checklist.map((c:any)=>`<tr><td>${c.critere}</td><td><span class="tag">${c.categorie}</span></td><td>${c.status==='pass'?'<span class="badge badge-green">✓ Pass</span>':c.status==='fail'?'<span class="badge badge-red">✗ Fail</span>':'<span class="badge badge-yellow">⚠ Partiel</span>'}</td><td>${c.commentaire||''}${c.action_requise?`<br><strong style="color:#3b82f6">→ ${c.action_requise}</strong>`:''}</td></tr>`).join('')}</table></div>`;
+  return htmlShell('Évaluation ODD — 17 Objectifs de Développement Durable', data.score ?? scoreGlobal, body, ent);
+}
+
+// ===== COACHING REPORT HTML =====
+function coachingReportHTML(allDeliverables: any[], modules: any[], ent: string): string {
+  let body = '';
+  const MODULE_LABELS: Record<string, string> = {
+    bmc_analysis: 'Business Model Canvas', sic_analysis: 'Social Impact Canvas',
+    framework_data: 'Plan Financier Intermédiaire', diagnostic_data: 'Diagnostic Expert',
+    plan_ovo: 'Plan Financier Final', business_plan: 'Business Plan', odd_analysis: 'ODD',
+  };
+
+  const completedMods = modules.filter((m: any) => m.status === 'completed').length;
+  const totalMods = modules.length || 7;
+  const pct = Math.round((completedMods / totalMods) * 100);
+  const scores = allDeliverables.filter((d: any) => d.score).map((d: any) => d.score);
+  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0;
+
+  // Overview
+  body += `<div class="card"><h2>📊 Vue d'ensemble</h2><div class="grid-4">
+<div class="metric"><div class="val">${pct}%</div><div class="lbl">Progression</div></div>
+<div class="metric"><div class="val">${completedMods}/${totalMods}</div><div class="lbl">Modules terminés</div></div>
+<div class="metric"><div class="val">${allDeliverables.length}</div><div class="lbl">Livrables générés</div></div>
+<div class="metric"><div class="val">${avgScore}/100</div><div class="lbl">Score moyen</div></div>
+</div></div>`;
+
+  // Scores per deliverable
+  body += `<div class="card"><h2>📈 Scores par module</h2><table><tr><th>Module</th><th>Score</th><th>Status</th><th>Dernière mise à jour</th></tr>`;
+  for (const d of allDeliverables) {
+    const label = MODULE_LABELS[d.type] || d.type;
+    const scoreVal = d.score || 0;
+    const color = scoreVal >= 70 ? 'green' : scoreVal >= 50 ? 'yellow' : 'red';
+    body += `<tr><td>${label}</td><td><span class="badge badge-${color}">${scoreVal}/100</span></td>
+<td><span class="badge badge-green">Généré</span></td>
+<td style="font-size:11px;color:#64748b">${new Date(d.updated_at).toLocaleDateString('fr-FR')}</td></tr>`;
+  }
+  body += '</table></div>';
+
+  // Extract key insights from deliverables
+  const bmcDeliv = allDeliverables.find((d: any) => d.type === 'bmc_analysis');
+  const diagDeliv = allDeliverables.find((d: any) => d.type === 'diagnostic_data');
+
+  if (diagDeliv?.data) {
+    const diagData = diagDeliv.data as any;
+    if (diagData.verdict) {
+      body += `<div class="card" style="background:linear-gradient(135deg,#f0fdf4,#ecfeff);border-color:#86efac"><h2>🏆 Verdict Diagnostic</h2><p style="font-size:15px;font-weight:600">${diagData.verdict}</p></div>`;
+    }
+    if (diagData.swot) {
+      const sw = diagData.swot;
+      body += `<div class="card"><h2>🧭 Analyse SWOT</h2><div class="swot-grid">
+<div class="swot-box swot-s"><h4>Forces</h4><ul>${(sw.forces||[]).slice(0,3).map((s:any)=>`<li>${typeof s==='string'?s:s.item||''}</li>`).join('')}</ul></div>
+<div class="swot-box swot-w"><h4>Faiblesses</h4><ul>${(sw.faiblesses||[]).slice(0,3).map((s:any)=>`<li>${typeof s==='string'?s:s.item||''}</li>`).join('')}</ul></div>
+<div class="swot-box swot-o"><h4>Opportunités</h4><ul>${(sw.opportunites||[]).slice(0,3).map((s:any)=>`<li>${typeof s==='string'?s:s.item||''}</li>`).join('')}</ul></div>
+<div class="swot-box swot-t"><h4>Menaces</h4><ul>${(sw.menaces||[]).slice(0,3).map((s:any)=>`<li>${typeof s==='string'?s:s.item||''}</li>`).join('')}</ul></div>
+</div></div>`;
+    }
   }
 
-  if (data.red_flags?.length) {
-    body += `<div class="card" style="border-left:4px solid #ef4444"><h2>🚩 Red Flags</h2><ul>${data.red_flags.map((r:string)=>`<li style="color:#991b1b">${r}</li>`).join('')}</ul></div>`;
+  // Financial highlights from plan_ovo
+  const ovoDeliv = allDeliverables.find((d: any) => d.type === 'plan_ovo');
+  if (ovoDeliv?.data) {
+    const ovo = ovoDeliv.data as any;
+    const im = ovo.investment_metrics || {};
+    if (im.van != null || im.tri != null) {
+      body += `<div class="card"><h2>💰 Indicateurs financiers clés</h2><div class="grid-4">
+${im.van != null ? `<div class="metric"><div class="lbl">VAN (NPV)</div><div class="val" style="font-size:16px">${fmt(im.van)} FCFA</div></div>` : ''}
+${im.tri != null ? `<div class="metric"><div class="lbl">TRI (IRR)</div><div class="val" style="font-size:16px">${Number(im.tri).toFixed(1)}%</div></div>` : ''}
+${im.roi != null ? `<div class="metric"><div class="lbl">ROI</div><div class="val" style="font-size:16px">${Number(im.roi).toFixed(1)}%</div></div>` : ''}
+${im.payback_years != null ? `<div class="metric"><div class="lbl">Payback</div><div class="val" style="font-size:16px">${im.payback_years} ans</div></div>` : ''}
+</div></div>`;
+    }
   }
 
-  if (data.actions_prioritaires?.length) {
-    body += `<div class="card"><h2>🎯 Actions Prioritaires</h2><table><tr><th>Action</th><th>Priorité</th><th>Délai</th></tr>
-${data.actions_prioritaires.map((a:any)=>`<tr><td>${a.action}</td><td>${verdictBadge(a.priorite||'')}</td><td><span class="tag">${a.delai}</span></td></tr>`).join('')}</table></div>`;
-  }
+  body += `<div class="card" style="background:linear-gradient(135deg,#eff6ff,#f0fdf4)"><h2>📝 Note du coach</h2><p style="font-size:14px;color:#64748b;font-style:italic">Ce rapport a été généré automatiquement à partir des livrables de l'entrepreneur. Il peut être utilisé comme base pour un rapport de suivi destiné à votre hiérarchie.</p></div>`;
 
-  return htmlShell('Due Diligence ODD', data.score, body, ent);
+  return htmlShell(`Rapport Coaching — ${ent}`, avgScore, body, ent);
 }
 
 // ===== CSV GENERATOR =====
