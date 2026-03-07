@@ -70,8 +70,16 @@ export function OddViewer({ data }: OddViewerProps) {
   const cibles = data.evaluation_cibles_odd?.cibles ?? [];
   const resumeOdd = data.evaluation_cibles_odd?.resume_par_odd ?? {};
   const indicateurs = data.indicateurs_impact?.indicateurs ?? [];
-  const synthese = data.synthese ?? { odd_prioritaires: [], contribution_globale: "", recommandations: [] };
-  const circularite = data.circularite ?? { evaluation: "", pratiques: [], cibles_odd_liees: [] };
+  const synthese = {
+    odd_prioritaires: Array.isArray(data.synthese?.odd_prioritaires) ? data.synthese.odd_prioritaires : [],
+    contribution_globale: data.synthese?.contribution_globale ?? "",
+    recommandations: Array.isArray(data.synthese?.recommandations) ? data.synthese.recommandations : [],
+  };
+  const circularite = {
+    evaluation: data.circularite?.evaluation ?? "",
+    pratiques: Array.isArray(data.circularite?.pratiques) ? data.circularite.pratiques : [],
+    cibles_odd_liees: Array.isArray(data.circularite?.cibles_odd_liees) ? data.circularite.cibles_odd_liees : [],
+  };
 
   const totalPositifs = cibles.filter(c => c.evaluation === "positif").length;
   const totalNeutres = cibles.filter(c => c.evaluation === "neutre").length;
