@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.generate-ovo-plan]
 verify_jwt = false
+
+[functions.extract-enterprise-info]
+verify_jwt = false
