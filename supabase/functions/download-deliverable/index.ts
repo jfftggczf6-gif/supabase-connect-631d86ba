@@ -1231,6 +1231,17 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Special case: coaching_report (aggregates all deliverables)
+    if (deliverableType === "coaching_report") {
+      const { data: allDelivs } = await supabase.from("deliverables").select("*").eq("enterprise_id", enterpriseId);
+      const { data: allMods } = await supabase.from("enterprise_modules").select("*").eq("enterprise_id", enterpriseId);
+      const html = coachingReportHTML(allDelivs || [], allMods || [], ent.name);
+      const safeName = ent.name.replace(/[^a-zA-Z0-9]/g, "_");
+      return new Response(html, {
+        headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${safeName}_Rapport_Coaching.html"` },
+      });
+    }
+
     const { data: deliv } = await supabase.from("deliverables").select("*").eq("enterprise_id", enterpriseId).eq("type", deliverableType).single();
     if (!deliv || !deliv.data) {
       return new Response(JSON.stringify({ error: "Deliverable not ready" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });

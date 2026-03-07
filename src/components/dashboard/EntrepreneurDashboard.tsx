@@ -966,21 +966,7 @@ export default function EntrepreneurDashboard() {
                 <h1 className="font-display font-semibold text-base">{selectedMod.title}</h1>
               </>
             )}
-            {/* Download buttons if deliverable exists */}
-            {selectedDeliv && (
-              <div className="ml-auto flex items-center gap-1.5">
-                {(DELIVERABLE_CONFIG.find(d => d.type === selectedDelivType)?.formats || ['html']).map(fmt => (
-                  <button
-                    key={fmt}
-                    onClick={() => handleDownload(selectedDelivType, fmt)}
-                    className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-md bg-muted hover:bg-accent transition-colors text-muted-foreground font-medium"
-                  >
-                    <Download className="h-3 w-3" />
-                    {fmt.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Module-specific download handled via contextual bars below */}
           </div>
 
           {/* Scrollable content */}
