@@ -365,6 +365,8 @@ export default function EntrepreneurDashboard() {
           user_id: user.id, name: newName.trim(), sector: newSector.trim() || null,
           country: newCountry.trim() || "Côte d'Ivoire", city: newCity.trim() || null,
           legal_form: newLegalForm.trim() || null, description: newDescription.trim() || null,
+          contact_email: profile?.email || user?.email || null,
+          contact_name: profile?.full_name || null,
         })
         .select().single();
       if (error) throw error;

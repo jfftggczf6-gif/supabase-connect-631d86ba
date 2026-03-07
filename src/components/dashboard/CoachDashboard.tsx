@@ -184,30 +184,32 @@ export default function CoachDashboard() {
     if (!addForm.name.trim() || !user) return;
     setAddLoading(true);
     try {
-      // Step 1: Try to find an existing enterprise by contact_email
       let linked = false;
+
+      // Step 1: Try secure backend linking by email
       if (addForm.contact_email?.trim()) {
-        const { data: existing } = await supabase
-          .from('enterprises')
-          .select('id, name, coach_id')
-          .eq('contact_email', addForm.contact_email.trim())
-          .is('coach_id', null)
-          .limit(1);
+        const { data: status, error: rpcError } = await supabase.rpc(
+          'link_enterprise_to_coach_by_email',
+          { enterprise_email: addForm.contact_email.trim() }
+        );
 
-        if (existing && existing.length > 0) {
-          // Link coach to existing enterprise instead of creating a duplicate
-          const { error: updateError } = await supabase
-            .from('enterprises')
-            .update({ coach_id: user.id } as any)
-            .eq('id', existing[0].id);
+        if (rpcError) throw rpcError;
 
-          if (updateError) throw updateError;
-          toast.success(`Lié à l'entreprise existante "${existing[0].name}"`);
+        if (status === 'linked') {
+          toast.success("Entreprise liée avec succès !");
           linked = true;
+        } else if (status === 'already_yours') {
+          toast.info("Cette entreprise est déjà dans votre portefeuille");
+          linked = true;
+        } else if (status === 'already_assigned') {
+          toast.error("Cette entreprise est déjà suivie par un autre coach");
+          setAddLoading(false);
+          return;
         }
+        // status === 'not_found' → fall through to create a lead
       }
 
-      // Step 2: If no existing enterprise found, create a new one
+      // Step 2: If no existing enterprise found, create a new coach-owned lead
       if (!linked) {
         const { error } = await supabase.from('enterprises').insert({
           name: addForm.name.trim(),
