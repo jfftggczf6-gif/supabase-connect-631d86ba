@@ -438,7 +438,8 @@ async function generateWordDoc(bp: any): Promise<Uint8Array> {
         },
       },
       headers: {
-        default: new [
+        default: new Header({
+          children: [
             new Paragraph({
               children: [
                 new TextRun({ text: "entrepreneurs for entrepreneurs", font: "Calibri", size: 16, italics: true, color: BLUE }),
@@ -451,7 +452,8 @@ async function generateWordDoc(bp: any): Promise<Uint8Array> {
         }),
       },
       footers: {
-        default: new (await import("npm:docx@8")).[
+        default: new Footer({
+          children: [
             new Paragraph({
               children: [new TextRun({ text: "Business Plan Guide 2025", font: "Calibri", size: 16, italics: true, color: GRAY_GUIDE })],
               alignment: AlignmentType.CENTER,
