@@ -413,8 +413,8 @@ export default function CoachDashboard() {
     }
 
     let completed = 0;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { toast.error('Non authentifié'); setGeneratingMirror(false); return; }
+    let token: string;
+    try { token = await getValidAccessToken(); } catch { toast.error('Non authentifié'); setGeneratingMirror(false); return; }
 
     try {
       for (let i = 0; i < PIPELINE.length; i++) {
@@ -425,7 +425,7 @@ export default function CoachDashboard() {
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.fn}`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ enterprise_id: enterpriseId }),
             }
           );
@@ -440,6 +440,16 @@ export default function CoachDashboard() {
       }
       toast.success(`${completed} livrable(s) — visibles par l'entrepreneur`);
       await fetchData();
+
+      // Auto-trigger OVO Excel generation
+      if (completed > 0) {
+        try {
+          toast.info('Génération automatique du Plan Financier Excel...');
+          await handleGenerateOvoPlanCoach(enterpriseId);
+        } catch (ovoErr: any) {
+          console.warn('[Mirror] OVO Excel auto-generation failed:', ovoErr.message);
+        }
+      }
     } finally {
       setGeneratingMirror(false);
       setGenerationProgress(null);
