@@ -293,6 +293,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      link_enterprise_to_coach_by_email: {
+        Args: { enterprise_email: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "coach" | "entrepreneur"
