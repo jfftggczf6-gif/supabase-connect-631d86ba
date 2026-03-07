@@ -293,6 +293,17 @@ export default function EntrepreneurDashboard() {
         toast.warning(`${errors.length} module(s) en erreur`);
       }
       await fetchData();
+
+      // Auto-trigger Plan OVO Excel generation if plan_ovo was generated
+      const hasOvo = deliverables.find(d => d.type === 'plan_ovo') || completed > 0;
+      if (hasOvo && !generatingOvoPlan) {
+        toast.info('Génération automatique du Plan Financier Excel...');
+        try {
+          await handleGenerateOvoPlan();
+        } catch (ovoErr: any) {
+          console.warn('[Pipeline] OVO Excel auto-generation failed:', ovoErr.message);
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || 'Erreur de génération');
     } finally {
