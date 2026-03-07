@@ -147,8 +147,7 @@ export default function EntrepreneurDashboard() {
   const extractEnterpriseInfo = async (enterpriseId: string) => {
     try {
       setExtracting(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const token = await getValidAccessToken();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-enterprise-info`,
         {
