@@ -263,7 +263,8 @@ export default function EntrepreneurDashboard() {
   const handleSignOut = async () => { await signOut(); navigate('/login'); };
 
   const pollForOvoCompletion = async (enterpriseId: string, requestId: string, startedAt: string): Promise<{ url: string; fileName: string } | null> => {
-    const maxAttempts = 60; // 60 × 3s = 3 min max
+    const maxAttempts = 160; // 160 × 3s = ~8 min max
+    const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 min = stale
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(r => setTimeout(r, 3000));
       const { data: d } = await supabase
@@ -276,12 +277,10 @@ export default function EntrepreneurDashboard() {
       const meta = d.data as Record<string, any>;
       if (meta.request_id !== requestId && !(meta.generated_at && meta.generated_at > startedAt)) continue;
       if (meta.status === 'completed' && meta.file_name) {
-        // Régénérer une URL signée fraîche (file_url stocké peut être expiré)
         const { data: signedData, error: signedError } = await supabase.storage
           .from('ovo-outputs')
           .createSignedUrl(meta.file_name, 3600);
         if (signedError || !signedData?.signedUrl) {
-          // Fallback sur file_url stocké si createSignedUrl échoue
           return { url: d.file_url || '', fileName: meta.file_name };
         }
         return { url: signedData.signedUrl, fileName: meta.file_name };
@@ -289,9 +288,15 @@ export default function EntrepreneurDashboard() {
       if (meta.status === 'failed') {
         throw new Error(meta.error || 'La génération a échoué côté serveur');
       }
-      // still processing, continue polling
+      // Detect stale processing (started_at too old)
+      if (meta.status === 'processing' && meta.started_at) {
+        const age = Date.now() - new Date(meta.started_at).getTime();
+        if (age > STALE_THRESHOLD_MS) {
+          throw new Error('La génération semble bloquée (aucune mise à jour depuis 10 min). Veuillez réessayer.');
+        }
+      }
     }
-    throw new Error('Délai dépassé — la génération prend trop de temps');
+    throw new Error('Délai dépassé (~8 min) — la génération prend trop de temps. Veuillez réessayer.');
   };
 
   const handleGenerateOvoPlan = async () => {

@@ -645,22 +645,20 @@ MÉTRIQUES D'INVESTISSEMENT (à recalculer de manière cohérente) :
   - Payback: ${im.payback_years || 'N/A'} ans`;
   }
 
-  // ── SIC block ──
+  // ── SIC block (compacted to save tokens) ──
   let sicBlock = "";
-  if (sic && Object.keys(sic).length > 0) {
-    sicBlock = `
-IMPACT SOCIAL (SIC) :
-${sic.odd_alignment ? `- ODD alignés : ${JSON.stringify(sic.odd_alignment)}` : ""}
-${sic.parties_prenantes ? `- Parties prenantes : ${JSON.stringify(sic.parties_prenantes)}` : ""}`;
+  if (sic && sic.odd_alignment) {
+    const oddList = Array.isArray(sic.odd_alignment) ? sic.odd_alignment.map((o: any) => typeof o === 'string' ? o : o.odd || o.name || '').join(', ') : String(sic.odd_alignment);
+    sicBlock = `\nIMPACT SOCIAL: ODD alignés: ${oddList}`;
   }
 
-  // ── Diagnostic block ──
+  // ── Diagnostic block (compacted — only score + key metrics) ──
   let diagnosticBlock = "";
   if (diag && Object.keys(diag).length > 0) {
-    diagnosticBlock = `
-DIAGNOSTIC EXPERT :
-${diag.synthese_executive ? `- Synthèse : ${diag.synthese_executive}` : ""}
-${diag.recommandations ? `- Recommandations : ${JSON.stringify(diag.recommandations)}` : ""}`;
+    const score = diag.score || 'N/A';
+    const niveau = diag.niveau_maturite || '';
+    const synthese = diag.synthese_executive ? diag.synthese_executive.substring(0, 200) : '';
+    diagnosticBlock = `\nDIAGNOSTIC: Score=${score}/100, Maturité=${niveau}. ${synthese}`;
   }
 
   // Format products/services lists with financial data
