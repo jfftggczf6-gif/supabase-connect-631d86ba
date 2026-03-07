@@ -877,6 +877,24 @@ function expandCondensedData(json: Record<string, any>): void {
   console.log(`[expand] Products: ${(json.products||[]).filter((p:any)=>p.per_year?.length).length} expanded, Staff: ${(json.staff||[]).filter((s:any)=>s.per_year?.length).length} expanded`);
 }
 
+/**
+ * Post-expansion validation: scan all active products/services and ensure
+ * no future year has zero volumes when CURRENT YEAR has positive volumes.
+ */
+// deno-lint-ignore no-explicit-any
+function validateAndFillVolumes(json: Record<string, any>): void {
+  const validate = (items: any[], label: string) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      if (!item?.active || !item.per_year || !Array.isArray(item.per_year)) continue;
+      const g = item.growth_rate || 0.15;
+      item.per_year = repairPerYearVolumes(item.per_year, g);
+    }
+  };
+  validate(json.products || [], "Product");
+  validate(json.services || [], "Service");
+}
+
 // deno-lint-ignore no-explicit-any
 function expandProductOrService(p: any): any {
   const yearLabels = ["YEAR-2","YEAR-1","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
