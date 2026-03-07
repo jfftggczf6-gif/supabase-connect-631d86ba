@@ -55,10 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         // Fire and forget — no await to avoid deadlock
-        fetchUserData(session.user.id);
+        setRoleLoading(true);
+        fetchUserData(session.user.id).finally(() => setRoleLoading(false));
       } else {
         setProfile(null);
         setRoleState(null);
+        setRoleLoading(false);
       }
     });
 
