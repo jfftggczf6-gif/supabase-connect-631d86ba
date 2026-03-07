@@ -192,18 +192,91 @@ export function normalizeFramework(raw: any): any {
 
 // ===== DIAGNOSTIC NORMALIZER =====
 export function normalizeDiagnostic(raw: any): any {
-  if (!raw) return raw;
-  const d = { ...raw };
-  d.score = toNumber(pick(d, 'score', 'score_global'), 0);
+  if (!raw || typeof raw !== 'object') {
+    return {
+      metadata: { version: 1, donnees_completes: false },
+      score_global: 0, score: 0,
+      palier: "en_construction", label: "En construction", couleur: "🟠",
+      resume_executif: "",
+      scores_dimensions: {},
+      forces: [], opportunites_amelioration: [], points_vigilance: [],
+      incoherences: [], recommandations: [], benchmarks: {},
+      avis_par_livrable: {},
+      synthese_globale: { avis_ensemble: "", points_cles_a_retenir: [], demarche_recommandee: [], prochaines_etapes: [] },
+      points_attention_prioritaires: [],
+    };
+  }
 
-  // Normalize SWOT items (might be objects or strings)
-  if (d.swot) {
-    for (const k of ['forces', 'faiblesses', 'opportunites', 'menaces']) {
-      if (d.swot[k]) d.swot[k] = d.swot[k].map((s: any) => typeof s === 'string' ? s : s?.item || s?.description || JSON.stringify(s));
+  const d = { ...raw };
+
+  // Score
+  d.score_global = toNumber(pick(d, 'score_global', 'score', 'score_investment_readiness'), 0);
+  d.score = d.score_global;
+
+  // Palier (si l'IA ne l'a pas calculé correctement)
+  const s = d.score_global;
+  if (!d.palier || d.palier === '') {
+    if (s <= 30)      { d.palier = "en_construction"; d.label = "En construction"; d.couleur = "🟠"; }
+    else if (s <= 50) { d.palier = "a_renforcer";     d.label = "À renforcer";     d.couleur = "🟡"; }
+    else if (s <= 70) { d.palier = "potentiel";       d.label = "Potentiel";       d.couleur = "🟢"; }
+    else if (s <= 85) { d.palier = "bien_avance";     d.label = "Bien avancé";     d.couleur = "💚"; }
+    else              { d.palier = "excellent";        d.label = "Excellent";       d.couleur = "✅"; }
+  }
+
+  // Resume exécutif (plusieurs clés possibles)
+  d.resume_executif = pick(d, 'resume_executif', 'synthese_executive', 'synthèse_exécutive', 'synthese', 'executive_summary') || '';
+
+  // Dimensions — préserver les objets complexes
+  d.scores_dimensions = d.scores_dimensions || {};
+  const dimDefaults: Record<string, { label: string; poids: number }> = {
+    coherence:             { label: "Cohérence entre livrables", poids: 25 },
+    viabilite:             { label: "Viabilité économique",       poids: 25 },
+    realisme:              { label: "Réalisme des projections",   poids: 20 },
+    completude_couts:      { label: "Complétude des coûts",       poids: 15 },
+    capacite_remboursement:{ label: "Capacité de remboursement",  poids: 15 },
+  };
+  for (const [dim, defaults] of Object.entries(dimDefaults)) {
+    if (!d.scores_dimensions[dim]) {
+      d.scores_dimensions[dim] = { score: 0, ...defaults, commentaire: "", analyse_detaillee: "" };
+    } else {
+      d.scores_dimensions[dim] = { ...defaults, ...d.scores_dimensions[dim] };
     }
   }
 
-  d.synthese_executive = pick(d, 'synthese_executive', 'synthèse_exécutive', 'synthese', 'executive_summary') || '';
+  // Listes — garder les objets (pas toArray qui stringify)
+  const toObjArray = (v: any): any[] => Array.isArray(v) ? v : (v ? [v] : []);
+  d.forces = toObjArray(d.forces || d.swot?.forces || []);
+  d.opportunites_amelioration = toObjArray(d.opportunites_amelioration || d.swot?.faiblesses || []);
+  d.points_vigilance = toObjArray(d.points_vigilance || d.risques_critiques || []);
+  d.incoherences = toObjArray(d.incoherences || []);
+  d.recommandations = toObjArray(d.recommandations || d.plan_action_prioritaire || []);
+  d.points_attention_prioritaires = toObjArray(d.points_attention_prioritaires || []);
+
+  // Benchmarks
+  d.benchmarks = d.benchmarks || {};
+
+  // Avis par livrable
+  d.avis_par_livrable = d.avis_par_livrable || {};
+
+  // Synthèse globale
+  d.synthese_globale = d.synthese_globale || {
+    avis_ensemble: "", points_cles_a_retenir: [], demarche_recommandee: [], prochaines_etapes: []
+  };
+
+  // Métadonnées
+  d.metadata = d.metadata || { version: 1, donnees_completes: false };
+
+  // Compatibilité avec l'ancien format (swot, diagnostic_par_dimension)
+  if (d.swot) {
+    for (const k of ['forces', 'faiblesses', 'opportunites', 'menaces']) {
+      if (d.swot[k]) {
+        d.swot[k] = d.swot[k].map((s_item: any) =>
+          typeof s_item === 'string' ? s_item : s_item?.item || s_item?.titre || s_item?.description || JSON.stringify(s_item)
+        );
+      }
+    }
+  }
+
   return d;
 }
 
