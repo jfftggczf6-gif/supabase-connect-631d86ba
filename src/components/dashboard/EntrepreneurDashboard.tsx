@@ -649,9 +649,9 @@ export default function EntrepreneurDashboard() {
 
   const handleDownloadOvoFile = async (url: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getValidAccessToken();
       const response = await fetch(url, {
-        headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Erreur de téléchargement');
       const blob = await response.blob();
