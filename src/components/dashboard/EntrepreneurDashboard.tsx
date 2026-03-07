@@ -263,7 +263,7 @@ export default function EntrepreneurDashboard() {
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.fn}`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ enterprise_id: enterprise.id }),
             }
           );
