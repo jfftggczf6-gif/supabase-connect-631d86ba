@@ -1071,7 +1071,10 @@ function buildCellWrites(json: Record<string, any>): CellWrite[] {
         (["H1","H2","CURRENT YEAR"].includes(period) && y.year === "CURRENT YEAR")
       ) || { headcount:0, gross_monthly_salary_per_person:0, annual_allowances_per_person:0 };
 
-      w("FinanceData", rows.eft,        finCols[i], Math.round(yr.headcount || 0),                        "number");
+      // Bug #2: Skip col S for headcount (S = formula (Q+R)/2, auto-calculated by Excel)
+      if (finCols[i] !== "S") {
+        w("FinanceData", rows.eft,      finCols[i], Math.round(yr.headcount || 0),                        "number");
+      }
       w("FinanceData", rows.salary,     finCols[i], yr.gross_monthly_salary_per_person || 0,              "number");
       w("FinanceData", rows.allowances, finCols[i], yr.annual_allowances_per_person    || 0,              "number");
     });
