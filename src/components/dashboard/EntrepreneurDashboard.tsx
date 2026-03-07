@@ -113,6 +113,7 @@ export default function EntrepreneurDashboard() {
       setDeliverables(delivRes.data || []);
       setUploadedFiles((filesRes.data || []).map((f: any) => ({ name: f.name, size: f.metadata?.size || 0 })));
     }
+    setInitialLoading(false);
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
