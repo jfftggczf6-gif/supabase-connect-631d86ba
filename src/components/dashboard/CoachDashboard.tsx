@@ -331,8 +331,8 @@ export default function CoachDashboard() {
 
     let completed = 0;
     const errors: string[] = [];
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { toast.error('Non authentifié'); setGenerating(false); return; }
+    let token: string;
+    try { token = await getValidAccessToken(); } catch { toast.error('Non authentifié'); setGenerating(false); return; }
 
     const stepsToRun = PIPELINE.filter(step => {
       const hasBmc = entUploads.some((u: any) => u.category === 'bmc');
@@ -356,7 +356,7 @@ export default function CoachDashboard() {
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.fn}`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ enterprise_id: enterpriseId }),
             }
           );
@@ -384,6 +384,16 @@ export default function CoachDashboard() {
       toast.success(`${completed} livrable(s) générés — 🔒 privés par défaut`);
       if (errors.length > 0) toast.warning(`${errors.length} module(s) en erreur`);
       await fetchData();
+
+      // Auto-trigger OVO Excel generation after pipeline
+      if (completed > 0) {
+        try {
+          toast.info('Génération automatique du Plan Financier Excel...');
+          await handleGenerateOvoPlanCoach(enterpriseId);
+        } catch (ovoErr: any) {
+          console.warn('[Coach Pipeline] OVO Excel auto-generation failed:', ovoErr.message);
+        }
+      }
     } finally {
       setGenerating(false);
       setGenerationProgress(null);
