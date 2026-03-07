@@ -180,22 +180,48 @@ export default function CoachDashboard() {
     if (!addForm.name.trim() || !user) return;
     setAddLoading(true);
     try {
-      const { error } = await supabase.from('enterprises').insert({
-        name: addForm.name.trim(),
-        sector: addForm.sector || null,
-        country: addForm.country,
-        contact_name: addForm.contact_name || null,
-        contact_email: addForm.contact_email || null,
-        contact_phone: addForm.contact_phone || null,
-        coach_id: user.id,
-        user_id: user.id,
-        phase: 'identite',
-        score_ir: 0,
-      } as any);
+      // Step 1: Try to find an existing enterprise by contact_email
+      let linked = false;
+      if (addForm.contact_email?.trim()) {
+        const { data: existing } = await supabase
+          .from('enterprises')
+          .select('id, name, coach_id')
+          .eq('contact_email', addForm.contact_email.trim())
+          .is('coach_id', null)
+          .limit(1);
 
-      if (error) throw error;
+        if (existing && existing.length > 0) {
+          // Link coach to existing enterprise instead of creating a duplicate
+          const { error: updateError } = await supabase
+            .from('enterprises')
+            .update({ coach_id: user.id } as any)
+            .eq('id', existing[0].id);
 
-      toast.success(`${addForm.name} ajouté avec succès`);
+          if (updateError) throw updateError;
+          toast.success(`Lié à l'entreprise existante "${existing[0].name}"`);
+          linked = true;
+        }
+      }
+
+      // Step 2: If no existing enterprise found, create a new one
+      if (!linked) {
+        const { error } = await supabase.from('enterprises').insert({
+          name: addForm.name.trim(),
+          sector: addForm.sector || null,
+          country: addForm.country,
+          contact_name: addForm.contact_name || null,
+          contact_email: addForm.contact_email || null,
+          contact_phone: addForm.contact_phone || null,
+          coach_id: user.id,
+          user_id: user.id,
+          phase: 'identite',
+          score_ir: 0,
+        } as any);
+
+        if (error) throw error;
+        toast.success(`${addForm.name} ajouté avec succès`);
+      }
+
       setShowAddModal(false);
       setAddForm({ name: '', contact_name: '', contact_email: '', contact_phone: '', sector: '', country: "Côte d'Ivoire" });
       await fetchData();
