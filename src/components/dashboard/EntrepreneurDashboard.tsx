@@ -244,8 +244,7 @@ export default function EntrepreneurDashboard() {
     const errors: string[] = [];
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non authentifié");
+      const token = await getValidAccessToken();
 
       for (let i = 0; i < PIPELINE.length; i++) {
         const step = PIPELINE[i];
