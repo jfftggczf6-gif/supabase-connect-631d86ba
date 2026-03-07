@@ -1288,6 +1288,11 @@ function applyWritesToXml(xml: string, writes: CellWrite[]): string {
 
   // Track which writes were applied (to handle missing rows)
   const applied = new Set<string>();
+  // Bug #5: Aggregate formula cell skip count instead of per-cell logging
+  let formulaSkipCount = 0;
+
+  // Bug #1: Regex matches BOTH self-closing <c .../> AND regular <c ...>...</c> cells
+  const CELL_REGEX = /<c\s+r="([A-Z]+\d+)"([^>]*?)(?:\s*\/>|>([\s\S]*?)<\/c>)/g;
 
   // Process existing rows — replace matching cells, track applied
   xml = xml.replace(/<row\b([^>]*)>([\s\S]*?)<\/row>/g, (fullMatch, attrs, content) => {
@@ -1304,15 +1309,15 @@ function applyWritesToXml(xml: string, writes: CellWrite[]): string {
     }
     if (rowWrites.size === 0) return fullMatch;
 
-    // Replace existing cells
+    // Replace existing cells (handles self-closing and regular cells)
     let newContent = content.replace(
-      /<c r="([A-Z]+\d+)"([^>]*)>([\s\S]*?)<\/c>/g,
-      (cellMatch: string, ref: string, cellAttrs: string, cellContent: string) => {
+      CELL_REGEX,
+      (cellMatch: string, ref: string, _cellAttrs: string, cellContent: string | undefined) => {
         const cw = rowWrites.get(ref);
         if (!cw) return cellMatch;
-        // Skip formula cells
-        if (cellContent.includes("<f")) {
-          console.warn(`[inject] Skipping formula cell ${ref}`);
+        // Skip formula cells (only in regular cells with content)
+        if (cellContent && cellContent.includes("<f")) {
+          formulaSkipCount++;
           applied.add(ref);
           return cellMatch;
         }
@@ -1342,14 +1347,19 @@ function applyWritesToXml(xml: string, writes: CellWrite[]): string {
 
   if (remaining.size > 0) {
     const newRows: string[] = [];
-    for (const [rowNum, writes] of [...remaining.entries()].sort((a, b) => a[0] - b[0])) {
-      const cells = writes
+    for (const [rowNum, rowWrites] of [...remaining.entries()].sort((a, b) => a[0] - b[0])) {
+      const cells = rowWrites
         .sort((a, b) => a.col - b.col)
         .map(cw => buildCellXml(colNumToLetter(cw.col) + cw.row, cw))
         .join("");
       newRows.push(`<row r="${rowNum}">${cells}</row>`);
     }
     xml = xml.replace(/<\/sheetData>/, newRows.join("") + "</sheetData>");
+  }
+
+  // Bug #5: Single aggregated log
+  if (formulaSkipCount > 0) {
+    console.log(`[inject] Skipped ${formulaSkipCount} formula cells (preserved Excel formulas)`);
   }
 
   return xml;
@@ -1366,9 +1376,11 @@ function buildCellXml(ref: string, cw: CellWrite): string {
 
 /**
  * Insère une cellule dans le contenu d'une ligne en respectant l'ordre des colonnes.
+ * Bug #1 fix: matches both self-closing and regular cells.
  */
 function insertCellInRow(rowContent: string, newCell: string, newRef: string): string {
-  const cells = [...rowContent.matchAll(/<c r="([A-Z]+\d+)"[^>]*>.*?<\/c>/gs)];
+  // Match both <c r="..." ...>...</c> and <c r="..." ... />
+  const cells = [...rowContent.matchAll(/<c\s+r="([A-Z]+\d+)"[^>]*?(?:\s*\/>|>[\s\S]*?<\/c>)/gs)];
 
   if (cells.length === 0) return newCell + rowContent;
 
