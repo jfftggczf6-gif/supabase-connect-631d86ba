@@ -182,15 +182,39 @@ Deno.serve(async (req: Request) => {
       throw new Error("L'IA n'a généré aucun produit ni service. Veuillez vérifier que les données BMC/inputs contiennent des informations sur vos activités.");
     }
 
+    // Bug #4: Normalize range data (shift r3/r2 → r1 if only one range used)
+    normalizeRangeData(financialJson);
+
+    // Bug #7: Sort products/services by slot for consistent ordering
+    if (Array.isArray(financialJson.products)) {
+      financialJson.products.sort((a: any, b: any) => (a.slot || 0) - (b.slot || 0));
+    }
+    if (Array.isArray(financialJson.services)) {
+      financialJson.services.sort((a: any, b: any) => (a.slot || 0) - (b.slot || 0));
+    }
+
     // ── Étape 2 : Télécharger le template ─────────────────────────────
     console.log("[generate-ovo-plan] Downloading template...");
 
-    const { data: templateBlob, error: dlError } = await supabase.storage
+    let templateBlob: Blob | null = null;
+    let dlError: any = null;
+
+    // Bug #6: Try primary template, then fallback path
+    ({ data: templateBlob, error: dlError } = await supabase.storage
       .from(TEMPLATE_BUCKET)
-      .download(TEMPLATE_FILE);
+      .download(TEMPLATE_FILE));
 
     if (dlError || !templateBlob) {
-      throw new Error(`Template download failed: ${dlError?.message}`);
+      console.warn(`[generate-ovo-plan] Primary template not found: ${dlError?.message}. Trying fallback...`);
+      // Try without path prefix
+      const fallbackName = TEMPLATE_FILE.split("/").pop() || TEMPLATE_FILE;
+      ({ data: templateBlob, error: dlError } = await supabase.storage
+        .from(TEMPLATE_BUCKET)
+        .download(fallbackName));
+    }
+
+    if (dlError || !templateBlob) {
+      throw new Error(`Template download failed: ${dlError?.message}. Veuillez uploader le template '${TEMPLATE_FILE}' dans le bucket '${TEMPLATE_BUCKET}'.`);
     }
 
     const templateBuffer = await templateBlob.arrayBuffer();
@@ -404,6 +428,18 @@ CONTRAINTES TECHNIQUES EXCEL :
 - Pour chaque gamme utilisée : mix_ch1 + mix_ch2 = 1.0 EXACTEMENT
 - Si gamme non utilisée : prix=0, cogs=0, mix=0
 - Produit inactif (active=false) : TOUS volumes, prix et mix à 0
+
+CONTRAINTES VOLUMES CRITIQUES (NE PAS IGNORER) :
+- Chaque produit/service actif DOIT avoir per_year avec les 8 entrées : YEAR-2, YEAR-1, CURRENT YEAR, YEAR2, YEAR3, YEAR4, YEAR5, YEAR6
+- Pour les années futures (YEAR2 à YEAR6) : volume_h1 et volume_h2 DOIVENT être > 0 pour chaque produit/service actif
+- JAMAIS de volume = 0 pour un produit actif en année future — c'est une ERREUR CRITIQUE
+- Les volumes doivent croître de manière réaliste d'année en année
+
+CONTRAINTES GAMMES DE PRIX :
+- Si l'entreprise utilise UNE SEULE gamme de prix, utiliser range_flags=[1,0,0] (gamme 1 = standard)
+- Mettre les prix dans unit_price_r1, les COGS dans cogs_r1, mix_r1=1.0
+- NE PAS mettre les prix en r3 quand une seule gamme est utilisée
+- range_flags=[0,0,1] signifie gamme HIGH END uniquement — à n'utiliser QUE si justifié
 
 SORTIE OBLIGATOIRE :
 - UNIQUEMENT un objet JSON valide — zéro markdown, zéro texte avant/après
@@ -772,6 +808,48 @@ JSON SCHEMA ATTENDU :
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// BUG #4 FIX : NORMALISATION DES GAMMES DE PRIX
+// ─────────────────────────────────────────────────────────────────────
+
+// deno-lint-ignore no-explicit-any
+function normalizeRangeData(json: Record<string, any>): void {
+  const normalize = (items: any[], label: string) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      if (!item?.active || !item.per_year) continue;
+      const rf = item.range_flags || [1, 0, 0];
+      // If only r3 or r2 is flagged (r1=0), shift everything to r1
+      if (rf[0] === 0 && (rf[2] === 1 || rf[1] === 1)) {
+        const srcRange = rf[2] === 1 ? 'r3' : 'r2';
+        console.log(`[normalize] ${label} "${item.name}": shifting ${srcRange} → r1`);
+        item.range_flags = [1, 0, 0];
+        for (const yr of item.per_year) {
+          if (srcRange === 'r3') {
+            yr.unit_price_r1 = yr.unit_price_r3 || yr.unit_price_r1 || 0;
+            yr.cogs_r1 = yr.cogs_r3 || yr.cogs_r1 || 0;
+            yr.mix_r1 = yr.mix_r3 || yr.mix_r1 || 1.0;
+            yr.mix_r1_ch1 = yr.mix_r3_ch1 || yr.mix_r1_ch1 || 0;
+            yr.mix_r1_ch2 = yr.mix_r3_ch2 || yr.mix_r1_ch2 || 1.0;
+            yr.unit_price_r3 = 0; yr.cogs_r3 = 0; yr.mix_r3 = 0;
+            yr.mix_r3_ch1 = 0; yr.mix_r3_ch2 = 0;
+          } else {
+            yr.unit_price_r1 = yr.unit_price_r2 || yr.unit_price_r1 || 0;
+            yr.cogs_r1 = yr.cogs_r2 || yr.cogs_r1 || 0;
+            yr.mix_r1 = yr.mix_r2 || yr.mix_r1 || 1.0;
+            yr.mix_r1_ch1 = yr.mix_r2_ch1 || yr.mix_r1_ch1 || 0;
+            yr.mix_r1_ch2 = yr.mix_r2_ch2 || yr.mix_r1_ch2 || 1.0;
+            yr.unit_price_r2 = 0; yr.cogs_r2 = 0; yr.mix_r2 = 0;
+            yr.mix_r2_ch1 = 0; yr.mix_r2_ch2 = 0;
+          }
+        }
+      }
+    }
+  };
+  normalize(json.products || [], "Product");
+  normalize(json.services || [], "Service");
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // ÉTAPE 3 : CONSTRUIRE LA LISTE DES CELLULES À ÉCRIRE
 // ─────────────────────────────────────────────────────────────────────
 
@@ -1035,7 +1113,10 @@ function buildCellWrites(json: Record<string, any>): CellWrite[] {
         (["H1","H2","CURRENT YEAR"].includes(period) && y.year === "CURRENT YEAR")
       ) || { headcount:0, gross_monthly_salary_per_person:0, annual_allowances_per_person:0 };
 
-      w("FinanceData", rows.eft,        finCols[i], Math.round(yr.headcount || 0),                        "number");
+      // Bug #2: Skip col S for headcount (S = formula (Q+R)/2, auto-calculated by Excel)
+      if (finCols[i] !== "S") {
+        w("FinanceData", rows.eft,      finCols[i], Math.round(yr.headcount || 0),                        "number");
+      }
       w("FinanceData", rows.salary,     finCols[i], yr.gross_monthly_salary_per_person || 0,              "number");
       w("FinanceData", rows.allowances, finCols[i], yr.annual_allowances_per_person    || 0,              "number");
     });
@@ -1249,6 +1330,11 @@ function applyWritesToXml(xml: string, writes: CellWrite[]): string {
 
   // Track which writes were applied (to handle missing rows)
   const applied = new Set<string>();
+  // Bug #5: Aggregate formula cell skip count instead of per-cell logging
+  let formulaSkipCount = 0;
+
+  // Bug #1: Regex matches BOTH self-closing <c .../> AND regular <c ...>...</c> cells
+  const CELL_REGEX = /<c\s+r="([A-Z]+\d+)"([^>]*?)(?:\s*\/>|>([\s\S]*?)<\/c>)/g;
 
   // Process existing rows — replace matching cells, track applied
   xml = xml.replace(/<row\b([^>]*)>([\s\S]*?)<\/row>/g, (fullMatch, attrs, content) => {
@@ -1265,15 +1351,15 @@ function applyWritesToXml(xml: string, writes: CellWrite[]): string {
     }
     if (rowWrites.size === 0) return fullMatch;
 
-    // Replace existing cells
+    // Replace existing cells (handles self-closing and regular cells)
     let newContent = content.replace(
-      /<c r="([A-Z]+\d+)"([^>]*)>([\s\S]*?)<\/c>/g,
-      (cellMatch: string, ref: string, cellAttrs: string, cellContent: string) => {
+      CELL_REGEX,
+      (cellMatch: string, ref: string, _cellAttrs: string, cellContent: string | undefined) => {
         const cw = rowWrites.get(ref);
         if (!cw) return cellMatch;
-        // Skip formula cells
-        if (cellContent.includes("<f")) {
-          console.warn(`[inject] Skipping formula cell ${ref}`);
+        // Skip formula cells (only in regular cells with content)
+        if (cellContent && cellContent.includes("<f")) {
+          formulaSkipCount++;
           applied.add(ref);
           return cellMatch;
         }
@@ -1303,14 +1389,19 @@ function applyWritesToXml(xml: string, writes: CellWrite[]): string {
 
   if (remaining.size > 0) {
     const newRows: string[] = [];
-    for (const [rowNum, writes] of [...remaining.entries()].sort((a, b) => a[0] - b[0])) {
-      const cells = writes
+    for (const [rowNum, rowWrites] of [...remaining.entries()].sort((a, b) => a[0] - b[0])) {
+      const cells = rowWrites
         .sort((a, b) => a.col - b.col)
         .map(cw => buildCellXml(colNumToLetter(cw.col) + cw.row, cw))
         .join("");
       newRows.push(`<row r="${rowNum}">${cells}</row>`);
     }
     xml = xml.replace(/<\/sheetData>/, newRows.join("") + "</sheetData>");
+  }
+
+  // Bug #5: Single aggregated log
+  if (formulaSkipCount > 0) {
+    console.log(`[inject] Skipped ${formulaSkipCount} formula cells (preserved Excel formulas)`);
   }
 
   return xml;
@@ -1327,9 +1418,11 @@ function buildCellXml(ref: string, cw: CellWrite): string {
 
 /**
  * Insère une cellule dans le contenu d'une ligne en respectant l'ordre des colonnes.
+ * Bug #1 fix: matches both self-closing and regular cells.
  */
 function insertCellInRow(rowContent: string, newCell: string, newRef: string): string {
-  const cells = [...rowContent.matchAll(/<c r="([A-Z]+\d+)"[^>]*>.*?<\/c>/gs)];
+  // Match both <c r="..." ...>...</c> and <c r="..." ... />
+  const cells = [...rowContent.matchAll(/<c\s+r="([A-Z]+\d+)"[^>]*?(?:\s*\/>|>[\s\S]*?<\/c>)/gs)];
 
   if (cells.length === 0) return newCell + rowContent;
 
