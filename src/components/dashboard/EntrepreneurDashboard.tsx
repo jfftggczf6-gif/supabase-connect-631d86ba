@@ -1115,7 +1115,7 @@ export default function EntrepreneurDashboard() {
                           onClick={() => handleDownloadOvoFile(deliverables.find((d: any) => d.type === 'odd_excel')?.file_url)}
                           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
                         >
-                          <Download className="h-3.5 w-3.5" /> ODD Excel (.xlsx)
+                          <Download className="h-3.5 w-3.5" /> ODD Excel (.xlsm)
                         </button>
                         <button
                           onClick={() => handleDownload('odd_analysis', 'html')}
