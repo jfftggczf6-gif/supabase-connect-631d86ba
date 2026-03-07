@@ -391,11 +391,11 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       console.error(`[Claude] Attempt ${attempt} failed:`, lastError.message);
-      if (attempt < 3) await sleep(2000 * attempt);
+      if (attempt < 2) await sleep(2000 * attempt);
     }
   }
 
-  throw new Error(`Claude API failed after 3 attempts: ${lastError?.message}`);
+  throw new Error(`Claude API failed after 2 attempts: ${lastError?.message}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────
