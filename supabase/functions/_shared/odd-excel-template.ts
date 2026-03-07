@@ -210,6 +210,10 @@ export async function fillOddExcelTemplate(
   const buffer = await fileData.arrayBuffer();
   const zip = await JSZip.loadAsync(buffer);
 
+  // Preserve VBA binary before any modifications
+  const vbaFile = zip.file("xl/vbaProject.bin");
+  const vbaBytes = vbaFile ? await vbaFile.async("uint8array") : null;
+
   const sharedStrings = await loadSharedStrings(zip);
   console.log(`[odd-excel] ${sharedStrings.length} shared strings chargées`);
 
