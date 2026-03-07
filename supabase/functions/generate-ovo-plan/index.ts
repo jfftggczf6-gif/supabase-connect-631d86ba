@@ -312,19 +312,47 @@ Deno.serve(async (req: Request) => {
 // ÉTAPE 1 : APPEL CLAUDE API
 // ─────────────────────────────────────────────────────────────────────
 
-async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unknown>> {
+async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseId?: string, requestId?: string): Promise<Record<string, unknown>> {
   const systemPrompt = buildSystemPrompt();
   const userPrompt  = buildUserPrompt(data);
 
+  // Budget-aware retry: Deno edge functions have ~400s wall time.
+  // We track elapsed time and only retry if enough budget remains.
+  const FUNCTION_START = Date.now();
+  const MAX_WALL_MS = 380_000; // conservative 380s (leave 20s buffer)
+  const AI_TIMEOUT_MS = 180_000; // 180s per attempt (3 min)
+  const MAX_ATTEMPTS = 2;
+
   let lastError: Error | null = null;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  const updatePhase = async (phase: string, attempt: number) => {
+    if (!supabase || !enterpriseId) return;
     try {
-      console.log(`[Claude] Attempt ${attempt}/2`);
+      await supabase.from("deliverables").update({
+        data: { status: "processing", request_id: requestId, phase, attempt, last_update_at: new Date().toISOString() },
+      }).eq("enterprise_id", enterpriseId).eq("type", "plan_ovo_excel");
+    } catch (_) { /* best effort */ }
+  };
 
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const elapsed = Date.now() - FUNCTION_START;
+    const remaining = MAX_WALL_MS - elapsed;
+
+    // Don't start an attempt if we can't finish it
+    if (remaining < 60_000) {
+      console.warn(`[Claude] Only ${Math.round(remaining/1000)}s remaining, skipping attempt ${attempt}`);
+      break;
+    }
+
+    const timeout = Math.min(AI_TIMEOUT_MS, remaining - 10_000); // leave 10s for post-processing
+    console.log(`[Claude] Attempt ${attempt}/${MAX_ATTEMPTS} — timeout: ${Math.round(timeout/1000)}s, wall remaining: ${Math.round(remaining/1000)}s`);
+
+    await updatePhase("calling_ai", attempt);
+
+    try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        signal: AbortSignal.timeout(150000), // fail-fast après 150s
+        signal: AbortSignal.timeout(timeout),
         headers: {
           "Content-Type": "application/json",
           "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
@@ -332,7 +360,7 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 24576, // 24K pour éviter la troncature sur des structures financières complexes
+          max_tokens: 24576,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
         }),
@@ -344,7 +372,6 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
 
       const result = await response.json();
       
-      // Vérifier si la réponse a été tronquée
       const stopReason = result.stop_reason;
       if (stopReason === "max_tokens") {
         console.warn("[Claude] Response truncated (max_tokens reached), attempting JSON repair...");
@@ -355,27 +382,22 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
         .map((b: { text: string }) => b.text)
         .join("");
 
-      // Nettoyer les backticks markdown si présents
       let cleaned = rawText
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
         .replace(/\s*```$/i, "")
         .trim();
 
-      // Tentative de réparation JSON si tronqué
       try {
         return JSON.parse(cleaned);
       } catch (parseErr) {
         if (stopReason === "max_tokens") {
           console.warn("[Claude] Repairing truncated JSON...");
-          // Supprimer les entrées incomplètes (per_year arrays, objets partiels)
           cleaned = cleaned.replace(/,\s*\{[^}]*$/g, "");
           cleaned = cleaned.replace(/,\s*\[[^\]]*$/g, "");
           cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^}\]]*$/g, "");
           cleaned = cleaned.replace(/,\s*"per_year"\s*:\s*\[[^\]]*$/g, "");
-          // Nettoyer les virgules trailing
           cleaned = cleaned.replace(/,\s*([}\]])/g, "$1");
-          // Fermer les structures ouvertes
           const openBraces = (cleaned.match(/{/g) || []).length;
           const closeBraces = (cleaned.match(/}/g) || []).length;
           const openBrackets = (cleaned.match(/\[/g) || []).length;
@@ -392,11 +414,19 @@ async function callClaudeAPI(data: EntrepreneurData): Promise<Record<string, unk
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       console.error(`[Claude] Attempt ${attempt} failed:`, lastError.message);
-      if (attempt < 2) await sleep(2000 * attempt);
+      if (attempt < MAX_ATTEMPTS) {
+        const postElapsed = Date.now() - FUNCTION_START;
+        const postRemaining = MAX_WALL_MS - postElapsed;
+        if (postRemaining < 60_000) {
+          console.warn(`[Claude] Not enough time for retry (${Math.round(postRemaining/1000)}s left)`);
+          break;
+        }
+        await sleep(3000);
+      }
     }
   }
 
-  throw new Error(`Claude API failed after 2 attempts: ${lastError?.message}`);
+  throw new Error(`Claude API failed after attempts: ${lastError?.message}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────
