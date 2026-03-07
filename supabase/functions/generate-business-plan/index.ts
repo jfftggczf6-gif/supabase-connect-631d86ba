@@ -438,7 +438,7 @@ async function generateWordDoc(bp: any): Promise<Uint8Array> {
         },
       },
       headers: {
-        default: new (await import("npm:docx@8")).Header({
+        default: new Header({
           children: [
             new Paragraph({
               children: [
