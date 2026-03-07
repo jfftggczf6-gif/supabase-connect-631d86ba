@@ -429,6 +429,18 @@ CONTRAINTES TECHNIQUES EXCEL :
 - Si gamme non utilisée : prix=0, cogs=0, mix=0
 - Produit inactif (active=false) : TOUS volumes, prix et mix à 0
 
+CONTRAINTES VOLUMES CRITIQUES (NE PAS IGNORER) :
+- Chaque produit/service actif DOIT avoir per_year avec les 8 entrées : YEAR-2, YEAR-1, CURRENT YEAR, YEAR2, YEAR3, YEAR4, YEAR5, YEAR6
+- Pour les années futures (YEAR2 à YEAR6) : volume_h1 et volume_h2 DOIVENT être > 0 pour chaque produit/service actif
+- JAMAIS de volume = 0 pour un produit actif en année future — c'est une ERREUR CRITIQUE
+- Les volumes doivent croître de manière réaliste d'année en année
+
+CONTRAINTES GAMMES DE PRIX :
+- Si l'entreprise utilise UNE SEULE gamme de prix, utiliser range_flags=[1,0,0] (gamme 1 = standard)
+- Mettre les prix dans unit_price_r1, les COGS dans cogs_r1, mix_r1=1.0
+- NE PAS mettre les prix en r3 quand une seule gamme est utilisée
+- range_flags=[0,0,1] signifie gamme HIGH END uniquement — à n'utiliser QUE si justifié
+
 SORTIE OBLIGATOIRE :
 - UNIQUEMENT un objet JSON valide — zéro markdown, zéro texte avant/après
 - Respecter EXACTEMENT la structure demandée
