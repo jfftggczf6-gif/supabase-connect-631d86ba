@@ -183,6 +183,10 @@ Deno.serve(async (req: Request) => {
       throw new Error("L'IA n'a généré aucun produit ni service. Veuillez vérifier que les données BMC/inputs contiennent des informations sur vos activités.");
     }
 
+    // ── Expand condensed AI output to full per_year format ────────────
+    console.log("[generate-ovo-plan] Expanding condensed AI data...");
+    expandCondensedData(financialJson);
+
     // Bug #4: Normalize range data (shift r3/r2 → r1 if only one range used)
     normalizeRangeData(financialJson);
 
@@ -360,7 +364,7 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 24576,
+          max_tokens: 8192,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
         }),
@@ -435,7 +439,7 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
 
 function buildSystemPrompt(): string {
   return `Tu es un expert financier spécialisé dans les PME africaines (Afrique de l'Ouest, zone FCFA/XOF).
-Tu génères un plan financier OVO structuré sur 8 périodes pour un entrepreneur.
+Tu génères un plan financier OVO au FORMAT CONDENSÉ pour un entrepreneur.
 
 CONTEXTE FISCAL CÔTE D'IVOIRE (2025) :
 - Devise : XOF (FCFA) — taux fixe 655.957 XOF/EUR
@@ -451,31 +455,19 @@ RÈGLES DE PROJECTION RÉALISTES :
 - Marge brute produits physiques : 30-60% selon secteur
 - Marge brute services : 60-85% selon complexité
 - Staff : effectif réel uniquement, pas de sur-estimation
-- YEAR-2 et YEAR-1 = données historiques ou 0 si startup
 - Volumes = entiers (jamais décimaux)
 - Montants = FCFA, arrondir à 1000 FCFA près
 
-CONTRAINTES TECHNIQUES EXCEL :
-- Pour chaque produit/service actif : mix_r1 + mix_r2 + mix_r3 = 1.0 EXACTEMENT
-- Pour chaque gamme utilisée : mix_ch1 + mix_ch2 = 1.0 EXACTEMENT
-- Si gamme non utilisée : prix=0, cogs=0, mix=0
-- Produit inactif (active=false) : TOUS volumes, prix et mix à 0
-
-CONTRAINTES VOLUMES CRITIQUES (NE PAS IGNORER) :
-- Chaque produit/service actif DOIT avoir per_year avec les 8 entrées : YEAR-2, YEAR-1, CURRENT YEAR, YEAR2, YEAR3, YEAR4, YEAR5, YEAR6
-- Pour les années futures (YEAR2 à YEAR6) : volume_h1 et volume_h2 DOIVENT être > 0 pour chaque produit/service actif
-- JAMAIS de volume = 0 pour un produit actif en année future — c'est une ERREUR CRITIQUE
-- Les volumes doivent croître de manière réaliste d'année en année
-
-CONTRAINTES GAMMES DE PRIX :
-- Si l'entreprise utilise UNE SEULE gamme de prix, utiliser range_flags=[1,0,0] (gamme 1 = standard)
-- Mettre les prix dans unit_price_r1, les COGS dans cogs_r1, mix_r1=1.0
-- NE PAS mettre les prix en r3 quand une seule gamme est utilisée
-- range_flags=[0,0,1] signifie gamme HIGH END uniquement — à n'utiliser QUE si justifié
+FORMAT CONDENSÉ OBLIGATOIRE :
+- Pour chaque produit/service : donne UNIQUEMENT prix CY, taux COGS, volumes (YM2/YM1/CY), taux de croissance
+- Pour le staff : donne headcount par année (8 valeurs) + salaire CY + taux croissance salariale
+- Pour l'OPEX : donne le total CY par catégorie + taux de croissance
+- NE PAS générer de tableaux per_year détaillés — le code les reconstruit automatiquement
+- Chaque produit/service actif DOIT avoir volume_cy > 0
 
 SORTIE OBLIGATOIRE :
 - UNIQUEMENT un objet JSON valide — zéro markdown, zéro texte avant/après
-- Respecter EXACTEMENT la structure demandée
+- Respecter EXACTEMENT la structure condensée demandée
 - Tous montants en XOF (FCFA)`;
 }
 
@@ -726,18 +718,16 @@ ${productInstructions}
 ${serviceInstructions}
 3. Au minimum 1 catégorie de staff (STAFF_CAT01)
 4. CAPEX réaliste pour les immobilisations nécessaires
-5. Prévisions sur 8 années (YEAR-2 à YEAR6)
-6. Scénario : TYPICAL_CASE
+5. Scénario : TYPICAL_CASE
+6. CHAQUE produit/service actif DOIT avoir volume_cy > 0
 
-CONTRAINTES DE COHÉRENCE ABSOLUES :
-- Les revenus historiques et projetés ci-dessus sont des DONNÉES RÉELLES — le total revenue par année DOIT correspondre
-- Pour chaque produit actif : volume = CA_produit / prix_unitaire, volume_h1 = volume × 0.45, volume_h2 = volume × 0.55
-- La SOMME des CA de tous les produits actifs DOIT correspondre au revenue total de chaque année
-- Les données YEAR-2 et YEAR-1 NE SONT PAS zéro si l'entreprise a un historique — utilise les données ci-dessus
+CONTRAINTES DE COHÉRENCE :
+- Les revenus historiques ci-dessus sont des DONNÉES RÉELLES — volume_cy × price_cy DOIT correspondre au CA
 - Répartis le CA total entre les produits selon les % indiqués dans REVENUS PAR PRODUIT
-- Les OPEX, COGS, CAPEX et STAFF doivent être cohérents avec les données du plan intermédiaire ci-dessus
+- YEAR-2 et YEAR-1 ne sont PAS zéro si l'entreprise a un historique
+- Les OPEX, CAPEX et STAFF doivent être cohérents avec les données du plan intermédiaire ci-dessus
 
-JSON SCHEMA ATTENDU :
+JSON SCHEMA CONDENSÉ ATTENDU :
 {
   "company": "string",
   "country": "string (en anglais)",
@@ -748,72 +738,46 @@ JSON SCHEMA ATTENDU :
   "tax_regime_1": 0.04,
   "tax_regime_2": 0.30,
   "years": {
-    "year_minus_2": ${cy-2},
-    "year_minus_1": ${cy-1},
-    "current_year": ${cy},
-    "year2": ${cy+1},
-    "year3": ${cy+2},
-    "year4": ${cy+3},
-    "year5": ${cy+4},
-    "year6": ${cy+5}
+    "year_minus_2": ${cy-2}, "year_minus_1": ${cy-1}, "current_year": ${cy},
+    "year2": ${cy+1}, "year3": ${cy+2}, "year4": ${cy+3}, "year5": ${cy+4}, "year6": ${cy+5}
   },
   "ranges": [
-    {"slot": 1, "name": "LOW END", "description": ""},
-    {"slot": 2, "name": "MEDIUM END", "description": ""},
-    {"slot": 3, "name": "HIGH END", "description": ""}
+    {"slot": 1, "name": "LOW END"}, {"slot": 2, "name": "MEDIUM END"}, {"slot": 3, "name": "HIGH END"}
   ],
   "channels": [
-    {"slot": 1, "name": "B2B", "description": ""},
-    {"slot": 2, "name": "B2C", "description": ""}
+    {"slot": 1, "name": "B2B"}, {"slot": 2, "name": "B2C"}
   ],
   "products": [
     {
-      "slot": 1,
-      "name": "Nom produit",
-      "active": true,
-      "description": "description",
-      "range_flags": [1, 0, 0],
-      "channel_flags": [0, 1],
-      "per_year": [
-        {
-          "year": "YEAR-2",
-          "unit_price_r1": 0, "unit_price_r2": 0, "unit_price_r3": 0,
-          "mix_r1": 1.0, "mix_r2": 0, "mix_r3": 0,
-          "cogs_r1": 0, "cogs_r2": 0, "cogs_r3": 0,
-          "mix_r1_ch1": 0, "mix_r2_ch1": 0, "mix_r3_ch1": 0,
-          "mix_r1_ch2": 1.0, "mix_r2_ch2": 0, "mix_r3_ch2": 0,
-          "volume_h1": 0, "volume_h2": 0, "volume_q3": 0, "volume_q4": 0
-        }
-        // ... 7 autres années
-      ]
+      "slot": 1, "name": "Nom produit", "active": true, "description": "...",
+      "range_flags": [1, 0, 0], "channel_flags": [0, 1],
+      "price_cy": 12000, "cogs_rate": 0.35,
+      "volume_ym2": 0, "volume_ym1": 0, "volume_cy": 5000,
+      "growth_rate": 0.20, "price_growth": 0.03
     }
-    // ... jusqu'à 20 slots (inactifs si pas de produit)
   ],
-  "services": [ /* même structure, jusqu'à 10 slots */ ],
+  "services": [ /* même structure condensée que products */ ],
   "staff": [
     {
-      "category_id": "STAFF_CAT01",
-      "occupational_category": "EMPLOYE(E)S",
-      "department": "DIRECTION",
-      "social_security_rate": 0.1645,
-      "per_year": [
-        {"year": "YEAR-2", "headcount": 0, "gross_monthly_salary_per_person": 0, "annual_allowances_per_person": 0}
-        // ... 7 autres années
-      ]
+      "category_id": "STAFF_CAT01", "occupational_category": "EMPLOYE(E)S",
+      "department": "DIRECTION", "social_security_rate": 0.1645,
+      "headcount_by_year": [0, 1, 2, 2, 3, 3, 4, 4],
+      "monthly_salary_cy": 400000, "salary_growth": 0.05,
+      "annual_allowances_cy": 50000
     }
   ],
   "capex": [
     {"type": "OFFICE_EQUIPMENT", "slot": 1, "label": "Ordinateurs", "acquisition_year": ${cy}, "acquisition_value": 500000, "amortisation_rate": 0.333}
   ],
   "opex": {
-    "marketing": {"research": [0,0,0,0,0,0,0,0,0,0], "advertising": [0,0,0,0,0,0,0,0,0,0], "receptions": [0,0,0,0,0,0,0,0,0,0], "purchase_studies": [0,0,0,0,0,0,0,0,0,0], "documentation": [0,0,0,0,0,0,0,0,0,0]},
-    "taxes_on_staff": {"salaries_tax": [0,0,0,0,0,0,0,0,0,0], "apprenticeship": [0,0,0,0,0,0,0,0,0,0], "training": [0,0,0,0,0,0,0,0,0,0], "other": [0,0,0,0,0,0,0,0,0,0]},
-    "office": {"rent": [0,0,0,0,0,0,0,0,0,0], "internet": [0,0,0,0,0,0,0,0,0,0], "telecom": [0,0,0,0,0,0,0,0,0,0], "supplies": [0,0,0,0,0,0,0,0,0,0], "fuel": [0,0,0,0,0,0,0,0,0,0], "water": [0,0,0,0,0,0,0,0,0,0], "electricity": [0,0,0,0,0,0,0,0,0,0], "cleaning": [0,0,0,0,0,0,0,0,0,0]},
-    "other": {"health": [0,0,0,0,0,0,0,0,0,0], "directors": [0,0,0,0,0,0,0,0,0,0], "donations": [0,0,0,0,0,0,0,0,0,0]},
-    "travel": {"nb_travellers": [0,0,0,0,0,0,0,0,0,0], "avg_cost": [0,0,0,0,0,0,0,0,0,0]},
-    "insurance": {"building": [0,0,0,0,0,0,0,0,0,0], "company": [0,0,0,0,0,0,0,0,0,0]},
-    "maintenance": {"movable": [0,0,0,0,0,0,0,0,0,0], "other": [0,0,0,0,0,0,0,0,0,0]},
-    "third_parties": {"legal": [0,0,0,0,0,0,0,0,0,0], "accounting": [0,0,0,0,0,0,0,0,0,0], "transport": [0,0,0,0,0,0,0,0,0,0], "commissions": [0,0,0,0,0,0,0,0,0,0], "delivery": [0,0,0,0,0,0,0,0,0,0]}
+    "marketing": {"total_cy": 1500000, "growth": 0.10},
+    "taxes_on_staff": {"total_cy": 200000, "growth": 0.05},
+    "office": {"total_cy": 800000, "growth": 0.05},
+    "other": {"total_cy": 100000, "growth": 0.03},
+    "travel": {"nb_travellers_cy": 3, "avg_cost_cy": 200000, "growth": 0.05},
+    "insurance": {"total_cy": 300000, "growth": 0.03},
+    "maintenance": {"total_cy": 200000, "growth": 0.05},
+    "third_parties": {"total_cy": 600000, "growth": 0.08}
   },
   "working_capital": {
     "stock_days": [0, 0, 45, 45, 45, 45, 60, 60, 60, 60],
@@ -835,6 +799,210 @@ JSON SCHEMA ATTENDU :
   "simulation_scenario": "TYPICAL_CASE",
   "key_assumptions": ["Croissance annuelle 20-25%", "Marché local prioritaire"]
 }`;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// EXPANSION DES DONNÉES CONDENSÉES → FORMAT COMPLET per_year
+// ─────────────────────────────────────────────────────────────────────
+
+// deno-lint-ignore no-explicit-any
+function expandCondensedData(json: Record<string, any>): void {
+  if (Array.isArray(json.products)) {
+    json.products = json.products.map((p: any) => expandProductOrService(p));
+  }
+  if (Array.isArray(json.services)) {
+    json.services = json.services.map((s: any) => expandProductOrService(s));
+  }
+  if (Array.isArray(json.staff)) {
+    json.staff = json.staff.map((c: any) => expandStaffCategory(c));
+  }
+  if (json.opex && typeof json.opex === 'object') {
+    json.opex = expandOpex(json.opex);
+  }
+  console.log(`[expand] Products: ${(json.products||[]).filter((p:any)=>p.per_year?.length).length} expanded, Staff: ${(json.staff||[]).filter((s:any)=>s.per_year?.length).length} expanded`);
+}
+
+// deno-lint-ignore no-explicit-any
+function expandProductOrService(p: any): any {
+  // Skip if already in full per_year format (backward compatibility)
+  if (p.per_year && Array.isArray(p.per_year) && p.per_year.length >= 4) return p;
+
+  const yearLabels = ["YEAR-2","YEAR-1","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
+
+  if (!p.active) {
+    return { ...p, per_year: yearLabels.map(y => ({
+      year: y, unit_price_r1:0, unit_price_r2:0, unit_price_r3:0,
+      mix_r1:0, mix_r2:0, mix_r3:0, cogs_r1:0, cogs_r2:0, cogs_r3:0,
+      mix_r1_ch1:0, mix_r2_ch1:0, mix_r3_ch1:0,
+      mix_r1_ch2:0, mix_r2_ch2:0, mix_r3_ch2:0,
+      volume_h1:0, volume_h2:0, volume_q3:0, volume_q4:0,
+    }))};
+  }
+
+  const priceCY = p.price_cy || 0;
+  const cogsRate = p.cogs_rate || 0.35;
+  const volYM2 = p.volume_ym2 || 0;
+  const volYM1 = p.volume_ym1 || 0;
+  const volCY = p.volume_cy || 0;
+  const g = p.growth_rate || 0.15;
+  const pg = p.price_growth || 0.03;
+  const rf = p.range_flags || [1, 0, 0];
+  const cf = p.channel_flags || [0, 1];
+
+  const yearConfigs = [
+    { year: "YEAR-2", volume: volYM2, pMul: 1/((1+pg)*(1+pg)) },
+    { year: "YEAR-1", volume: volYM1, pMul: 1/(1+pg) },
+    { year: "CURRENT YEAR", volume: volCY, pMul: 1 },
+    { year: "YEAR2", volume: Math.round(volCY*(1+g)), pMul: 1+pg },
+    { year: "YEAR3", volume: Math.round(volCY*Math.pow(1+g,2)), pMul: Math.pow(1+pg,2) },
+    { year: "YEAR4", volume: Math.round(volCY*Math.pow(1+g,3)), pMul: Math.pow(1+pg,3) },
+    { year: "YEAR5", volume: Math.round(volCY*Math.pow(1+g,4)), pMul: Math.pow(1+pg,4) },
+    { year: "YEAR6", volume: Math.round(volCY*Math.pow(1+g,5)), pMul: Math.pow(1+pg,5) },
+  ];
+
+  // Channel mix from flags
+  const totalCh = (cf[0]||0) + (cf[1]||0) || 1;
+  const mixCh1 = (cf[0]||0) / totalCh;
+  const mixCh2 = (cf[1]||0) / totalCh;
+
+  const per_year = yearConfigs.map(yc => {
+    const price = Math.round(priceCY * yc.pMul / 1000) * 1000;
+    const cogs = Math.round(price * cogsRate / 1000) * 1000;
+    const vol_h1 = Math.round(yc.volume * 0.45);
+    const vol_h2 = Math.round(yc.volume * 0.55);
+
+    return {
+      year: yc.year,
+      unit_price_r1: rf[0] ? price : 0, unit_price_r2: rf[1] ? price : 0, unit_price_r3: rf[2] ? price : 0,
+      mix_r1: rf[0] ? 1.0 : 0, mix_r2: rf[1] ? 1.0 : 0, mix_r3: rf[2] ? 1.0 : 0,
+      cogs_r1: rf[0] ? cogs : 0, cogs_r2: rf[1] ? cogs : 0, cogs_r3: rf[2] ? cogs : 0,
+      mix_r1_ch1: rf[0] ? mixCh1 : 0, mix_r2_ch1: rf[1] ? mixCh1 : 0, mix_r3_ch1: rf[2] ? mixCh1 : 0,
+      mix_r1_ch2: rf[0] ? mixCh2 : 0, mix_r2_ch2: rf[1] ? mixCh2 : 0, mix_r3_ch2: rf[2] ? mixCh2 : 0,
+      volume_h1: vol_h1, volume_h2: vol_h2, volume_q3: 0, volume_q4: 0,
+    };
+  });
+
+  return { ...p, per_year };
+}
+
+// deno-lint-ignore no-explicit-any
+function expandStaffCategory(cat: any): any {
+  if (cat.per_year && Array.isArray(cat.per_year) && cat.per_year.length >= 4) return cat;
+
+  const hc = cat.headcount_by_year || [0,0,0,0,0,0,0,0];
+  const salaryCY = cat.monthly_salary_cy || 0;
+  const sg = cat.salary_growth || 0.05;
+  const allowCY = cat.annual_allowances_cy || 0;
+
+  const yearLabels = ["YEAR-2","YEAR-1","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
+  const salaryMults = [
+    1/((1+sg)*(1+sg)), 1/(1+sg), 1,
+    1+sg, Math.pow(1+sg,2), Math.pow(1+sg,3), Math.pow(1+sg,4), Math.pow(1+sg,5),
+  ];
+
+  const per_year = yearLabels.map((year, i) => ({
+    year,
+    headcount: hc[i] || 0,
+    gross_monthly_salary_per_person: Math.round(salaryCY * salaryMults[i] / 1000) * 1000,
+    annual_allowances_per_person: Math.round(allowCY * salaryMults[i] / 1000) * 1000,
+  }));
+
+  return { ...cat, per_year };
+}
+
+// Default subcategory splits for OPEX categories
+const OPEX_SPLITS: Record<string, Record<string, number>> = {
+  marketing: { research: 0.15, purchase_studies: 0.05, receptions: 0.20, documentation: 0.10, advertising: 0.50 },
+  taxes_on_staff: { salaries_tax: 0.70, apprenticeship: 0.10, training: 0.15, other: 0.05 },
+  office: { rent: 0.35, internet: 0.12, telecom: 0.10, supplies: 0.10, fuel: 0.08, water: 0.05, electricity: 0.15, cleaning: 0.05 },
+  other: { health: 0.50, directors: 0.30, donations: 0.20 },
+  insurance: { building: 0.30, company: 0.70 },
+  maintenance: { movable: 0.60, other: 0.40 },
+  third_parties: { legal: 0.25, accounting: 0.30, transport: 0.20, commissions: 0.15, delivery: 0.10 },
+};
+
+// deno-lint-ignore no-explicit-any
+function expandOpex(opex: any): any {
+  const result: any = {};
+
+  for (const [category, catData] of Object.entries(opex)) {
+    // Travel is special
+    if (category === 'travel') {
+      result.travel = expandTravelOpex(catData);
+      continue;
+    }
+
+    // If already in expanded format (subcategories have arrays), keep as-is
+    if (catData && typeof catData === 'object' && !Array.isArray(catData)) {
+      const vals = Object.values(catData as Record<string, unknown>);
+      if (vals.length > 0 && Array.isArray(vals[0])) {
+        result[category] = catData;
+        continue;
+      }
+    }
+
+    // Condensed format: { total_cy, growth, split? }
+    const cd = catData as any;
+    if (!cd || typeof cd !== 'object' || cd.total_cy === undefined) {
+      result[category] = catData;
+      continue;
+    }
+
+    const totalCY = cd.total_cy || 0;
+    const growth = cd.growth || 0.05;
+    const splits = cd.split || OPEX_SPLITS[category] || {};
+
+    const expanded: Record<string, number[]> = {};
+    for (const [subKey, ratio] of Object.entries(splits)) {
+      const subCY = Math.round(totalCY * (ratio as number) / 1000) * 1000;
+      expanded[subKey] = buildOpexTimeSeries(subCY, growth);
+    }
+
+    result[category] = expanded;
+  }
+
+  return result;
+}
+
+// deno-lint-ignore no-explicit-any
+function expandTravelOpex(travel: any): any {
+  if (!travel || typeof travel !== 'object') return travel;
+  if (Array.isArray(travel.nb_travellers)) return travel; // already expanded
+
+  const nbCY = travel.nb_travellers_cy || 0;
+  const avgCY = travel.avg_cost_cy || 0;
+  const growth = travel.growth || 0.05;
+
+  return {
+    nb_travellers: buildOpexTimeSeriesInt(nbCY, growth),
+    avg_cost: buildOpexTimeSeries(avgCY, growth),
+  };
+}
+
+function buildOpexTimeSeries(valueCY: number, growth: number): number[] {
+  const ym2 = Math.round(valueCY / Math.pow(1+growth, 2) / 1000) * 1000;
+  const ym1 = Math.round(valueCY / (1+growth) / 1000) * 1000;
+  const h1 = Math.round(valueCY * 0.45 / 1000) * 1000;
+  const h2 = Math.round(valueCY * 0.55 / 1000) * 1000;
+  const cy = 0; // S column = formula in Excel
+  const vals = [ym2, ym1, h1, h2, cy];
+  for (let i = 1; i <= 5; i++) {
+    vals.push(Math.round(valueCY * Math.pow(1+growth, i) / 1000) * 1000);
+  }
+  return vals;
+}
+
+function buildOpexTimeSeriesInt(valueCY: number, growth: number): number[] {
+  const ym2 = Math.round(valueCY / Math.pow(1+growth, 2));
+  const ym1 = Math.round(valueCY / (1+growth));
+  const h1 = Math.round(valueCY * 0.5);
+  const h2 = Math.round(valueCY * 0.5);
+  const cy = 0;
+  const vals = [ym2, ym1, h1, h2, cy];
+  for (let i = 1; i <= 5; i++) {
+    vals.push(Math.round(valueCY * Math.pow(1+growth, i)));
+  }
+  return vals;
 }
 
 // ─────────────────────────────────────────────────────────────────────
