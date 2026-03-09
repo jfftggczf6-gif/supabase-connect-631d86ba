@@ -1,8 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable } from "../_shared/helpers.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams } from "../_shared/helpers.ts";
 import { normalizeInputs } from "../_shared/normalizers.ts";
 
+const OPUS_MODEL = "claude-opus-4-20250514";
+
 const SYSTEM_PROMPT = `Tu es un analyste financier senior spécialisé PME africaines (zone UEMOA/CEMAC). Tu réalises un FRAMEWORK D'ANALYSE FINANCIÈRE complet incluant diagnostic, projections, scénarios et recommandations opérationnelles.
+Tu utilises les normes SYSCOHADA révisé et les paramètres fiscaux UEMOA/CEMAC.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide. Montants en FCFA. Sois très précis et détaillé.`;
 
 const userPrompt = (name: string, sector: string, country: string, docs: string, bmcData: any) => `
