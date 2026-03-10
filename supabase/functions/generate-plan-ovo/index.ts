@@ -5,7 +5,7 @@ import { normalizePlanOvo, enforceFrameworkConstraints } from "../_shared/normal
 // Use centralized fiscal params from helpers.ts
 
 function buildSystemPrompt(country: string): string {
-  const fp = getFiscalParams(country);
+  const fp = getFiscalParamsForPrompt(country);
   return `Tu es un modélisateur financier senior spécialisé dans les PME africaines (focus: ${fp.focus}).
 À partir des données historiques fournies, génère un plan financier réaliste sur 8 ans (N-2 à N+5) en JSON strict.
 
