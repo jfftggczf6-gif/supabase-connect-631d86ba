@@ -305,6 +305,38 @@ export type Database = {
         }
         Relationships: []
       }
+      score_history: {
+        Row: {
+          created_at: string
+          enterprise_id: string
+          id: string
+          score: number
+          scores_detail: Json | null
+        }
+        Insert: {
+          created_at?: string
+          enterprise_id: string
+          id?: string
+          score: number
+          scores_detail?: Json | null
+        }
+        Update: {
+          created_at?: string
+          enterprise_id?: string
+          id?: string
+          score?: number
+          scores_detail?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "score_history_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
