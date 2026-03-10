@@ -81,6 +81,7 @@ export function normalizeSic(raw: any): any {
   if (!raw) return raw;
   const d = { ...raw };
   d.score = toNumber(pick(d, 'score', 'score_global', 'score_sic'), 0);
+  d.score_global = d.score;
 
   // Normalize ODD alignment
   if (d.odd_alignment) {
@@ -375,6 +376,18 @@ export function normalizeOdd(raw: unknown): Record<string, unknown> {
       contribution_globale: synthese?.contribution_globale ?? "",
       recommandations: Array.isArray(synthese?.recommandations) ? synthese!.recommandations : [],
     },
+    score: (() => {
+      const oddEntries = Object.values(resumeParOdd as Record<string, any>);
+      if (!oddEntries.length) return 0;
+      const scores = oddEntries.map((o: any) => typeof o?.score === 'number' ? o.score : 0);
+      return Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
+    })(),
+    score_global: (() => {
+      const oddEntries = Object.values(resumeParOdd as Record<string, any>);
+      if (!oddEntries.length) return 0;
+      const scores = oddEntries.map((o: any) => typeof o?.score === 'number' ? o.score : 0);
+      return Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
+    })(),
   };
 }
 
@@ -519,7 +532,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
 
   // If no cashflow line from Framework, derive cashflow = EBITDA × (1 - taux_IS/100)
   if (!cfLine && data.net_profit && data.cashflow) {
-    const { tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
+    const { is: tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
     for (const yk of PROJ_KEYS) {
       const ebitda = data.ebitda[yk] || 0;
       // cashflow ≈ EBITDA × (1 - IS%) — approximation simplifiée sans amortissements
