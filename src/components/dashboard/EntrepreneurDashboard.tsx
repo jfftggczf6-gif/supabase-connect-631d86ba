@@ -325,6 +325,19 @@ export default function EntrepreneurDashboard() {
       }
 
       const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      
+      // Save score history & update enterprise score_ir
+      if (avgScore > 0 && enterprise) {
+        await Promise.all([
+          supabase.from('enterprises').update({ score_ir: avgScore }).eq('id', enterprise.id),
+          supabase.from('score_history').insert({
+            enterprise_id: enterprise.id,
+            score: avgScore,
+            scores_detail: Object.fromEntries(PIPELINE.map((s, i) => [s.name, scores[i] || 0]).filter(([, v]) => v > 0)),
+          }),
+        ]);
+      }
+
       toast.success(`${completed} livrables générés ! Score: ${avgScore}/100`);
       if (errors.length > 0) {
         toast.warning(`${errors.length} module(s) en erreur`);
