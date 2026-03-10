@@ -503,7 +503,7 @@ export default function CoachDashboard() {
       await supabase.from('deliverables')
         .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() })
         .eq('enterprise_id', enterpriseId)
-        .eq('type', DELIV_MAP[moduleCode]);
+        .eq('type', DELIV_MAP[moduleCode] as any);
       toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score || '—'}/100`);
       setSelectedModule(moduleCode);
       await fetchData();
