@@ -326,7 +326,7 @@ Deno.serve(async (req: Request) => {
 // ─────────────────────────────────────────────────────────────────────
 
 async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseId?: string, requestId?: string): Promise<Record<string, unknown>> {
-  const systemPrompt = buildSystemPrompt();
+  const systemPrompt = buildSystemPrompt(data.country);
   const userPrompt  = buildUserPrompt(data);
 
   // Budget-aware retry: Deno edge functions have ~400s wall time.
