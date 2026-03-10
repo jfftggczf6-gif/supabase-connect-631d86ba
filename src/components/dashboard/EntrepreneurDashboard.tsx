@@ -528,7 +528,7 @@ export default function EntrepreneurDashboard() {
           if (fr.produit_principal) items.push({ name: fr.produit_principal, description: 'Produit principal (BMC)', deduit_du_bmc: true });
           if (fr.sources_revenus) {
             const sources = Array.isArray(fr.sources_revenus) ? fr.sources_revenus : [fr.sources_revenus];
-            sources.forEach((s) => { const item = s as Record<string, unknown>; items.push({ name: typeof s === 'string' ? s : (item.name || item.label || JSON.stringify(s)) as string, description: 'Source de revenus (BMC)', deduit_du_bmc: true }); });
+            sources.forEach((s: any) => { const item = s as Record<string, unknown>; items.push({ name: typeof s === 'string' ? s : (item.name || item.label || JSON.stringify(s)) as string, description: 'Source de revenus (BMC)', deduit_du_bmc: true }); });
           }
         }
         if (canvas.proposition_valeur) {
