@@ -557,7 +557,7 @@ export default function CoachDashboard() {
     }
   };
 
-  const handleDownloadOvoCoach = async (enterpriseId: string, entDelivs: Deliverable[]) => {
+  const handleDownloadOvoCoach = async (_enterpriseId: string, entDelivs: Deliverable[]) => {
     try {
       const ovoExcel = entDelivs.find((d) => d.type === 'plan_ovo_excel');
       const fileName = (ovoExcel?.data as Record<string, unknown> | null)?.file_name as string | undefined;
