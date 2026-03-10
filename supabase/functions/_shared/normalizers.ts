@@ -535,12 +535,55 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any): any 
   }
 
   // Update scenarios VAN/TRI with proportional adjustment
-  if (data.scenarios) {
-    for (const sc of ['optimiste', 'realiste', 'pessimiste']) {
-      if (data.scenarios[sc]) {
-        data.scenarios[sc].revenue_year5 = data.revenue.year6 || data.scenarios[sc].revenue_year5;
-        data.scenarios[sc].ebitda_year5 = data.ebitda.year6 || data.scenarios[sc].ebitda_year5;
-        data.scenarios[sc].net_profit_year5 = data.net_profit.year6 || data.scenarios[sc].net_profit_year5;
+  if (data.scenarios && frameworkData.scenarios?.tableau) {
+    // Parse framework scenario values from tableau
+    const parseFcfa = (val: any): number => {
+      if (typeof val === 'number') return val;
+      if (typeof val !== 'string') return 0;
+      const cleaned = val.replace(/[^\d.,MmKk-]/g, '');
+      let num = parseFloat(cleaned.replace(/,/g, '.'));
+      if (isNaN(num)) return 0;
+      if (/[Mm]/i.test(val)) num *= 1_000_000;
+      if (/[Kk]/i.test(val)) num *= 1_000;
+      return Math.round(num);
+    };
+
+    // Extract scenario values from framework tableau
+    const fwScenarios: Record<string, Record<string, number>> = {
+      prudent: {}, central: {}, ambitieux: {}
+    };
+    for (const row of frameworkData.scenarios.tableau) {
+      const label = (row.indicateur || row.poste || row.libelle || '').toLowerCase();
+      for (const sc of ['prudent', 'central', 'ambitieux']) {
+        if (row[sc] !== undefined) {
+          if (label.includes('ca') || label.includes('chiffre') || label.includes('revenue')) {
+            fwScenarios[sc].revenue = parseFcfa(row[sc]);
+          } else if (label.includes('ebitda')) {
+            fwScenarios[sc].ebitda = parseFcfa(row[sc]);
+          } else if (label.includes('résultat') || label.includes('resultat') || label.includes('net profit')) {
+            fwScenarios[sc].net_profit = parseFcfa(row[sc]);
+          }
+        }
+      }
+    }
+
+    // Map: pessimiste=prudent, realiste=central, optimiste=ambitieux
+    const mapping: Record<string, string> = {
+      pessimiste: 'prudent', realiste: 'central', optimiste: 'ambitieux'
+    };
+    for (const [ovoSc, fwSc] of Object.entries(mapping)) {
+      if (data.scenarios[ovoSc] && fwScenarios[fwSc]) {
+        const fw = fwScenarios[fwSc];
+        if (fw.revenue) data.scenarios[ovoSc].revenue_year5 = fw.revenue;
+        if (fw.ebitda) data.scenarios[ovoSc].ebitda_year5 = fw.ebitda;
+        if (fw.net_profit) data.scenarios[ovoSc].net_profit_year5 = fw.net_profit;
+
+        // Recalculate VAN proportionally based on central scenario
+        const centralRev = fwScenarios.central?.revenue || data.revenue.year6 || 1;
+        const ratio = (fw.revenue || centralRev) / centralRev;
+        if (data.investment_metrics?.van) {
+          data.scenarios[ovoSc].van = Math.round(data.investment_metrics.van * ratio);
+        }
       }
     }
   }
