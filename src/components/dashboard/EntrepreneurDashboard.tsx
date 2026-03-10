@@ -15,7 +15,7 @@ import {
   Stethoscope, ListChecks, FileText, Target,
   Plus, Building2, Upload, Sparkles, Download,
   LogOut, User, Clock, CheckCircle2, Loader2, X, FileUp,
-  BookOpen, Lock, FolderPlus, Pencil
+  BookOpen, Lock, FolderPlus, Pencil, Trash2
 } from 'lucide-react';
 import BmcViewer from './BmcViewer';
 import SicViewer from './SicViewer';
@@ -222,6 +222,19 @@ export default function EntrepreneurDashboard() {
       if (docInputRef.current) docInputRef.current.value = '';
       if (finInputRef.current) finInputRef.current.value = '';
       if (extraInputRef.current) extraInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteFile = async (fileName: string) => {
+    if (!enterprise) return;
+    if (!confirm(`Supprimer "${fileName}" ?`)) return;
+    try {
+      const { error } = await supabase.storage.from('documents').remove([`${enterprise.id}/${fileName}`]);
+      if (error) throw error;
+      toast.success('Fichier supprimé');
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur de suppression');
     }
   };
 
@@ -931,9 +944,15 @@ export default function EntrepreneurDashboard() {
                 <p className="text-sm font-semibold">BMC & Impact Social</p>
                 {docFiles.length > 0 ? (
                   docFiles.map(f => (
-                    <div key={f.name} className="flex items-center gap-1.5 mt-1">
+                    <div key={f.name} className="flex items-center gap-1.5 mt-1 group/file">
                       <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] flex-none" />
-                      <span className="text-xs text-[hsl(var(--success))] truncate font-medium">{f.name}</span>
+                      <span className="text-xs text-[hsl(var(--success))] truncate font-medium flex-1">{f.name}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }}
+                        className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
                   ))
                 ) : (
@@ -958,9 +977,15 @@ export default function EntrepreneurDashboard() {
                 <p className="text-sm font-semibold">Inputs Financiers</p>
                 {finFiles.length > 0 ? (
                   finFiles.map(f => (
-                    <div key={f.name} className="flex items-center gap-1.5 mt-1">
+                    <div key={f.name} className="flex items-center gap-1.5 mt-1 group/file">
                       <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] flex-none" />
-                      <span className="text-xs text-[hsl(var(--success))] truncate font-medium">{f.name}</span>
+                      <span className="text-xs text-[hsl(var(--success))] truncate font-medium flex-1">{f.name}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }}
+                        className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
                   ))
                 ) : (
