@@ -559,18 +559,18 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
     data.investment_metrics.tri = Math.round(irr * 10000) / 10000;
 
-    // CAGR Revenue — use current_year (anchored on Inputs) as base
+    // CAGR Revenue — current_year to year6 = 6 years span
     const revCY = data.revenue.current_year;
     const revY6 = data.revenue.year6;
     if (revCY > 0 && revY6 > 0 && revY6 !== revCY) {
-      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 5) - 1) * 10000) / 10000;
+      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 6) - 1) * 10000) / 10000;
     }
 
-    // CAGR EBITDA
+    // CAGR EBITDA — current_year to year6 = 6 years span
     const ebCY = data.ebitda.current_year;
     const ebY6 = data.ebitda.year6;
     if (ebCY > 0 && ebY6 > 0 && ebY6 !== ebCY) {
-      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 5) - 1) * 10000) / 10000;
+      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 6) - 1) * 10000) / 10000;
     }
 
     // ROI
