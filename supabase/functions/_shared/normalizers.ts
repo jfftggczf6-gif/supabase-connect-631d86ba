@@ -447,7 +447,7 @@ export function normalizePlanOvo(raw: any): any {
  * Overwrites Plan OVO projection years (year2-year6) with exact Framework values
  * and recalculates all derived fields deterministically.
  */
-export function enforceFrameworkConstraints(data: any, frameworkData: any, inputsData?: any): any {
+export function enforceFrameworkConstraints(data: any, frameworkData: any, inputsData?: any, country?: string): any {
   if (!data || !frameworkData?.projection_5ans?.lignes) return data;
 
   // ── Anchor current_year on real Inputs data (not AI-hallucinated) ──
