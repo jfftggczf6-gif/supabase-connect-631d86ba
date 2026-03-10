@@ -368,6 +368,8 @@ export default function CoachDashboard() {
               .update({ generated_by: 'coach', visibility: 'private', coach_id: user.id } as any)
               .eq('enterprise_id', enterpriseId)
               .eq('type', step.type as any);
+            // Refresh data so the user sees the deliverable immediately
+            await fetchData();
           } else {
             const err = await response.json().catch(() => ({ error: 'Erreur' }));
             if (response.status === 402) {

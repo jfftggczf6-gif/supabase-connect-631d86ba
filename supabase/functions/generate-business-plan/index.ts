@@ -5,7 +5,7 @@ import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, Headi
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "npm:jszip@3";
 
-const OPUS_MODEL = "claude-opus-4-20250514";
+const OPUS_MODEL = "claude-sonnet-4-20250514";
 
 // ── SYSTEM PROMPT ──────────────────────────────────────────────────────
 const BP_SYSTEM_PROMPT = `Tu es un consultant senior en business plan avec 20+ ans d'expérience auprès de PME africaines. Tu rédiges des business plans professionnels pour OVO.

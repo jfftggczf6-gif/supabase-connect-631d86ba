@@ -287,6 +287,8 @@ export default function EntrepreneurDashboard() {
             const result = await response.json();
             completed++;
             if (result.score) scores.push(result.score);
+            // Refresh data so the user sees the deliverable immediately
+            await fetchData();
           } else {
             const err = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
             if (response.status === 402) {
