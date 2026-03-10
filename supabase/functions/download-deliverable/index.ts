@@ -1354,7 +1354,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const url = new URL(req.url);
     const deliverableType = url.searchParams.get("type");
     const enterpriseId = url.searchParams.get("enterprise_id");
     const format = url.searchParams.get("format") || "html";
