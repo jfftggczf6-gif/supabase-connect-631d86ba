@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Save, CheckCircle2, LayoutGrid, Loader2 } from 'lucide-react';
 
 export default function BmcModule() {

@@ -1362,7 +1362,7 @@ export default function CoachDashboard() {
                 <div className="flex items-end justify-center gap-6">
                   {MIRROR_MODULES.map(mod => {
                     const dType = DELIV_MAP[mod.code];
-                    const _d = entDelivs.find((x: any) => x.type === dType);
+                    const _unused = entDelivs.find((x: any) => x.type === dType);
                     const m = entMods.find((x: any) => x.module === mod.code);
                     const isSelected = selectedModule === mod.code;
                     const isCompleted = m?.status === 'completed';
