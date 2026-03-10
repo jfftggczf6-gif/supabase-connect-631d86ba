@@ -674,84 +674,48 @@ export default function CoachDashboard() {
     }
   };
 
-  const handleDownloadReport = (ent: Enterprise) => {
-    const delivs = deliverablesMap[ent.id] || [];
-    const mods = modulesMap[ent.id] || [];
-    const entAvgScore = delivs.length > 0
-      ? Math.round(delivs.reduce((s, d) => s + (d.score || 0), 0) / delivs.length)
-      : ent.score_ir || 0;
-    const completed = mods.filter((m) => m.status === 'completed').length;
-    const total = mods.length || 8;
+  const handleDownloadReport = async (ent: Enterprise) => {
+    if (generatingReport) return;
+    setGeneratingReport(ent.id);
+    try {
+      let token: string;
+      try { token = await getValidAccessToken(authSession); } catch { toast.error('Non authentifié'); return; }
 
-    const scoreColor = entAvgScore >= 70 ? '#059669' : entAvgScore >= 40 ? '#d97706' : '#dc2626';
-    const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      toast.info('Génération du rapport détaillé en cours... (30-60s)', { duration: 10000 });
 
-    const moduleRows = MODULE_CONFIG.map(mod => {
-      const m = mods.find((x) => x.module === mod.code);
-      const d = delivs.find((x) => x.type === DELIV_MAP[mod.code]);
-      const status = m?.status || 'not_started';
-      const score = d?.score || 0;
-      const statusLabel = status === 'completed' ? '✅ Terminé' : status === 'in_progress' ? '🔄 En cours' : '⏳ À démarrer';
-      return `<tr>
-        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:13px">${mod.title}</td>
-        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:12px">${statusLabel}</td>
-        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:12px;color:${score > 0 ? scoreColor : '#94a3b8'}">${score > 0 ? `${score}/100` : '—'}</td>
-      </tr>`;
-    }).join('');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-coach-report`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: ent.id }),
+        }
+      );
 
-    const html = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>Rapport d'avancement — ${ent.name}</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',system-ui,sans-serif; background:#f8fafc; color:#1e293b; padding:40px; }
-    .header { background:linear-gradient(135deg,#1e3a5f,#2563eb); color:white; padding:32px 40px; border-radius:16px; margin-bottom:32px; }
-    .header h1 { font-size:24px; font-weight:800; margin-bottom:4px; }
-    .header p { opacity:0.8; font-size:14px; }
-    .score-circle { display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.15); font-size:22px; font-weight:800; margin-top:16px; }
-    .section { background:white; border:1px solid #e2e8f0; border-radius:14px; padding:24px; margin-bottom:20px; }
-    .section h2 { font-size:15px; font-weight:700; color:#1e293b; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
-    table { width:100%; border-collapse:collapse; }
-    th { padding:10px 14px; text-align:left; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
-    .footer { text-align:center; color:#94a3b8; font-size:12px; margin-top:32px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>${ent.name}</h1>
-    <p>${ent.sector || ''} • ${ent.country || ''} • Rapport généré le ${date}</p>
-    <div class="score-circle">${entAvgScore}/100</div>
-  </div>
-  <div class="section">
-    <h2>📊 Progression globale</h2>
-    <p style="font-size:13px;color:#64748b;margin-bottom:12px">${completed} modules terminés sur ${total} (${Math.round((completed / total) * 100)}%)</p>
-    <div style="height:12px;background:#f1f5f9;border-radius:99px;overflow:hidden">
-      <div style="height:100%;width:${Math.round((completed / total) * 100)}%;background:linear-gradient(90deg,${scoreColor},#3b82f6);border-radius:99px"></div>
-    </div>
-  </div>
-  <div class="section">
-    <h2>📋 Modules & Livrables</h2>
-    <table>
-      <thead><tr><th>Module</th><th>Statut</th><th>Score</th></tr></thead>
-      <tbody>${moduleRows}</tbody>
-    </table>
-  </div>
-  <div class="footer">Rapport généré par ESONO — ${date}</div>
-</body>
-</html>`;
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Erreur' }));
+        throw new Error(err.error || 'Erreur de génération du rapport');
+      }
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Rapport_${ent.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Rapport téléchargé');
+      const result = await response.json();
+      const html = result.html;
+
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Rapport_${ent.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Rapport détaillé téléchargé !');
+    } catch (err: any) {
+      console.error('Report generation error:', err);
+      toast.error(err.message || 'Erreur lors de la génération du rapport');
+    } finally {
+      setGeneratingReport(null);
+    }
   };
 
   // ─── Delete / Detach Enterprise ────────────────────────────────────────────
