@@ -443,45 +443,8 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
 // CONSTRUCTION DU PROMPT SYSTÈME
 // ─────────────────────────────────────────────────────────────────────
 
-// Fiscal parameters per country (same as generate-plan-ovo)
-function getFiscalParams(country: string): { tva: number; is_standard: number; is_pme: number; seuil_pme: string; charges_sociales: number; focus: string } {
-  const c = (country || '').toLowerCase().trim();
-  if (c.includes('bénin') || c.includes('benin')) {
-    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 24.5, focus: 'Bénin' };
-  }
-  if (c.includes('togo')) {
-    return { tva: 18, is_standard: 27, is_pme: 27, seuil_pme: 'N/A', charges_sociales: 23.5, focus: 'Togo' };
-  }
-  if (c.includes('sénégal') || c.includes('senegal')) {
-    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 24, focus: 'Sénégal' };
-  }
-  if (c.includes('cameroun') || c.includes('cameroon')) {
-    return { tva: 19.25, is_standard: 33, is_pme: 33, seuil_pme: 'N/A', charges_sociales: 18.5, focus: 'Cameroun' };
-  }
-  if (c.includes('mali')) {
-    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 22, focus: 'Mali' };
-  }
-  if (c.includes('burkina') || c.includes('faso')) {
-    return { tva: 18, is_standard: 27.5, is_pme: 27.5, seuil_pme: 'N/A', charges_sociales: 22, focus: 'Burkina Faso' };
-  }
-  if (c.includes('guinée') || c.includes('guinee') || c.includes('guinea')) {
-    return { tva: 18, is_standard: 35, is_pme: 35, seuil_pme: 'N/A', charges_sociales: 23, focus: 'Guinée' };
-  }
-  if (c.includes('niger')) {
-    return { tva: 19, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 20, focus: 'Niger' };
-  }
-  if (c.includes('gabon')) {
-    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 20.1, focus: 'Gabon' };
-  }
-  if (c.includes('congo') && c.includes('rd')) {
-    return { tva: 16, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 14.5, focus: 'RD Congo' };
-  }
-  if (c.includes('congo')) {
-    return { tva: 18.9, is_standard: 28, is_pme: 28, seuil_pme: 'N/A', charges_sociales: 22.6, focus: 'Congo' };
-  }
-  // Default: Côte d'Ivoire
-  return { tva: 18, is_standard: 25, is_pme: 4, seuil_pme: '200M FCFA', charges_sociales: 25, focus: "Côte d'Ivoire" };
-}
+// Use centralized fiscal params from helpers.ts
+import { getFiscalParamsForPrompt } from "../_shared/helpers.ts";
 
 function buildSystemPrompt(country: string): string {
   const fp = getFiscalParams(country);
