@@ -1091,9 +1091,9 @@ export default function CoachDashboard() {
                               <Download className="h-3 w-3" /> XLSM
                             </Button>
                           )}
-                          {mod.code === 'business_plan' && d.data?._meta?.download_url && (
+                          {mod.code === 'business_plan' && (d.data as any)?._meta?.download_url && (
                             <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"
-                              onClick={() => handleDownloadBpWordCoach(d.data._meta.download_url, ent.name)}>
+                              onClick={() => handleDownloadBpWordCoach((d.data as any)._meta.download_url, ent.name)}>
                               <Download className="h-3 w-3" /> DOCX
                             </Button>
                           )}
