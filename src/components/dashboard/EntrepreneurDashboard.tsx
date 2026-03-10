@@ -453,7 +453,12 @@ export default function EntrepreneurDashboard() {
     return { status: (mod?.status || 'not_started') as 'not_started' | 'in_progress' | 'completed', progress: mod?.progress || 0 };
   };
 
-  const getDeliverable = (type: string) => deliverables.find((d: any) => d.type === type);
+  const getDeliverable = (type: string) => {
+    const matches = deliverables.filter((d: any) => d.type === type);
+    if (matches.length <= 1) return matches[0] || undefined;
+    // Return the most recently updated one
+    return matches.sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+  };
 
   const completedCount = modules.filter((m: any) => m.status === 'completed').length;
   const scoredDeliverables = deliverables.filter((d: any) => d.score != null);
