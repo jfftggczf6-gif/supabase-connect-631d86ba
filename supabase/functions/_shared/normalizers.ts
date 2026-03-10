@@ -519,7 +519,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
 
   // If no cashflow line from Framework, derive cashflow = EBITDA × (1 - taux_IS/100)
   if (!cfLine && data.net_profit && data.cashflow) {
-    const { tauxIS } = getFiscalParams(country);
+    const { tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
     for (const yk of PROJ_KEYS) {
       const ebitda = data.ebitda[yk] || 0;
       // cashflow ≈ EBITDA × (1 - IS%) — approximation simplifiée sans amortissements
