@@ -427,7 +427,7 @@ export default function EntrepreneurDashboard() {
     return matches.sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
   };
 
-  const completedCount = modules.filter((m) => m.status === 'completed').length; // eslint-disable-line @typescript-eslint/no-unused-vars
+  void modules.filter((m) => m.status === 'completed').length;
   const scoredDeliverables = deliverables.filter((d) => d.score != null);
   const globalScore = scoredDeliverables.length > 0
     ? Math.round(scoredDeliverables.reduce((sum, d) => sum + (d.score || 0), 0) / scoredDeliverables.length)

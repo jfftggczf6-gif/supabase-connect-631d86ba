@@ -76,7 +76,7 @@ function SicViewer({ data }: { data: any }) {
 }
 
 // ===== INPUTS VIEWER =====
-function InputsViewer({ data }: { data: any }) {
+export function InputsViewer({ data }: { data: any }) {
   const cr = data.compte_resultat || {};
   const bilan = data.bilan || {};
   const kpis = data.kpis || {};
