@@ -527,17 +527,17 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
     data.investment_metrics.tri = Math.round(irr * 10000) / 10000;
 
-    // CAGR Revenue
-    const revCY = data.revenue.current_year || data.revenue.year2;
+    // CAGR Revenue — use current_year (anchored on Inputs) as base
+    const revCY = data.revenue.current_year;
     const revY6 = data.revenue.year6;
-    if (revCY > 0 && revY6 > 0) {
+    if (revCY > 0 && revY6 > 0 && revY6 !== revCY) {
       data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 5) - 1) * 10000) / 10000;
     }
 
     // CAGR EBITDA
-    const ebCY = data.ebitda.current_year || data.ebitda.year2;
+    const ebCY = data.ebitda.current_year;
     const ebY6 = data.ebitda.year6;
-    if (ebCY > 0 && ebY6 > 0) {
+    if (ebCY > 0 && ebY6 > 0 && ebY6 !== ebCY) {
       data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 5) - 1) * 10000) / 10000;
     }
 
@@ -550,13 +550,51 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     // Payback
     if (initialInv > 0) {
       let cumCf = 0;
+      data.investment_metrics.payback_years = 5; // default
       for (let i = 0; i < 5; i++) {
         cumCf += data.cashflow[PROJ_KEYS[i]];
         if (cumCf >= initialInv) {
-          data.investment_metrics.payback_years = i + 1;
+          // Fractional payback: year + remaining / cf_that_year
+          const prevCum = cumCf - data.cashflow[PROJ_KEYS[i]];
+          const remaining = initialInv - prevCum;
+          const cfYear = data.cashflow[PROJ_KEYS[i]];
+          data.investment_metrics.payback_years = cfYear > 0
+            ? Math.round((i + remaining / cfYear) * 10) / 10
+            : i + 1;
           break;
         }
       }
+    }
+
+    // ── Post-calculation validation guards ──
+    // Guard: CAGR too low but revenue grew significantly
+    if (data.investment_metrics.cagr_revenue < 0.01 && revY6 > revCY * 1.5) {
+      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 5) - 1) * 10000) / 10000;
+    }
+    if (data.investment_metrics.cagr_ebitda < 0.01 && ebY6 > ebCY * 1.5) {
+      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 5) - 1) * 10000) / 10000;
+    }
+    // Guard: TRI negative but VAN positive → retry Newton-Raphson with different seed
+    if (data.investment_metrics.tri <= 0 && data.investment_metrics.van > 0) {
+      let irrRetry = 0.25;
+      for (let iter = 0; iter < 100; iter++) {
+        let npvR = -initialInv;
+        let dnpvR = 0;
+        for (let i = 0; i < 5; i++) {
+          const cf = data.cashflow[PROJ_KEYS[i]];
+          npvR += cf / Math.pow(1 + irrRetry, i + 1);
+          dnpvR -= (i + 1) * cf / Math.pow(1 + irrRetry, i + 2);
+        }
+        if (Math.abs(dnpvR) < 1e-10) break;
+        irrRetry = irrRetry - npvR / dnpvR;
+        if (irrRetry < -0.99) { irrRetry = 0; break; }
+        if (Math.abs(npvR) < 1000) break;
+      }
+      if (irrRetry > 0) data.investment_metrics.tri = Math.round(irrRetry * 10000) / 10000;
+    }
+    // Guard: payback 0 but funding needed
+    if (data.investment_metrics.payback_years === 0 && initialInv > 0) {
+      data.investment_metrics.payback_years = 5;
     }
   }
 

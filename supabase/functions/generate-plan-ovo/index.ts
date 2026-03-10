@@ -60,15 +60,22 @@ CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
 - Ne PAS mentionner d'autres pays africains dans les investissements, CAPEX, ou localisations.
 - Les hypothèses de marché doivent être basées sur le contexte économique de ${fp.focus}.
 
-CALCULS OBLIGATOIRES - investment_metrics:
-- VAN (Valeur Actuelle Nette): somme des cashflows actualisés au taux de 12%, moins investissement initial
-- TRI (Taux de Rendement Interne): taux qui annule la VAN
-- CAGR Revenue: taux de croissance annuel composé du CA entre année courante et année 5
-- CAGR EBITDA: taux de croissance annuel composé de l'EBITDA
-- ROI: cumul des résultats nets / investissement total
-- Payback: nombre d'années pour récupérer l'investissement via les cashflows cumulés
-- DSCR: EBITDA année courante / service de la dette annuel total
-- Multiple EBITDA: valorisation estimée / EBITDA (multiple sectoriel typique 4-8x)
+CALCULS OBLIGATOIRES - investment_metrics (FORMULES EXACTES):
+- VAN = Σ(CF_t / (1+0.12)^t) - Investissement_initial, pour t=1 à 5
+- TRI = taux r tel que Σ(CF_t / (1+r)^t) = Investissement_initial (résolution Newton-Raphson)
+- CAGR Revenue = (Revenue_Year6 / Revenue_CurrentYear)^(1/5) - 1
+  ATTENTION: Revenue_CurrentYear DOIT venir des données Inputs (compte de résultat réel), PAS être inventé
+- CAGR EBITDA = (EBITDA_Year6 / EBITDA_CurrentYear)^(1/5) - 1
+- ROI = Σ(Résultats_Nets an1-an5) / Investissement_total
+- Payback = année t où Σ(CF_1..t) ≥ Investissement_initial (fractionnel autorisé)
+- DSCR = EBITDA / Service_dette_annuel (principal + intérêts)
+- Multiple EBITDA = Valorisation / EBITDA (4-8x selon secteur)
+
+VALIDATION POST-CALCUL:
+- Si CAGR < 1% mais Revenue_Year6 > 2× Revenue_CurrentYear → ERREUR, recalculer
+- Si TRI < 0 mais VAN > 0 → ERREUR, recalculer avec seed différent
+- Si Payback = 0 mais Funding_Need > 0 → ERREUR, recalculer
+- current_year revenue/EBITDA/net_profit DOIVENT correspondre aux données historiques réelles
 
 Calcule aussi VAN et TRI pour chaque scénario (optimiste, réaliste, pessimiste).
 
