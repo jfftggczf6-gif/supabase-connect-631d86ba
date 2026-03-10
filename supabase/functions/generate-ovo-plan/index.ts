@@ -195,6 +195,9 @@ Deno.serve(async (req: Request) => {
     // Post-expansion validation: fill any remaining zero-volume gaps
     validateAndFillVolumes(financialJson);
 
+    // Scale volumes to align Excel revenues with Framework/plan_ovo targets
+    scaleToFrameworkTargets(financialJson, data.framework_data, data.plan_ovo_data);
+
     // Bug #7: Sort products/services by slot for consistent ordering
     if (Array.isArray(financialJson.products)) {
       financialJson.products.sort((a: any, b: any) => (a.slot || 0) - (b.slot || 0));
@@ -326,7 +329,7 @@ Deno.serve(async (req: Request) => {
 // ─────────────────────────────────────────────────────────────────────
 
 async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseId?: string, requestId?: string): Promise<Record<string, unknown>> {
-  const systemPrompt = buildSystemPrompt();
+  const systemPrompt = buildSystemPrompt(data.country);
   const userPrompt  = buildUserPrompt(data);
 
   // Budget-aware retry: Deno edge functions have ~400s wall time.
@@ -446,18 +449,66 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
 // CONSTRUCTION DU PROMPT SYSTÈME
 // ─────────────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(): string {
-  return `Tu es un expert financier spécialisé dans les PME africaines (Afrique de l'Ouest, zone FCFA/XOF).
+// Fiscal parameters per country (same as generate-plan-ovo)
+function getFiscalParams(country: string): { tva: number; is_standard: number; is_pme: number; seuil_pme: string; charges_sociales: number; focus: string } {
+  const c = (country || '').toLowerCase().trim();
+  if (c.includes('bénin') || c.includes('benin')) {
+    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 24.5, focus: 'Bénin' };
+  }
+  if (c.includes('togo')) {
+    return { tva: 18, is_standard: 27, is_pme: 27, seuil_pme: 'N/A', charges_sociales: 23.5, focus: 'Togo' };
+  }
+  if (c.includes('sénégal') || c.includes('senegal')) {
+    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 24, focus: 'Sénégal' };
+  }
+  if (c.includes('cameroun') || c.includes('cameroon')) {
+    return { tva: 19.25, is_standard: 33, is_pme: 33, seuil_pme: 'N/A', charges_sociales: 18.5, focus: 'Cameroun' };
+  }
+  if (c.includes('mali')) {
+    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 22, focus: 'Mali' };
+  }
+  if (c.includes('burkina') || c.includes('faso')) {
+    return { tva: 18, is_standard: 27.5, is_pme: 27.5, seuil_pme: 'N/A', charges_sociales: 22, focus: 'Burkina Faso' };
+  }
+  if (c.includes('guinée') || c.includes('guinee') || c.includes('guinea')) {
+    return { tva: 18, is_standard: 35, is_pme: 35, seuil_pme: 'N/A', charges_sociales: 23, focus: 'Guinée' };
+  }
+  if (c.includes('niger')) {
+    return { tva: 19, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 20, focus: 'Niger' };
+  }
+  if (c.includes('gabon')) {
+    return { tva: 18, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 20.1, focus: 'Gabon' };
+  }
+  if (c.includes('congo') && c.includes('rd')) {
+    return { tva: 16, is_standard: 30, is_pme: 30, seuil_pme: 'N/A', charges_sociales: 14.5, focus: 'RD Congo' };
+  }
+  if (c.includes('congo')) {
+    return { tva: 18.9, is_standard: 28, is_pme: 28, seuil_pme: 'N/A', charges_sociales: 22.6, focus: 'Congo' };
+  }
+  // Default: Côte d'Ivoire
+  return { tva: 18, is_standard: 25, is_pme: 4, seuil_pme: '200M FCFA', charges_sociales: 25, focus: "Côte d'Ivoire" };
+}
+
+function buildSystemPrompt(country: string): string {
+  const fp = getFiscalParams(country);
+  const isRegimeInfo = fp.seuil_pme !== 'N/A'
+    ? `- IS régime simplifié (revenus ≤ ${fp.seuil_pme}) : ${fp.is_pme}% du CA\n- IS régime réel (revenus > ${fp.seuil_pme}) : ${fp.is_standard}% du bénéfice`
+    : `- IS : ${fp.is_standard}% du bénéfice`;
+
+  return `Tu es un expert financier spécialisé dans les PME africaines (focus: ${fp.focus}).
 Tu génères un plan financier OVO au FORMAT CONDENSÉ pour un entrepreneur.
 
-CONTEXTE FISCAL CÔTE D'IVOIRE (2025) :
+CONTEXTE FISCAL ${fp.focus.toUpperCase()} (${new Date().getFullYear()}) :
 - Devise : XOF (FCFA) — taux fixe 655.957 XOF/EUR
-- TVA : 18% (0.18)
-- IS régime simplifié (revenus ≤ 200M FCFA) : 4% du CA (0.04)
-- IS régime réel (revenus > 200M FCFA) : 30% du bénéfice (0.30)
-- Cotisations sociales patronales : 16.45% du salaire brut (0.1645)
+- TVA : ${fp.tva}% (${(fp.tva / 100).toFixed(2)})
+${isRegimeInfo}
+- Cotisations sociales patronales : ${fp.charges_sociales}% du salaire brut (${(fp.charges_sociales / 100).toFixed(4)})
 - Inflation estimée : 3%/an (0.03)
 - Charges bancaires : ~1% des revenus (0.01)
+
+CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
+- Le pays de l'entreprise est ${fp.focus}. Tous les CAPEX, investissements, locaux DOIVENT concerner UNIQUEMENT ${fp.focus}.
+- Ne PAS mentionner d'autres pays africains dans les investissements ou localisations.
 
 RÈGLES DE PROJECTION RÉALISTES :
 - Croissance max 30%/an les 3 premières années de prévision, 15-20% ensuite
@@ -956,8 +1007,117 @@ function validateAndFillVolumes(json: Record<string, any>): void {
   validate(json.services || [], "Service");
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// SCALING POST-EXPANSION : ALIGNER REVENUS EXCEL SUR FRAMEWORK
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Scale product/service volumes so that total Excel revenue matches
+ * Framework (plan_ovo_data.revenue or framework_data.projection_5ans).
+ * Preserves relative distribution between products.
+ */
 // deno-lint-ignore no-explicit-any
-function expandProductOrService(p: any): any {
+function scaleToFrameworkTargets(json: Record<string, any>, frameworkData?: Record<string, any>, planOvoData?: Record<string, any>): void {
+  // Build target revenue map: yearLabel → target amount
+  const targets: Record<string, number> = {};
+  const yearLabelToJsonKey: Record<string, string> = {
+    "YEAR-2": "year_minus_2", "YEAR-1": "year_minus_1", "CURRENT YEAR": "current_year",
+    "YEAR2": "year2", "YEAR3": "year3", "YEAR4": "year4", "YEAR5": "year5", "YEAR6": "year6",
+  };
+
+  // Priority 1: plan_ovo_data.revenue (already numbers)
+  const poRevenue = (planOvoData as any)?.revenue;
+  if (poRevenue && typeof poRevenue === 'object') {
+    for (const [yearLabel, jsonKey] of Object.entries(yearLabelToJsonKey)) {
+      const val = Number(poRevenue[jsonKey]);
+      if (val > 0) targets[yearLabel] = val;
+    }
+  }
+
+  // Priority 2: framework projection_5ans (fallback for missing years)
+  const fw = frameworkData as any;
+  if (fw?.projection_5ans?.lignes && Array.isArray(fw.projection_5ans.lignes)) {
+    const caLine = fw.projection_5ans.lignes.find((l: any) => {
+      const lb = (l.poste || l.libelle || '').toLowerCase();
+      return lb.includes("ca total") || lb.includes("chiffre") || lb.includes("revenue");
+    });
+    if (caLine) {
+      // Framework has an1..an5 mapping to YEAR2..YEAR6
+      const fwMapping: Record<string, string> = {
+        "YEAR2": "an1", "YEAR3": "an2", "YEAR4": "an3", "YEAR5": "an4", "YEAR6": "an5",
+      };
+      for (const [yearLabel, fwKey] of Object.entries(fwMapping)) {
+        if (!targets[yearLabel]) {
+          const raw = caLine[fwKey];
+          const val = typeof raw === 'number' ? raw : parseFcfaValue(String(raw || ''));
+          if (val > 0) targets[yearLabel] = val;
+        }
+      }
+    }
+  }
+
+  if (Object.keys(targets).length === 0) {
+    console.log("[scaleToFramework] No targets found, skipping scaling");
+    return;
+  }
+
+  console.log("[scaleToFramework] Targets:", JSON.stringify(targets));
+
+  const yearLabels = ["YEAR-2", "YEAR-1", "CURRENT YEAR", "YEAR2", "YEAR3", "YEAR4", "YEAR5", "YEAR6"];
+  const allItems = [
+    ...(Array.isArray(json.products) ? json.products.filter((p: any) => p.active !== false) : []),
+    ...(Array.isArray(json.services) ? json.services.filter((s: any) => s.active !== false) : []),
+  ];
+
+  for (const yearLabel of yearLabels) {
+    const target = targets[yearLabel];
+    if (!target || target <= 0) continue;
+
+    // Calculate current Excel revenue for this year
+    let revenueExcel = 0;
+    for (const item of allItems) {
+      if (!item.per_year || !Array.isArray(item.per_year)) continue;
+      const yr = item.per_year.find((y: any) => y.year === yearLabel);
+      if (!yr) continue;
+      const price = yr.unit_price_r1 || yr.unit_price_r2 || yr.unit_price_r3 || 0;
+      const totalVol = (yr.volume_h1 || 0) + (yr.volume_h2 || 0);
+      revenueExcel += totalVol * price;
+    }
+
+    if (revenueExcel <= 0) continue;
+
+    const ecart = Math.abs(revenueExcel - target) / target;
+    if (ecart <= 0.05) continue; // Within 5% tolerance
+
+    const ratio = target / revenueExcel;
+    console.log(`[scaleToFramework] ${yearLabel}: Excel=${Math.round(revenueExcel)}, Target=${target}, Ratio=${ratio.toFixed(3)}, Ecart=${(ecart*100).toFixed(1)}%`);
+
+    // Apply ratio to volumes of each active product/service
+    for (const item of allItems) {
+      if (!item.per_year || !Array.isArray(item.per_year)) continue;
+      const yr = item.per_year.find((y: any) => y.year === yearLabel);
+      if (!yr) continue;
+      yr.volume_h1 = Math.round((yr.volume_h1 || 0) * ratio);
+      yr.volume_h2 = Math.round((yr.volume_h2 || 0) * ratio);
+    }
+  }
+}
+
+/**
+ * Parse FCFA string values like "179 000 000" or "179M" to numbers
+ */
+function parseFcfaValue(raw: string): number {
+  if (!raw) return 0;
+  const cleaned = raw.replace(/[^\d.,MmKk]/g, '').trim();
+  if (cleaned.toLowerCase().endsWith('m')) {
+    return parseFloat(cleaned.slice(0, -1)) * 1_000_000;
+  }
+  if (cleaned.toLowerCase().endsWith('k')) {
+    return parseFloat(cleaned.slice(0, -1)) * 1_000;
+  }
+  return parseFloat(cleaned.replace(/[.,]/g, '')) || 0;
+}
+
   const yearLabels = ["YEAR-2","YEAR-1","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
 
   // If already has full 8-entry per_year, keep but validate volumes
