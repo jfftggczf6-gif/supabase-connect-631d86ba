@@ -118,6 +118,23 @@ export default function EntrepreneurDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Ensure templates are uploaded to storage buckets (best-effort, silent)
+  useEffect(() => {
+    if (!user) return;
+    const ensureTemplates = async () => {
+      try {
+        const token = await getValidAccessToken();
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-template`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({}),
+        });
+      } catch (_) { /* silent */ }
+    };
+    ensureTemplates();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   // Auto-resume polling if OVO generation is stuck in "processing" on page load
   useEffect(() => {
     if (!enterprise || generatingOvoPlan) return;
