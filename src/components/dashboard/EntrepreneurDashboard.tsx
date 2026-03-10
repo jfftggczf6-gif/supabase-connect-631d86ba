@@ -1387,23 +1387,21 @@ export default function EntrepreneurDashboard() {
         </Button>
       </div>
 
-      {/* ===== GENERATION LOCK OVERLAY ===== */}
-      {generating && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-background rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center space-y-4 border">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <h3 className="text-lg font-bold text-foreground">Génération en cours…</h3>
-            {generationProgress && (
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">
-                  Module {generationProgress.current}/{generationProgress.total} : <span className="font-semibold text-foreground">{generationProgress.name}</span>
-                </p>
-                <Progress value={(generationProgress.current / generationProgress.total) * 100} className="h-2" />
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Veuillez ne pas quitter cette page. La génération peut prendre quelques minutes.
-            </p>
+      {/* ===== NON-BLOCKING GENERATION PROGRESS BANNER ===== */}
+      {generating && generationProgress && (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-primary text-primary-foreground shadow-lg">
+          <div className="container flex items-center gap-3 py-2 px-4">
+            <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+            <span className="text-sm font-medium truncate">
+              Génération {generationProgress.current}/{generationProgress.total} : {generationProgress.name}
+            </span>
+            <Progress
+              value={(generationProgress.current / generationProgress.total) * 100}
+              className="h-1.5 flex-1 max-w-xs bg-primary-foreground/20"
+            />
+            <span className="text-xs opacity-80 flex-shrink-0">
+              Vous pouvez consulter les livrables disponibles
+            </span>
           </div>
         </div>
       )}
