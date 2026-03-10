@@ -487,9 +487,9 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   const caLine = findLigne([], 'ca total', 'chiffre', 'revenue', 'ca ');
   // Exclude lines containing '%' to avoid confusing amounts with percentages
   const mbLine = findLigne(['%', '(%)'], 'marge brute', 'gross');
-  const ebitdaLine = findLigne('ebitda');
-  const rnLine = findLigne('résultat net', 'resultat net', 'net profit');
-  const cfLine = findLigne('cash', 'trésorerie', 'tresorerie');
+  const ebitdaLine = findLigne(['%', '(%)'], 'ebitda');
+  const rnLine = findLigne([], 'résultat net', 'resultat net', 'net profit');
+  const cfLine = findLigne([], 'cash', 'trésorerie', 'tresorerie');
 
   // Overwrite each projection year with framework values
   const overwrite = (series: any, ligne: any) => {
