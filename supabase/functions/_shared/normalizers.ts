@@ -2,6 +2,7 @@
  * Normalizers for AI JSON responses
  * Handles key variations from different AI model outputs
  */
+import { getFiscalParams } from "./helpers.ts";
 
 // ===== GENERIC HELPERS =====
 function pick(obj: any, ...keys: string[]): any {
