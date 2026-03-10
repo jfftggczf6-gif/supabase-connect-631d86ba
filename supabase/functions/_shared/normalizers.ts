@@ -508,6 +508,20 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   overwrite(data.net_profit, rnLine);
   overwrite(data.cashflow, cfLine);
 
+  // If no cashflow line from Framework, derive cashflow from net_profit + estimated amortizations
+  if (!cfLine && data.net_profit && data.cashflow) {
+    // Estimate amortization as ~15% of CAPEX or difference between EBITDA and net_profit (simplified)
+    for (const yk of PROJ_KEYS) {
+      const ebitda = data.ebitda[yk] || 0;
+      const netProfit = data.net_profit[yk] || 0;
+      // cashflow ≈ net_profit + (ebitda - net_profit) * 0.5 (rough: half of depreciation+tax gap goes back to cash)
+      // More accurate: cashflow ≈ EBITDA - taxes, where taxes ≈ EBITDA - net_profit - depreciation
+      // Simplified: cashflow ≈ net_profit + depreciation ≈ net_profit + (ebitda - net_profit) * 0.4
+      const depreciation = (ebitda - netProfit) * 0.4;
+      data.cashflow[yk] = Math.round(netProfit + (depreciation > 0 ? depreciation : 0));
+    }
+  }
+
   // Recalculate COGS = revenue - gross_profit
   for (const yk of PROJ_KEYS) {
     data.cogs[yk] = data.revenue[yk] - data.gross_profit[yk];
@@ -631,9 +645,8 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
-  // Update scenarios VAN/TRI with proportional adjustment
+  // Update scenarios VAN/TRI with proper NPV/IRR recalculation
   if (data.scenarios && frameworkData.scenarios?.tableau) {
-    // Parse framework scenario values from tableau
     const parseFcfa = (val: any): number => {
       if (typeof val === 'number') return val;
       if (typeof val !== 'string') return 0;
@@ -645,7 +658,6 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
       return Math.round(num);
     };
 
-    // Extract scenario values from framework tableau
     const fwScenarios: Record<string, Record<string, number>> = {
       prudent: {}, central: {}, ambitieux: {}
     };
@@ -664,10 +676,13 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
       }
     }
 
-    // Map: pessimiste=prudent, realiste=central, optimiste=ambitieux
     const mapping: Record<string, string> = {
       pessimiste: 'prudent', realiste: 'central', optimiste: 'ambitieux'
     };
+
+    const discountRate = data.investment_metrics?.discount_rate || 0.12;
+    const initialInv = data.funding_need || 0;
+
     for (const [ovoSc, fwSc] of Object.entries(mapping)) {
       if (data.scenarios[ovoSc] && fwScenarios[fwSc]) {
         const fw = fwScenarios[fwSc];
@@ -675,11 +690,33 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
         if (fw.ebitda) data.scenarios[ovoSc].ebitda_year5 = fw.ebitda;
         if (fw.net_profit) data.scenarios[ovoSc].net_profit_year5 = fw.net_profit;
 
-        // Recalculate VAN proportionally based on central scenario
+        // Estimate scenario cashflows proportionally to central scenario
         const centralRev = fwScenarios.central?.revenue || data.revenue.year6 || 1;
-        const ratio = (fw.revenue || centralRev) / centralRev;
-        if (data.investment_metrics?.van) {
-          data.scenarios[ovoSc].van = Math.round(data.investment_metrics.van * ratio);
+        const scenarioRatio = (fw.revenue || centralRev) / centralRev;
+
+        // Build proportional cashflows for NPV/IRR calculation
+        const scenarioCFs = PROJ_KEYS.map(yk => Math.round((data.cashflow[yk] || 0) * scenarioRatio));
+
+        // Calculate scenario NPV
+        const scenarioNPV = scenarioCFs.reduce((sum, cf, i) => sum + cf / Math.pow(1 + discountRate, i + 1), 0) - initialInv;
+        data.scenarios[ovoSc].van = Math.round(scenarioNPV);
+
+        // Calculate scenario IRR (Newton-Raphson)
+        if (initialInv > 0) {
+          let irrSc = 0.1;
+          for (let iter = 0; iter < 50; iter++) {
+            let npvSc = -initialInv;
+            let dnpvSc = 0;
+            for (let i = 0; i < scenarioCFs.length; i++) {
+              npvSc += scenarioCFs[i] / Math.pow(1 + irrSc, i + 1);
+              dnpvSc -= (i + 1) * scenarioCFs[i] / Math.pow(1 + irrSc, i + 2);
+            }
+            if (Math.abs(dnpvSc) < 1e-10) break;
+            irrSc = irrSc - npvSc / dnpvSc;
+            if (isNaN(irrSc) || irrSc < -0.99 || irrSc > 10) { irrSc = 0; break; }
+            if (Math.abs(npvSc) < 1000) break;
+          }
+          data.scenarios[ovoSc].tri = isNaN(irrSc) ? 0 : Math.round(irrSc * 10000) / 10000;
         }
       }
     }

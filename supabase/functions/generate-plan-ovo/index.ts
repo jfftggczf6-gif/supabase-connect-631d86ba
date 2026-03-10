@@ -25,9 +25,10 @@ CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
 CALCULS OBLIGATOIRES - investment_metrics (FORMULES EXACTES):
 - VAN = Σ(CF_t / (1+0.12)^t) - Investissement_initial, pour t=1 à 5
 - TRI = taux r tel que Σ(CF_t / (1+r)^t) = Investissement_initial (résolution Newton-Raphson)
-- CAGR Revenue = (Revenue_Year6 / Revenue_CurrentYear)^(1/5) - 1
+- CAGR Revenue = (Revenue_Year6 / Revenue_CurrentYear)^(1/6) - 1
   ATTENTION: Revenue_CurrentYear DOIT venir des données Inputs (compte de résultat réel), PAS être inventé
-- CAGR EBITDA = (EBITDA_Year6 / EBITDA_CurrentYear)^(1/5) - 1
+  NOTE: l'exposant est 1/6 car il y a 6 ans entre current_year et year6
+- CAGR EBITDA = (EBITDA_Year6 / EBITDA_CurrentYear)^(1/6) - 1
 - ROI = Σ(Résultats_Nets an1-an5) / Investissement_total
 - Payback = année t où Σ(CF_1..t) ≥ Investissement_initial (fractionnel autorisé)
 - DSCR = EBITDA / Service_dette_annuel (principal + intérêts)

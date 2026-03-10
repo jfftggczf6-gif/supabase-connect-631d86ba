@@ -96,7 +96,7 @@ function buildContextBlock(ctx: any): string {
 
 BMC : ${JSON.stringify(bmc).substring(0, 1000)}
 
-FINANCIER : ${JSON.stringify(inp).substring(0, 800)}
+FINANCIER (Inputs historiques): ${JSON.stringify(inp).substring(0, 2000)}
 
 FRAMEWORK : ${JSON.stringify(fw).substring(0, 800)}
 

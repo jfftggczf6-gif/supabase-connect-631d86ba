@@ -203,6 +203,12 @@ serve(async (req) => {
     const inputsData = ctx.deliverableMap["inputs_data"] || ctx.moduleMap["inputs"] || {};
     const bmcData = ctx.deliverableMap["bmc_analysis"] || ctx.moduleMap["bmc"] || null;
 
+    // Warning: check if Inputs data contains real historical financials
+    const hasRealInputs = inputsData?.compte_resultat?.chiffre_affaires && inputsData.compte_resultat.chiffre_affaires > 0;
+    if (!hasRealInputs) {
+      console.warn("[generate-framework] WARNING: Inputs data is empty or missing compte_resultat. Projections will not be anchored to real historical data. Generate Inputs module first for accurate results.");
+    }
+
     // RAG: enrichir avec benchmarks sectoriels et données fiscales
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "bailleurs", "secteurs"]);
     const fiscalParams = getFiscalParams(ent.country || "Côte d'Ivoire");
