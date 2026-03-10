@@ -596,7 +596,7 @@ export default function EntrepreneurDashboard() {
       }
 
       // Add prix_moyen from BMC
-      const bmcFluxRevenus = bmcData?.canvas?.flux_revenus || {};
+      const bmcFluxRevenus = (bmcData as any)?.canvas?.flux_revenus || {};
       const prixMoyen = bmcFluxRevenus?.prix_moyen || bmcFluxRevenus?.prix_unitaire || 0;
       if (prixMoyen > 0 && products.length > 0) {
         products = products.map(p => ({ ...p, price: p.price || prixMoyen }));
