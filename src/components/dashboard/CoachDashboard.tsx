@@ -553,21 +553,19 @@ export default function CoachDashboard() {
     }
   };
 
-  const handleDownloadOddExcelCoach = async (entDelivs: Deliverable[]) => {
+  const handleDownloadOddExcelCoach = async (enterpriseId: string) => {
     try {
-      const oddExcel = entDelivs.find((d) => d.type === 'odd_excel');
-      const fileName = (oddExcel?.data as Record<string, unknown> | null)?.file_name as string | undefined;
-      if (!fileName) { toast.error('Fichier ODD Excel introuvable'); return; }
-      const { data: signedData, error: signedErr } = await supabase.storage
-        .from('ovo-outputs')
-        .createSignedUrl(fileName, 3600);
-      if (signedErr || !signedData?.signedUrl) { toast.error('Erreur de téléchargement'); return; }
-      const response = await fetch(signedData.signedUrl);
-      if (!response.ok) throw new Error('Erreur');
+      const ent = enterprises.find((e) => e.id === enterpriseId) || selectedEnt;
+      if (!enterpriseId) { toast.error('Entreprise introuvable'); return; }
+      const token = await getValidAccessToken(authSession);
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=odd_analysis&enterprise_id=${enterpriseId}&format=xlsx`;
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error((err as any).error || 'Erreur de téléchargement'); }
       const blob = await response.blob();
+      const downloadName = `${ent?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'entreprise'}_ODD.xlsx`;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = fileName;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1034,8 +1032,8 @@ export default function CoachDashboard() {
                           )}
                           {mod.code === 'odd' && entDelivs.find((x: any) => x.type === 'odd_excel') && (
                             <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"
-                              onClick={() => handleDownloadOddExcelCoach(entDelivs)}>
-                              <Download className="h-3 w-3" /> XLSM
+                              onClick={() => handleDownloadOddExcelCoach(ent.id)}>
+                              <Download className="h-3 w-3" /> XLSX
                             </Button>
                           )}
                           {!isShared && (
@@ -1267,7 +1265,7 @@ export default function CoachDashboard() {
                           <div className="flex items-center gap-2">
                             {entDelivs.find((d: any) => d.type === 'odd_excel')?.file_url ? (
                               <>
-                                <button onClick={() => handleDownloadOddExcelCoach(entDelivs)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> ODD Excel (.xlsx)</button>
+                                <button onClick={() => handleDownloadOddExcelCoach(ent.id)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> ODD Excel (.xlsx)</button>
                                 <button onClick={() => handleDownloadCoach('odd_analysis', 'html', ent.id)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Download className="h-3.5 w-3.5" /> Rapport HTML</button>
                               </>
                             ) : selectedDeliv ? (
@@ -1387,8 +1385,8 @@ export default function CoachDashboard() {
                   )}
                   {selectedModule === 'odd' && entDelivs.find((x: any) => x.type === 'odd_excel') && (
                     <Button variant="outline" size="sm" className="h-7 px-3 text-xs gap-1"
-                      onClick={() => handleDownloadOddExcelCoach(entDelivs)}>
-                      <Download className="h-3 w-3" /> XLSM
+                      onClick={() => handleDownloadOddExcelCoach(ent.id)}>
+                      <Download className="h-3 w-3" /> XLSX
                     </Button>
                   )}
                 </div>
