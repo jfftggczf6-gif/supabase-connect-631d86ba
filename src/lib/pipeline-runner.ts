@@ -14,8 +14,61 @@ export interface PipelineResult {
 }
 
 /**
+ * Determines the pipeline generation state by comparing source dates with deliverable dates.
+ * Returns 'generate' if modules are missing, 'update' if sources changed, 'up_to_date' if all current.
+ */
+export type PipelineState = 'generate' | 'update' | 'up_to_date';
+
+export async function getPipelineState(enterpriseId: string): Promise<PipelineState> {
+  const [{ data: ent }, { data: existing }] = await Promise.all([
+    supabase.from('enterprises').select('updated_at').eq('id', enterpriseId).single(),
+    supabase.from('deliverables').select('type, updated_at, data').eq('enterprise_id', enterpriseId),
+  ]);
+
+  if (!existing || existing.length === 0) return 'generate';
+
+  const sourceDate = new Date(ent?.updated_at || 0).getTime();
+
+  const toNumber = (v: any) => {
+    const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const isRich = (d: any): boolean => {
+    if (!d.data || typeof d.data !== 'object') return false;
+    if (d.type === 'inputs_data') return d.data.compte_resultat && toNumber(d.data.compte_resultat.chiffre_affaires) > 0;
+    if (d.type === 'odd_analysis') return d.data.evaluation_cibles_odd || d.data.synthese;
+    if (d.type === 'plan_ovo') return !!d.data.scenarios;
+    return d.data.canvas || d.data.theorie_changement || d.data.compte_resultat || d.data.ratios || d.data.diagnostic_par_dimension || d.data.scenarios || d.data.checklist;
+  };
+
+  // Check all pipeline types (excluding always-run steps)
+  const pipelineTypes = new Set(PIPELINE.filter(s => s.fn !== 'reconcile-plan-ovo' && s.fn !== 'generate-ovo-plan').map(s => s.type));
+  const delivMap = new Map(existing.map((d: any) => [d.type, d]));
+
+  let hasMissing = false;
+  let hasStale = false;
+
+  for (const type of pipelineTypes) {
+    const d = delivMap.get(type);
+    if (!d || !isRich(d)) {
+      hasMissing = true;
+      continue;
+    }
+    const delivDate = new Date(d.updated_at).getTime();
+    if (delivDate < sourceDate) {
+      hasStale = true;
+    }
+  }
+
+  if (hasMissing) return 'generate';
+  if (hasStale) return 'update';
+  return 'up_to_date';
+}
+
+/**
  * Runs the generation pipeline from the client, calling each edge function
- * one by one. This avoids the server-side orchestrator timeout.
+ * one by one. Uses date comparison to skip only truly up-to-date modules.
  */
 export async function runPipelineFromClient(
   enterpriseId: string,
@@ -38,30 +91,33 @@ export async function runPipelineFromClient(
     return initialToken; // fallback
   };
 
-  // Fetch existing deliverables to know what to skip
-  let richTypes = new Set<string>();
-  if (!force) {
-    const { data: existing } = await supabase
-      .from('deliverables')
-      .select('type, data')
-      .eq('enterprise_id', enterpriseId);
+  // Fetch enterprise updated_at and existing deliverables
+  const [{ data: ent }, { data: existing }] = await Promise.all([
+    supabase.from('enterprises').select('updated_at').eq('id', enterpriseId).single(),
+    supabase.from('deliverables').select('type, data, updated_at').eq('enterprise_id', enterpriseId),
+  ]);
 
-    const toNumber = (v: any) => {
-      const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
-      return isNaN(n) ? 0 : n;
-    };
+  const sourceDate = new Date(ent?.updated_at || 0).getTime();
 
-    richTypes = new Set(
-      (existing || [])
-        .filter((d: any) => {
-          if (!d.data || typeof d.data !== 'object') return false;
-          if (d.type === 'inputs_data') return d.data.compte_resultat && toNumber(d.data.compte_resultat.chiffre_affaires) > 0;
-          if (d.type === 'odd_analysis') return d.data.evaluation_cibles_odd || d.data.synthese;
-          if (d.type === 'plan_ovo') return !!d.data.scenarios;
-          return d.data.canvas || d.data.theorie_changement || d.data.compte_resultat || d.data.ratios || d.data.diagnostic_par_dimension || d.data.scenarios || d.data.checklist;
-        })
-        .map((d: any) => d.type),
-    );
+  const toNumber = (v: any) => {
+    const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
+    return isNaN(n) ? 0 : n;
+  };
+
+  // Build a map of type -> { isRich, isUpToDate }
+  const delivStatus = new Map<string, { rich: boolean; upToDate: boolean }>();
+  if (!force && existing) {
+    for (const d of existing as any[]) {
+      let rich = false;
+      if (d.data && typeof d.data === 'object') {
+        if (d.type === 'inputs_data') rich = d.data.compte_resultat && toNumber(d.data.compte_resultat.chiffre_affaires) > 0;
+        else if (d.type === 'odd_analysis') rich = d.data.evaluation_cibles_odd || d.data.synthese;
+        else if (d.type === 'plan_ovo') rich = !!d.data.scenarios;
+        else rich = d.data.canvas || d.data.theorie_changement || d.data.compte_resultat || d.data.ratios || d.data.diagnostic_par_dimension || d.data.scenarios || d.data.checklist;
+      }
+      const delivDate = new Date(d.updated_at).getTime();
+      delivStatus.set(d.type, { rich: !!rich, upToDate: delivDate >= sourceDate });
+    }
   }
 
   const results: PipelineResult['results'] = [];
@@ -74,12 +130,15 @@ export async function runPipelineFromClient(
     // Never skip reconcile-plan-ovo or generate-ovo-plan — they must always run to sync data
     const isAlwaysRun = step.fn === 'reconcile-plan-ovo' || step.fn === 'generate-ovo-plan';
 
-    // Skip if rich data exists (but not always-run steps)
-    if (!force && !isAlwaysRun && richTypes.has(step.type)) {
-      results.push({ step: step.name, success: true, skipped: true });
-      completedCount++;
-      onProgress?.({ current: i + 1, total: PIPELINE.length, name: `${step.name} (existant)` });
-      continue;
+    // Skip only if rich data exists AND it's more recent than source changes
+    if (!force && !isAlwaysRun) {
+      const status = delivStatus.get(step.type);
+      if (status?.rich && status.upToDate) {
+        results.push({ step: step.name, success: true, skipped: true });
+        completedCount++;
+        onProgress?.({ current: i + 1, total: PIPELINE.length, name: `${step.name} (à jour)` });
+        continue;
+      }
     }
 
     onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}…` });

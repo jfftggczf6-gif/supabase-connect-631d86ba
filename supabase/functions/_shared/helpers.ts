@@ -211,6 +211,7 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
+      temperature: 0,
       system: systemPrompt,
       messages: [
         { role: "user", content: userPrompt },

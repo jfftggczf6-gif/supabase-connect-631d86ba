@@ -53,29 +53,27 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Enterprise not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check which modules already have rich data (skip them)
+    // Check which modules already have rich AND up-to-date data (skip them)
     const { data: existingDeliverables } = await supabase
       .from("deliverables")
-      .select("type, data")
+      .select("type, data, updated_at")
       .eq("enterprise_id", enterprise_id);
 
+    const sourceDate = new Date(ent.updated_at || 0).getTime();
     const toNumber = (v: any) => { const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v); return isNaN(n) ? 0 : n; };
-    const richTypes = new Set(
+
+    const isRich = (d: any): boolean => {
+      if (!d.data || typeof d.data !== "object") return false;
+      if (d.type === "inputs_data") return d.data.compte_resultat && toNumber(d.data.compte_resultat.chiffre_affaires) > 0;
+      if (d.type === "odd_analysis") return d.data.evaluation_cibles_odd || d.data.synthese;
+      if (d.type === "plan_ovo") return !!d.data.scenarios;
+      return (d.data.canvas || d.data.theorie_changement || d.data.compte_resultat || d.data.ratios || d.data.diagnostic_par_dimension || d.data.scenarios || d.data.checklist);
+    };
+
+    // A deliverable is "up to date" only if it's rich AND more recent than the enterprise source
+    const upToDateTypes = new Set(
       (existingDeliverables || [])
-        .filter((d: any) => {
-          if (!d.data || typeof d.data !== "object") return false;
-          // For inputs_data, require chiffre_affaires > 0 to be considered "rich"
-          if (d.type === "inputs_data") {
-            return d.data.compte_resultat && toNumber(d.data.compte_resultat.chiffre_affaires) > 0;
-          }
-          if (d.type === "odd_analysis") {
-            return d.data.evaluation_cibles_odd || d.data.synthese;
-          }
-          if (d.type === "plan_ovo") {
-            return !!d.data.scenarios;
-          }
-          return (d.data.canvas || d.data.theorie_changement || d.data.compte_resultat || d.data.ratios || d.data.diagnostic_par_dimension || d.data.scenarios || d.data.checklist);
-        })
+        .filter((d: any) => isRich(d) && new Date(d.updated_at).getTime() >= sourceDate)
         .map((d: any) => d.type)
     );
 
@@ -105,7 +103,7 @@ serve(async (req) => {
       const isAlwaysRun = step.function === "reconcile-plan-ovo" || step.function === "generate-ovo-plan";
       
       // Skip if rich data already exists (unless force=true or always-run step)
-      if (!force && !isAlwaysRun && delivType && richTypes.has(delivType)) {
+      if (!force && !isAlwaysRun && delivType && upToDateTypes.has(delivType)) {
         console.log(`Skipping ${step.name}: rich data already exists`);
         results.push({ step: step.name, success: true, skipped: true });
         completedCount++;

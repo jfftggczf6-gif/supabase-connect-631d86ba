@@ -26,7 +26,7 @@ import {
   type Enterprise, type Deliverable, type EnterpriseModule, type UploadedFile,
 } from '@/lib/dashboard-config';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
-import { runPipelineFromClient } from '@/lib/pipeline-runner';
+import { runPipelineFromClient, getPipelineState, type PipelineState } from '@/lib/pipeline-runner';
 
 export default function EntrepreneurDashboard() {
   const { user, profile, session: authSession, signOut } = useAuth();
@@ -63,6 +63,7 @@ export default function EntrepreneurDashboard() {
   const [extractedInfo, setExtractedInfo] = useState<{ name: string | null; country: string | null; sector: string | null } | null>(null);
   const [showExtractDialog, setShowExtractDialog] = useState(false);
   const [_extracting, setExtracting] = useState(false);
+  const [pipelineState, setPipelineState] = useState<PipelineState>('generate');
   const docInputRef = useRef<HTMLInputElement>(null);
   const finInputRef = useRef<HTMLInputElement>(null);
   const extraInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +90,12 @@ export default function EntrepreneurDashboard() {
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Compute pipeline state whenever enterprise/deliverables change
+  useEffect(() => {
+    if (!enterprise) return;
+    getPipelineState(enterprise.id).then(setPipelineState);
+  }, [enterprise?.id, enterprise?.updated_at, deliverables.length]);
 
   // Ensure templates are uploaded to storage buckets (best-effort, silent)
   useEffect(() => {
@@ -1376,18 +1383,19 @@ export default function EntrepreneurDashboard() {
       <div className="fixed bottom-20 left-0 z-50 px-4">
         <Button
           size="lg"
-          onClick={() => handleGenerate(true)}
-          disabled={generating}
-          className="gap-3 rounded-xl shadow-lg bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white px-5 py-3 h-auto"
+          onClick={() => handleGenerate(false)}
+          disabled={generating || pipelineState === 'up_to_date'}
+          className="gap-3 rounded-xl shadow-lg bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white px-5 py-3 h-auto disabled:opacity-60"
         >
           {generating && generationProgress ? (
             <><Loader2 className="h-5 w-5 animate-spin" /> {generationProgress.name} ({generationProgress.current}/{generationProgress.total})...</>
+          ) : pipelineState === 'up_to_date' ? (
+            <><CheckCircle2 className="h-5 w-5" /> Livrables à jour ✓</>
+          ) : pipelineState === 'update' ? (
+            <><Sparkles className="h-5 w-5" /> Mettre à jour les livrables</>
           ) : (
-            <><Sparkles className="h-5 w-5" /> Regénérer les livrables</>
+            <><Sparkles className="h-5 w-5" /> Générer les livrables</>
           )}
-          <span className="text-white/70 text-xs ml-1">
-            {inputsCount}/{inputsCount} inputs · {deliverablesCount}/{MODULE_CONFIG.length} livrables
-          </span>
         </Button>
       </div>
 
