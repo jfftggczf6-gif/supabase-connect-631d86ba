@@ -27,6 +27,7 @@ import {
   type Enterprise, type Deliverable, type EnterpriseModule, type CoachUpload,
 } from '@/lib/dashboard-config';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { runPipelineFromClient } from '@/lib/pipeline-runner';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
