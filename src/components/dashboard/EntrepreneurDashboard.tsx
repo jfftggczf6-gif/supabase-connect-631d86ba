@@ -1383,18 +1383,19 @@ export default function EntrepreneurDashboard() {
       <div className="fixed bottom-20 left-0 z-50 px-4">
         <Button
           size="lg"
-          onClick={() => handleGenerate(true)}
-          disabled={generating}
-          className="gap-3 rounded-xl shadow-lg bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white px-5 py-3 h-auto"
+          onClick={() => handleGenerate(false)}
+          disabled={generating || pipelineState === 'up_to_date'}
+          className="gap-3 rounded-xl shadow-lg bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white px-5 py-3 h-auto disabled:opacity-60"
         >
           {generating && generationProgress ? (
             <><Loader2 className="h-5 w-5 animate-spin" /> {generationProgress.name} ({generationProgress.current}/{generationProgress.total})...</>
+          ) : pipelineState === 'up_to_date' ? (
+            <><CheckCircle2 className="h-5 w-5" /> Livrables à jour ✓</>
+          ) : pipelineState === 'update' ? (
+            <><Sparkles className="h-5 w-5" /> Mettre à jour les livrables</>
           ) : (
-            <><Sparkles className="h-5 w-5" /> Regénérer les livrables</>
+            <><Sparkles className="h-5 w-5" /> Générer les livrables</>
           )}
-          <span className="text-white/70 text-xs ml-1">
-            {inputsCount}/{inputsCount} inputs · {deliverablesCount}/{MODULE_CONFIG.length} livrables
-          </span>
         </Button>
       </div>
 
