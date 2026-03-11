@@ -233,8 +233,10 @@ function expandProductOrService(p: any): any {
   const per_year = yearConfigs.map(yc => {
     const price = Math.round(priceCY * yc.pMul / 1000) * 1000;
     const cogs = Math.round(price * cogsRate / 1000) * 1000;
-    const vol_h1 = Math.round(yc.volume * 0.45);
-    const vol_h2 = Math.round(yc.volume * 0.55);
+    const vol_q1 = Math.round(yc.volume * 0.22);
+    const vol_q2 = Math.round(yc.volume * 0.25);
+    const vol_q3 = Math.round(yc.volume * 0.27);
+    const vol_q4 = yc.volume - vol_q1 - vol_q2 - vol_q3;
 
     return {
       year: yc.year,
@@ -243,7 +245,7 @@ function expandProductOrService(p: any): any {
       cogs_r1: rf[0] ? cogs : 0, cogs_r2: rf[1] ? cogs : 0, cogs_r3: rf[2] ? cogs : 0,
       mix_r1_ch1: rf[0] ? mixCh1 : 0, mix_r2_ch1: rf[1] ? mixCh1 : 0, mix_r3_ch1: rf[2] ? mixCh1 : 0,
       mix_r1_ch2: rf[0] ? mixCh2 : 0, mix_r2_ch2: rf[1] ? mixCh2 : 0, mix_r3_ch2: rf[2] ? mixCh2 : 0,
-      volume_h1: vol_h1, volume_h2: vol_h2, volume_q3: 0, volume_q4: 0,
+      volume_q1: vol_q1, volume_q2: vol_q2, volume_q3: vol_q3, volume_q4: vol_q4,
     };
   });
 
