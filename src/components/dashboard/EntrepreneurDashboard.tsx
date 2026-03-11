@@ -1315,28 +1315,53 @@ export default function EntrepreneurDashboard() {
             const isSelected = selectedModule === mod.code;
             const isCompleted = data.status === 'completed';
 
+            // Pipeline generation state for this module
+            const pipelineStepMap: Record<string, string> = {
+              'BMC': 'bmc', 'SIC': 'sic', 'Framework': 'framework',
+              'Plan OVO': 'plan_ovo', 'Sync Plan OVO': 'plan_ovo', 'Excel OVO': 'plan_ovo',
+              'Business Plan': 'business_plan', 'ODD': 'odd', 'Diagnostic': 'diagnostic',
+            };
+            const pipelineOrder = PIPELINE.map(p => pipelineStepMap[p.name]).filter(Boolean);
+            const currentPipelineModule = generating && generationProgress
+              ? pipelineStepMap[generationProgress.name?.replace(/[…(].*/, '').trim() ?? ''] ?? null
+              : null;
+            const currentPipelineIdx = generating && generationProgress ? generationProgress.current : -1;
+            const moduleFirstPipelineIdx = pipelineOrder.indexOf(mod.code);
+            const isGeneratingThis = generating && currentPipelineModule === mod.code;
+            const isPipelineDone = generating && generationProgress && moduleFirstPipelineIdx >= 0 && moduleFirstPipelineIdx < currentPipelineIdx;
+            const isPipelineWaiting = generating && generationProgress && moduleFirstPipelineIdx >= 0 && !isGeneratingThis && !isPipelineDone;
+
             return (
               <button
                 key={mod.code}
                 onClick={() => setSelectedModule(mod.code)}
                 className={`flex flex-col items-center gap-1.5 group relative transition-all ${
                   isSelected ? '' : 'opacity-80 hover:opacity-100'
-                }`}
+                } ${isPipelineWaiting ? 'opacity-40' : ''}`}
               >
-                {/* Completion checkmark */}
-                {isCompleted && (
+                {/* Overlay: spinner when generating this module */}
+                {isGeneratingThis && (
+                  <div className="absolute -top-1 -right-1 z-10">
+                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                  </div>
+                )}
+                {/* Overlay: checkmark when pipeline step done */}
+                {!isGeneratingThis && (isPipelineDone || (!generating && isCompleted)) && (
                   <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))] absolute -top-1 -right-1 z-10" />
                 )}
                 {/* Icon circle */}
                 <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all ${
-                  isSelected
-                    ? `${mod.color} ring-2 ring-primary ring-offset-2 ring-offset-background`
-                    : `${mod.color} group-hover:scale-105`
+                  isGeneratingThis
+                    ? `${mod.color} ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse`
+                    : isSelected
+                      ? `${mod.color} ring-2 ring-primary ring-offset-2 ring-offset-background`
+                      : `${mod.color} group-hover:scale-105`
                 }`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 {/* Label */}
                 <span className={`text-[10px] leading-tight text-center max-w-[90px] ${
+                  isGeneratingThis ? 'font-semibold text-primary' :
                   isSelected ? 'font-semibold text-foreground' : 'text-muted-foreground'
                 }`}>
                   {mod.shortTitle}
