@@ -53,10 +53,10 @@ export const PIPELINE = [
   { name: 'SIC',           fn: 'generate-sic',           type: 'sic_analysis' as DeliverableType },
   { name: 'Inputs',        fn: 'generate-inputs',        type: 'inputs_data' as DeliverableType },
   { name: 'Framework',     fn: 'generate-framework',     type: 'framework_data' as DeliverableType },
-  { name: 'Diagnostic',    fn: 'generate-diagnostic',    type: 'diagnostic_data' as DeliverableType },
   { name: 'Plan OVO',      fn: 'generate-plan-ovo',      type: 'plan_ovo' as DeliverableType },
   { name: 'Business Plan', fn: 'generate-business-plan', type: 'business_plan' as DeliverableType },
   { name: 'ODD',           fn: 'generate-odd',           type: 'odd_analysis' as DeliverableType },
+  { name: 'Diagnostic',    fn: 'generate-diagnostic',    type: 'diagnostic_data' as DeliverableType },
 ];
 
 export const MODULE_FN_MAP: Record<string, string> = {
