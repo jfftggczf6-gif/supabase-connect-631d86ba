@@ -226,93 +226,79 @@ export default function EntrepreneurDashboard() {
   };
 
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Stop polling on unmount
+  useEffect(() => {
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, []);
 
   const handleGenerate = async (force = false) => {
     if (!enterprise) return;
     setGenerating(true);
-    let completed = 0;
-    const scores: number[] = [];
-    const errors: string[] = [];
+    setGenerationProgress({ current: 0, total: PIPELINE.length, name: 'Lancement…' });
+
+    // Start polling DB every 5s to refresh deliverables progressively
+    let pollCount = 0;
+    pollingRef.current = setInterval(async () => {
+      pollCount++;
+      await fetchData();
+      // Update progress bar based on deliverables count
+      const { data: freshDelivs } = await supabase
+        .from('deliverables').select('type').eq('enterprise_id', enterprise.id);
+      const count = (freshDelivs || []).length;
+      setGenerationProgress(prev => prev ? { ...prev, current: Math.min(count, PIPELINE.length), name: `${count}/${PIPELINE.length} livrables…` } : null);
+      // Safety stop after 12 min
+      if (pollCount > 144) {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }, 5000);
 
     try {
       const token = await getValidAccessToken(authSession, navigate);
 
-      for (let i = 0; i < PIPELINE.length; i++) {
-        const step = PIPELINE[i];
-        setGenerationProgress({ current: i + 1, total: PIPELINE.length, name: step.name });
-
-        // Skip if deliverable already exists with rich data (unless force=true)
-        const existing = deliverables.find(d => d.type === step.type);
-        if (!force && existing?.data && typeof existing.data === 'object' && Object.keys(existing.data as object).length > 0) {
-          completed++;
-          if (existing.score) scores.push(existing.score);
-          continue;
+      // Single server call — the edge function runs the full pipeline
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-deliverables`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterprise.id, force }),
         }
+      );
 
-        try {
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.fn}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ enterprise_id: enterprise.id }),
-            }
-          );
+      const result = await response.json();
 
-          if (response.ok) {
-            const result = await response.json();
-            completed++;
-            if (result.score) scores.push(result.score);
-            // Refresh data so the user sees the deliverable immediately
-            await fetchData();
-          } else {
-            const err = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
-            if (response.status === 402) {
-              toast.error("Crédits IA insuffisants.");
-              break;
-            }
-            errors.push(`${step.name}: ${err.error || 'Erreur'}`);
-          }
-        } catch (e: any) {
-          errors.push(`${step.name}: ${e.message || 'Erreur réseau'}`);
+      if (!response.ok) {
+        if (response.status === 402) {
+          toast.error("Crédits IA insuffisants.");
+        } else {
+          toast.error(result.error || 'Erreur de génération');
         }
+      } else {
+        toast.success(`${result.deliverables_count || 0} livrables générés ! Score: ${result.global_score || 0}/100`);
+        if (result.warning) toast.warning(result.warning);
       }
 
-      const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-      
-      // Save score history & update enterprise score_ir
-      if (avgScore > 0 && enterprise) {
-        await Promise.all([
-          supabase.from('enterprises').update({ score_ir: avgScore }).eq('id', enterprise.id),
-          supabase.from('score_history').insert({
-            enterprise_id: enterprise.id,
-            score: avgScore,
-            scores_detail: Object.fromEntries(PIPELINE.map((s, i) => [s.name, scores[i] || 0]).filter(([, v]) => Number(v) > 0)),
-          }),
-        ]);
-      }
-
-      toast.success(`${completed} livrables générés ! Score: ${avgScore}/100`);
-      if (errors.length > 0) {
-        toast.warning(`${errors.length} module(s) en erreur`);
-      }
       await fetchData();
 
-      // Auto-trigger Plan OVO Excel generation if plan_ovo was generated
-      const hasOvo = deliverables.find(d => d.type === 'plan_ovo') || completed > 0;
-      if (hasOvo && !generatingOvoPlan) {
+      // Auto-trigger Plan OVO Excel generation
+      if (result.success && !generatingOvoPlan) {
         toast.info('Génération automatique du Plan Financier Excel...');
         try {
           await handleGenerateOvoPlan();
         } catch {
-          // OVO Excel generation is best-effort after the main pipeline
+          // OVO Excel generation is best-effort
         }
       }
     } catch (err: any) {
       toast.error(err.message || 'Erreur de génération');
     } finally {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
       setGenerating(false);
       setGenerationProgress(null);
+      await fetchData();
     }
   };
 

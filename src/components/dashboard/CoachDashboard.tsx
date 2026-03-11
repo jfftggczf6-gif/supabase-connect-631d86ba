@@ -371,47 +371,60 @@ export default function CoachDashboard() {
       return;
     }
 
-    let completed = 0;
+    setGenerationProgress({ current: 0, total: PIPELINE.length, name: 'Lancement…' });
+
+    // Start polling
+    let pollCount = 0;
+    pollingRef.current = setInterval(async () => {
+      pollCount++;
+      await fetchData();
+      if (pollCount > 144) {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }, 5000);
+
     let token: string;
     try { token = await getValidAccessToken(authSession); } catch { toast.error('Non authentifié'); setGeneratingMirror(false); return; }
 
     try {
-      for (let i = 0; i < PIPELINE.length; i++) {
-        const step = PIPELINE[i];
-        setGenerationProgress({ current: i + 1, total: PIPELINE.length, name: step.name });
-        try {
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.fn}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ enterprise_id: enterpriseId }),
-            }
-          );
-          if (response.ok) {
-            completed++;
-            await supabase.from('deliverables')
-              .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() })
-              .eq('enterprise_id', enterpriseId)
-              .eq('type', step.type);
-          }
-        } catch {}
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-deliverables`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterpriseId }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Mark as mirror + shared
+        await supabase.from('deliverables')
+          .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() })
+          .eq('enterprise_id', enterpriseId)
+          .in('type', PIPELINE.map(s => s.type));
+
+        toast.success(`${result.deliverables_count || 0} livrable(s) — visibles par l'entrepreneur`);
+      } else {
+        toast.error(result.error || 'Erreur');
       }
-      toast.success(`${completed} livrable(s) — visibles par l'entrepreneur`);
+
       await fetchData();
 
-      // Auto-trigger OVO Excel generation
-      if (completed > 0) {
+      // Auto-trigger OVO Excel
+      if (result.success) {
         try {
           toast.info('Génération automatique du Plan Financier Excel...');
           await handleGenerateOvoPlanCoach(enterpriseId);
-        } catch {
-          // OVO Excel generation is best-effort after mirror generation
-        }
+        } catch {}
       }
     } finally {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
       setGeneratingMirror(false);
       setGenerationProgress(null);
+      await fetchData();
     }
   };
 
