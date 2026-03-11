@@ -26,6 +26,7 @@ import {
   type Enterprise, type Deliverable, type EnterpriseModule, type UploadedFile,
 } from '@/lib/dashboard-config';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { runPipelineFromClient } from '@/lib/pipeline-runner';
 
 export default function EntrepreneurDashboard() {
   const { user, profile, session: authSession, signOut } = useAuth();
@@ -226,65 +227,40 @@ export default function EntrepreneurDashboard() {
   };
 
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; name: string } | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Stop polling on unmount
-  useEffect(() => {
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, []);
 
   const handleGenerate = async (force = false) => {
     if (!enterprise) return;
     setGenerating(true);
     setGenerationProgress({ current: 0, total: PIPELINE.length, name: 'Lancement…' });
 
-    // Start polling DB every 5s to refresh deliverables progressively
-    let pollCount = 0;
-    pollingRef.current = setInterval(async () => {
-      pollCount++;
-      await fetchData();
-      // Update progress bar based on deliverables count
-      const { data: freshDelivs } = await supabase
-        .from('deliverables').select('type').eq('enterprise_id', enterprise.id);
-      const count = (freshDelivs || []).length;
-      setGenerationProgress(prev => prev ? { ...prev, current: Math.min(count, PIPELINE.length), name: `${count}/${PIPELINE.length} livrables…` } : null);
-      // Safety stop after 12 min
-      if (pollCount > 144) {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    }, 5000);
-
     try {
       const token = await getValidAccessToken(authSession, navigate);
 
-      // Single server call — the edge function runs the full pipeline
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-deliverables`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ enterprise_id: enterprise.id, force }),
-        }
-      );
+      const pipelineResult = await runPipelineFromClient(enterprise.id, token, {
+        force,
+        onProgress: setGenerationProgress,
+        onStepComplete: () => fetchData(),
+      });
 
-      const result = await response.json();
+      if (pipelineResult.creditError && pipelineResult.completedCount === 0) {
+        toast.error("Crédits IA insuffisants.");
+      } else if (pipelineResult.creditError) {
+        toast.warning("Certains modules n'ont pas pu être générés : crédits IA insuffisants.");
+      }
 
-      if (!response.ok) {
-        if (response.status === 402) {
-          toast.error("Crédits IA insuffisants.");
-        } else {
-          toast.error(result.error || 'Erreur de génération');
-        }
-      } else {
-        toast.success(`${result.deliverables_count || 0} livrables générés ! Score: ${result.global_score || 0}/100`);
-        if (result.warning) toast.warning(result.warning);
+      const failedSteps = pipelineResult.results.filter(r => !r.success && !r.skipped);
+      if (failedSteps.length > 0 && !pipelineResult.creditError) {
+        toast.warning(`${failedSteps.length} module(s) en erreur : ${failedSteps.map(s => s.step).join(', ')}`);
+      }
+
+      if (pipelineResult.completedCount > 0) {
+        toast.success(`${pipelineResult.completedCount} livrables générés !`);
       }
 
       await fetchData();
 
       // Auto-trigger Plan OVO Excel generation
-      if (result.success && !generatingOvoPlan) {
+      if (pipelineResult.completedCount > 0 && !generatingOvoPlan) {
         toast.info('Génération automatique du Plan Financier Excel...');
         try {
           await handleGenerateOvoPlan();
@@ -295,7 +271,6 @@ export default function EntrepreneurDashboard() {
     } catch (err: any) {
       toast.error(err.message || 'Erreur de génération');
     } finally {
-      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
       setGenerating(false);
       setGenerationProgress(null);
       await fetchData();
