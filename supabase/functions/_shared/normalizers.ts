@@ -490,6 +490,36 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
+  // ── Derive historical years (year_minus_1, year_minus_2) from current_year + implicit growth rate ──
+  const deriveHistorical = (series: any, currentKey: string = 'current_year') => {
+    if (!series || !series[currentKey] || series[currentKey] <= 0) return;
+    const cy = series[currentKey];
+    // Calculate implicit growth rate from framework year2/current_year
+    let implicitGrowth = 0.10; // default 10%
+    if (series.year2 && series.year2 > 0 && cy > 0) {
+      implicitGrowth = Math.max(0.02, Math.min(0.50, (series.year2 / cy) - 1));
+    }
+    const ym1 = Math.round(cy / (1 + implicitGrowth));
+    const ym2 = Math.round(ym1 / (1 + implicitGrowth));
+    // Cap at ±50% of current_year to avoid aberrations
+    const capLow = cy * 0.5;
+    const capHigh = cy * 1.5;
+    const clamp = (v: number) => Math.round(Math.max(capLow, Math.min(capHigh, v)));
+    if (!series.year_minus_1 || series.year_minus_1 === 0) {
+      series.year_minus_1 = clamp(ym1);
+    }
+    if (!series.year_minus_2 || series.year_minus_2 === 0) {
+      series.year_minus_2 = clamp(ym2);
+    }
+    console.log(`[enforceFramework] Historical derived: ym2=${series.year_minus_2}, ym1=${series.year_minus_1}, cy=${cy}, growth=${(implicitGrowth * 100).toFixed(1)}%`);
+  };
+
+  deriveHistorical(data.revenue);
+  deriveHistorical(data.cogs);
+  deriveHistorical(data.gross_profit);
+  deriveHistorical(data.ebitda);
+  deriveHistorical(data.net_profit);
+
   const lignes = frameworkData.projection_5ans.lignes;
   if (!Array.isArray(lignes) || lignes.length === 0) return data;
 
