@@ -109,8 +109,12 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
       if (!item.per_year || !Array.isArray(item.per_year)) continue;
       const yr = item.per_year.find((y: any) => y.year === yearLabel);
       if (!yr) continue;
-      yr.volume_h1 = Math.round((yr.volume_h1 || 0) * ratio);
-      yr.volume_h2 = Math.round((yr.volume_h2 || 0) * ratio);
+      yr.volume_q1 = Math.round((yr.volume_q1 || yr.volume_h1 || 0) * ratio);
+      yr.volume_q2 = Math.round((yr.volume_q2 || yr.volume_h2 || 0) * ratio);
+      yr.volume_q3 = Math.round((yr.volume_q3 || 0) * ratio);
+      yr.volume_q4 = Math.round((yr.volume_q4 || 0) * ratio);
+      delete yr.volume_h1;
+      delete yr.volume_h2;
     }
   }
 }
