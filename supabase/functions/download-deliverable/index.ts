@@ -1447,7 +1447,7 @@ serve(async (req) => {
         }
       }
 
-      // ODD: Servir le .xlsx pré-généré depuis ovo-outputs
+      // ODD: ALWAYS regenerate from odd_analysis data to ensure latest template engine is used
       if (deliverableType === "odd_analysis") {
         const oddMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         const oddFileName = `${safeName}_ODD.xlsx`;
@@ -1460,49 +1460,8 @@ serve(async (req) => {
           "Expires": "0",
         };
 
-        console.log(`[download-odd] Requested: type=${deliverableType}, format=xlsx, enterprise=${enterpriseId}`);
-
-        // Try fetching pre-built odd_excel deliverable
-        const { data: oddExcel } = await supabase
-          .from("deliverables")
-          .select("data, file_url")
-          .eq("enterprise_id", enterpriseId)
-          .eq("type", "odd_excel")
-          .maybeSingle();
-
-        const storedFileName = (oddExcel?.data as any)?.file_name;
-        console.log(`[download-odd] DB file_name: ${storedFileName}`);
-
-        // Reject contaminated file names (OVO/xlsm leaks)
-        const isContaminated = storedFileName && (
-          storedFileName.includes(".xlsm") ||
-          storedFileName.toLowerCase().includes("planfinancier") ||
-          storedFileName.toLowerCase().includes("_ovo_")
-        );
-
-        if (storedFileName && !isContaminated) {
-          const { data: fileBlob, error: dlErr } = await supabase.storage
-            .from("ovo-outputs")
-            .download(storedFileName);
-
-          if (!dlErr && fileBlob) {
-            const bytes = new Uint8Array(await fileBlob.arrayBuffer());
-            // Verify ZIP signature (PK header)
-            if (bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4B) {
-              console.log(`[download-odd] ✅ Serving pre-built: ${storedFileName} (${bytes.byteLength} bytes) as ${oddFileName}`);
-              return new Response(bytes, { headers: oddHeaders });
-            }
-            console.warn(`[download-odd] File ${storedFileName} has invalid ZIP signature, regenerating`);
-          } else {
-            console.warn("[download-odd] Storage download failed:", dlErr?.message);
-          }
-        } else if (isContaminated) {
-          console.warn(`[download-odd] ⚠️ Contaminated file_name rejected: ${storedFileName}`);
-        }
-
-        // Fallback: generate on-the-fly
+        console.log(`[download-odd] Generating ODD Excel on-the-fly from odd_analysis data...`);
         try {
-          console.log("[download-odd] Generating ODD Excel on-the-fly...");
           const { fillOddExcelTemplate } = await import("../_shared/odd-excel-template.ts");
           const xlsxBytes = await fillOddExcelTemplate(deliv.data, ent.name, supabase);
           console.log(`[download-odd] ✅ Generated on-the-fly (${xlsxBytes.byteLength} bytes) as ${oddFileName}`);
