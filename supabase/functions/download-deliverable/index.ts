@@ -1469,8 +1469,8 @@ serve(async (req) => {
             return new Response(bytes, {
               headers: {
                 ...corsHeaders,
-                "Content-Type": "application/vnd.ms-excel.sheet.macroEnabled.12",
-                "Content-Disposition": `attachment; filename="${safeName}_ODD.xlsm"`,
+              "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "Content-Disposition": `attachment; filename="${safeName}_ODD.xlsx"`,
               },
             });
           }
@@ -1480,12 +1480,12 @@ serve(async (req) => {
         // Fallback: generate on-the-fly
         try {
           const { fillOddExcelTemplate } = await import("../_shared/odd-excel-template.ts");
-          const xlsmBytes = await fillOddExcelTemplate(deliv.data, ent.name, supabase);
-          return new Response(xlsmBytes, {
+          const xlsxBytes = await fillOddExcelTemplate(deliv.data, ent.name, supabase);
+          return new Response(xlsxBytes, {
             headers: {
               ...corsHeaders,
-              "Content-Type": "application/vnd.ms-excel.sheet.macroEnabled.12",
-              "Content-Disposition": `attachment; filename="${safeName}_ODD.xlsm"`,
+              "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "Content-Disposition": `attachment; filename="${safeName}_ODD.xlsx"`,
             },
           });
         } catch (oddErr) {
