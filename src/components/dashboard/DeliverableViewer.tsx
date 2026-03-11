@@ -17,6 +17,7 @@ export default function DeliverableViewer({ moduleCode, data }: DeliverableViewe
 
   switch (moduleCode) {
     case 'sic': return <SicViewer data={data} />;
+    case 'inputs': return <InputsViewer data={data} />;
     case 'framework': return <FrameworkViewerComponent data={data} />;
     case 'diagnostic': return <DiagnosticViewer data={data} />;
     case 'plan_ovo': return <PlanOvoViewerComponent data={data} />;
