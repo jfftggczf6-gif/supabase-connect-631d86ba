@@ -34,16 +34,25 @@ function setCellInXml(
     ? `<c r="${cellRef}"><v>${value}</v></c>`
     : `<c r="${cellRef}" t="inlineStr"><is><t>${escapeXml(safeVal)}</t></is></c>`;
 
-  // 1. Replace existing cell
+  // 1. Replace existing self-closing cell <c r="F10" s="5"/>
+  const selfClosingRegex = new RegExp(
+    `<c\\s[^>]*r="${cellRef}"[^/]*/\\s*>`,
+    "s"
+  );
+  if (selfClosingRegex.test(sheetXml)) {
+    return sheetXml.replace(selfClosingRegex, newCell);
+  }
+
+  // 2. Replace existing cell with content <c r="F10" ...>...</c>
   const existingCellRegex = new RegExp(
-    `<c\\s+r="${cellRef}"(?:\\s[^>]*)?>(?:(?!</c>).)*</c>`,
+    `<c\\s[^>]*r="${cellRef}"[^>]*>(?:(?!</c>).)*</c>`,
     "s"
   );
   if (existingCellRegex.test(sheetXml)) {
     return sheetXml.replace(existingCellRegex, newCell);
   }
 
-  // 2. Insert into existing row
+  // 3. Insert into existing row
   const rowRegex = new RegExp(`(<row[^>]*\\br="${row}"[^>]*>)(.*?)(</row>)`, "s");
   if (rowRegex.test(sheetXml)) {
     return sheetXml.replace(rowRegex, (_, open, content, close) => {
@@ -51,7 +60,7 @@ function setCellInXml(
     });
   }
 
-  // 3. Create the row
+  // 4. Create the row
   return sheetXml.replace("</sheetData>", `<row r="${row}">${newCell}</row></sheetData>`);
 }
 
@@ -75,11 +84,12 @@ function getCellValue(
   cellRef: string,
   sharedStrings: string[]
 ): string | null {
-  const cellRegex = new RegExp(`<c[^>]*r="${cellRef}"[^>]*>(.*?)<\/c>`, "s");
+  // Match both <c ...>...</c> and <c .../>
+  const cellRegex = new RegExp(`<c[^>]*r="${cellRef}"[^>]*(?:>(.*?)<\/c>|/>)`, "s");
   const match = sheetXml.match(cellRegex);
   if (!match) return null;
 
-  const cellContent = match[1];
+  const cellContent = match[1] || "";
 
   const tMatch = cellContent.match(/<t[^>]*>([^<]*)<\/t>/);
   if (tMatch) return tMatch[1];
@@ -98,16 +108,42 @@ function getCellValue(
 }
 
 // ===== TARGET ID NORMALIZATION =====
+// Excel stores numbers as floats: "1.1000000000000001" → "1.1", "8.1999999999999993" → "8.2"
+// Also handles: "7,2 a" → "7.2a", "2.a" → "2.a", "9.b" → "9.b", "11.c" → "11.c"
 
 function normalizeTargetId(id: string): string {
   const cleaned = id.replace(/,/g, ".").trim().toLowerCase();
-  const match = cleaned.match(/^(\d+)[.,](\d+(?:[a-z])?)/);
-  if (match) {
-    const minor = parseFloat(match[2]);
-    return isNaN(minor)
-      ? `${match[1]}.${match[2]}`
-      : `${match[1]}.${minor}`;
+
+  // Pattern: "7.2 a" or "7.2 b" (with space before letter)
+  const spaceLetterMatch = cleaned.match(/^(\d+)\.(\d+)\s+([a-z])$/);
+  if (spaceLetterMatch) {
+    return `${spaceLetterMatch[1]}.${spaceLetterMatch[2]}${spaceLetterMatch[3]}`;
   }
+
+  // Pattern: "2.a", "9.b", "9.c", "6.a", "11.c" (digit.letter)
+  const digitLetterMatch = cleaned.match(/^(\d+)\.([a-z])$/);
+  if (digitLetterMatch) {
+    return `${digitLetterMatch[1]}.${digitLetterMatch[2]}`;
+  }
+
+  // Pattern: pure number (possibly float artifact) — "1.1000000000000001" → "1.1"
+  const num = parseFloat(cleaned);
+  if (!isNaN(num) && /^\d+\.\d+/.test(cleaned)) {
+    // Round to at most 2 decimal places to fix float artifacts
+    const rounded = Math.round(num * 100) / 100;
+    // Format without trailing zeros but keep at least one decimal
+    const formatted = rounded.toString();
+    return formatted;
+  }
+
+  // Pattern: "17.16", "17.17" — already handled by float path above
+
+  // Fallback
+  const match = cleaned.match(/^(\d+)\.(\d+(?:[a-z])?)/);
+  if (match) {
+    return `${match[1]}.${match[2]}`;
+  }
+
   return cleaned;
 }
 
@@ -148,36 +184,47 @@ async function findSheetFile(
 }
 
 // ===== TARGET ROW DETECTION =====
+// Scans rows 9-200 for rows where column B has a target ID pattern and column D = "x"
 
 function findTargetRows(
   sheetXml: string,
   sharedStrings: string[],
   startRow = 9,
-  endRow = 80
-): Array<{ row: number; targetId: string }> {
-  const results: Array<{ row: number; targetId: string }> = [];
+  endRow = 200
+): Array<{ row: number; targetId: string; rawB: string }> {
+  const results: Array<{ row: number; targetId: string; rawB: string }> = [];
 
   for (let row = startRow; row <= endRow; row++) {
     const colB = getCellValue(sheetXml, `B${row}`, sharedStrings);
     const colD = getCellValue(sheetXml, `D${row}`, sharedStrings);
 
-    if (
-      colB && /^\d+[.,]\d+/.test(colB.trim()) &&
-      colD && colD.toLowerCase().trim() === "x"
-    ) {
-      results.push({ row, targetId: normalizeTargetId(colB) });
+    if (!colB || !colD) continue;
+    if (colD.toLowerCase().trim() !== "x") continue;
+
+    // Check if B looks like a target ID:
+    // - Starts with digit(s) followed by . or , then digit(s) or letter(s)
+    // - Or is a float like "1.1000000000000001"
+    const trimmedB = colB.trim();
+    const isTargetPattern = /^\d+[.,]\d/.test(trimmedB) || /^\d+\.[a-z]$/i.test(trimmedB);
+
+    if (isTargetPattern) {
+      const normalizedId = normalizeTargetId(trimmedB);
+      results.push({ row, targetId: normalizedId, rawB: trimmedB });
     }
   }
 
-  console.log(`[odd-excel] Found ${results.length} target rows (rows ${startRow}-${endRow})`);
+  console.log(`[odd-excel] Found ${results.length} target rows (rows ${startRow}-${endRow}):`);
+  results.forEach(r => console.log(`  Row ${r.row}: "${r.rawB}" → "${r.targetId}"`));
   return results;
 }
 
 // ===== FILL TARGET ROW =====
+// Columns: E=info_additionnelle, F=positif(1), G=neutre(1), H=negatif(1), I=besoin_aide(1)
 
 function fillTargetRow(sheetXml: string, cible: Record<string, string>, row: number): string {
-  if (cible.info_additionnelle) {
-    sheetXml = setCellInXml(sheetXml, `E${row}`, cible.info_additionnelle);
+  if (cible.justification || cible.info_additionnelle) {
+    const info = cible.info_additionnelle || cible.justification || "";
+    sheetXml = setCellInXml(sheetXml, `E${row}`, info);
   }
 
   if (cible.evaluation === "positif") {
@@ -216,6 +263,15 @@ export async function fillOddExcelTemplate(
   const cibles = (data.evaluation_cibles_odd as Record<string, unknown>)?.cibles as Array<Record<string, string>> ?? [];
   const indicateurs = (data.indicateurs_impact as Record<string, unknown>)?.indicateurs as Array<Record<string, string>> ?? [];
 
+  // Build a lookup map from normalized AI target IDs
+  const cibleMap = new Map<string, Record<string, string>>();
+  for (const cible of cibles) {
+    if (!cible.target_id) continue;
+    const normalizedId = normalizeTargetId(cible.target_id);
+    cibleMap.set(normalizedId, cible);
+  }
+  console.log(`[odd-excel] AI produced ${cibles.length} cibles, ${cibleMap.size} unique normalized IDs`);
+
   // ── Main sheet: "Evaluation cibles ODD avec Circ" ──
   const evalSheetFile = await findSheetFile(zip, "Evaluation cibles ODD");
   const fallbackEval = "xl/worksheets/sheet2.xml";
@@ -224,31 +280,52 @@ export async function fillOddExcelTemplate(
   let sheetEval = await zip.file(evalFile)?.async("string") ?? "";
   if (!sheetEval) throw new Error(`Feuille d'évaluation ODD introuvable (${evalFile})`);
 
+  // Set enterprise name and country
   sheetEval = setCellInXml(sheetEval, "E1", enterpriseName);
   if ((data.metadata as Record<string, string>)?.pays) {
     sheetEval = setCellInXml(sheetEval, "E2", (data.metadata as Record<string, string>).pays);
   }
 
-  const targetRows = findTargetRows(sheetEval, sharedStrings, 9, 80);
+  // Scan template for target rows
+  const targetRows = findTargetRows(sheetEval, sharedStrings, 9, 200);
 
   let matchedCount = 0;
+  let unmatchedTemplate: string[] = [];
+  let unmatchedAI: string[] = [];
 
   if (targetRows.length > 0) {
-    for (const cible of cibles) {
-      const normalizedId = normalizeTargetId(cible.target_id);
-      const targetRow = targetRows.find(tr => tr.targetId === normalizedId);
+    // Template-driven approach: iterate template rows and find matching AI cibles
+    const matchedAIIds = new Set<string>();
 
-      if (!targetRow) {
-        console.warn(`[odd-excel] Cible ${cible.target_id} → ${normalizedId} non trouvée dans le template`);
-        continue;
+    for (const tr of targetRows) {
+      const cible = cibleMap.get(tr.targetId);
+      if (cible) {
+        sheetEval = fillTargetRow(sheetEval, cible, tr.row);
+        matchedCount++;
+        matchedAIIds.add(tr.targetId);
+      } else {
+        unmatchedTemplate.push(tr.targetId);
+        // Mark as "besoin d'aide" (column I) when AI has no data
+        sheetEval = setCellInXml(sheetEval, `I${tr.row}`, 1);
       }
-
-      sheetEval = fillTargetRow(sheetEval, cible, targetRow.row);
-      matchedCount++;
     }
-    console.log(`[odd-excel] ${matchedCount}/${cibles.length} cibles matchées`);
+
+    // Find AI targets that didn't match any template row
+    for (const [id] of cibleMap) {
+      if (!matchedAIIds.has(id)) {
+        unmatchedAI.push(id);
+      }
+    }
+
+    console.log(`[odd-excel] ✅ Matched: ${matchedCount}/${targetRows.length} template rows`);
+    if (unmatchedTemplate.length > 0) {
+      console.log(`[odd-excel] ⚠️ Template targets without AI data: ${unmatchedTemplate.join(", ")}`);
+    }
+    if (unmatchedAI.length > 0) {
+      console.log(`[odd-excel] ⚠️ AI targets not in template: ${unmatchedAI.join(", ")}`);
+    }
   } else {
-    console.warn("[odd-excel] Aucune ligne de cible détectée → fallback séquentiel (row 10+)");
+    console.warn("[odd-excel] ⚠️ No target rows detected → sequential fallback (row 10+)");
     cibles.forEach((cible, i) => {
       sheetEval = fillTargetRow(sheetEval, cible, 10 + i);
     });
@@ -276,7 +353,7 @@ export async function fillOddExcelTemplate(
   // Remove calcChain.xml to avoid inconsistencies — Excel will recalculate automatically
   zip.remove("xl/calcChain.xml");
 
-  console.log(`[odd-excel] ✅ Template rempli pour "${enterpriseName}"`);
+  console.log(`[odd-excel] ✅ Template rempli pour "${enterpriseName}" (${matchedCount} cibles matchées)`);
   return await zip.generateAsync({
     type: "uint8array",
     compression: "DEFLATE",

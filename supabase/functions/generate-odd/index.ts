@@ -11,6 +11,28 @@ Tu évalues l'alignement des projets avec les 17 ODD de l'ONU à partir du Busin
 RÈGLE ABSOLUE : L'évaluation se base UNIQUEMENT sur BMC + SIC. PAS sur les données financières.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.`;
 
+// These are the EXACT 41 target IDs present in the ODD_template.xlsx
+// They MUST match exactly for the Excel filling to work
+const TEMPLATE_TARGETS = [
+  "1.1", "1.4",
+  "2.1", "2.4", "2.a",
+  "3.3", "3.9",
+  "4.1",
+  "5.1",
+  "6.3", "6.4", "6.a",
+  "7.1", "7.2a", "7.2b", "7.3",
+  "8.2", "8.3", "8.5", "8.6", "8.8", "8.9",
+  "9.3", "9.4", "9.b", "9.c",
+  "10.2",
+  "11.6", "11.c",
+  "12.2", "12.5",
+  "13.3",
+  "14.1",
+  "15.2", "15.3",
+  "16.5", "16.7",
+  "17.1", "17.3", "17.16", "17.17"
+];
+
 function buildUserPrompt(
   name: string,
   sector: string,
@@ -21,7 +43,7 @@ function buildUserPrompt(
   const bmcStr = JSON.stringify(bmcData || {}).slice(0, 3000);
   const sicStr = JSON.stringify(sicData || {}).slice(0, 3000);
 
-  return `Évalue l'alignement du projet "${name}" (Secteur: ${sector}, Pays: ${country}) avec les 17 ODD de l'ONU.
+  return `Évalue l'alignement du projet "${name}" (Secteur: ${sector}, Pays: ${country}) avec les ODD de l'ONU.
 
 DONNÉES BMC (Business Model Canvas) :
 ${bmcStr}
@@ -29,13 +51,26 @@ ${bmcStr}
 DONNÉES SIC (Social Impact Canvas) :
 ${sicStr}
 
-Génère l'analyse ODD COMPLÈTE en JSON. Les 40 cibles ODD à évaluer sont :
-ODD1: 1.1, 1.2, 1.4 | ODD2: 2.1, 2.3, 2.4 | ODD3: 3.1, 3.4, 3.8
-ODD4: 4.4, 4.5 | ODD5: 5.1, 5.5 | ODD6: 6.1, 6.4
-ODD7: 7.1, 7.2, 7.3 | ODD8: 8.2, 8.3, 8.5, 8.6 | ODD9: 9.1, 9.2, 9.3
-ODD10: 10.1, 10.2 | ODD11: 11.1, 11.2 | ODD12: 12.2, 12.3, 12.5
-ODD13: 13.1, 13.2 | ODD14: 14.1 | ODD15: 15.1, 15.2
-ODD16: 16.6, 16.7 | ODD17: 17.3, 17.16, 17.17
+Génère l'analyse ODD COMPLÈTE en JSON. Les ${TEMPLATE_TARGETS.length} cibles ODD à évaluer sont EXACTEMENT :
+ODD1: 1.1, 1.4
+ODD2: 2.1, 2.4, 2.a
+ODD3: 3.3, 3.9
+ODD4: 4.1
+ODD5: 5.1
+ODD6: 6.3, 6.4, 6.a
+ODD7: 7.1, 7.2a (point de vue fournisseur d'énergie), 7.2b (point de vue utilisateur d'énergie), 7.3
+ODD8: 8.2, 8.3, 8.5, 8.6, 8.8, 8.9
+ODD9: 9.3, 9.4, 9.b, 9.c
+ODD10: 10.2
+ODD11: 11.6, 11.c
+ODD12: 12.2, 12.5
+ODD13: 13.3
+ODD14: 14.1
+ODD15: 15.2, 15.3
+ODD16: 16.5, 16.7
+ODD17: 17.1, 17.3, 17.16, 17.17
+
+IMPORTANT: Utilise EXACTEMENT les identifiants ci-dessus comme target_id (ex: "2.a", "7.2a", "7.2b", "9.b", "9.c", "11.c").
 
 JSON à produire :
 {
@@ -44,9 +79,10 @@ JSON à produire :
     "pays": "${country}",
     "secteur": "${sector}",
     "date_generation": "${new Date().toISOString().split('T')[0]}",
-    "version": 1,
+    "version": 2,
     "livrables_utilises": ["bmc", "sic"],
-    "total_cibles_evaluees": 40
+    "total_cibles_evaluees": ${TEMPLATE_TARGETS.length},
+    "target_matrix_version": "v2_template_aligned"
   },
   "informations_projet": {
     "nom_entreprise": "${name}",
@@ -69,9 +105,9 @@ JSON à produire :
       "odd_1": {
         "nom": "Éliminer la pauvreté",
         "cibles_positives": 2,
-        "cibles_neutres": 1,
+        "cibles_neutres": 0,
         "cibles_negatives": 0,
-        "score": 67
+        "score": 100
       }
     }
   },
@@ -89,7 +125,7 @@ JSON à produire :
   "circularite": {
     "evaluation": "<évaluation des pratiques d'économie circulaire>",
     "pratiques": ["<pratique 1>", "<pratique 2>"],
-    "cibles_odd_liees": ["7.2", "12.2", "12.5"]
+    "cibles_odd_liees": ["7.2a", "12.2", "12.5"]
   },
   "synthese": {
     "odd_prioritaires": ["1", "8", "12"],
@@ -99,7 +135,7 @@ JSON à produire :
 }
 
 RÈGLES :
-1. Évalue CHACUNE des 40 cibles listées ci-dessus
+1. Évalue CHACUNE des ${TEMPLATE_TARGETS.length} cibles listées ci-dessus avec les target_id EXACTEMENT comme indiqué
 2. evaluation = "positif" | "neutre" | "negatif"
 3. Justifie chaque évaluation à partir du BMC/SIC
 4. Score par ODD = (cibles_positives / total_cibles_ODD) × 100, arrondi
@@ -172,7 +208,7 @@ serve(async (req) => {
         },
         file_url: fileUrl,
         ai_generated: true,
-        version: 1,
+        version: 2,
       }, { onConflict: "enterprise_id,type" });
 
       excelGenerated = true;
