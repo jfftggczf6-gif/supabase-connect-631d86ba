@@ -14,6 +14,7 @@ const PIPELINE_STEPS = [
   { name: "Framework", function: "generate-framework" },
   { name: "Plan OVO", function: "generate-plan-ovo" },
   { name: "Sync Plan OVO", function: "reconcile-plan-ovo" },
+  { name: "Excel OVO", function: "generate-ovo-plan" },
   { name: "Business Plan", function: "generate-business-plan" },
   { name: "ODD", function: "generate-odd" },
   { name: "Diagnostic", function: "generate-diagnostic" },
