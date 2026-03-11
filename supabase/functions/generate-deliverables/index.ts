@@ -103,7 +103,7 @@ serve(async (req) => {
       const isAlwaysRun = step.function === "reconcile-plan-ovo" || step.function === "generate-ovo-plan";
       
       // Skip if rich data already exists (unless force=true or always-run step)
-      if (!force && !isAlwaysRun && delivType && richTypes.has(delivType)) {
+      if (!force && !isAlwaysRun && delivType && upToDateTypes.has(delivType)) {
         console.log(`Skipping ${step.name}: rich data already exists`);
         results.push({ step: step.name, success: true, skipped: true });
         completedCount++;
