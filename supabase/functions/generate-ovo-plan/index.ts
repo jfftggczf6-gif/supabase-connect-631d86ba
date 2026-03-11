@@ -1134,9 +1134,9 @@ function buildCellWrites(json: Record<string, any>): CellWrite[] {
       w("RevenueData", row, "Z", yr.mix_r1_ch2 ?? 1.0, "number", true);
       w("RevenueData", row, "AA", yr.mix_r2_ch2 || 0, "number", true);
       w("RevenueData", row, "AB", yr.mix_r3_ch2 || 0, "number", true);
-      // Volumes trimestriels
-      w("RevenueData", row, "AE", Math.round(yr.volume_h1 || 0), "number", true);
-      w("RevenueData", row, "AF", Math.round(yr.volume_h2 || 0), "number", true);
+      // Volumes trimestriels (Q1-Q4)
+      w("RevenueData", row, "AE", Math.round(yr.volume_q1 || yr.volume_h1 || 0), "number", true);
+      w("RevenueData", row, "AF", Math.round(yr.volume_q2 || yr.volume_h2 || 0), "number", true);
       w("RevenueData", row, "AG", Math.round(yr.volume_q3 || 0), "number", true);
       w("RevenueData", row, "AH", Math.round(yr.volume_q4 || 0), "number", true);
     });
