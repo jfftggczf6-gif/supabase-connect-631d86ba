@@ -362,14 +362,17 @@ export default function CoachDashboard() {
         onStepComplete: () => fetchData(),
       });
 
-      if (pipelineResult.completedCount > 0) {
+      if (pipelineResult.executedCount > 0) {
         // Mark as mirror + shared
         await supabase.from('deliverables')
           .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() })
           .eq('enterprise_id', enterpriseId)
           .in('type', PIPELINE.map(s => s.type));
 
-        toast.success(`${pipelineResult.completedCount} livrable(s) — visibles par l'entrepreneur`);
+        const skippedMsg = pipelineResult.skippedCount > 0 ? `, ${pipelineResult.skippedCount} déjà à jour` : '';
+        toast.success(`${pipelineResult.executedCount} livrable(s) recalculé(s)${skippedMsg} — visibles par l'entrepreneur`);
+      } else if (pipelineResult.skippedCount > 0) {
+        toast.info(`Tous les livrables sont déjà à jour.`);
       }
 
       if (pipelineResult.creditError) {

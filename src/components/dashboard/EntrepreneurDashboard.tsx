@@ -266,8 +266,11 @@ export default function EntrepreneurDashboard() {
         toast.warning(`${failedSteps.length} module(s) en erreur : ${failedSteps.map(s => s.step).join(', ')}`);
       }
 
-      if (pipelineResult.completedCount > 0) {
-        toast.success(`${pipelineResult.completedCount} livrables générés !`);
+      if (pipelineResult.executedCount > 0) {
+        const skippedMsg = pipelineResult.skippedCount > 0 ? `, ${pipelineResult.skippedCount} déjà à jour` : '';
+        toast.success(`${pipelineResult.executedCount} livrable(s) recalculé(s)${skippedMsg}`);
+      } else if (pipelineResult.skippedCount > 0 && failedSteps.length === 0) {
+        toast.info(`Tous les livrables sont déjà à jour (${pipelineResult.skippedCount} modules). Utilisez "Régénération complète" pour forcer le recalcul.`);
       }
 
       await fetchData();
