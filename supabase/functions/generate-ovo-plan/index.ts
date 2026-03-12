@@ -1386,7 +1386,7 @@ function buildCellWrites(json: Record<string, any>): CellWrite[] {
   const OA_START = 462;
   let oeCount = 0, oaCount = 0;
 
-  capexItems.forEach((c: { type: string; acquisition_year: number; acquisition_value: number; amortisation_rate: number }) => {
+  capexItems.forEach((c: { type: string; label?: string; acquisition_year: number; acquisition_value: number; amortisation_rate: number }) => {
     let row: number;
     if (c.type === "OFFICE_EQUIPMENT" && oeCount < 40) {
       row = OE_START + oeCount++;
@@ -1394,9 +1394,10 @@ function buildCellWrites(json: Record<string, any>): CellWrite[] {
       row = OA_START + oaCount++;
     } else return;
 
-    w("FinanceData", row, "K", c.acquisition_year,  "number");
-    w("FinanceData", row, "L", c.acquisition_value, "number");
-    w("FinanceData", row, "M", c.amortisation_rate, "number");
+    w("FinanceData", row, "J", c.label || "",        "string");
+    w("FinanceData", row, "K", c.acquisition_year,   "number");
+    w("FinanceData", row, "L", c.acquisition_value,  "number");
+    w("FinanceData", row, "M", c.amortisation_rate,  "number");
   });
 
   // ── FinanceData : Working Capital ────────────────────────────────────

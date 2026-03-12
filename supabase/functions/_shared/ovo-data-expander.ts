@@ -472,6 +472,7 @@ export function alignTotalOpexToFramework(json: Record<string, any>, frameworkDa
 
   const fwMap: Record<string, string> = { "YEAR2": "an1", "YEAR3": "an2", "YEAR4": "an3", "YEAR5": "an4", "YEAR6": "an5" };
   // Excel OPEX array index: YEAR2→5, YEAR3→6, YEAR4→7, YEAR5→8, YEAR6→9
+  // CURRENT_YEAR is special: uses H1 (idx 2) + H2 (idx 3) combined
   const yearToIdx: Record<string, number> = { "YEAR2": 5, "YEAR3": 6, "YEAR4": 7, "YEAR5": 8, "YEAR6": 9 };
 
   const opexCategories = Object.keys(json.opex); // marketing, office, travel, etc.
