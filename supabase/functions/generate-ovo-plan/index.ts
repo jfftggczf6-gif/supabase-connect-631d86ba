@@ -300,7 +300,7 @@ Deno.serve(async (req: Request) => {
                 const yr = item.per_year?.find((y: any) => y.year === yl);
                 if (!yr) continue;
                 const price = yr.unit_price_r1 || yr.unit_price_r2 || yr.unit_price_r3 || 0;
-                rev += ((yr.volume_q1 || 0) + (yr.volume_q2 || 0) + (yr.volume_q3 || 0) + (yr.volume_q4 || 0)) * price;
+                rev += getTotalVolume(yr) * price;
               }
               if (rev > 0 && Math.abs(rev - target) / target > 0.05) {
                 console.log(`[generate-ovo-plan] Post-constraint drift: ${yl} rev=${Math.round(rev)} vs target=${target}, ecart=${((Math.abs(rev - target) / target) * 100).toFixed(1)}%`);
