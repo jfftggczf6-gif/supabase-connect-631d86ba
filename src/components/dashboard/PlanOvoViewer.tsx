@@ -166,10 +166,11 @@ export default function PlanOvoViewer({ data }: { data: any }) {
 
     return {
       van: ai?.van ?? calcNPV(futureCf, discountRate, totalInvestment),
-      tri: rawTri != null ? rawTri * 100 : null,
-      cagr_revenue: rawCagrRev != null ? rawCagrRev * 100 : null,
-      cagr_ebitda: rawCagrEbitda != null ? rawCagrEbitda * 100 : null,
-      roi: rawRoi,
+      // AI returns decimals (0.15), fallback functions return % (15) — normalise to %
+      tri: ai?.tri != null ? ai.tri * 100 : calcIRR(futureCf, totalInvestment),
+      cagr_revenue: ai?.cagr_revenue != null ? ai.cagr_revenue * 100 : calcCAGR(revSeries[currentIdx], revSeries[7], nYears),
+      cagr_ebitda: ai?.cagr_ebitda != null ? ai.cagr_ebitda * 100 : calcCAGR(ebitdaSeries[currentIdx], ebitdaSeries[7], nYears),
+      roi: ai?.roi != null ? ai.roi * 100 : (totalInvestment > 0 ? (npSeries.slice(3).reduce((a, b) => a + b, 0) / totalInvestment) * 100 : null),
       payback_years: ai?.payback_years ?? calcPayback(futureCf, totalInvestment),
       dscr: ai?.dscr ?? (annualDebtService > 0 ? ebitdaSeries[currentIdx] / annualDebtService : null),
       multiple_ebitda: ai?.multiple_ebitda ?? null,
@@ -599,7 +600,7 @@ export default function PlanOvoViewer({ data }: { data: any }) {
                     {s.ebitda_year5 != null && <div><span className="text-muted-foreground">EBITDA An 5:</span> <span className="font-semibold">{fmt(s.ebitda_year5)}</span></div>}
                     {s.net_profit_year5 != null && <div><span className="text-muted-foreground">Résultat An 5:</span> <span className="font-semibold">{fmt(s.net_profit_year5)}</span></div>}
                     {s.van != null && <div><span className="text-muted-foreground">VAN:</span> <span className="font-semibold">{fmt(s.van)}</span></div>}
-                    {s.tri != null && <div><span className="text-muted-foreground">TRI:</span> <span className="font-semibold">{pct(Number(s.tri) * 100)}</span></div>}
+                    {s.tri != null && <div><span className="text-muted-foreground">TRI:</span> <span className="font-semibold">{pct(s.tri * 100)}</span></div>}
                   </div>
                   {s.projections?.length > 0 && (
                     <div className="mt-2 overflow-x-auto">
@@ -665,7 +666,7 @@ export default function PlanOvoViewer({ data }: { data: any }) {
                     <TableRow className="bg-muted/20">
                       <TableCell className="text-xs font-semibold">TRI</TableCell>
                       {(['optimiste', 'realiste', 'pessimiste'] as const).map(k => (
-                        <TableCell key={k} className="text-xs text-right font-semibold">{data.scenarios[k]?.tri != null ? pct(Number(data.scenarios[k].tri) * 100) : '—'}</TableCell>
+                        <TableCell key={k} className="text-xs text-right font-semibold">{data.scenarios[k]?.tri != null ? pct(data.scenarios[k].tri * 100) : '—'}</TableCell>
                       ))}
                     </TableRow>
                   </TableBody>

@@ -21,7 +21,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { type CellWrite, injectIntoXlsm, excelDateSerial, sanitize } from "../_shared/zip-utils.ts";
-import { expandCondensedData, validateAndFillVolumes, scaleToFrameworkTargets, normalizeRangeData } from "../_shared/ovo-data-expander.ts";
+import { expandCondensedData, validateAndFillVolumes, scaleToFrameworkTargets, scaleCOGSToFramework, normalizeRangeData } from "../_shared/ovo-data-expander.ts";
 import { getFiscalParamsForPrompt } from "../_shared/helpers.ts";
 import { enforceFrameworkConstraints } from "../_shared/normalizers.ts";
 
@@ -183,7 +183,8 @@ Deno.serve(async (req: Request) => {
         business_model: bmcData?.canvas?.modele_revenus?.[0] || "Vente directe",
         products,
         services,
-        current_year: new Date().getFullYear(),
+        // C6: use base_year frozen at enterprise creation, not current date
+        current_year: ent.base_year || new Date(ent.created_at || Date.now()).getFullYear(),
         employees: ent.employees_count || 1,
         existing_revenue: inputsData?.compte_resultat?.chiffre_affaires ? Number(inputsData.compte_resultat.chiffre_affaires) : 0,
         bmc_data: bmcData,
@@ -251,6 +252,9 @@ Deno.serve(async (req: Request) => {
 
     // Scale volumes to align Excel revenues with Framework/plan_ovo targets
     scaleToFrameworkTargets(financialJson, data.framework_data, data.plan_ovo_data);
+
+    // Scale product COGS to match Framework gross margin (aligns Excel margin with Plan OVO viewer)
+    scaleCOGSToFramework(financialJson, data.framework_data);
 
     // Apply Framework constraints to ensure Excel data matches JSON Plan OVO
     if (data.framework_data && financialJson.revenue) {

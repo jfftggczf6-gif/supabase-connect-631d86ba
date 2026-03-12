@@ -237,6 +237,12 @@ export default function EntrepreneurDashboard() {
 
   const handleGenerate = async (force = false) => {
     if (!enterprise) return;
+
+    // M5: Warn if no documents uploaded (generation will use only form inputs — less accurate)
+    if (uploadedFiles.length === 0) {
+      toast('Aucun document uploadé — la génération utilisera uniquement les données saisies. Pour des résultats plus précis, uploadez vos documents financiers.', { icon: '📄', duration: 5000 });
+    }
+
     setGenerating(true);
     setGenerationProgress({ current: 0, total: PIPELINE.length, name: 'Lancement…' });
 
@@ -271,8 +277,9 @@ export default function EntrepreneurDashboard() {
         toast.info('Génération automatique du Plan Financier Excel...');
         try {
           await handleGenerateOvoPlan();
-        } catch {
-          // OVO Excel generation is best-effort
+        } catch (ovoErr: any) {
+          console.error('[handleGenerate] OVO Excel generation failed:', ovoErr?.message);
+          toast.warning('Plan Financier Excel non généré — cliquez sur "Générer Excel OVO" pour réessayer.');
         }
       }
     } catch (err: any) {
@@ -291,8 +298,8 @@ export default function EntrepreneurDashboard() {
       const token = await getValidAccessToken(authSession, navigate);
       const functionName = MODULE_FN_MAP[moduleCode] || `generate-${moduleCode}`;
       
-      // Longer timeout for business_plan (split AI calls)
-      const timeoutMs = moduleCode === 'business_plan' ? 180000 : 120000;
+      // Longer timeout for business_plan (two sequential AI calls)
+      const timeoutMs = moduleCode === 'business_plan' ? 300000 : 120000;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
@@ -897,6 +904,10 @@ export default function EntrepreneurDashboard() {
           </div>
           <div className="flex items-center gap-2 text-white/60 text-xs">
             <span>🏁 v{deliverablesCount}</span>
+            {/* M2: show count of scored deliverables contributing to global score */}
+            {scoredDeliverables.length > 0 && (
+              <span className="text-white/40 text-[10px]">({scoredDeliverables.length} noté{scoredDeliverables.length > 1 ? 's' : ''})</span>
+            )}
             <span className="px-2 py-0.5 rounded bg-white/10 text-white/80 text-[10px] font-medium">🏆 {maturityLabel}</span>
           </div>
           {scoreHistory.length > 1 && (

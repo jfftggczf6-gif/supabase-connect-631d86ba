@@ -55,6 +55,13 @@ export function normalizeBmc(raw: any): any {
 
     // structure_couts might be array of strings
     if (Array.isArray(c.structure_couts)) c.structure_couts = { postes: c.structure_couts.map((s: any) => typeof s === 'string' ? { libelle: s } : s) };
+    // H4: Ensure structure_couts.postes[].montant is numeric, not string
+    if (c.structure_couts?.postes && Array.isArray(c.structure_couts.postes)) {
+      c.structure_couts.postes = c.structure_couts.postes.map((p: any) => ({
+        ...p,
+        montant: p.montant != null ? toNumber(p.montant, 0) : undefined,
+      }));
+    }
 
     // flux_revenus might be array
     if (Array.isArray(c.flux_revenus)) c.flux_revenus = { produit_principal: c.flux_revenus[0] || '' };
@@ -149,8 +156,23 @@ export function normalizeInputs(raw: any): any {
 
   // Validation: Total Actif == Total Passif
   if (actif.total_actif > 0 && passif.total_passif > 0 && actif.total_actif !== passif.total_passif) {
-    console.warn(`[normalizeInputs] Bilan déséquilibré: Actif=${actif.total_actif}, Passif=${passif.total_passif}. Ajustement au max.`);
+    const ecartPct = Math.abs(actif.total_actif - passif.total_passif) / Math.max(actif.total_actif, passif.total_passif);
+    console.warn(`[normalizeInputs] Bilan déséquilibré: Actif=${actif.total_actif}, Passif=${passif.total_passif} (écart ${(ecartPct*100).toFixed(1)}%). Ajustement proportionnel.`);
     const maxTotal = Math.max(actif.total_actif, passif.total_passif);
+    // Adjust sub-items proportionally rather than just forcing totals
+    if (actif.total_actif < maxTotal) {
+      const ratioActif = maxTotal / actif.total_actif;
+      actif.immobilisations = Math.round(actif.immobilisations * ratioActif);
+      actif.stocks = Math.round(actif.stocks * ratioActif);
+      actif.creances_clients = Math.round(actif.creances_clients * ratioActif);
+      actif.tresorerie = Math.round(actif.tresorerie * ratioActif);
+    } else {
+      const ratioPassif = maxTotal / passif.total_passif;
+      passif.capitaux_propres = Math.round(passif.capitaux_propres * ratioPassif);
+      passif.dettes_lt = Math.round(passif.dettes_lt * ratioPassif);
+      passif.dettes_ct = Math.round(passif.dettes_ct * ratioPassif);
+      passif.fournisseurs = Math.round(passif.fournisseurs * ratioPassif);
+    }
     actif.total_actif = maxTotal;
     passif.total_passif = maxTotal;
   }
@@ -196,6 +218,77 @@ export function normalizeFramework(raw: any): any {
       }
       return result;
     });
+  }
+
+  // ── M6: Ensure projection_5ans.lignes has exactly 8 required lines ──
+  const REQUIRED_LIGNES = [
+    "CA Total",
+    "Marge Brute",
+    "Marge Brute %",
+    "EBITDA",
+    "Marge EBITDA %",
+    "Résultat Net",
+    "Cash-Flow Net",
+    "Trésorerie Cumulée",
+  ];
+  if (d.projection_5ans) {
+    if (!Array.isArray(d.projection_5ans.lignes)) d.projection_5ans.lignes = [];
+    const existingLabels = d.projection_5ans.lignes.map((l: any) =>
+      (l.poste || l.libelle || '').toLowerCase()
+    );
+    for (const req of REQUIRED_LIGNES) {
+      const reqLow = req.toLowerCase();
+      const exists = existingLabels.some((lb: string) => lb.includes(reqLow.split(' ')[0]) && (reqLow.length < 5 || lb.includes(reqLow.substring(0, 5))));
+      if (!exists) {
+        d.projection_5ans.lignes.push({ poste: req, an1: 0, an2: 0, an3: 0, an4: 0, an5: 0 });
+        console.warn(`[normalizeFramework] Missing required ligne "${req}" — added with zeros`);
+      }
+    }
+  }
+
+  // ── H7: Replace <montant> placeholders in scenarios.sensibilite ──
+  if (d.scenarios?.sensibilite && Array.isArray(d.scenarios.sensibilite)) {
+    const hasPlaceholder = d.scenarios.sensibilite.some((s: any) => typeof s === 'string' && s.includes('<montant>'));
+    if (hasPlaceholder && d.projection_5ans?.lignes) {
+      const lignes = d.projection_5ans.lignes;
+      const findVal = (...keywords: string[]): number => {
+        const l = lignes.find((ln: any) => {
+          const lb = (ln.poste || ln.libelle || '').toLowerCase();
+          return keywords.every(k => lb.includes(k.toLowerCase()));
+        });
+        return l ? (toNumber(l.an1, 0)) : 0;
+      };
+      const caAn1 = findVal('CA') || findVal('chiffre');
+      const margeAn1 = findVal('marge brute');
+      const ebitdaAn1 = findVal('ebitda');
+      const margePct = caAn1 > 0 ? margeAn1 / caAn1 : 0.3;
+      const fixedCosts = Math.max(margeAn1 - ebitdaAn1, 0);
+      const fmt = (n: number) => {
+        const abs = Math.abs(Math.round(n));
+        const sign = n >= 0 ? '+' : '-';
+        if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M FCFA`;
+        if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K FCFA`;
+        return `${sign}${abs} FCFA`;
+      };
+      d.scenarios.sensibilite = d.scenarios.sensibilite.map((s: any) => {
+        if (typeof s !== 'string' || !s.includes('<montant>')) return s;
+        let replaced = s;
+        if (s.startsWith('CA +10%')) {
+          const delta = caAn1 * 0.10 * margePct;
+          replaced = `CA +10% : EBITDA: ${fmt(delta)}`;
+        } else if (s.startsWith('Marge brute -10%')) {
+          const delta = -(margeAn1 * 0.10);
+          replaced = `Marge brute -10% : EBITDA: ${fmt(delta)}`;
+        } else if (s.startsWith('Charges fixes +10%')) {
+          const delta = fixedCosts > 0 ? -(fixedCosts * 0.10) : -(ebitdaAn1 * 0.05);
+          replaced = `Charges fixes +10% : EBITDA: ${fmt(delta)}`;
+        } else {
+          // Fallback: remove placeholder with N/A
+          replaced = s.replace(/<montant>/g, 'N/C');
+        }
+        return replaced;
+      });
+    }
   }
 
   // Normalize scenarios.tableau items
@@ -252,14 +345,28 @@ export function normalizeDiagnostic(raw: any): any {
   d.score_global = toNumber(pick(d, 'score_global', 'score', 'score_investment_readiness'), 0);
   d.score = d.score_global;
 
-  // Palier (si l'IA ne l'a pas calculé correctement)
+  // Palier: only auto-calculate if AI didn't provide one
   const s = d.score_global;
+  const palierMap: Record<string, { label: string; couleur: string }> = {
+    "en_construction": { label: "En construction", couleur: "🟠" },
+    "a_renforcer":     { label: "À renforcer",     couleur: "🟡" },
+    "potentiel":       { label: "Potentiel",       couleur: "🟢" },
+    "bien_avance":     { label: "Bien avancé",     couleur: "💚" },
+    "excellent":       { label: "Excellent",       couleur: "✅" },
+  };
   if (!d.palier || d.palier === '') {
-    if (s <= 30)      { d.palier = "en_construction"; d.label = "En construction"; d.couleur = "🟠"; }
-    else if (s <= 50) { d.palier = "a_renforcer";     d.label = "À renforcer";     d.couleur = "🟡"; }
-    else if (s <= 70) { d.palier = "potentiel";       d.label = "Potentiel";       d.couleur = "🟢"; }
-    else if (s <= 85) { d.palier = "bien_avance";     d.label = "Bien avancé";     d.couleur = "💚"; }
-    else              { d.palier = "excellent";        d.label = "Excellent";       d.couleur = "✅"; }
+    // Derive palier from score
+    if (s <= 30)      d.palier = "en_construction";
+    else if (s <= 50) d.palier = "a_renforcer";
+    else if (s <= 70) d.palier = "potentiel";
+    else if (s <= 85) d.palier = "bien_avance";
+    else              d.palier = "excellent";
+  }
+  // Always ensure label & couleur match the palier (whether AI-provided or derived)
+  const palierInfo = palierMap[d.palier];
+  if (palierInfo) {
+    d.label = d.label || palierInfo.label;
+    d.couleur = d.couleur || palierInfo.couleur;
   }
 
   // Resume exécutif (plusieurs clés possibles)
@@ -399,9 +506,10 @@ export function normalizePlanOvo(raw: any): any {
 
   d.score = toNumber(pick(d, 'score', 'score_global'), 0);
 
-  // Fix years to be dynamic based on current year
-  const cy = new Date().getFullYear();
-  if (!d.years || d.years.current_year !== cy) {
+  // C6: Use base_year from data (frozen at enterprise creation) — never override with current date
+  // base_year is set by the AI using the enterprise's creation year, not the regeneration date
+  const cy: number = d.base_year || d.years?.current_year || new Date().getFullYear();
+  if (!d.years) {
     d.base_year = cy;
     d.years = {
       year_minus_2: cy - 2,
@@ -490,35 +598,38 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
-  // ── Derive historical years (year_minus_1, year_minus_2) from current_year + implicit growth rate ──
-  const deriveHistorical = (series: any, currentKey: string = 'current_year') => {
-    if (!series || !series[currentKey] || series[currentKey] <= 0) return;
-    const cy = series[currentKey];
-    // Calculate implicit growth rate from framework year2/current_year
-    let implicitGrowth = 0.10; // default 10%
-    if (series.year2 && series.year2 > 0 && cy > 0) {
-      implicitGrowth = Math.max(0.02, Math.min(0.50, (series.year2 / cy) - 1));
-    }
-    const ym1 = Math.round(cy / (1 + implicitGrowth));
-    const ym2 = Math.round(ym1 / (1 + implicitGrowth));
-    // Cap at ±50% of current_year to avoid aberrations
-    const capLow = cy * 0.5;
-    const capHigh = cy * 1.5;
-    const clamp = (v: number) => Math.round(Math.max(capLow, Math.min(capHigh, v)));
-    if (!series.year_minus_1 || series.year_minus_1 === 0) {
-      series.year_minus_1 = clamp(ym1);
-    }
-    if (!series.year_minus_2 || series.year_minus_2 === 0) {
-      series.year_minus_2 = clamp(ym2);
-    }
-    console.log(`[enforceFramework] Historical derived: ym2=${series.year_minus_2}, ym1=${series.year_minus_1}, cy=${cy}, growth=${(implicitGrowth * 100).toFixed(1)}%`);
-  };
+  // ── Back-derive year_minus_1 / year_minus_2 from implied Framework growth rate ──
+  // If AI-generated historical values look wrong, recalculate from current_year
+  if (data.revenue?.current_year > 0 && data.revenue?.year2 > 0) {
+    // Implied annual growth rate from Framework (current_year → year2)
+    const impliedGrowth = (data.revenue.year2 / data.revenue.current_year) - 1;
+    // Cap growth rate to reasonable bounds (5%–60%)
+    const g = Math.min(Math.max(impliedGrowth, 0.05), 0.60);
 
-  deriveHistorical(data.revenue);
-  deriveHistorical(data.cogs);
-  deriveHistorical(data.gross_profit);
-  deriveHistorical(data.ebitda);
-  deriveHistorical(data.net_profit);
+    const series: Array<[string, string]> = [
+      ['revenue', 'revenue'], ['gross_profit', 'gross_profit'],
+      ['ebitda', 'ebitda'], ['net_profit', 'net_profit'], ['cogs', 'cogs'], ['cashflow', 'cashflow'],
+    ];
+
+    for (const [seriesKey] of series) {
+      const s = data[seriesKey];
+      if (!s || typeof s !== 'object') continue;
+      const cy = toNumber(s.current_year);
+      if (cy <= 0) continue;
+
+      const ym1Derived = Math.round(cy / (1 + g));
+      const ym2Derived = Math.round(ym1Derived / (1 + g));
+
+      // Only overwrite if AI value is zero OR deviates more than 25% from derived value
+      const overwriteYm1 = !s.year_minus_1 || s.year_minus_1 <= 0 ||
+        Math.abs(toNumber(s.year_minus_1) - ym1Derived) / ym1Derived > 0.25;
+      const overwriteYm2 = !s.year_minus_2 || s.year_minus_2 <= 0 ||
+        Math.abs(toNumber(s.year_minus_2) - ym2Derived) / ym2Derived > 0.25;
+
+      if (overwriteYm1) s.year_minus_1 = ym1Derived;
+      if (overwriteYm2) s.year_minus_2 = ym2Derived;
+    }
+  }
 
   const lignes = frameworkData.projection_5ans.lignes;
   if (!Array.isArray(lignes) || lignes.length === 0) return data;
@@ -572,11 +683,29 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
 
   // Recalculate COGS = revenue - gross_profit
   for (const yk of PROJ_KEYS) {
+    const prevCogs = data.cogs[yk] || 0;
     data.cogs[yk] = data.revenue[yk] - data.gross_profit[yk];
+    // Guard: COGS cannot be 0 or negative — apply 10% floor (minimum realistic for any sector)
+    if (data.revenue[yk] > 0 && data.cogs[yk] <= 0) {
+      console.warn(`[enforceFramework] COGS=${data.cogs[yk]} for ${yk} — forcing to 10% of revenue`);
+      data.cogs[yk] = Math.round(data.revenue[yk] * 0.10);
+      data.gross_profit[yk] = data.revenue[yk] - data.cogs[yk];
+    }
     data.gross_margin_pct[yk] = data.revenue[yk] > 0
       ? (data.gross_profit[yk] / data.revenue[yk]) * 100 : 0;
     data.ebitda_margin_pct[yk] = data.revenue[yk] > 0
       ? (data.ebitda[yk] / data.revenue[yk]) * 100 : 0;
+
+    // H2: Also scale any COGS sub-breakdown proportionally (achats_matieres, charges_directes, etc.)
+    const cogsBreakdownKeys = ['achats_matieres', 'charges_directes', 'sous_traitance', 'matieres_consommees'];
+    if (prevCogs > 0 && data.cogs[yk] !== prevCogs) {
+      const cogsRatio = data.cogs[yk] / prevCogs;
+      for (const bk of cogsBreakdownKeys) {
+        if (data[bk] && typeof data[bk][yk] === 'number' && data[bk][yk] > 0) {
+          data[bk][yk] = Math.round(data[bk][yk] * cogsRatio);
+        }
+      }
+    }
   }
 
   // Adjust OPEX proportionally so that total_opex = gross_profit - ebitda
@@ -622,18 +751,19 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
     data.investment_metrics.tri = isNaN(irr) ? 0 : Math.round(irr * 10000) / 10000;
 
-    // CAGR Revenue — current_year to year6 = 6 years span
+    // CAGR Revenue — current_year to year6 = 5 years span
+    // Structure: current_year, year2, year3, year4, year5, year6 → 5 projection years
     const revCY = data.revenue.current_year;
     const revY6 = data.revenue.year6;
     if (revCY > 0 && revY6 > 0 && revY6 !== revCY) {
-      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 6) - 1) * 10000) / 10000;
+      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 5) - 1) * 10000) / 10000;
     }
 
-    // CAGR EBITDA — current_year to year6 = 6 years span
+    // CAGR EBITDA — current_year to year6 = 5 years span
     const ebCY = data.ebitda.current_year;
     const ebY6 = data.ebitda.year6;
     if (ebCY > 0 && ebY6 > 0 && ebY6 !== ebCY) {
-      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 6) - 1) * 10000) / 10000;
+      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 5) - 1) * 10000) / 10000;
     }
 
     // ROI
@@ -664,10 +794,10 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     // ── Post-calculation validation guards ──
     // Guard: CAGR too low but revenue grew significantly
     if (data.investment_metrics.cagr_revenue < 0.01 && revY6 > revCY * 1.5) {
-      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 6) - 1) * 10000) / 10000;
+      data.investment_metrics.cagr_revenue = Math.round((Math.pow(revY6 / revCY, 1 / 5) - 1) * 10000) / 10000;
     }
     if (data.investment_metrics.cagr_ebitda < 0.01 && ebY6 > ebCY * 1.5) {
-      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 6) - 1) * 10000) / 10000;
+      data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 5) - 1) * 10000) / 10000;
     }
     // Guard: TRI negative but VAN positive → retry Newton-Raphson with different seed
     if (data.investment_metrics.tri <= 0 && data.investment_metrics.van > 0) {

@@ -13,7 +13,6 @@ const PIPELINE_STEPS = [
   { name: "Inputs", function: "generate-inputs" },
   { name: "Framework", function: "generate-framework" },
   { name: "Plan OVO", function: "generate-plan-ovo" },
-  { name: "Sync Plan OVO", function: "reconcile-plan-ovo" },
   { name: "Excel OVO", function: "generate-ovo-plan" },
   { name: "Business Plan", function: "generate-business-plan" },
   { name: "ODD", function: "generate-odd" },
@@ -85,7 +84,6 @@ serve(async (req) => {
       "generate-framework": "framework_data",
       "generate-diagnostic": "diagnostic_data",
       "generate-plan-ovo": "plan_ovo",
-      "reconcile-plan-ovo": "plan_ovo",
       "generate-ovo-plan": "plan_ovo_excel",
       "generate-business-plan": "business_plan",
       "generate-odd": "odd_analysis",
@@ -99,8 +97,8 @@ serve(async (req) => {
     for (const step of PIPELINE_STEPS) {
       const delivType = fnToDelivType[step.function];
       
-      // Never skip reconcile-plan-ovo or generate-ovo-plan — they must always run
-      const isAlwaysRun = step.function === "reconcile-plan-ovo" || step.function === "generate-ovo-plan";
+      // Never skip generate-ovo-plan — it must always run to keep Excel in sync
+      const isAlwaysRun = step.function === "generate-ovo-plan";
       
       // Skip if rich data already exists (unless force=true or always-run step)
       if (!force && !isAlwaysRun && delivType && upToDateTypes.has(delivType)) {
@@ -147,8 +145,7 @@ serve(async (req) => {
         results.push({ step: step.name, success: false, error: e instanceof Error ? e.message : "Unknown" });
       }
 
-      // Small delay between calls to avoid rate limiting
-      await new Promise(r => setTimeout(r, 1000));
+      // No artificial delay — rate limiting handled by retry logic in each function
     }
 
     // If credit error, return specific error response

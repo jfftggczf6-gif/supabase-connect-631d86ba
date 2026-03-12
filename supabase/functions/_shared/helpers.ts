@@ -159,8 +159,15 @@ export async function verifyAndGetContext(req: Request) {
 
   const { data: files } = await supabase.storage.from("documents").list(enterprise_id);
   let documentContent = "";
+  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // H8: 50MB max per file
   if (files && files.length > 0) {
     for (const file of files.slice(0, 10)) {
+      const fileSizeBytes = file.metadata?.size || 0;
+      if (fileSizeBytes > MAX_FILE_SIZE_BYTES) {
+        console.warn(`[verifyAndGetContext] Skipping ${file.name} — file size ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
+        documentContent += `\n\n--- Document: ${file.name} (ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 50MB) ---`;
+        continue;
+      }
       const ext = file.name.split(".").pop()?.toLowerCase();
       const { data: fileData } = await supabase.storage.from("documents").download(`${enterprise_id}/${file.name}`);
       if (!fileData) continue;
@@ -195,7 +202,10 @@ export async function verifyAndGetContext(req: Request) {
   const deliverableMap: Record<string, any> = {};
   (delivs || []).forEach((d: any) => { deliverableMap[d.type] = d.data || {}; });
 
-  return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap };
+  // C6: base_year is frozen at enterprise creation — never use dynamic new Date().getFullYear()
+  const baseYear: number = ent.base_year || new Date(ent.created_at || Date.now()).getFullYear();
+
+  return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap, baseYear };
 }
 
 export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514") {
@@ -345,6 +355,25 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     .update({ status: "completed", progress: 100, data })
     .eq("enterprise_id", enterprise_id)
     .eq("module", moduleCode);
+
+  // Recalculate and update global score_ir after each deliverable save
+  try {
+    const { data: allDeliverables } = await supabase
+      .from("deliverables")
+      .select("score")
+      .eq("enterprise_id", enterprise_id)
+      .not("score", "is", null)
+      .gt("score", 0);
+
+    if (allDeliverables && allDeliverables.length > 0) {
+      const scores = allDeliverables.map((d: any) => Number(d.score));
+      const globalScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
+      await supabase.from("enterprises").update({ score_ir: globalScore }).eq("id", enterprise_id);
+    }
+  } catch (e) {
+    // Non-blocking — score update failure should not break deliverable save
+    console.warn("[saveDeliverable] score_ir update failed:", e);
+  }
 }
 
 // ===== UEMOA FISCAL PARAMETERS (SOURCE DE VÉRITÉ UNIQUE) =====
