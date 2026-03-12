@@ -581,6 +581,14 @@ export function normalizePlanOvo(raw: any): any {
   d.recommandations = toArray(pick(d, 'recommandations', 'recommendations'));
   d.key_assumptions = toArray(pick(d, 'key_assumptions', 'hypotheses_cles'));
 
+  // Guard: DSCR and multiple_ebitda are meaningless when projection EBITDA is negative
+  const year2Ebitda = d.ebitda?.year2 ?? 0;
+  if (year2Ebitda <= 0 && d.investment_metrics) {
+    d.investment_metrics.dscr = null;
+    d.investment_metrics.multiple_ebitda = null;
+    console.warn(`[normalizePlanOvo] EBITDA year2=${year2Ebitda} <= 0 — forcing dscr & multiple_ebitda to null`);
+  }
+
   return d;
 }
 
