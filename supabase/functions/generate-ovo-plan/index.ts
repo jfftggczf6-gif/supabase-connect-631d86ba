@@ -265,64 +265,11 @@ Deno.serve(async (req: Request) => {
     // Align total OPEX with Framework-implied OPEX (Marge Brute - EBITDA)
     alignTotalOpexToFramework(financialJson, data.framework_data);
 
-    // Apply Framework constraints to ensure Excel data matches JSON Plan OVO
-    if (data.framework_data && financialJson.revenue) {
-      try {
-        const constrainedData = enforceFrameworkConstraints(financialJson, data.framework_data, data.inputs_data);
-        // Merge back constrained financial aggregates
-        if (constrainedData.revenue) financialJson.revenue = constrainedData.revenue;
-        if (constrainedData.cogs) financialJson.cogs = constrainedData.cogs;
-        if (constrainedData.gross_profit) financialJson.gross_profit = constrainedData.gross_profit;
-        if (constrainedData.ebitda) financialJson.ebitda = constrainedData.ebitda;
-        if (constrainedData.net_profit) financialJson.net_profit = constrainedData.net_profit;
-        if (constrainedData.cashflow) financialJson.cashflow = constrainedData.cashflow;
-        if (constrainedData.investment_metrics) financialJson.investment_metrics = constrainedData.investment_metrics;
-        console.log("[generate-ovo-plan] Framework constraints applied to Excel data");
-
-        // ── Second scaling pass: verify Excel revenues match Framework targets ──
-        if (data.framework_data?.projection_5ans?.lignes) {
-          const fwLignes = data.framework_data.projection_5ans.lignes;
-          const caLine = fwLignes.find((l: any) => {
-            const lb = (l.poste || l.libelle || '').toLowerCase();
-            return lb.includes("ca total") || lb.includes("chiffre") || lb.includes("revenue");
-          });
-          if (caLine) {
-            const fwTargets: Record<string, number> = {};
-            const fwMap: Record<string, string> = { "YEAR2": "an1", "YEAR3": "an2", "YEAR4": "an3", "YEAR5": "an4", "YEAR6": "an5" };
-            for (const [yl, fk] of Object.entries(fwMap)) {
-              const v = Number(caLine[fk]);
-              if (v > 0) fwTargets[yl] = v;
-            }
-
-            // Check if any year deviates > 5%
-            const allItems = [
-              ...(Array.isArray(financialJson.products) ? financialJson.products.filter((p: any) => p.active !== false) : []),
-              ...(Array.isArray(financialJson.services) ? financialJson.services.filter((s: any) => s.active !== false) : []),
-            ];
-            let needsSecondPass = false;
-            for (const [yl, target] of Object.entries(fwTargets)) {
-              let rev = 0;
-              for (const item of allItems) {
-                const yr = item.per_year?.find((y: any) => y.year === yl);
-                if (!yr) continue;
-                const price = yr.unit_price_r1 || yr.unit_price_r2 || yr.unit_price_r3 || 0;
-                rev += getTotalVolume(yr) * price;
-              }
-              if (rev > 0 && Math.abs(rev - target) / target > 0.05) {
-                console.log(`[generate-ovo-plan] Post-constraint drift: ${yl} rev=${Math.round(rev)} vs target=${target}, ecart=${((Math.abs(rev - target) / target) * 100).toFixed(1)}%`);
-                needsSecondPass = true;
-              }
-            }
-            if (needsSecondPass) {
-              console.log("[generate-ovo-plan] Triggering second scaling pass with Framework-only targets");
-              scaleToFrameworkTargets(financialJson, data.framework_data, undefined, data.inputs_data);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("[generate-ovo-plan] Failed to apply framework constraints:", e);
-      }
-    }
+    // [Removed] enforceFrameworkConstraints block — it modified aggregate fields (revenue, cogs, etc.)
+    // that are never used by buildCellWrites. Its drift detection could trigger a second
+    // scaleToFrameworkTargets pass that disrupted already-aligned product volumes.
+    // All alignments are handled by: scaleToFrameworkTargets, scaleCOGSToFramework,
+    // alignStaffToTarget, alignOpexToPlanOvo, alignTotalOpexToFramework.
 
     // Bug #7: Sort products/services by slot for consistent ordering
     if (Array.isArray(financialJson.products)) {
