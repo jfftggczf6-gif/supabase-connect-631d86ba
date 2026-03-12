@@ -551,6 +551,26 @@ export function normalizePlanOvo(raw: any): any {
     d.gross_margin_pct[yk] = rev > 0 ? ((rev - cogs) / rev) * 100 : 0;
   }
 
+  // BUG 1 FIX: Recalculate EBITDA = gross_profit - total_opex
+  if (d.opex) {
+    const opexFields = ['staff_salaries', 'marketing', 'office_costs', 'travel', 'insurance', 'maintenance', 'third_parties', 'other'];
+    for (const yk of YEAR_KEYS) {
+      const totalOpex = opexFields.reduce((sum, f) => sum + (d.opex[f]?.[yk] || 0), 0);
+      if (totalOpex > 0) {
+        d.ebitda[yk] = d.gross_profit[yk] - totalOpex;
+      }
+    }
+  }
+
+  // BUG 2 FIX: Validate EBITDA >= Net Profit (accounting invariant)
+  for (const yk of YEAR_KEYS) {
+    if (d.net_profit[yk] > d.ebitda[yk]) {
+      // Net profit cannot exceed EBITDA; force net_profit = EBITDA * (1 - IS%)
+      d.net_profit[yk] = Math.round(d.ebitda[yk] * 0.75); // ~25% IS default
+      console.warn(`[normalizePlanOvo] net_profit > ebitda for ${yk}, corrected.`);
+    }
+  }
+
   // Recalculate ebitda_margin_pct
   for (const yk of YEAR_KEYS) {
     const rev = d.revenue[yk];
