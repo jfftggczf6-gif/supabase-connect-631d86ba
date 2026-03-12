@@ -156,13 +156,8 @@ export default function PlanOvoViewer({ data }: { data: any }) {
     const discountRate = ai?.discount_rate || 0.12;
     const nYears = 5;
 
-    // AI returns decimals (0.15 = 15%), fallback calcIRR/calcCAGR also return decimals → multiply by 100 for display
-    const _rawTri = ai?.tri ?? calcIRR(futureCf, totalInvestment);
-    const _rawCagrRev = ai?.cagr_revenue ?? calcCAGR(revSeries[currentIdx], revSeries[7], nYears);
-    const _rawCagrEbitda = ai?.cagr_ebitda ?? calcCAGR(ebitdaSeries[currentIdx], ebitdaSeries[7], nYears);
-    const _rawRoi = ai?.roi != null
-      ? ai.roi * 100  // AI returns decimal
-      : (totalInvestment > 0 ? (npSeries.slice(3).reduce((a, b) => a + b, 0) / totalInvestment) * 100 : null);
+
+
 
     return {
       van: ai?.van ?? calcNPV(futureCf, discountRate, totalInvestment),
