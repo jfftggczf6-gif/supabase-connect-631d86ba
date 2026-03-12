@@ -301,9 +301,25 @@ export function normalizeRangeData(json: Record<string, any>): void {
   normalize(json.services || []);
 }
 
+// ── Mapping between plan_ovo OPEX category names and Excel JSON keys ──
+const OPEX_NAME_MAP: Record<string, string> = {
+  staff_salaries: "__staff__", // handled separately by alignStaffToTarget
+  office_costs: "office",
+  marketing: "marketing",
+  travel: "travel",
+  insurance: "insurance",
+  maintenance: "maintenance",
+  third_parties: "third_parties",
+  other: "other",
+  taxes_on_staff: "taxes_on_staff",
+};
+
+// Year keys in plan_ovo opex objects → array index in Excel sub-category arrays (10 elements: O→X)
+const OPEX_YEAR_KEYS = ["year_minus_2", "year_minus_1", "h1", "h2", "current_year", "year2", "year3", "year4", "year5", "year6"];
+
 /**
  * Scale OPEX sub-categories to align with plan_ovo aggregate OPEX (Fix #4).
- * When plan_ovo has opex totals, scale sub-categories proportionally.
+ * Now uses a mapping table to match plan_ovo names → Excel JSON keys.
  */
 // deno-lint-ignore no-explicit-any
 export function alignOpexToPlanOvo(json: Record<string, any>, planOvoData?: Record<string, any>): void {
@@ -311,40 +327,212 @@ export function alignOpexToPlanOvo(json: Record<string, any>, planOvoData?: Reco
   if (!po?.opex || typeof po.opex !== 'object') return;
   if (!json.opex || typeof json.opex !== 'object') return;
 
-  const poOpex = po.opex;
-  // plan_ovo opex format: { total_cy: number, growth: number } per category
-  // or direct year values { year_minus_2, year_minus_1, current_year, year2, ... }
-
-  for (const [category, poVal] of Object.entries(poOpex)) {
+  for (const [poCategory, poVal] of Object.entries(po.opex)) {
     if (!poVal || typeof poVal !== 'object') continue;
     const poObj = poVal as any;
-    const poCY = poObj.total_cy || poObj.current_year || 0;
-    if (poCY <= 0) continue;
 
-    const excelCat = json.opex[category];
-    if (!excelCat || typeof excelCat !== 'object') continue;
+    const excelKey = OPEX_NAME_MAP[poCategory] || poCategory;
+    if (excelKey === "__staff__") continue; // staff handled by alignStaffToTarget
 
-    // Calculate current total_cy from expanded sub-categories
-    let currentCY = 0;
-    const subEntries = Object.entries(excelCat);
-    for (const [, subVals] of subEntries) {
-      if (Array.isArray(subVals) && subVals.length >= 5) {
-        // Index 2+3 = H1+H2 = current year
-        currentCY += (subVals[2] || 0) + (subVals[3] || 0);
+    const excelCat = json.opex[excelKey];
+    if (!excelCat || typeof excelCat !== 'object') {
+      console.log(`[alignOpex] No Excel category for plan_ovo "${poCategory}" (mapped→"${excelKey}"), skipping`);
+      continue;
+    }
+
+    // Try per-year scaling first (more precise), fallback to CY ratio
+    const hasPerYear = OPEX_YEAR_KEYS.some(k => poObj[k] != null && Number(poObj[k]) > 0);
+
+    if (hasPerYear) {
+      // Scale each year independently
+      const subEntries = Object.entries(excelCat);
+      for (let yi = 0; yi < 10; yi++) {
+        const yearKey = OPEX_YEAR_KEYS[yi];
+        const target = Number(poObj[yearKey] || 0);
+        if (target <= 0) continue;
+
+        let currentTotal = 0;
+        for (const [, subVals] of subEntries) {
+          if (Array.isArray(subVals) && subVals.length > yi) {
+            currentTotal += (subVals[yi] || 0);
+          }
+        }
+        if (currentTotal <= 0) continue;
+
+        const ratio = target / currentTotal;
+        if (Math.abs(ratio - 1) <= 0.10) continue;
+
+        console.log(`[alignOpex] ${excelKey}[${yearKey}]: current=${currentTotal}, target=${target}, ratio=${ratio.toFixed(3)}`);
+        for (const [subKey, subVals] of subEntries) {
+          if (Array.isArray(subVals) && subVals.length > yi) {
+            json.opex[excelKey][subKey][yi] = Math.round((subVals[yi] || 0) * ratio / 1000) * 1000;
+          }
+        }
+      }
+    } else {
+      // Fallback: CY-based ratio (original behavior)
+      const poCY = poObj.total_cy || poObj.current_year || 0;
+      if (poCY <= 0) continue;
+
+      let currentCY = 0;
+      const subEntries = Object.entries(excelCat);
+      for (const [, subVals] of subEntries) {
+        if (Array.isArray(subVals) && subVals.length >= 5) {
+          currentCY += (subVals[2] || 0) + (subVals[3] || 0);
+        }
+      }
+      if (currentCY <= 0) continue;
+
+      const opexRatio = poCY / currentCY;
+      if (Math.abs(opexRatio - 1) <= 0.10) continue;
+
+      console.log(`[alignOpex] ${excelKey}: currentCY=${currentCY}, targetCY=${poCY}, ratio=${opexRatio.toFixed(3)}`);
+      for (const [subKey, subVals] of subEntries) {
+        if (Array.isArray(subVals)) {
+          json.opex[excelKey][subKey] = subVals.map((v: number) => Math.round((v || 0) * opexRatio / 1000) * 1000);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Align staff costs (salaries) to plan_ovo staff_salaries targets.
+ * Adjusts gross_monthly_salary_per_person proportionally when Excel staff costs diverge > 10%.
+ */
+// deno-lint-ignore no-explicit-any
+export function alignStaffToTarget(json: Record<string, any>, planOvoData?: Record<string, any>): void {
+  const po = planOvoData as any;
+  if (!po?.opex?.staff_salaries || typeof po.opex.staff_salaries !== 'object') return;
+  if (!Array.isArray(json.staff) || json.staff.length === 0) return;
+
+  const staffTarget = po.opex.staff_salaries;
+  const yearLabels = ["YEAR-2", "YEAR-1", "CURRENT YEAR", "YEAR2", "YEAR3", "YEAR4", "YEAR5", "YEAR6"];
+  const targetKeys = ["year_minus_2", "year_minus_1", "current_year", "year2", "year3", "year4", "year5", "year6"];
+
+  for (let yi = 0; yi < yearLabels.length; yi++) {
+    const target = Number(staffTarget[targetKeys[yi]] || 0);
+    if (target <= 0) continue;
+
+    // Calculate current Excel staff cost for this year
+    let excelStaffCost = 0;
+    for (const cat of json.staff) {
+      if (!cat.per_year || !Array.isArray(cat.per_year)) continue;
+      const yr = cat.per_year.find((y: any) => y.year === yearLabels[yi]);
+      if (!yr) continue;
+      const hc = yr.headcount || 0;
+      const salary = yr.gross_monthly_salary_per_person || 0;
+      const allowances = yr.annual_allowances_per_person || 0;
+      const socialRate = cat.social_security_rate || 0.1645;
+      // Annual staff cost = headcount × (salary × 12 + allowances) × (1 + socialRate)
+      excelStaffCost += hc * (salary * 12 + allowances) * (1 + socialRate);
+    }
+
+    if (excelStaffCost <= 0) continue;
+    const ratio = target / excelStaffCost;
+    if (Math.abs(ratio - 1) <= 0.10) continue;
+
+    console.log(`[alignStaff] ${yearLabels[yi]}: excelStaff=${Math.round(excelStaffCost)}, target=${target}, ratio=${ratio.toFixed(3)}`);
+
+    // Adjust salaries proportionally (keep headcount unchanged)
+    for (const cat of json.staff) {
+      if (!cat.per_year || !Array.isArray(cat.per_year)) continue;
+      const yr = cat.per_year.find((y: any) => y.year === yearLabels[yi]);
+      if (!yr) continue;
+      yr.gross_monthly_salary_per_person = Math.round((yr.gross_monthly_salary_per_person || 0) * ratio / 1000) * 1000;
+      yr.annual_allowances_per_person = Math.round((yr.annual_allowances_per_person || 0) * ratio / 1000) * 1000;
+    }
+  }
+}
+
+/**
+ * Align total OPEX (non-staff + staff) with Framework-implied OPEX.
+ * Framework OPEX = Marge Brute - EBITDA. If Excel total OPEX diverges > 5%,
+ * scale non-staff OPEX sub-categories proportionally.
+ */
+// deno-lint-ignore no-explicit-any
+export function alignTotalOpexToFramework(json: Record<string, any>, frameworkData?: Record<string, any>): void {
+  const fw = frameworkData as any;
+  if (!fw?.projection_5ans?.lignes || !Array.isArray(fw.projection_5ans.lignes)) return;
+  if (!json.opex || typeof json.opex !== 'object') return;
+
+  const lignes = fw.projection_5ans.lignes;
+  const findLigne = (...patterns: string[]) =>
+    lignes.find((l: any) => {
+      const lb = (l.poste || l.libelle || '').toLowerCase();
+      return patterns.some(p => lb.includes(p)) && !lb.includes('%') && !lb.includes('(%)');
+    });
+
+  const mbLine = findLigne('marge brute', 'gross margin', 'gross profit');
+  const ebitdaLine = findLigne('ebitda', 'ebe', 'résultat exploitation', 'excédent brut');
+  if (!mbLine || !ebitdaLine) {
+    console.log('[alignTotalOpex] Marge Brute or EBITDA line not found in Framework — skipping');
+    return;
+  }
+
+  const fwMap: Record<string, string> = { "YEAR2": "an1", "YEAR3": "an2", "YEAR4": "an3", "YEAR5": "an4", "YEAR6": "an5" };
+  // Excel OPEX array index: YEAR2→5, YEAR3→6, YEAR4→7, YEAR5→8, YEAR6→9
+  const yearToIdx: Record<string, number> = { "YEAR2": 5, "YEAR3": 6, "YEAR4": 7, "YEAR5": 8, "YEAR6": 9 };
+
+  const opexCategories = Object.keys(json.opex); // marketing, office, travel, etc.
+
+  for (const [yearLabel, fwKey] of Object.entries(fwMap)) {
+    const mb = typeof mbLine[fwKey] === 'number' ? mbLine[fwKey] : parseFcfaValue(String(mbLine[fwKey] || ''));
+    const ebitda = typeof ebitdaLine[fwKey] === 'number' ? ebitdaLine[fwKey] : parseFcfaValue(String(ebitdaLine[fwKey] || ''));
+    if (mb <= 0) continue;
+
+    const targetOpex = mb - ebitda;
+    if (targetOpex <= 0) continue;
+
+    const idx = yearToIdx[yearLabel];
+
+    // Sum all Excel OPEX for this year index
+    let excelOpex = 0;
+    for (const catKey of opexCategories) {
+      const cat = json.opex[catKey];
+      if (!cat || typeof cat !== 'object') continue;
+      for (const [, subVals] of Object.entries(cat)) {
+        if (Array.isArray(subVals) && subVals.length > idx) {
+          excelOpex += ((subVals as number[])[idx] || 0);
+        }
       }
     }
 
-    if (currentCY <= 0) continue;
-    const opexRatio = poCY / currentCY;
-    const ecart = Math.abs(opexRatio - 1);
-    if (ecart <= 0.10) continue; // allow 10% tolerance for OPEX
+    // Add staff costs
+    let staffCost = 0;
+    if (Array.isArray(json.staff)) {
+      for (const cat of json.staff) {
+        if (!cat.per_year || !Array.isArray(cat.per_year)) continue;
+        const yr = cat.per_year.find((y: any) => y.year === yearLabel);
+        if (!yr) continue;
+        const hc = yr.headcount || 0;
+        const salary = yr.gross_monthly_salary_per_person || 0;
+        const allowances = yr.annual_allowances_per_person || 0;
+        const socialRate = cat.social_security_rate || 0.1645;
+        staffCost += hc * (salary * 12 + allowances) * (1 + socialRate);
+      }
+    }
 
-    console.log(`[alignOpex] ${category}: currentCY=${currentCY}, targetCY=${poCY}, ratio=${opexRatio.toFixed(3)}`);
+    const totalExcelOpex = excelOpex + staffCost;
+    if (totalExcelOpex <= 0) continue;
 
-    // Scale all sub-category arrays proportionally
-    for (const [subKey, subVals] of subEntries) {
-      if (Array.isArray(subVals)) {
-        json.opex[category][subKey] = subVals.map((v: number) => Math.round((v || 0) * opexRatio / 1000) * 1000);
+    const ecart = Math.abs(totalExcelOpex - targetOpex) / targetOpex;
+    if (ecart <= 0.05) continue;
+
+    console.log(`[alignTotalOpex] ${yearLabel}: excelOpex=${Math.round(totalExcelOpex)} (nonStaff=${Math.round(excelOpex)}, staff=${Math.round(staffCost)}), target=${targetOpex}, écart=${(ecart*100).toFixed(1)}%`);
+
+    // Scale non-staff OPEX to bridge the gap (keep staff stable since already aligned)
+    const nonStaffTarget = targetOpex - staffCost;
+    if (nonStaffTarget <= 0 || excelOpex <= 0) continue;
+
+    const nonStaffRatio = nonStaffTarget / excelOpex;
+    for (const catKey of opexCategories) {
+      const cat = json.opex[catKey];
+      if (!cat || typeof cat !== 'object') continue;
+      for (const [subKey, subVals] of Object.entries(cat)) {
+        if (Array.isArray(subVals) && subVals.length > idx) {
+          (json.opex[catKey][subKey] as number[])[idx] = Math.round(((subVals as number[])[idx] || 0) * nonStaffRatio / 1000) * 1000;
+        }
       }
     }
   }
