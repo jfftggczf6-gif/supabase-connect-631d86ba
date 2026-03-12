@@ -5,8 +5,10 @@ import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 
 // Use centralized fiscal params from helpers.ts
 
-function buildSystemPrompt(country: string): string {
+function buildSystemPrompt(country: string, sector: string): string {
   const fp = getFiscalParamsForPrompt(country);
+  const knowledgeBase = getFinancialKnowledgePrompt(country.toLowerCase().replace(/[\s']/g, "_"), sector.toLowerCase().replace(/[\s\-\/]/g, "_"));
+
   return `Tu es un modélisateur financier senior spécialisé dans les PME africaines (focus: ${fp.focus}).
 À partir des données historiques fournies, génère un plan financier réaliste sur 8 ans (N-2 à N+5) en JSON strict.
 
@@ -15,7 +17,6 @@ Paramètres fiscaux pour ${fp.focus}:
 - TVA: ${fp.tva}%
 - Impôt sur les sociétés: ${fp.is_standard}%${fp.seuil_pme !== 'N/A' ? ` (ou ${fp.is_pme}% si CA < ${fp.seuil_pme})` : ''}
 - Charges sociales: ${fp.charges_sociales}% du salaire brut
-- Taux de croissance PME réaliste: 15-30%/an max sauf si données historiques justifient plus
 - Taux de change EUR: 655.957
 
 CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
@@ -23,31 +24,14 @@ CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
 - Ne PAS mentionner d'autres pays africains dans les investissements, CAPEX, ou localisations.
 - Les hypothèses de marché doivent être basées sur le contexte économique de ${fp.focus}.
 
-CALCULS OBLIGATOIRES - investment_metrics (FORMULES EXACTES):
-- VAN = Σ(CF_t / (1+0.12)^t) - Investissement_initial, pour t=1 à 5
-- TRI = taux r tel que Σ(CF_t / (1+r)^t) = Investissement_initial (résolution Newton-Raphson)
-- CAGR Revenue = (Revenue_Year6 / Revenue_CurrentYear)^(1/5) - 1
-  ATTENTION: Revenue_CurrentYear DOIT venir des données Inputs (compte de résultat réel), PAS être inventé
-  NOTE: l'exposant est 1/5 car il y a 5 ans de projection entre current_year et year6
-- CAGR EBITDA = (EBITDA_Year6 / EBITDA_CurrentYear)^(1/5) - 1
-- ROI = Σ(Résultats_Nets an1-an5) / Investissement_total
-- Payback = année t où Σ(CF_1..t) ≥ Investissement_initial (fractionnel autorisé)
-- DSCR = EBITDA / Service_dette_annuel (principal + intérêts)
-- Multiple EBITDA = Valorisation / EBITDA (4-8x selon secteur)
-
-VALIDATION POST-CALCUL:
-- Si CAGR < 1% mais Revenue_Year6 > 2× Revenue_CurrentYear → ERREUR, recalculer
-- Si TRI < 0 mais VAN > 0 → ERREUR, recalculer avec seed différent
-- Si Payback = 0 mais Funding_Need > 0 → ERREUR, recalculer
-- current_year revenue/EBITDA/net_profit DOIVENT correspondre aux données historiques réelles
-
-Calcule aussi VAN et TRI pour chaque scénario (optimiste, réaliste, pessimiste).
+${knowledgeBase}
 
 COHÉRENCE OBLIGATOIRE:
 - gross_profit = revenue - cogs (pour CHAQUE année)
 - ebitda = gross_profit - total_opex (pour CHAQUE année)
 - Toutes les 8 années (year_minus_2 à year6) DOIVENT avoir des valeurs non-nulles dans revenue, cogs, gross_profit, ebitda, net_profit, cashflow
 - Les projections DOIVENT être cohérentes avec les contraintes du Plan Financier Intermédiaire si fournies
+- Calcule VAN et TRI pour chaque scénario (optimiste, réaliste, pessimiste)
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide. Pas de markdown, pas de backticks, pas de texte avant ou après.`;
 }
