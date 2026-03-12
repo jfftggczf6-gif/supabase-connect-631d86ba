@@ -159,8 +159,15 @@ export async function verifyAndGetContext(req: Request) {
 
   const { data: files } = await supabase.storage.from("documents").list(enterprise_id);
   let documentContent = "";
+  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // H8: 50MB max per file
   if (files && files.length > 0) {
     for (const file of files.slice(0, 10)) {
+      const fileSizeBytes = file.metadata?.size || 0;
+      if (fileSizeBytes > MAX_FILE_SIZE_BYTES) {
+        console.warn(`[verifyAndGetContext] Skipping ${file.name} — file size ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
+        documentContent += `\n\n--- Document: ${file.name} (ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 50MB) ---`;
+        continue;
+      }
       const ext = file.name.split(".").pop()?.toLowerCase();
       const { data: fileData } = await supabase.storage.from("documents").download(`${enterprise_id}/${file.name}`);
       if (!fileData) continue;
@@ -195,7 +202,10 @@ export async function verifyAndGetContext(req: Request) {
   const deliverableMap: Record<string, any> = {};
   (delivs || []).forEach((d: any) => { deliverableMap[d.type] = d.data || {}; });
 
-  return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap };
+  // C6: base_year is frozen at enterprise creation — never use dynamic new Date().getFullYear()
+  const baseYear: number = ent.base_year || new Date(ent.created_at || Date.now()).getFullYear();
+
+  return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap, baseYear };
 }
 
 export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514") {

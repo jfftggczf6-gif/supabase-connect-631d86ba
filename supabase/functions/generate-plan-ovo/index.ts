@@ -51,8 +51,9 @@ COHÉRENCE OBLIGATOIRE:
 IMPORTANT: Réponds UNIQUEMENT en JSON valide. Pas de markdown, pas de backticks, pas de texte avant ou après.`;
 }
 
-function buildUserPrompt(name: string, sector: string, country: string, docs: string, allData: any): string {
-  const cy = new Date().getFullYear();
+function buildUserPrompt(name: string, sector: string, country: string, docs: string, allData: any, baseYear?: number): string {
+  // C6: Use base_year frozen at enterprise creation
+  const cy = baseYear || new Date().getFullYear();
   const ym2 = cy - 2;
   const ym1 = cy - 1;
 
@@ -209,7 +210,7 @@ serve(async (req) => {
     const ragContext = await buildRAGContext(ctx.supabase, country, ent.sector || "", ["benchmarks", "fiscal", "bailleurs"]);
 
     const rawData = await callAI(buildSystemPrompt(country), buildUserPrompt(
-      ent.name, ent.sector || "", country, ctx.documentContent, allData
+      ent.name, ent.sector || "", country, ctx.documentContent, allData, ctx.baseYear
     ) + ragContext);
     
     // Normalize: fix years, ensure consistency, fill gaps

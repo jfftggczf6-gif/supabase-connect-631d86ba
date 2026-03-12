@@ -51,8 +51,21 @@ export function scaleCOGSToFramework(json: Record<string, any>, frameworkData?: 
     });
 
   const caLine = findLigne('ca total', 'chiffre', 'revenue', 'ca ');
-  const mbLine = findLigne('marge brute', 'gross');
-  if (!caLine || !mbLine) return;
+  // H5: Prefer Marge Brute (Revenue - COGS) not Marge EBITDA (after OPEX) for COGS scaling
+  // Marge Brute = Revenue - COGS → target COGS = Revenue - Marge Brute
+  // Marge EBITDA = Revenue - COGS - OPEX → using it would under-estimate COGS
+  const mbLine = findLigne('marge brute', 'gross margin', 'gross profit');
+  if (!caLine) return;
+  if (!mbLine) {
+    console.warn('[scaleCOGS] Marge Brute line not found in Framework — skipping COGS scaling to avoid using EBITDA as proxy');
+    return;
+  }
+  // Guard: sanity check that we're not using the EBITDA line accidentally
+  const mbLabel = (mbLine.poste || mbLine.libelle || '').toLowerCase();
+  if (mbLabel.includes('ebitda') || mbLabel.includes('exploitation')) {
+    console.warn('[scaleCOGS] Found EBITDA line instead of Marge Brute — skipping COGS scaling');
+    return;
+  }
 
   const yearLabelToFwKey: Record<string, string> = {
     "YEAR2": "an1", "YEAR3": "an2", "YEAR4": "an3", "YEAR5": "an4", "YEAR6": "an5",

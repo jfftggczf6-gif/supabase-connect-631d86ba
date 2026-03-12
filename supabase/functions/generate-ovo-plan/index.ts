@@ -183,7 +183,8 @@ Deno.serve(async (req: Request) => {
         business_model: bmcData?.canvas?.modele_revenus?.[0] || "Vente directe",
         products,
         services,
-        current_year: new Date().getFullYear(),
+        // C6: use base_year frozen at enterprise creation, not current date
+        current_year: ent.base_year || new Date(ent.created_at || Date.now()).getFullYear(),
         employees: ent.employees_count || 1,
         existing_revenue: inputsData?.compte_resultat?.chiffre_affaires ? Number(inputsData.compte_resultat.chiffre_affaires) : 0,
         bmc_data: bmcData,
