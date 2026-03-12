@@ -564,7 +564,7 @@ export function normalizePlanOvo(raw: any): any {
 
   // BUG 2 FIX: Validate EBITDA >= Net Profit (accounting invariant)
   for (const yk of YEAR_KEYS) {
-    if (d.net_profit[yk] > d.ebitda[yk]) {
+    if (d.net_profit[yk] >= d.ebitda[yk]) {
       // Net profit cannot exceed EBITDA; force net_profit = EBITDA * (1 - IS%)
       d.net_profit[yk] = Math.round(d.ebitda[yk] * 0.75); // ~25% IS default
       console.warn(`[normalizePlanOvo] net_profit > ebitda for ${yk}, corrected.`);
@@ -780,7 +780,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
           data.ebitda_margin_pct[yk] = data.revenue[yk] > 0
             ? (data.ebitda[yk] / data.revenue[yk]) * 100 : 0;
           // Cascade: net_profit cannot exceed EBITDA
-          if (data.net_profit[yk] > data.ebitda[yk]) {
+          if (data.net_profit[yk] >= data.ebitda[yk]) {
             data.net_profit[yk] = Math.round(data.ebitda[yk] * (1 - tauxISOpex / 100));
           }
           // Cascade: cashflow ≈ EBITDA × (1 - IS%)
@@ -793,7 +793,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   // BUG 2 FIX (post-framework): Validate EBITDA >= Net Profit
   const { is: tauxISValidation } = getFiscalParams(country || "Côte d'Ivoire");
   for (const yk of PROJ_KEYS) {
-    if (data.net_profit[yk] > data.ebitda[yk]) {
+    if (data.net_profit[yk] >= data.ebitda[yk]) {
       data.net_profit[yk] = Math.round(data.ebitda[yk] * (1 - tauxISValidation / 100));
       console.warn(`[enforceFramework] net_profit > ebitda for ${yk}, corrected.`);
     }
@@ -820,22 +820,45 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     const cfValues = PROJ_KEYS.map((yk, i) => data.cashflow[yk] / Math.pow(1 + discountRate, i + 1));
     data.investment_metrics.van = Math.round(cfValues.reduce((a: number, b: number) => a + b, 0) - initialInv);
 
-    // IRR approximation (Newton-Raphson) with safety bounds
-    let irr = 0.1;
-    for (let iter = 0; iter < 50; iter++) {
-      let npv = -initialInv;
-      let dnpv = 0;
-      for (let i = 0; i < 5; i++) {
-        const cf = data.cashflow[PROJ_KEYS[i]];
-        npv += cf / Math.pow(1 + irr, i + 1);
-        dnpv -= (i + 1) * cf / Math.pow(1 + irr, i + 2);
+    // IRR calculation: Newton-Raphson with bisection fallback
+    const computeIRR = (cashflows: number[], investment: number): number => {
+      // 1. Try Newton-Raphson
+      let irr = 0.1;
+      let converged = false;
+      for (let iter = 0; iter < 50; iter++) {
+        let npv = -investment;
+        let dnpv = 0;
+        for (let i = 0; i < cashflows.length; i++) {
+          npv += cashflows[i] / Math.pow(1 + irr, i + 1);
+          dnpv -= (i + 1) * cashflows[i] / Math.pow(1 + irr, i + 2);
+        }
+        if (Math.abs(dnpv) < 1e-10) break;
+        irr = irr - npv / dnpv;
+        if (isNaN(irr) || irr < -0.99 || irr > 50) { irr = 0; break; }
+        if (Math.abs(npv) < 1000) { converged = true; break; }
       }
-      if (Math.abs(dnpv) < 1e-10) break;
-      irr = irr - npv / dnpv;
-      if (isNaN(irr) || irr < -0.99 || irr > 10) { irr = 0; break; }
-      if (Math.abs(npv) < 1000) break;
-    }
-    data.investment_metrics.tri = isNaN(irr) ? 0 : Math.round(irr * 10000) / 10000;
+      if (converged && irr > 0) return irr;
+
+      // 2. Bisection fallback (robust, always converges)
+      let lo = -0.5, hi = 20.0;
+      const npvAt = (r: number) => {
+        let v = -investment;
+        for (let i = 0; i < cashflows.length; i++) v += cashflows[i] / Math.pow(1 + r, i + 1);
+        return v;
+      };
+      // Ensure hi gives negative NPV
+      while (npvAt(hi) > 0 && hi < 1000) hi *= 2;
+      for (let iter = 0; iter < 200; iter++) {
+        const mid = (lo + hi) / 2;
+        if (npvAt(mid) > 0) lo = mid; else hi = mid;
+        if (hi - lo < 1e-6) break;
+      }
+      const result = (lo + hi) / 2;
+      return isNaN(result) || result < -0.99 ? 0 : result;
+    };
+
+    const cfArr = PROJ_KEYS.map(yk => data.cashflow[yk]);
+    data.investment_metrics.tri = Math.round(computeIRR(cfArr, initialInv) * 10000) / 10000;
 
     // BUG 3 FIX: CAGR Revenue — null if start <= 0
     const revCY = data.revenue.current_year;
@@ -898,23 +921,15 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     if (data.investment_metrics.cagr_ebitda < 0.01 && ebY6 > ebCY * 1.5) {
       data.investment_metrics.cagr_ebitda = Math.round((Math.pow(ebY6 / ebCY, 1 / 5) - 1) * 10000) / 10000;
     }
-    // Guard: TRI negative but VAN positive → retry Newton-Raphson with different seed
-    if (data.investment_metrics.tri <= 0 && data.investment_metrics.van > 0) {
-      let irrRetry = 0.25;
-      for (let iter = 0; iter < 100; iter++) {
-        let npvR = -initialInv;
-        let dnpvR = 0;
-        for (let i = 0; i < 5; i++) {
-          const cf = data.cashflow[PROJ_KEYS[i]];
-          npvR += cf / Math.pow(1 + irrRetry, i + 1);
-          dnpvR -= (i + 1) * cf / Math.pow(1 + irrRetry, i + 2);
-        }
-        if (Math.abs(dnpvR) < 1e-10) break;
-        irrRetry = irrRetry - npvR / dnpvR;
-        if (isNaN(irrRetry) || irrRetry < -0.99 || irrRetry > 10) { irrRetry = 0; break; }
-        if (Math.abs(npvR) < 1000) break;
-      }
-      if (irrRetry > 0 && !isNaN(irrRetry)) data.investment_metrics.tri = Math.round(irrRetry * 10000) / 10000;
+    // Guard: TRI inconsistent (<=0 with positive VAN, or suspiciously low vs high ROI/VAN)
+    const triSeemsInconsistent = (
+      (data.investment_metrics.tri <= 0 && data.investment_metrics.van > 0) ||
+      (data.investment_metrics.tri > 0 && data.investment_metrics.tri < 0.10 && data.investment_metrics.van > initialInv * 2 && data.investment_metrics.roi > 0.5)
+    );
+    if (triSeemsInconsistent) {
+      console.warn(`[enforceFramework] TRI=${data.investment_metrics.tri} seems inconsistent with VAN=${data.investment_metrics.van}, ROI=${data.investment_metrics.roi} — recomputing via bisection`);
+      const cfRetry = PROJ_KEYS.map(yk => data.cashflow[yk]);
+      data.investment_metrics.tri = Math.round(computeIRR(cfRetry, initialInv) * 10000) / 10000;
     }
     // Guard: payback 0 but funding needed
     if (data.investment_metrics.payback_years === 0 && initialInv > 0) {
