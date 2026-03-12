@@ -18,6 +18,7 @@ Paramètres fiscaux pour ${fp.focus}:
 - Impôt sur les sociétés: ${fp.is_standard}%${fp.seuil_pme !== 'N/A' ? ` (ou ${fp.is_pme}% si CA < ${fp.seuil_pme})` : ''}
 - Charges sociales: ${fp.charges_sociales}% du salaire brut
 - Taux de change EUR: ${fp.exchange_rate_eur}
+- Taux d'actualisation par défaut: 12% (coût du capital UEMOA PME)
 
 CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
 - Le pays de l'entreprise est ${fp.focus}. Tous les CAPEX, investissements, locaux, zones géographiques DOIVENT concerner UNIQUEMENT ${fp.focus}.
@@ -25,6 +26,30 @@ CONTRAINTE GÉOGRAPHIQUE ABSOLUE:
 - Les hypothèses de marché doivent être basées sur le contexte économique de ${fp.focus}.
 
 ${knowledgeBase}
+
+═══════════════════════════════════════════════════════════
+RÈGLE #1 — CASCADE P&L OBLIGATOIRE (à respecter pour CHAQUE année)
+═══════════════════════════════════════════════════════════
+  CA → Marge Brute (= CA - COGS) → EBITDA (= MB - OPEX) → EBIT → EBT → Résultat Net
+  ✅ Résultat Net ≤ EBITDA (TOUJOURS) ✅ EBITDA ≤ Marge Brute ✅ Marge Brute ≤ CA
+  ❌ INTERDIT : Résultat Net > EBITDA | EBITDA > Marge Brute | Marge Brute > CA
+  ✅ IS = 0 si EBT ≤ 0 (pas d'impôt sur les pertes)
+
+═══════════════════════════════════════════════════════════
+RÈGLE #2 — FORMULES MÉTRIQUES D'INVESTISSEMENT
+═══════════════════════════════════════════════════════════
+- TRI en décimal (0.18 = 18%) | VAN en FCFA | CAGR en décimal
+- DSCR = EBITDA_Year2 / service_dette → null si EBITDA_Year2 ≤ 0 ou aucune dette
+- Multiple EBITDA → null si EBITDA_Year4/5 ≤ 0
+- CAGR EBITDA → null si base EBITDA ≤ 0
+- Si VAN > 0 → TRI DOIT être > 0.12 (sinon recalculer)
+
+═══════════════════════════════════════════════════════════
+RÈGLE #3 — RÉALISME PME AFRICAINE
+═══════════════════════════════════════════════════════════
+- Croissance CA 10-25%/an (justifier si > 30%)
+- Ne jamais projeter CA year2 > 2× CA actuel des Inputs
+- Marges Brutes : Restauration 35-55% | Commerce 15-35% | Services 50-75% | Industrie 30-50%
 
 COHÉRENCE OBLIGATOIRE:
 - gross_profit = revenue - cogs (pour CHAQUE année)

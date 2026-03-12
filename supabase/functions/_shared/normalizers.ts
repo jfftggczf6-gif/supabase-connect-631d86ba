@@ -561,6 +561,12 @@ export function normalizePlanOvo(raw: any): any {
   d.recommandations = toArray(pick(d, 'recommandations', 'recommendations'));
   d.key_assumptions = toArray(pick(d, 'key_assumptions', 'hypotheses_cles'));
 
+  // Guard: DSCR and Multiple EBITDA are meaningless when first projection year EBITDA is negative
+  if (d.investment_metrics && (d.ebitda?.year2 || 0) <= 0) {
+    d.investment_metrics.dscr = null;
+    d.investment_metrics.multiple_ebitda = null;
+  }
+
   return d;
 }
 
@@ -671,6 +677,24 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   overwrite(data.net_profit, rnLine);
   overwrite(data.cashflow, cfLine);
 
+  // Guard: if framework revenue > 3× real inputs CA, rescale all projection years proportionally
+  if (inputsData?.compte_resultat?.chiffre_affaires > 0 && data.revenue.current_year > 0) {
+    const inputsCA = data.revenue.current_year;
+    const fwYear2Rev = data.revenue[PROJ_KEYS[0]] || 0;
+    if (inputsCA > 0 && fwYear2Rev > inputsCA * 3) {
+      const rescaleRatio = (inputsCA * 1.15) / fwYear2Rev;
+      console.warn(`[enforceFramework] Revenue rescale: fw_year2=${fwYear2Rev} vs inputs_ca=${inputsCA} (ratio=${(fwYear2Rev / inputsCA).toFixed(1)}×) — rescaling by ${rescaleRatio.toFixed(3)}`);
+      const projSeries = ['revenue', 'gross_profit', 'ebitda', 'net_profit', 'cogs', 'cashflow'];
+      for (const s of projSeries) {
+        if (data[s]) {
+          for (const yk of PROJ_KEYS) {
+            if (data[s][yk]) data[s][yk] = Math.round(data[s][yk] * rescaleRatio);
+          }
+        }
+      }
+    }
+  }
+
   // Guard: Résultat Net cannot exceed EBITDA (RN = EBITDA - Amort - Interest - Tax)
   for (const yk of PROJ_KEYS) {
     if (data.ebitda[yk] !== undefined && data.net_profit[yk] !== undefined) {
@@ -719,17 +743,32 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   }
 
   // Adjust OPEX proportionally so that total_opex = gross_profit - ebitda
+  // Ratio bounded to [0.4–2.5×]: if out of range, derive EBITDA from actual OPEX instead
   if (data.opex) {
     const opexFields = ['staff_salaries', 'marketing', 'office_costs', 'travel', 'insurance', 'maintenance', 'third_parties', 'other'];
+    const { is: tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
     for (const yk of PROJ_KEYS) {
       const targetOpex = data.gross_profit[yk] - data.ebitda[yk];
       const currentOpex = opexFields.reduce((sum, f) => sum + (data.opex[f]?.[yk] || 0), 0);
       if (currentOpex > 0 && targetOpex > 0) {
         const ratio = targetOpex / currentOpex;
-        for (const f of opexFields) {
-          if (data.opex[f]) {
-            data.opex[f][yk] = Math.round(data.opex[f][yk] * ratio);
+        if (ratio >= 0.4 && ratio <= 2.5) {
+          // Normal adjustment: scale OPEX to match EBITDA
+          for (const f of opexFields) {
+            if (data.opex[f]) {
+              data.opex[f][yk] = Math.round(data.opex[f][yk] * ratio);
+            }
           }
+        } else {
+          // Ratio too extreme — derive EBITDA from actual OPEX (correct cascade direction)
+          console.warn(`[enforceFramework] OPEX ratio=${ratio.toFixed(2)} for ${yk} out of bounds [0.4–2.5] — deriving EBITDA from actual OPEX`);
+          data.ebitda[yk] = Math.round(data.gross_profit[yk] - currentOpex);
+          data.ebitda_margin_pct[yk] = data.revenue[yk] > 0
+            ? (data.ebitda[yk] / data.revenue[yk]) * 100 : 0;
+          if (data.net_profit[yk] > data.ebitda[yk]) {
+            data.net_profit[yk] = data.ebitda[yk];
+          }
+          data.cashflow[yk] = Math.round(data.ebitda[yk] * (1 - tauxIS / 100));
         }
       }
     }
