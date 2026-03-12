@@ -820,22 +820,45 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     const cfValues = PROJ_KEYS.map((yk, i) => data.cashflow[yk] / Math.pow(1 + discountRate, i + 1));
     data.investment_metrics.van = Math.round(cfValues.reduce((a: number, b: number) => a + b, 0) - initialInv);
 
-    // IRR approximation (Newton-Raphson) with safety bounds
-    let irr = 0.1;
-    for (let iter = 0; iter < 50; iter++) {
-      let npv = -initialInv;
-      let dnpv = 0;
-      for (let i = 0; i < 5; i++) {
-        const cf = data.cashflow[PROJ_KEYS[i]];
-        npv += cf / Math.pow(1 + irr, i + 1);
-        dnpv -= (i + 1) * cf / Math.pow(1 + irr, i + 2);
+    // IRR calculation: Newton-Raphson with bisection fallback
+    const computeIRR = (cashflows: number[], investment: number): number => {
+      // 1. Try Newton-Raphson
+      let irr = 0.1;
+      let converged = false;
+      for (let iter = 0; iter < 50; iter++) {
+        let npv = -investment;
+        let dnpv = 0;
+        for (let i = 0; i < cashflows.length; i++) {
+          npv += cashflows[i] / Math.pow(1 + irr, i + 1);
+          dnpv -= (i + 1) * cashflows[i] / Math.pow(1 + irr, i + 2);
+        }
+        if (Math.abs(dnpv) < 1e-10) break;
+        irr = irr - npv / dnpv;
+        if (isNaN(irr) || irr < -0.99 || irr > 50) { irr = 0; break; }
+        if (Math.abs(npv) < 1000) { converged = true; break; }
       }
-      if (Math.abs(dnpv) < 1e-10) break;
-      irr = irr - npv / dnpv;
-      if (isNaN(irr) || irr < -0.99 || irr > 10) { irr = 0; break; }
-      if (Math.abs(npv) < 1000) break;
-    }
-    data.investment_metrics.tri = isNaN(irr) ? 0 : Math.round(irr * 10000) / 10000;
+      if (converged && irr > 0) return irr;
+
+      // 2. Bisection fallback (robust, always converges)
+      let lo = -0.5, hi = 20.0;
+      const npvAt = (r: number) => {
+        let v = -investment;
+        for (let i = 0; i < cashflows.length; i++) v += cashflows[i] / Math.pow(1 + r, i + 1);
+        return v;
+      };
+      // Ensure hi gives negative NPV
+      while (npvAt(hi) > 0 && hi < 1000) hi *= 2;
+      for (let iter = 0; iter < 200; iter++) {
+        const mid = (lo + hi) / 2;
+        if (npvAt(mid) > 0) lo = mid; else hi = mid;
+        if (hi - lo < 1e-6) break;
+      }
+      const result = (lo + hi) / 2;
+      return isNaN(result) || result < -0.99 ? 0 : result;
+    };
+
+    const cfArr = PROJ_KEYS.map(yk => data.cashflow[yk]);
+    data.investment_metrics.tri = Math.round(computeIRR(cfArr, initialInv) * 10000) / 10000;
 
     // BUG 3 FIX: CAGR Revenue — null if start <= 0
     const revCY = data.revenue.current_year;
