@@ -319,7 +319,7 @@ export default function PlanOvoViewer({ data }: { data: any }) {
               label="Multiple EBITDA"
               value={metrics.multiple_ebitda != null ? `${Number(metrics.multiple_ebitda).toFixed(1)}` : '—'}
               unit="x"
-              status={metrics.multiple_ebitda != null && Number(metrics.multiple_ebitda) >= 4 ? 'good' : 'neutral'}
+              status={multipleEbitdaStatus(metrics.multiple_ebitda != null ? Number(metrics.multiple_ebitda) : null)}
               description="Valorisation / EBITDA"
             />
           </div>
