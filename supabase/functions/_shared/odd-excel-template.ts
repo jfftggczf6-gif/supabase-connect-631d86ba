@@ -125,37 +125,25 @@ function getCellValue(
 // Also handles: "7,2 a" → "7.2a", "2.a" → "2.a", "9.b" → "9.b", "11.c" → "11.c"
 
 function normalizeTargetId(id: string): string {
+  // Normalize separators and trim
   const cleaned = id.replace(/,/g, ".").trim().toLowerCase();
 
-  // Pattern: "7.2 a" or "7.2 b" (with space before letter)
-  const spaceLetterMatch = cleaned.match(/^(\d+)\.(\d+)\s+([a-z])$/);
-  if (spaceLetterMatch) {
-    return `${spaceLetterMatch[1]}.${spaceLetterMatch[2]}${spaceLetterMatch[3]}`;
-  }
+  // Handle "7.2 a" → "7.2a" (space before alpha suffix)
+  const spacedAlphaMatch = cleaned.match(/^(\d+\.\d+)\s+([a-z])$/);
+  if (spacedAlphaMatch) return `${spacedAlphaMatch[1]}${spacedAlphaMatch[2]}`;
 
-  // Pattern: "2.a", "9.b", "9.c", "6.a", "11.c" (digit.letter)
-  const digitLetterMatch = cleaned.match(/^(\d+)\.([a-z])$/);
-  if (digitLetterMatch) {
-    return `${digitLetterMatch[1]}.${digitLetterMatch[2]}`;
-  }
+  // Handle "2.a", "9.b" (alpha suffix directly after dot)
+  const alphaMatch = cleaned.match(/^(\d+)\.([a-z])$/);
+  if (alphaMatch) return `${alphaMatch[1]}.${alphaMatch[2]}`;
 
-  // Pattern: pure number (possibly float artifact) — "1.1000000000000001" → "1.1"
+  // Parse as float to normalize Excel float representation:
+  // "1.1000000000000001" → 1.1, "17.16" → 17.16
   const num = parseFloat(cleaned);
-  if (!isNaN(num) && /^\d+\.\d+/.test(cleaned)) {
-    // Round to at most 2 decimal places to fix float artifacts
-    const rounded = Math.round(num * 100) / 100;
-    // Format without trailing zeros but keep at least one decimal
-    const formatted = rounded.toString();
-    return formatted;
+  if (!isNaN(num)) {
+    // toFixed(2) then parseFloat to remove trailing zeros: 1.10 → 1.1, 17.16 → 17.16
+    return String(parseFloat(num.toFixed(2)));
   }
 
-  // Pattern: "17.16", "17.17" — already handled by float path above
-
-  // Fallback
-  const match = cleaned.match(/^(\d+)\.(\d+(?:[a-z])?)/);
-  if (match) {
-    return `${match[1]}.${match[2]}`;
-  }
 
   return cleaned;
 }
@@ -235,24 +223,23 @@ function findTargetRows(
 // Columns: E=info_additionnelle, F=positif(1), G=neutre(1), H=negatif(1), I=besoin_aide(1)
 
 function fillTargetRow(sheetXml: string, cible: Record<string, string>, row: number): string {
-  // Write justification to column K (not E — E contains template guidance text)
-  if (cible.justification || cible.info_additionnelle) {
-    const info = cible.info_additionnelle || cible.justification || "";
-    sheetXml = setCellInXml(sheetXml, `K${row}`, info);
-  }
-
-  // Write optional additional remarks to column L
-  if (cible.remarques || cible.questions) {
-    sheetXml = setCellInXml(sheetXml, `L${row}`, cible.remarques || cible.questions || "");
-  }
-
-  // Evaluation columns F/G/H remain correct
+  // Columns F/G/H: evaluation marker (1 in the matching column)
   if (cible.evaluation === "positif") {
     sheetXml = setCellInXml(sheetXml, `F${row}`, 1);
   } else if (cible.evaluation === "neutre") {
     sheetXml = setCellInXml(sheetXml, `G${row}`, 1);
   } else if (cible.evaluation === "negatif") {
     sheetXml = setCellInXml(sheetXml, `H${row}`, 1);
+  }
+
+  // Column K: justification (main AI explanation)
+  if (cible.justification) {
+    sheetXml = setCellInXml(sheetXml, `K${row}`, cible.justification);
+  }
+
+  // Column L: additional info
+  if (cible.info_additionnelle) {
+    sheetXml = setCellInXml(sheetXml, `L${row}`, cible.info_additionnelle);
   }
 
   return sheetXml;
