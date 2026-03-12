@@ -202,11 +202,18 @@ serve(async (req) => {
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "bailleurs", "secteurs"]);
     const fiscalParams = getFiscalParams(ent.country || "Côte d'Ivoire");
 
+    // Inject centralized financial knowledge (without examples to save context)
+    const countryKey = (ent.country || "Côte d'Ivoire").toLowerCase().replace(/[\s']/g, "_");
+    const sectorKey = (ent.sector || "services_b2b").toLowerCase().replace(/[\s\-\/]/g, "_");
+    const knowledgeBase = getFinancialKnowledgePrompt(countryKey, sectorKey, false);
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", ctx.documentContent, inputsData, bmcData
     ) + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, enrichedPrompt, 16384, OPUS_MODEL);
+    const enrichedSystemPrompt = SYSTEM_PROMPT + "\n\n" + knowledgeBase;
+
+    const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt, 16384, OPUS_MODEL);
     const data = normalizeFramework(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "framework_data", data, "framework");

@@ -15,6 +15,8 @@ RÈGLES D'EXTRACTION:
 4. Tous les montants en FCFA sans séparateurs de milliers dans les champs numériques.
 5. Le score reflète la COMPLÉTUDE des données extraites (100 = toutes les données trouvées).
 
+${getExtractionKnowledgePrompt()}
+
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
 const userPrompt = (name: string, sector: string, country: string, docs: string, bmcData: any) => `
