@@ -793,7 +793,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   // BUG 2 FIX (post-framework): Validate EBITDA >= Net Profit
   const { is: tauxISValidation } = getFiscalParams(country || "Côte d'Ivoire");
   for (const yk of PROJ_KEYS) {
-    if (data.net_profit[yk] > data.ebitda[yk]) {
+    if (data.net_profit[yk] >= data.ebitda[yk]) {
       data.net_profit[yk] = Math.round(data.ebitda[yk] * (1 - tauxISValidation / 100));
       console.warn(`[enforceFramework] net_profit > ebitda for ${yk}, corrected.`);
     }
