@@ -618,37 +618,31 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
-  // ── Back-derive year_minus_1 / year_minus_2 from implied Framework growth rate ──
-  // If AI-generated historical values look wrong, recalculate from current_year
-  if (data.revenue?.current_year > 0 && data.revenue?.year2 > 0) {
-    // Implied annual growth rate from Framework (current_year → year2)
-    const impliedGrowth = (data.revenue.year2 / data.revenue.current_year) - 1;
-    // Cap growth rate to reasonable bounds (5%–60%)
+  // ── BUG 6 FIX: Back-derive historical values with PER-SERIES growth rates ──
+  const seriesForHistory: string[] = ['revenue', 'gross_profit', 'ebitda', 'net_profit', 'cogs', 'cashflow'];
+  for (const seriesKey of seriesForHistory) {
+    const s = data[seriesKey];
+    if (!s || typeof s !== 'object') continue;
+    const cy = toNumber(s.current_year);
+    if (cy <= 0) continue;
+    const y2 = toNumber(s.year2);
+    if (y2 <= 0) continue;
+
+    // Per-series implied growth rate (not uniform across all series)
+    const impliedGrowth = (y2 / cy) - 1;
     const g = Math.min(Math.max(impliedGrowth, 0.05), 0.60);
 
-    const series: Array<[string, string]> = [
-      ['revenue', 'revenue'], ['gross_profit', 'gross_profit'],
-      ['ebitda', 'ebitda'], ['net_profit', 'net_profit'], ['cogs', 'cogs'], ['cashflow', 'cashflow'],
-    ];
+    const ym1Derived = Math.round(cy / (1 + g));
+    const ym2Derived = Math.round(ym1Derived / (1 + g));
 
-    for (const [seriesKey] of series) {
-      const s = data[seriesKey];
-      if (!s || typeof s !== 'object') continue;
-      const cy = toNumber(s.current_year);
-      if (cy <= 0) continue;
+    // Only overwrite if AI value is zero OR deviates more than 25% from derived value
+    const overwriteYm1 = !s.year_minus_1 || s.year_minus_1 <= 0 ||
+      Math.abs(toNumber(s.year_minus_1) - ym1Derived) / ym1Derived > 0.25;
+    const overwriteYm2 = !s.year_minus_2 || s.year_minus_2 <= 0 ||
+      Math.abs(toNumber(s.year_minus_2) - ym2Derived) / ym2Derived > 0.25;
 
-      const ym1Derived = Math.round(cy / (1 + g));
-      const ym2Derived = Math.round(ym1Derived / (1 + g));
-
-      // Only overwrite if AI value is zero OR deviates more than 25% from derived value
-      const overwriteYm1 = !s.year_minus_1 || s.year_minus_1 <= 0 ||
-        Math.abs(toNumber(s.year_minus_1) - ym1Derived) / ym1Derived > 0.25;
-      const overwriteYm2 = !s.year_minus_2 || s.year_minus_2 <= 0 ||
-        Math.abs(toNumber(s.year_minus_2) - ym2Derived) / ym2Derived > 0.25;
-
-      if (overwriteYm1) s.year_minus_1 = ym1Derived;
-      if (overwriteYm2) s.year_minus_2 = ym2Derived;
-    }
+    if (overwriteYm1) s.year_minus_1 = ym1Derived;
+    if (overwriteYm2) s.year_minus_2 = ym2Derived;
   }
 
   const lignes = frameworkData.projection_5ans.lignes;
