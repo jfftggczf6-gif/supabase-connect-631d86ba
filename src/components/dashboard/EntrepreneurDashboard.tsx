@@ -1384,7 +1384,7 @@ export default function EntrepreneurDashboard() {
       </div>
 
       {/* ===== BOTTOM-LEFT GENERATE BUTTON (overlay) ===== */}
-      <div className="fixed bottom-20 left-0 z-50 px-4 flex gap-2">
+      <div className="fixed bottom-4 right-4 z-50 flex gap-2">
         <Button
           size="lg"
           onClick={() => handleGenerate(false)}
