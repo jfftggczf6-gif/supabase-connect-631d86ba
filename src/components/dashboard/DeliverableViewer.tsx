@@ -10,9 +10,10 @@ import { OddViewer as OddViewerComponent } from './OddViewer';
 interface DeliverableViewerProps {
   moduleCode: string;
   data: any;
+  allDeliverables?: any[];
 }
 
-export default function DeliverableViewer({ moduleCode, data }: DeliverableViewerProps) {
+export default function DeliverableViewer({ moduleCode, data, allDeliverables }: DeliverableViewerProps) {
   if (!data || typeof data !== 'object') return null;
 
   switch (moduleCode) {
@@ -20,7 +21,15 @@ export default function DeliverableViewer({ moduleCode, data }: DeliverableViewe
     case 'inputs': return <InputsViewer data={data} />;
     case 'framework': return <FrameworkViewerComponent data={data} />;
     case 'diagnostic': return <DiagnosticViewer data={data} />;
-    case 'plan_ovo': return <PlanOvoViewerComponent data={data} />;
+    case 'plan_ovo': {
+      const frameworkDel = allDeliverables?.find((d: any) => d.type === 'framework_data');
+      const planOvoDel = allDeliverables?.find((d: any) => d.type === 'plan_ovo');
+      const staleness = frameworkDel && planOvoDel ? {
+        frameworkUpdatedAt: frameworkDel.updated_at,
+        planOvoUpdatedAt: planOvoDel.updated_at,
+      } : undefined;
+      return <PlanOvoViewerComponent data={data} staleness={staleness} />;
+    }
     case 'business_plan': return <BusinessPlanViewer data={data} />;
     case 'odd': return <OddViewerComponent data={data} />;
     default: return <GenericJsonViewer data={data} />;
