@@ -309,7 +309,7 @@ Deno.serve(async (req: Request) => {
             }
             if (needsSecondPass) {
               console.log("[generate-ovo-plan] Triggering second scaling pass with Framework-only targets");
-              scaleToFrameworkTargets(financialJson, data.framework_data, undefined);
+              scaleToFrameworkTargets(financialJson, data.framework_data, undefined, data.inputs_data);
             }
           }
         }
