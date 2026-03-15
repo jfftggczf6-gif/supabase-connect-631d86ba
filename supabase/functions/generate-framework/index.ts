@@ -21,7 +21,7 @@ COHÉRENCE CROISÉE:
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide. Tous les montants dans la devise du pays, numériques sans formatage.`;
 
-const userPrompt = (name: string, sector: string, country: string, docs: string, inputsData: any, bmcData: any) => `
+const userPrompt = (name: string, sector: string, country: string, docs: string, inputsData: any, bmcData: any, devise: string) => `
 Réalise l'analyse financière complète (Framework PME) de "${name}" (Secteur: ${sector}, Pays: ${country}).
 
 ${inputsData?.compte_resultat ? `DONNÉES FINANCIÈRES (Module Inputs):\n${JSON.stringify(inputsData, null, 2)}` : "Aucune donnée financière structurée, estime à partir des documents."}
