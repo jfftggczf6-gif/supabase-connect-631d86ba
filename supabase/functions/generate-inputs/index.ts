@@ -19,7 +19,7 @@ ${getExtractionKnowledgePrompt()}
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
-const userPrompt = (name: string, sector: string, country: string, docs: string, bmcData: any) => `
+const userPrompt = (name: string, sector: string, country: string, docs: string, bmcData: any, devise: string) => `
 Extrais les données financières HISTORIQUES de "${name}" (Secteur: ${sector}, Pays: ${country}).
 
 ${bmcData?.canvas ? `DONNÉES BMC (pour contexte):\n${JSON.stringify(bmcData.canvas, null, 2)}` : ""}
@@ -29,7 +29,7 @@ Extrais et retourne ce JSON:
 {
   "score": <0-100 complétude des données extraites>,
   "periode": "<ex: Exercice 2024 ou N/A si pas de documents>",
-  "devise": "FCFA",
+  "devise": "${devise}",
   "fiabilite": "<Élevée|Moyenne|Faible>",
   "source_documents": ["<nom des fichiers analysés>"],
 
