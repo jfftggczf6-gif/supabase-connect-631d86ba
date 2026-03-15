@@ -591,7 +591,7 @@ RÈGLES DE PROJECTION RÉALISTES :
 - Marge brute services : 60-85% selon complexité
 - Staff : effectif réel uniquement, pas de sur-estimation
 - Volumes = entiers (jamais décimaux)
-- Montants = FCFA, arrondir à 1000 FCFA près
+- Montants = ${fp.devise}, arrondir à 1000 ${fp.devise} près
 
 FORMAT CONDENSÉ OBLIGATOIRE :
 - Pour chaque produit/service : donne UNIQUEMENT prix CY, taux COGS, volumes (YM2/YM1/CY), taux de croissance
