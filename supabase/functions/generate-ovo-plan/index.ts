@@ -574,7 +574,7 @@ function buildSystemPrompt(country: string): string {
 Tu génères un plan financier OVO au FORMAT CONDENSÉ pour un entrepreneur.
 
 CONTEXTE FISCAL ${fp.focus.toUpperCase()} (${new Date().getFullYear()}) :
-- Devise : XOF (FCFA) — taux fixe 655.957 XOF/EUR
+- Devise : ${fp.currency_iso} (${fp.devise}) — taux ${fp.exchange_rate_eur} ${fp.currency_iso}/EUR
 - TVA : ${fp.tva}% (${(fp.tva / 100).toFixed(2)})
 ${isRegimeInfo}
 - Cotisations sociales patronales : ${fp.charges_sociales}% du salaire brut (${(fp.charges_sociales / 100).toFixed(4)})
