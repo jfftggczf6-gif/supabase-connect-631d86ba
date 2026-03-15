@@ -88,10 +88,10 @@ serve(async (req) => {
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal"]);
 
     const enrichedPrompt = userPrompt(
-      ent.name, ent.sector || "", ent.country || "", ctx.documentContent, bmcData
+      ent.name, ent.sector || "", ent.country || "", ctx.documentContent, bmcData, fiscalParams.devise
     ) + ragContext + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, enrichedPrompt, 8192);
+    const rawData = await callAI(buildSystemPrompt(fiscalParams.devise), enrichedPrompt, 8192);
     const data = normalizeInputs(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "inputs_data", data, "inputs");
