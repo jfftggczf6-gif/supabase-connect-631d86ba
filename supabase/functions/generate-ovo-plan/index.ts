@@ -1014,6 +1014,12 @@ ${servicesList}
 ${bmcRevenueBlock}
 ${revenueByProductBlock}
 ${inputsDetailBlock}
+${inputsCoutsBlock}
+${inputsEquipeBlock}
+${inputsBfrBlock}
+${inputsCapexBlock}
+${inputsFinBlock}
+${inputsHypBlock}
 ${bilanBlock}
 ${historicalRevenueBlock}
 ${cogsBlock}
