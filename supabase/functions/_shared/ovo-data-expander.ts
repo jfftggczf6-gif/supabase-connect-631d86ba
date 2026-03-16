@@ -302,8 +302,9 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
         totalVolume += getTotalVolume(yr);
       }
       if (totalVolume > 0) {
-        const derivedPrice = Math.round(target / totalVolume / 500) * 500 || 500;
-        console.warn(`[scaleToFramework] ${yearLabel}: all prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit`);
+        const derivedPrice = Math.round(target / totalVolume);
+        const cogsRate = getSectorCogsRate(sector);
+        console.warn(`[scaleToFramework] ${yearLabel}: all prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit (exact), cogsRate=${(cogsRate*100).toFixed(1)}%`);
         for (const item of allItems) {
           if (!item.per_year || !Array.isArray(item.per_year)) continue;
           const yr = item.per_year.find((y: any) => y.year === yearLabel);
@@ -313,7 +314,7 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
             yr.mix_r1 = 1.0;
             yr.mix_r2 = 0;
             yr.mix_r3 = 0;
-            yr.cogs_r1 = Math.round(derivedPrice * 0.35 / 500) * 500;
+            yr.cogs_r1 = Math.round(derivedPrice * cogsRate);
           }
         }
       }
