@@ -158,12 +158,6 @@ export default function PlanOvoViewer({ data, staleness }: { data: any; stalenes
     const nYears = 5;
 
     // AI returns decimals (0.15 = 15%), fallback calcIRR/calcCAGR also return decimals → multiply by 100 for display
-    const rawTri = ai?.tri ?? calcIRR(futureCf, totalInvestment);
-    const rawCagrRev = ai?.cagr_revenue ?? calcCAGR(revSeries[currentIdx], revSeries[7], nYears);
-    const rawCagrEbitda = ai?.cagr_ebitda ?? calcCAGR(ebitdaSeries[currentIdx], ebitdaSeries[7], nYears);
-    const rawRoi = ai?.roi != null
-      ? ai.roi * 100  // AI returns decimal
-      : (totalInvestment > 0 ? (npSeries.slice(3).reduce((a, b) => a + b, 0) / totalInvestment) * 100 : null);
 
     // Guard: DSCR and Multiple EBITDA are meaningless when first projection year EBITDA is negative
     const year2Ebitda = ebitdaSeries[3] ?? 0; // index 3 = year2 (first projection year)

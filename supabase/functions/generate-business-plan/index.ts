@@ -3,7 +3,7 @@ import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, 
 import { syncBusinessPlanWithPlanOvo } from "../_shared/normalizers.ts";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "npm:docx@8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import JSZip from "npm:jszip@3";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 
 const OPUS_MODEL = "claude-sonnet-4-20250514";
 
