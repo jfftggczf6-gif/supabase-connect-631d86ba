@@ -282,13 +282,18 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
       if (openBrackets > closeBrackets || openBraces > closeBraces) {
         console.warn("Truncated JSON detected, attempting deep repair...");
         
+        // Close any open string value first
         const quoteCount = (cleaned.match(/(?<!\\)"/g) || []).length;
         if (quoteCount % 2 !== 0) {
-          cleaned += '"';
+          // Remove the incomplete string value entirely
+          cleaned = cleaned.replace(/"[^"]*$/, '""');
         }
         
+        // Remove trailing incomplete key-value pairs aggressively
         cleaned = cleaned
           .replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, "")
+          .replace(/,\s*"[^"]*"\s*:\s*\[[^\]]*$/, "")
+          .replace(/,\s*"[^"]*"\s*:\s*\{[^}]*$/, "")
           .replace(/,\s*"[^"]*"\s*:\s*$/, "")
           .replace(/,\s*"[^"]*$/, "")
           .replace(/,\s*$/, "");
@@ -307,12 +312,21 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
       } catch (e2: any) {
         console.warn("Deep repair failed, trying progressive trim...");
         let trimmed = cleaned;
-        for (let i = 0; i < 20; i++) {
-          trimmed = trimmed.replace(/,?\s*"[^"]*"?\s*:?\s*[^{}\[\],"]*\s*[}\]]?\s*$/, "");
+        for (let i = 0; i < 50; i++) {
+          // More aggressive trimming patterns
+          trimmed = trimmed
+            .replace(/,?\s*"[^"]*"?\s*:\s*"[^"]*"?\s*$/, "")
+            .replace(/,?\s*"[^"]*"?\s*:\s*\[[^\]]*$/, "")
+            .replace(/,?\s*"[^"]*"?\s*:\s*\{[^}]*$/, "")
+            .replace(/,?\s*"[^"]*"?\s*:\s*[^{}\[\],"]*\s*$/, "")
+            .replace(/,\s*$/, "");
           const ob = (trimmed.match(/{/g) || []).length;
           const cb = (trimmed.match(/}/g) || []).length;
           const oq = (trimmed.match(/\[/g) || []).length;
           const cq = (trimmed.match(/\]/g) || []).length;
+          // Close open strings
+          const qc = (trimmed.match(/(?<!\\)"/g) || []).length;
+          if (qc % 2 !== 0) trimmed = trimmed.replace(/"[^"]*$/, '""');
           let attempt = trimmed;
           for (let j = 0; j < oq - cq; j++) attempt += "]";
           for (let j = 0; j < ob - cb; j++) attempt += "}";
