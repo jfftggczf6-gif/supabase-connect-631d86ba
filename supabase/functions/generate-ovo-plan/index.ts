@@ -732,6 +732,75 @@ function buildUserPrompt(data: EntrepreneurData): string {
       inputsDetailBlock = `\nCOMPTE DE RÉSULTAT DÉTAILLÉ (Inputs financiers — données réelles à respecter) :\n${lines.join('\n')}`;
     }
   }
+
+  // ── Coûts variables/fixes détaillés from Inputs ──
+  let inputsCoutsBlock = "";
+  if (inp.couts_variables && Array.isArray(inp.couts_variables) && inp.couts_variables.length > 0) {
+    inputsCoutsBlock += `\nCOÛTS VARIABLES DÉTAILLÉS (source documents — utiliser pour COGS et charges variables) :\n${inp.couts_variables.map((c: any) => `  - ${c.poste}: ${(c.montant_annuel || c.montant_mensuel * 12 || 0).toLocaleString('fr-FR')} FCFA/an`).join('\n')}`;
+  }
+  if (inp.couts_fixes && Array.isArray(inp.couts_fixes) && inp.couts_fixes.length > 0) {
+    inputsCoutsBlock += `\nCOÛTS FIXES DÉTAILLÉS (source documents — utiliser pour OPEX) :\n${inp.couts_fixes.map((c: any) => `  - ${c.poste}: ${(c.montant_annuel || c.montant_mensuel * 12 || 0).toLocaleString('fr-FR')} FCFA/an`).join('\n')}`;
+  }
+
+  // ── Équipe détaillée from Inputs ──
+  let inputsEquipeBlock = "";
+  if (inp.equipe && Array.isArray(inp.equipe) && inp.equipe.length > 0) {
+    inputsEquipeBlock = `\nÉQUIPE DÉTAILLÉE (source documents — utiliser pour STAFF) :\n${inp.equipe.map((e: any) => `  - ${e.poste}: ${e.nombre} pers., salaire ${(e.salaire_mensuel || 0).toLocaleString('fr-FR')} FCFA/mois, charges sociales ${e.charges_sociales_pct || 0}%`).join('\n')}`;
+  }
+
+  // ── BFR from Inputs ──
+  let inputsBfrBlock = "";
+  if (inp.bfr && typeof inp.bfr === 'object') {
+    const b = inp.bfr;
+    const parts = [];
+    if (b.delai_clients_jours > 0) parts.push(`  DSO clients: ${b.delai_clients_jours} jours`);
+    if (b.delai_fournisseurs_jours > 0) parts.push(`  DPO fournisseurs: ${b.delai_fournisseurs_jours} jours`);
+    if (b.stock_moyen_jours > 0) parts.push(`  Rotation stock: ${b.stock_moyen_jours} jours`);
+    if (b.tresorerie_depart > 0) parts.push(`  Trésorerie de départ: ${b.tresorerie_depart.toLocaleString('fr-FR')} FCFA`);
+    if (parts.length > 0) {
+      inputsBfrBlock = `\nBFR / TRÉSORERIE (source documents — utiliser pour working_capital et opening_cash) :\n${parts.join('\n')}`;
+    }
+  }
+
+  // ── Investissements from Inputs ──
+  let inputsCapexBlock = "";
+  if (inp.investissements && Array.isArray(inp.investissements) && inp.investissements.length > 0) {
+    inputsCapexBlock = `\nINVESTISSEMENTS RÉELS (source documents — utiliser pour CAPEX) :\n${inp.investissements.map((inv: any) => `  - ${inv.nature}: ${(inv.montant || 0).toLocaleString('fr-FR')} FCFA, année ${inv.annee_achat || 'N/A'}, amort. ${inv.duree_amortissement_ans || 'N/A'} ans`).join('\n')}`;
+  }
+
+  // ── Financement from Inputs ──
+  let inputsFinBlock = "";
+  if (inp.financement && typeof inp.financement === 'object') {
+    const fin = inp.financement;
+    const parts = [];
+    if (fin.apports_capital > 0) parts.push(`  Capital: ${fin.apports_capital.toLocaleString('fr-FR')} FCFA`);
+    if (fin.subventions > 0) parts.push(`  Subventions: ${fin.subventions.toLocaleString('fr-FR')} FCFA`);
+    if (fin.prets && Array.isArray(fin.prets) && fin.prets.length > 0) {
+      fin.prets.forEach((p: any) => {
+        parts.push(`  Prêt ${p.source}: ${(p.montant || 0).toLocaleString('fr-FR')} FCFA à ${p.taux_pct}% sur ${p.duree_mois} mois (différé ${p.differe_mois || 0} mois)`);
+      });
+    }
+    if (parts.length > 0) {
+      inputsFinBlock = `\nFINANCEMENT RÉEL (source documents — utiliser pour loans) :\n${parts.join('\n')}`;
+    }
+  }
+
+  // ── Hypothèses de croissance from Inputs ──
+  let inputsHypBlock = "";
+  if (inp.hypotheses_croissance && typeof inp.hypotheses_croissance === 'object') {
+    const hc = inp.hypotheses_croissance;
+    const parts = [];
+    if (hc.objectifs_ca && Array.isArray(hc.objectifs_ca) && hc.objectifs_ca.length > 0) {
+      parts.push(`  Objectifs CA: ${hc.objectifs_ca.map((o: any) => `${o.annee}=${(o.montant || 0).toLocaleString('fr-FR')}`).join(', ')}`);
+    }
+    if (hc.taux_marge_brute_cible > 0) parts.push(`  Marge brute cible: ${hc.taux_marge_brute_cible}%`);
+    if (hc.inflation_annuelle > 0) parts.push(`  Inflation: ${hc.inflation_annuelle}%`);
+    if (hc.croissance_volumes_annuelle > 0) parts.push(`  Croissance volumes: ${hc.croissance_volumes_annuelle}%`);
+    if (parts.length > 0) {
+      inputsHypBlock = `\nHYPOTHÈSES DE CROISSANCE (source documents — ancrer les projections) :\n${parts.join('\n')}`;
+    }
+  }
+
   // Bilan résumé from inputs
   const bilan = inp.bilan || inp.balance_sheet || {};
   let bilanBlock = "";
