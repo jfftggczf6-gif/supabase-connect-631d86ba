@@ -119,7 +119,7 @@ function KpiCard({ label, value, icon }: { label: string; value: string; icon: s
   );
 }
 
-export default function PlanOvoViewer({ data, staleness }: { data: any; staleness?: { frameworkUpdatedAt: any; planOvoUpdatedAt: any } }) {
+export default function PlanOvoViewer({ data, staleness: _staleness }: { data: any; staleness?: { frameworkUpdatedAt: any; planOvoUpdatedAt: any } }) {
   const years = data.years || {};
   const labels = YEAR_KEYS.map(k => yearLabel(k, years));
   const revSeries = getYearSeries(data.revenue);
