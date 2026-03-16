@@ -270,13 +270,14 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
       if (zeroPriceItems.length > 0 && zeroPriceVolume > 0) {
         const remainingTarget = Math.max(0, target - revenueFromPriced);
         if (remainingTarget > 0) {
-          const derivedPrice = Math.round(remainingTarget / zeroPriceVolume / 500) * 500 || 500;
-          console.warn(`[scaleToFramework] ${yearLabel}: ${zeroPriceItems.length} zero-price item(s), deriving price=${derivedPrice} from remaining=${remainingTarget} / vol=${zeroPriceVolume}`);
+          const derivedPrice = Math.round(remainingTarget / zeroPriceVolume);
+          const cogsRate = getSectorCogsRate(sector);
+          console.warn(`[scaleToFramework] ${yearLabel}: ${zeroPriceItems.length} zero-price item(s), deriving price=${derivedPrice} (exact) from remaining=${remainingTarget} / vol=${zeroPriceVolume}, cogsRate=${(cogsRate*100).toFixed(1)}% (sector: ${sector || 'global'})`);
           for (const { yr: zyr } of zeroPriceItems) {
             if (!zyr.unit_price_r1 && !zyr.unit_price_r2 && !zyr.unit_price_r3) {
               zyr.unit_price_r1 = derivedPrice;
               zyr.mix_r1 = 1.0; zyr.mix_r2 = 0; zyr.mix_r3 = 0;
-              zyr.cogs_r1 = Math.round(derivedPrice * 0.35 / 500) * 500;
+              zyr.cogs_r1 = Math.round(derivedPrice * cogsRate);
             }
           }
           // Recompute revenueExcel after price fix
