@@ -957,6 +957,13 @@ ${serviceInstructions}
 5. Scénario : TYPICAL_CASE
 6. CHAQUE produit/service actif DOIT avoir volume_cy > 0
 
+CONTRAINTE CRITIQUE PRIX :
+- CHAQUE produit/service actif DOIT avoir price_cy > 0. Ne JAMAIS laisser price_cy = 0 pour un produit actif.
+- Si le prix exact n'est pas connu, calcule price_cy = CA_produit / volume_cy (déduis-le du CA total et des volumes).
+- Si le CA total et les volumes sont connus : price_cy = CA_total_produit / volume_cy_produit
+- Sinon estime un prix réaliste selon le secteur (ex: briques béton = 200-500 FCFA/unité, services = 5000-50000 FCFA/prestation)
+- Un produit avec price_cy = 0 génère ZÉRO revenu dans l'Excel — c'est une erreur bloquante.
+
 CONTRAINTE CRITIQUE VOLUMES :
 - CHAQUE produit/service actif DOIT avoir des volumes > 0 pour les 8 années (YEAR-2 à YEAR6).
 - Ne JAMAIS laisser les volumes à zéro après l'année courante.
