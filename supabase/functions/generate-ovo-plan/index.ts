@@ -278,11 +278,11 @@ Deno.serve(async (req: Request) => {
     // Align total OPEX with Framework-implied OPEX (Marge Brute - EBITDA)
     alignTotalOpexToFramework(financialJson, data.framework_data);
 
-    // [Removed] enforceFrameworkConstraints block — it modified aggregate fields (revenue, cogs, etc.)
-    // that are never used by buildCellWrites. Its drift detection could trigger a second
-    // scaleToFrameworkTargets pass that disrupted already-aligned product volumes.
-    // All alignments are handled by: scaleToFrameworkTargets, scaleCOGSToFramework,
-    // alignStaffToTarget, alignOpexToPlanOvo, alignTotalOpexToFramework.
+    // ── Final reconciliation: force Excel totals to match plan_ovo exactly ──
+    reconcileWithPlanOvo(financialJson, data.plan_ovo_data);
+
+    // [Removed] enforceFrameworkConstraints block — all alignments handled above
+    // plus final reconciliation ensures Excel ↔ Plan OVO ↔ Framework consistency.
 
     // Bug #7: Sort products/services by slot for consistent ordering
     if (Array.isArray(financialJson.products)) {
