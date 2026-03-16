@@ -1,14 +1,14 @@
 
 
-## Réponse
+## Corriger les 3 erreurs de build
 
-Lovable offre deux options pour tester des modifications sans affecter le projet principal :
+### 1. `supabase/functions/generate-business-plan/index.ts` (ligne 6)
+Remplacer `import JSZip from "npm:jszip@3"` par `import JSZip from "https://esm.sh/jszip@3.10.1"`.
 
-1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
+### 2. `src/components/dashboard/PlanOvoViewer.tsx`
+- **Ligne 122** : Changer la signature de `{ data }: { data: any }` en `{ data, staleness }: { data: any; staleness?: { frameworkUpdatedAt: any; planOvoUpdatedAt: any } }` pour accepter la prop `staleness`.
+- **Lignes 161-166** : Supprimer les 6 lignes des variables inutilisées (`rawTri`, `rawCagrRev`, `rawCagrEbitda`, `rawRoi`).
 
-2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
-
-Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
-
-**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
+### 3. Aucun changement nécessaire sur `DeliverableViewer.tsx`
+Le fix de la signature PlanOvoViewer résout l'erreur TS2322.
 
