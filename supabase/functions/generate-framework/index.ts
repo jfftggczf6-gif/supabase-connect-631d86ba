@@ -305,9 +305,18 @@ serve(async (req) => {
     const sectorKey = (ent.sector || "services_b2b").toLowerCase().replace(/[\s\-\/]/g, "_");
     const knowledgeBase = getFinancialKnowledgePrompt(countryKey, sectorKey, false);
 
+    // Inject real product data from Inputs for anchored projections
+    let produitsContext = '';
+    if (inputsData?.produits_services && Array.isArray(inputsData.produits_services) && inputsData.produits_services.length > 0) {
+      const prodLines = inputsData.produits_services.map((p: any, i: number) =>
+        `  ${i+1}. ${p.nom} (${p.type || 'Produit'}) : prix=${p.prix_unitaire || 0} ${fiscalParams.devise}, coût=${p.cout_unitaire || 0}, marge=${p.marge_pct || 'N/A'}%, unité=${p.unite || 'unité'}, source=${p.source || 'document'}`
+      ).join('\n');
+      produitsContext = `\n\nPRODUITS/SERVICES RÉELS (source documents Inputs — utiliser ces marges pour les projections) :\n${prodLines}\nUtilise ces marges RÉELLES par produit pour calculer la Marge Brute projetée. Ne remplace PAS ces données par des benchmarks sectoriels.`;
+    }
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", ctx.documentContent, inputsData, bmcData, fiscalParams.devise
-    ) + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
+    ) + produitsContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const enrichedSystemPrompt = SYSTEM_PROMPT + "\n\n" + knowledgeBase;
 

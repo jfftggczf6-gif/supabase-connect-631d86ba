@@ -67,6 +67,19 @@ Extrais et retourne ce JSON:
     "employes": <number>
   },
 
+  "produits_services": [
+    {
+      "nom": "<nom exact du produit/service tel que dans le document>",
+      "type": "Produit|Service",
+      "prix_unitaire": <number exact du document, ou 0 si absent>,
+      "cout_unitaire": <number exact du document, ou estimé via marge sectorielle>,
+      "unite": "<unité telle que dans le document (unité, kg, m³, prestation, etc.)>",
+      "marge_pct": <number calculé ou estimé via benchmark sectoriel>,
+      "volume_annuel": <number si disponible dans le document, sinon 0>,
+      "source": "<document|estimé_sectoriel>"
+    }
+  ],
+
   "kpis": {
     "marge_brute_pct": "<xx% ou N/A>",
     "marge_nette_pct": "<xx% ou N/A>",
@@ -75,7 +88,14 @@ Extrais et retourne ce JSON:
 
   "donnees_manquantes": ["<donnée non trouvée dans les documents>"],
   "hypotheses": ["<hypothèse utilisée pour compléter>"]
-}`;
+}
+
+RÈGLES PRODUITS/SERVICES :
+- Extrais CHAQUE produit ou service identifiable dans les documents (tableaux de prix, grilles tarifaires, factures, etc.)
+- Le prix_unitaire DOIT être le prix EXACT du document. Ne l'arrondis PAS.
+- Si le cout_unitaire n'est pas explicite, ESTIME-le à partir de la marge brute sectorielle du pays/secteur (ex: BTP marge 20-35% donc coût = 65-80% du prix). Indique source: "estimé_sectoriel".
+- Si le prix_unitaire n'apparaît PAS dans les documents, mets 0 et ajoute-le à donnees_manquantes. N'invente JAMAIS un prix.
+- Si aucun produit/service n'est identifiable, retourne un tableau vide [].`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

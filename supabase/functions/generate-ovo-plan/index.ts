@@ -157,10 +157,23 @@ Deno.serve(async (req: Request) => {
       const bmcData = getDeliv("bmc_analysis") as any;
       const inputsData = getDeliv("inputs_data") as any;
 
-      // Extract products/services from BMC canvas
+      // Extract products/services — Priority 1: Inputs (real prices from documents)
       const products: EntrepreneurData["products"] = [];
       const services: EntrepreneurData["services"] = [];
-      if (bmcData?.canvas?.proposition_valeur) {
+
+      if (inputsData?.produits_services && Array.isArray(inputsData.produits_services) && inputsData.produits_services.length > 0) {
+        for (const p of inputsData.produits_services) {
+          const target = (p.type || '').toLowerCase() === 'service' ? services : products;
+          target.push({
+            name: p.nom || `Produit`,
+            description: p.nom || '',
+            price: p.prix_unitaire || 0,
+          });
+        }
+        console.log(`[generate-ovo-plan] Loaded ${products.length} products + ${services.length} services from Inputs (real document prices)`);
+      }
+      // Priority 2: BMC canvas (names only, no prices)
+      else if (bmcData?.canvas?.proposition_valeur) {
         const pv = bmcData.canvas.proposition_valeur;
         const items = Array.isArray(pv) ? pv : (pv.items || pv.elements || [pv]);
         items.forEach((item: any, i: number) => {
@@ -251,7 +264,7 @@ Deno.serve(async (req: Request) => {
     validateAndFillVolumes(financialJson);
 
     // Scale volumes to align Excel revenues with Framework/plan_ovo targets
-    scaleToFrameworkTargets(financialJson, data.framework_data, data.plan_ovo_data, data.inputs_data);
+    scaleToFrameworkTargets(financialJson, data.framework_data, data.plan_ovo_data, data.inputs_data, data.sector);
 
     // Scale product COGS to match Framework gross margin (aligns Excel margin with Plan OVO viewer)
     scaleCOGSToFramework(financialJson, data.framework_data);
@@ -318,7 +331,7 @@ Deno.serve(async (req: Request) => {
       const criticalGaps = Object.values(gaps).filter(g => g.ecart > 10);
       if (criticalGaps.length > 0) {
         console.log("[generate-ovo-plan] Critical gaps detected, re-scaling and rebuilding cells...");
-        scaleToFrameworkTargets(financialJson, data.framework_data, undefined, data.inputs_data);
+        scaleToFrameworkTargets(financialJson, data.framework_data, undefined, data.inputs_data, data.sector);
         const correctedWrites = buildCellWrites(financialJson);
         const { verified: v2 } = verifyExcelRevenue(financialJson, data.framework_data);
         if (v2) {
@@ -957,11 +970,11 @@ ${serviceInstructions}
 5. Scénario : TYPICAL_CASE
 6. CHAQUE produit/service actif DOIT avoir volume_cy > 0
 
-CONTRAINTE CRITIQUE PRIX :
-- CHAQUE produit/service actif DOIT avoir price_cy > 0. Ne JAMAIS laisser price_cy = 0 pour un produit actif.
-- Si le prix exact n'est pas connu, calcule price_cy = CA_produit / volume_cy (déduis-le du CA total et des volumes).
-- Si le CA total et les volumes sont connus : price_cy = CA_total_produit / volume_cy_produit
-- Sinon estime un prix réaliste selon le secteur (ex: briques béton = 200-500 FCFA/unité, services = 5000-50000 FCFA/prestation)
+HIÉRARCHIE DES PRIX (OBLIGATOIRE — respecter cet ordre) :
+1. Si un prix réel est fourni par les Inputs (source: documents) → l'utiliser EXACTEMENT tel quel. Ne l'arrondir PAS, ne le modifier PAS.
+2. Si pas de prix réel → estimer via les benchmarks sectoriels du pays/secteur (ex: BTP marge brute 20-35% → coût ≈ 65-80% du prix, restauration 35-50%, etc.)
+3. En dernier recours → dériver mathématiquement : price_cy = CA_total_produit / volume_cy_produit
+4. JAMAIS de valeur fixe arbitraire (pas de "500 FCFA par défaut", pas de prix rond inventé)
 - Un produit avec price_cy = 0 génère ZÉRO revenu dans l'Excel — c'est une erreur bloquante.
 
 CONTRAINTE CRITIQUE VOLUMES :

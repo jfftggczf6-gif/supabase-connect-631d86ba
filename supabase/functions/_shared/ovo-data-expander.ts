@@ -3,6 +3,36 @@
  * for Excel cell injection. Extracted from generate-ovo-plan.
  */
 
+// ── Sector COGS rate helper (replaces hardcoded 0.35) ──
+const SECTOR_MARGIN_RANGES: Record<string, [number, number]> = {
+  restauration: [35, 50], agro_industrie: [30, 50], commerce_alimentaire: [15, 25],
+  services_b2b: [55, 70], imprimerie: [30, 45], energie: [40, 60],
+  tic: [60, 80], sante: [35, 55], btp: [20, 35], agriculture: [25, 45],
+  aviculture: [35, 50], agriculture_rente: [30, 45], commerce_detail: [15, 25],
+  industrie_manufacturiere: [25, 35], services_it: [40, 60],
+};
+
+/**
+ * Returns COGS rate (0-1) based on sector benchmark median gross margin.
+ * Falls back to global PME Africa median (~45% margin → 55% COGS) if sector unknown.
+ */
+export function getSectorCogsRate(sector?: string): number {
+  if (!sector) return 0.55; // global median
+  const key = sector.toLowerCase().replace(/[\s\-\/\']/g, "_");
+  const range = SECTOR_MARGIN_RANGES[key];
+  if (!range) {
+    // Try partial match
+    const partialKey = Object.keys(SECTOR_MARGIN_RANGES).find(k => key.includes(k) || k.includes(key));
+    if (partialKey) {
+      const r = SECTOR_MARGIN_RANGES[partialKey];
+      return 1 - ((r[0] + r[1]) / 2 / 100);
+    }
+    return 0.55; // global median all sectors
+  }
+  const medianMargin = (range[0] + range[1]) / 2 / 100;
+  return 1 - medianMargin;
+}
+
 // ── Common volume helper (Fix #1) ──
 // deno-lint-ignore no-explicit-any
 export function getTotalVolume(yr: any): number {
@@ -128,7 +158,7 @@ export function scaleCOGSToFramework(json: Record<string, any>, frameworkData?: 
 }
 
 // deno-lint-ignore no-explicit-any
-export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData?: Record<string, any>, planOvoData?: Record<string, any>, inputsData?: Record<string, any>): void {
+export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData?: Record<string, any>, planOvoData?: Record<string, any>, inputsData?: Record<string, any>, sector?: string): void {
   const targets: Record<string, number> = {};
   const yearLabels = ["YEAR-2", "YEAR-1", "CURRENT YEAR", "YEAR2", "YEAR3", "YEAR4", "YEAR5", "YEAR6"];
 
@@ -240,13 +270,14 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
       if (zeroPriceItems.length > 0 && zeroPriceVolume > 0) {
         const remainingTarget = Math.max(0, target - revenueFromPriced);
         if (remainingTarget > 0) {
-          const derivedPrice = Math.round(remainingTarget / zeroPriceVolume / 500) * 500 || 500;
-          console.warn(`[scaleToFramework] ${yearLabel}: ${zeroPriceItems.length} zero-price item(s), deriving price=${derivedPrice} from remaining=${remainingTarget} / vol=${zeroPriceVolume}`);
+          const derivedPrice = Math.round(remainingTarget / zeroPriceVolume);
+          const cogsRate = getSectorCogsRate(sector);
+          console.warn(`[scaleToFramework] ${yearLabel}: ${zeroPriceItems.length} zero-price item(s), deriving price=${derivedPrice} (exact) from remaining=${remainingTarget} / vol=${zeroPriceVolume}, cogsRate=${(cogsRate*100).toFixed(1)}% (sector: ${sector || 'global'})`);
           for (const { yr: zyr } of zeroPriceItems) {
             if (!zyr.unit_price_r1 && !zyr.unit_price_r2 && !zyr.unit_price_r3) {
               zyr.unit_price_r1 = derivedPrice;
               zyr.mix_r1 = 1.0; zyr.mix_r2 = 0; zyr.mix_r3 = 0;
-              zyr.cogs_r1 = Math.round(derivedPrice * 0.35 / 500) * 500;
+              zyr.cogs_r1 = Math.round(derivedPrice * cogsRate);
             }
           }
           // Recompute revenueExcel after price fix
@@ -271,8 +302,9 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
         totalVolume += getTotalVolume(yr);
       }
       if (totalVolume > 0) {
-        const derivedPrice = Math.round(target / totalVolume / 500) * 500 || 500;
-        console.warn(`[scaleToFramework] ${yearLabel}: all prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit`);
+        const derivedPrice = Math.round(target / totalVolume);
+        const cogsRate = getSectorCogsRate(sector);
+        console.warn(`[scaleToFramework] ${yearLabel}: all prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit (exact), cogsRate=${(cogsRate*100).toFixed(1)}%`);
         for (const item of allItems) {
           if (!item.per_year || !Array.isArray(item.per_year)) continue;
           const yr = item.per_year.find((y: any) => y.year === yearLabel);
@@ -282,7 +314,7 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
             yr.mix_r1 = 1.0;
             yr.mix_r2 = 0;
             yr.mix_r3 = 0;
-            yr.cogs_r1 = Math.round(derivedPrice * 0.35 / 500) * 500;
+            yr.cogs_r1 = Math.round(derivedPrice * cogsRate);
           }
         }
       }
