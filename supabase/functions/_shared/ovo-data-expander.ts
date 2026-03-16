@@ -214,19 +214,65 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
       revenueExcel += totalVol * price;
     }
 
+    // Per-item price recovery: fix zero-price items even when total revenueExcel > 0.
+    // Handles the case where some products have valid prices but others have price=0
+    // (e.g. Products 01/02 price=0, Product 03 price=2000 → revenueExcel > 0 but
+    // Products 01/02 still need prices derived from the remaining target budget).
+    {
+      const zeroPriceItems: Array<{ yr: any }> = [];
+      let revenueFromPriced = 0;
+      let zeroPriceVolume = 0;
+
+      for (const item of allItems) {
+        if (!item.per_year || !Array.isArray(item.per_year)) continue;
+        const yr = item.per_year.find((y: any) => y.year === yearLabel);
+        if (!yr) continue;
+        const price = getWeightedPrice(yr);
+        const vol = getTotalVolume(yr);
+        if (price === 0 && vol > 0) {
+          zeroPriceItems.push({ yr });
+          zeroPriceVolume += vol;
+        } else if (price > 0) {
+          revenueFromPriced += vol * price;
+        }
+      }
+
+      if (zeroPriceItems.length > 0 && zeroPriceVolume > 0) {
+        const remainingTarget = Math.max(0, target - revenueFromPriced);
+        if (remainingTarget > 0) {
+          const derivedPrice = Math.round(remainingTarget / zeroPriceVolume / 500) * 500 || 500;
+          console.warn(`[scaleToFramework] ${yearLabel}: ${zeroPriceItems.length} zero-price item(s), deriving price=${derivedPrice} from remaining=${remainingTarget} / vol=${zeroPriceVolume}`);
+          for (const { yr: zyr } of zeroPriceItems) {
+            if (!zyr.unit_price_r1 && !zyr.unit_price_r2 && !zyr.unit_price_r3) {
+              zyr.unit_price_r1 = derivedPrice;
+              zyr.mix_r1 = 1.0; zyr.mix_r2 = 0; zyr.mix_r3 = 0;
+              zyr.cogs_r1 = Math.round(derivedPrice * 0.35 / 500) * 500;
+            }
+          }
+          // Recompute revenueExcel after price fix
+          revenueExcel = 0;
+          for (const item of allItems) {
+            if (!item.per_year || !Array.isArray(item.per_year)) continue;
+            const yr = item.per_year.find((y: any) => y.year === yearLabel);
+            if (!yr) continue;
+            revenueExcel += getTotalVolume(yr) * getWeightedPrice(yr);
+          }
+        }
+      }
+    }
+
     if (revenueExcel <= 0) {
-      // Price recovery: all active items have price=0 but volumes + Framework target exist
-      // → derive price = target / total_volume so revenue becomes non-zero
+      // Fallback: ALL items have price=0 — derive one average price across all volumes
       let totalVolume = 0;
       for (const item of allItems) {
         if (!item.per_year || !Array.isArray(item.per_year)) continue;
         const yr = item.per_year.find((y: any) => y.year === yearLabel);
         if (!yr) continue;
-        totalVolume += (yr.volume_q1 || yr.volume_h1 || 0) + (yr.volume_q2 || yr.volume_h2 || 0) + (yr.volume_q3 || 0) + (yr.volume_q4 || 0);
+        totalVolume += getTotalVolume(yr);
       }
       if (totalVolume > 0) {
         const derivedPrice = Math.round(target / totalVolume / 500) * 500 || 500;
-        console.warn(`[scaleToFramework] ${yearLabel}: prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit`);
+        console.warn(`[scaleToFramework] ${yearLabel}: all prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit`);
         for (const item of allItems) {
           if (!item.per_year || !Array.isArray(item.per_year)) continue;
           const yr = item.per_year.find((y: any) => y.year === yearLabel);
