@@ -211,44 +211,60 @@ export async function verifyAndGetContext(req: Request) {
 export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514") {
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-  const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": anthropicApiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      temperature: 0,
-      system: systemPrompt,
-      messages: [
-        { role: "user", content: userPrompt },
-      ],
-    }),
-  });
+  const doCall = async (mt: number): Promise<string> => {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthropicApiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: mt,
+        temperature: 0,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
 
-  if (!aiResponse.ok) {
-    const status = aiResponse.status;
-    if (status === 429) throw { status: 429, message: "Trop de requêtes, réessayez dans quelques instants." };
-    if (status === 402 || status === 400) {
+    if (!aiResponse.ok) {
+      const status = aiResponse.status;
+      if (status === 429) throw { status: 429, message: "Trop de requêtes, réessayez dans quelques instants." };
+      if (status === 402 || status === 400) {
+        const errText = await aiResponse.text();
+        console.error("AI error:", status, errText);
+        throw { status: 402, message: "Erreur API Anthropic: " + errText.substring(0, 200) };
+      }
       const errText = await aiResponse.text();
       console.error("AI error:", status, errText);
-      throw { status: 402, message: "Erreur API Anthropic: " + errText.substring(0, 200) };
+      throw { status: 500, message: "Erreur IA" };
     }
-    const errText = await aiResponse.text();
-    console.error("AI error:", status, errText);
-    throw { status: 500, message: "Erreur IA" };
-  }
 
-  const aiResult = await aiResponse.json();
+    const aiResult = await aiResponse.json();
+    if (aiResult.stop_reason === "max_tokens") {
+      console.warn(`AI response truncated (max_tokens=${mt} reached)`);
+    }
+    return aiResult.content?.[0]?.text || "";
+  };
 
-  if (aiResult.stop_reason === "max_tokens") {
-    console.warn("AI response truncated (max_tokens reached)");
-  }
+  // Attempt 1
+  let content = await doCall(maxTokens);
+  let parsed = tryParseAIJson(content);
+  if (parsed) return parsed;
 
-  const content = aiResult.content?.[0]?.text || "";
+  // If parsing failed, retry once with higher max_tokens
+  console.warn("[callAI] First parse failed, retrying with higher max_tokens...");
+  content = await doCall(Math.min(maxTokens * 2, 65536));
+  parsed = tryParseAIJson(content);
+  if (parsed) return parsed;
+
+  console.error("Failed to parse AI response after retry:", content.substring(0, 500));
+  throw { status: 500, message: "Erreur de parsing IA" };
+}
+
+function tryParseAIJson(content: string): any | null {
+  if (!content) return null;
 
   try {
     let cleaned = content
@@ -259,9 +275,9 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
     const jsonStart = cleaned.search(/[\{\[]/);
     const jsonEnd = cleaned.lastIndexOf(jsonStart !== -1 && cleaned[jsonStart] === '[' ? ']' : '}');
 
-    if (jsonStart === -1 || jsonEnd === -1) {
-      console.error("No JSON found in AI response:", cleaned.substring(0, 300));
-      throw { status: 500, message: "Erreur de parsing IA - pas de JSON détecté" };
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      console.warn("No valid JSON boundaries found in AI response, length:", cleaned.length);
+      return null;
     }
 
     cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
@@ -285,7 +301,6 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
         // Close any open string value first
         const quoteCount = (cleaned.match(/(?<!\\)"/g) || []).length;
         if (quoteCount % 2 !== 0) {
-          // Remove the incomplete string value entirely
           cleaned = cleaned.replace(/"[^"]*$/, '""');
         }
         
@@ -309,11 +324,10 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
 
       try {
         return JSON.parse(cleaned);
-      } catch (e2: any) {
+      } catch {
         console.warn("Deep repair failed, trying progressive trim...");
         let trimmed = cleaned;
         for (let i = 0; i < 50; i++) {
-          // More aggressive trimming patterns
           trimmed = trimmed
             .replace(/,?\s*"[^"]*"?\s*:\s*"[^"]*"?\s*$/, "")
             .replace(/,?\s*"[^"]*"?\s*:\s*\[[^\]]*$/, "")
@@ -324,7 +338,6 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
           const cb = (trimmed.match(/}/g) || []).length;
           const oq = (trimmed.match(/\[/g) || []).length;
           const cq = (trimmed.match(/\]/g) || []).length;
-          // Close open strings
           const qc = (trimmed.match(/(?<!\\)"/g) || []).length;
           if (qc % 2 !== 0) trimmed = trimmed.replace(/"[^"]*$/, '""');
           let attempt = trimmed;
@@ -334,13 +347,12 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
             return JSON.parse(attempt);
           } catch { continue; }
         }
-        throw e2;
+        return null;
       }
     }
   } catch (e: any) {
     if (e.status) throw e;
-    console.error("Failed to parse AI response:", content.substring(0, 500));
-    throw { status: 500, message: "Erreur de parsing IA" };
+    return null;
   }
 }
 
