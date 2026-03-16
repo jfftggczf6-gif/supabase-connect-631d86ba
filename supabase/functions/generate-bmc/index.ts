@@ -117,7 +117,7 @@ serve(async (req) => {
 
     const rawBmcData = await callAI(BMC_SYSTEM_PROMPT, BMC_USER_PROMPT(
       ent.name, ent.sector || "", ent.country || "", ent.city || "", ctx.documentContent
-    ) + ragContext);
+    ) + ragContext, 32768);
 
     // Normalize AI response
     const bmcData = normalizeBmc(rawBmcData);
