@@ -3,6 +3,36 @@
  * for Excel cell injection. Extracted from generate-ovo-plan.
  */
 
+// ── Sector COGS rate helper (replaces hardcoded 0.35) ──
+const SECTOR_MARGIN_RANGES: Record<string, [number, number]> = {
+  restauration: [35, 50], agro_industrie: [30, 50], commerce_alimentaire: [15, 25],
+  services_b2b: [55, 70], imprimerie: [30, 45], energie: [40, 60],
+  tic: [60, 80], sante: [35, 55], btp: [20, 35], agriculture: [25, 45],
+  aviculture: [35, 50], agriculture_rente: [30, 45], commerce_detail: [15, 25],
+  industrie_manufacturiere: [25, 35], services_it: [40, 60],
+};
+
+/**
+ * Returns COGS rate (0-1) based on sector benchmark median gross margin.
+ * Falls back to global PME Africa median (~45% margin → 55% COGS) if sector unknown.
+ */
+export function getSectorCogsRate(sector?: string): number {
+  if (!sector) return 0.55; // global median
+  const key = sector.toLowerCase().replace(/[\s\-\/\']/g, "_");
+  const range = SECTOR_MARGIN_RANGES[key];
+  if (!range) {
+    // Try partial match
+    const partialKey = Object.keys(SECTOR_MARGIN_RANGES).find(k => key.includes(k) || k.includes(key));
+    if (partialKey) {
+      const r = SECTOR_MARGIN_RANGES[partialKey];
+      return 1 - ((r[0] + r[1]) / 2 / 100);
+    }
+    return 0.55; // global median all sectors
+  }
+  const medianMargin = (range[0] + range[1]) / 2 / 100;
+  return 1 - medianMargin;
+}
+
 // ── Common volume helper (Fix #1) ──
 // deno-lint-ignore no-explicit-any
 export function getTotalVolume(yr: any): number {
