@@ -214,7 +214,34 @@ export function scaleToFrameworkTargets(json: Record<string, any>, frameworkData
       revenueExcel += totalVol * price;
     }
 
-    if (revenueExcel <= 0) continue;
+    if (revenueExcel <= 0) {
+      // Price recovery: all active items have price=0 but volumes + Framework target exist
+      // → derive price = target / total_volume so revenue becomes non-zero
+      let totalVolume = 0;
+      for (const item of allItems) {
+        if (!item.per_year || !Array.isArray(item.per_year)) continue;
+        const yr = item.per_year.find((y: any) => y.year === yearLabel);
+        if (!yr) continue;
+        totalVolume += (yr.volume_q1 || yr.volume_h1 || 0) + (yr.volume_q2 || yr.volume_h2 || 0) + (yr.volume_q3 || 0) + (yr.volume_q4 || 0);
+      }
+      if (totalVolume > 0) {
+        const derivedPrice = Math.round(target / totalVolume / 500) * 500 || 500;
+        console.warn(`[scaleToFramework] ${yearLabel}: prices=0, deriving from target=${target} / vol=${totalVolume} → ${derivedPrice} FCFA/unit`);
+        for (const item of allItems) {
+          if (!item.per_year || !Array.isArray(item.per_year)) continue;
+          const yr = item.per_year.find((y: any) => y.year === yearLabel);
+          if (!yr) continue;
+          if (!yr.unit_price_r1 && !yr.unit_price_r2 && !yr.unit_price_r3) {
+            yr.unit_price_r1 = derivedPrice;
+            yr.mix_r1 = 1.0;
+            yr.mix_r2 = 0;
+            yr.mix_r3 = 0;
+            yr.cogs_r1 = Math.round(derivedPrice * 0.35 / 500) * 500;
+          }
+        }
+      }
+      continue;
+    }
 
     const ecart = Math.abs(revenueExcel - target) / target;
     if (ecart <= 0.05) continue;
