@@ -1010,6 +1010,22 @@ export default function CoachDashboard() {
                 Documents supplémentaires
                 {suppUploads.length > 0 && <span className="text-[10px]">({suppUploads.length})</span>}
               </button>
+              {suppUploads.length > 0 && (
+                <div className="mx-4 mb-2 space-y-1">
+                  {suppUploads.map((u: any) => (
+                    <div key={u.id} className="flex items-center gap-1.5 px-2 py-1 group/file">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-none" />
+                      <span className="text-xs text-muted-foreground truncate font-medium flex-1">{u.filename}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveUpload(u.id, u.storage_path); }}
+                        className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex-1" />
             </div>
 
