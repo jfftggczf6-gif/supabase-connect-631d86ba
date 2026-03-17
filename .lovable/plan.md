@@ -1,14 +1,34 @@
 
 
-## Réponse
+## Donner l'accès super_admin à emmanuelyace@gmail.com
 
-Lovable offre deux options pour tester des modifications sans affecter le projet principal :
+### Contexte
+Le compte est créé (`user_id: 908888d9-47f1-4d74-982b-b7243525f451`). Il faut :
+1. Insérer une entrée dans `user_roles` avec le rôle `super_admin`
+2. Créer son profil dans `profiles` (la table est vide — le trigger `handle_new_user` n'est pas attaché)
 
-1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
+### Actions
 
-2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
+**Migration SQL** :
+```sql
+-- 1. Ajouter le rôle super_admin
+INSERT INTO public.user_roles (user_id, role)
+VALUES ('908888d9-47f1-4d74-982b-b7243525f451', 'super_admin')
+ON CONFLICT (user_id, role) DO NOTHING;
 
-Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
+-- 2. Créer le profil s'il n'existe pas
+INSERT INTO public.profiles (user_id, email, full_name)
+VALUES ('908888d9-47f1-4d74-982b-b7243525f451', 'emmanuelyace@gmail.com', 'Emmanuel Yace')
+ON CONFLICT (user_id) DO NOTHING;
+```
 
-**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
+**Bonus** : Rattacher le trigger `handle_new_user` à `auth.users` pour que les futurs comptes aient automatiquement leur profil créé (actuellement le trigger n'est pas attaché, ce qui explique la table `profiles` vide).
+
+```sql
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+Aucune modification de code nécessaire.
 
