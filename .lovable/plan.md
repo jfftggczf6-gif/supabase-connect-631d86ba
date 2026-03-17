@@ -1,14 +1,29 @@
 
 
-## Réponse
+## Fix: Plan Financier Final HTML incomplet
 
-Lovable offre deux options pour tester des modifications sans affecter le projet principal :
+### Problème
+La fonction `planOvoHTML` (ligne 1011-1111 de `download-deliverable/index.ts`) s'arrête après les sections Staff/Effectifs. Les données suivantes existent en base mais ne sont jamais rendues en HTML :
 
-1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
+- **Scenarios** (pessimiste, réaliste, optimiste) avec VAN, TRI, revenue Year 5
+- **Key assumptions** (7 hypothèses de croissance)
+- **Recommandations** (7 recommandations stratégiques)
+- **Products** (3 produits avec canaux et gammes)
+- **Funding need** (40M FCFA) et **Break-even year** (2025)
 
-2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
+### Modification — `supabase/functions/download-deliverable/index.ts`
 
-Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
+**Avant la ligne `return htmlShell(...)` (ligne 1110)**, ajouter 5 nouvelles sections HTML :
 
-**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
+1. **Scénarios** — Tableau comparatif pessimiste/réaliste/optimiste avec colonnes : Hypothèses, CA Year 5, EBITDA %, Résultat net Year 5, VAN, TRI
+
+2. **Produits & Services** — Tableau avec nom, gamme, canal pour chaque produit/service
+
+3. **Besoin de financement & Seuil de rentabilité** — Deux métriques côte à côte (funding_need formaté + break_even_year)
+
+4. **Hypothèses clés** — Liste à puces des key_assumptions
+
+5. **Recommandations** — Liste à puces des recommandations avec icône flèche
+
+Cela complète le rendu HTML pour qu'il corresponde à la totalité des données générées par le pipeline.
 
