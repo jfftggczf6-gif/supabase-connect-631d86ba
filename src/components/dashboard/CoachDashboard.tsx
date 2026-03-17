@@ -153,6 +153,12 @@ export default function CoachDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Compute mirror pipeline state when selected enterprise changes
+  useEffect(() => {
+    if (!selectedEnt) return;
+    getPipelineState(selectedEnt.id).then(setMirrorPipelineState);
+  }, [selectedEnt?.id, selectedEnt?.updated_at, deliverablesMap[selectedEnt?.id || '']?.length]);
+
   // ─── KPIs ─────────────────────────────────────────────────────────────────
 
   const totalEntreprises = enterprises.length;
