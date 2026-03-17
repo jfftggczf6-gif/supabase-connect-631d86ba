@@ -217,6 +217,12 @@ ${dataContext}`;
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: "Crédits IA insuffisants. Veuillez recharger vos crédits dans les paramètres de votre workspace Lovable (Settings → Workspace → Usage)." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ error: "Erreur IA: " + errText.substring(0, 200) }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
