@@ -278,10 +278,68 @@ export default function CoachDashboard() {
 
       toast.success(`${file.name} uploadé`);
       await fetchData();
+
+      // Trigger enterprise info extraction in background (best-effort)
+      const ent = enterprises.find(e => e.id === enterpriseId);
+      const entDelivs = deliverablesMap[enterpriseId] || [];
+      if (entDelivs.length === 0) {
+        extractEnterpriseInfoCoach(enterpriseId, ent || null);
+      }
     } catch (err: any) {
       toast.error(err.message || "Erreur d'upload");
     } finally {
       setUploadingCategory(null);
+    }
+  };
+
+  const extractEnterpriseInfoCoach = async (enterpriseId: string, ent: Enterprise | null) => {
+    try {
+      setExtractingEntId(enterpriseId);
+      const token = await getValidAccessToken(authSession);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-enterprise-info`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterpriseId }),
+        }
+      );
+      if (!response.ok) return;
+      const info = await response.json();
+      if (info.name || info.country || info.sector) {
+        const differs = (info.name && info.name !== ent?.name) ||
+          (info.country && info.country !== ent?.country) ||
+          (info.sector && info.sector !== ent?.sector);
+        if (differs) {
+          setExtractedInfo(info);
+          setShowExtractDialog(true);
+        }
+      }
+    } catch {
+      // best-effort, silent
+    } finally {
+      setExtractingEntId(null);
+    }
+  };
+
+  const handleConfirmExtraction = async () => {
+    if (!selectedEnt || !extractedInfo) return;
+    setSavingExtraction(true);
+    try {
+      const updates: Record<string, string> = {};
+      if (extractedInfo.name) updates.name = extractedInfo.name;
+      if (extractedInfo.country) updates.country = extractedInfo.country;
+      if (extractedInfo.sector) updates.sector = extractedInfo.sector;
+      const { error } = await supabase.from('enterprises').update(updates).eq('id', selectedEnt.id);
+      if (error) throw error;
+      toast.success('Informations mises à jour !');
+      setShowExtractDialog(false);
+      setExtractedInfo(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSavingExtraction(false);
     }
   };
 
