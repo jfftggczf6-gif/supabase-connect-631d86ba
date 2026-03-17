@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
 import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw } from 'lucide-react';
+import CoachesTab from './CoachesTab';
 
 interface Profile {
   user_id: string;
@@ -44,6 +45,17 @@ interface Deliverable {
   type: string;
   created_at: string;
   generated_by: string | null;
+  coach_id?: string | null;
+  visibility?: string | null;
+}
+
+interface CoachUpload {
+  id: string;
+  coach_id: string;
+  enterprise_id: string;
+  filename: string;
+  category: string;
+  created_at: string;
 }
 
 export default function SuperAdminDashboard() {
@@ -51,22 +63,25 @@ export default function SuperAdminDashboard() {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [coachUploads, setCoachUploads] = useState<CoachUpload[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchUsers, setSearchUsers] = useState('');
   const [searchEnterprises, setSearchEnterprises] = useState('');
 
   const fetchAll = async () => {
     setLoading(true);
-    const [pRes, rRes, eRes, dRes] = await Promise.all([
+    const [pRes, rRes, eRes, dRes, cuRes] = await Promise.all([
       supabase.from('profiles').select('user_id, full_name, email, created_at'),
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('enterprises').select('id, name, user_id, coach_id, sector, country, phase, score_ir, last_activity, contact_email, created_at'),
-      supabase.from('deliverables').select('id, enterprise_id, type, created_at, generated_by').order('created_at', { ascending: false }).limit(200),
+      supabase.from('deliverables').select('id, enterprise_id, type, created_at, generated_by, coach_id, visibility').order('created_at', { ascending: false }).limit(500),
+      supabase.from('coach_uploads').select('id, coach_id, enterprise_id, filename, category, created_at').order('created_at', { ascending: false }).limit(500),
     ]);
     if (pRes.data) setProfiles(pRes.data);
     if (rRes.data) setRoles(rRes.data);
     if (eRes.data) setEnterprises(eRes.data);
     if (dRes.data) setDeliverables(dRes.data);
+    if (cuRes.data) setCoachUploads(cuRes.data as CoachUpload[]);
     setLoading(false);
   };
 
@@ -190,6 +205,7 @@ export default function SuperAdminDashboard() {
       <Tabs defaultValue="users">
         <TabsList className="mb-4">
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+          <TabsTrigger value="coaches">Coaches</TabsTrigger>
           <TabsTrigger value="enterprises">Entreprises</TabsTrigger>
           <TabsTrigger value="activity">Activité récente</TabsTrigger>
         </TabsList>
@@ -239,6 +255,17 @@ export default function SuperAdminDashboard() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* COACHES TAB */}
+        <TabsContent value="coaches">
+          <CoachesTab
+            coaches={coaches}
+            enterprises={enterprises}
+            deliverables={deliverables}
+            coachUploads={coachUploads}
+            enterpriseMap={enterpriseMap}
+          />
         </TabsContent>
 
         {/* ENTERPRISES TAB */}
