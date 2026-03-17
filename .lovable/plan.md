@@ -1,14 +1,17 @@
 
 
-## Réponse
+## Le rapport est tronqué à cause de `max_tokens: 8192`
 
-Lovable offre deux options pour tester des modifications sans affecter le projet principal :
+### Diagnostic
+Le rapport HTML complet avec 12 sections narratives en français dépasse largement 8192 tokens. Claude s'arrête net quand la limite est atteinte, d'où le texte coupé au milieu d'une phrase. Ce n'est pas un problème d'affichage preview vs téléchargement — le contenu est identique, il est simplement incomplet.
 
-1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
+### Solution
+Augmenter `max_tokens` dans l'appel Anthropic pour permettre la génération complète du rapport.
 
-2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
+**Fichier : `supabase/functions/generate-coach-report/index.ts`**
 
-Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
+- Passer `max_tokens` de `8192` à `16384` (Claude Sonnet 4 supporte jusqu'à 64K tokens en sortie)
+- Le timeout de 120s est déjà en place, ce qui devrait suffire pour cette taille
 
-**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
+Modification minime : une seule ligne à changer.
 
