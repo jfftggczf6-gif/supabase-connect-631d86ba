@@ -30,6 +30,24 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
 
   return (
     <div className="space-y-4">
+      {/* Estimation Banner */}
+      {data.estimation_sectorielle && (
+        <Card className="border-amber-400/50 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="py-3">
+            <div className="flex items-start gap-2">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Projections indicatives</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                  Ces projections sont basées sur les benchmarks sectoriels et les informations du BMC/SIC. 
+                  Elles ne reposent pas sur des données financières réelles. 
+                  <strong> Uploadez le template Analyse Financière Excel</strong> pour obtenir des projections basées sur vos données comptables.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Score Header */}
       <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
         <CardContent className="py-5">

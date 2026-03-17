@@ -291,9 +291,10 @@ serve(async (req) => {
     const bmcData = ctx.deliverableMap["bmc_analysis"] || ctx.moduleMap["bmc"] || null;
 
     // Warning: check if Inputs data contains real historical financials
+    const isEstimation = inputsData?.estimation_sectorielle === true;
     const hasRealInputs = inputsData?.compte_resultat?.chiffre_affaires && inputsData.compte_resultat.chiffre_affaires > 0;
     if (!hasRealInputs) {
-      console.warn("[generate-framework] WARNING: Inputs data is empty or missing compte_resultat. Projections will not be anchored to real historical data. Generate Inputs module first for accurate results.");
+      console.warn("[generate-framework] WARNING: Inputs data is empty or missing compte_resultat. Projections will not be anchored to real historical data.");
     }
 
     // RAG: enrichir avec benchmarks sectoriels et données fiscales
@@ -401,14 +402,26 @@ serve(async (req) => {
       equipeContext = `\n\nÉQUIPE DÉTAILLÉE (source documents) :\n${inputsData.equipe.map((e: any) => `  - ${e.poste}: ${e.nombre} personne(s), salaire ${e.salaire_mensuel || 'N/A'} ${fiscalParams.devise}/mois`).join('\n')}`;
     }
 
+    // Add estimation warning if inputs are sectoral estimates
+    const estimationWarning = isEstimation
+      ? `\n\n⚠️ ATTENTION — MODE ESTIMATION SECTORIELLE ⚠️\nLes données d'entrée (Inputs) sont des ESTIMATIONS SECTORIELLES, PAS des données financières réelles. Les projections que tu génères doivent être marquées comme INDICATIVES. Utilise les benchmarks sectoriels mais précise clairement que ces chiffres sont des estimations. Ajoute "estimation_sectorielle: true" dans ta réponse JSON et mentionne dans les hypothèses que les projections sont basées sur des estimations sectorielles.\n`
+      : '';
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", ctx.documentContent, inputsData, bmcData, fiscalParams.devise
-    ) + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
+    ) + estimationWarning + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const enrichedSystemPrompt = SYSTEM_PROMPT + "\n\n" + knowledgeBase;
 
     const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt, 16384, OPUS_MODEL);
     const data = normalizeFramework(rawData);
+    
+    // Propagate estimation flag
+    if (isEstimation) {
+      data.estimation_sectorielle = true;
+      if (!data.hypotheses) data.hypotheses = [];
+      data.hypotheses.unshift("⚠️ Projections indicatives — basées sur des estimations sectorielles, pas sur des données financières réelles.");
+    }
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "framework_data", data, "framework");
 

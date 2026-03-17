@@ -219,6 +219,23 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
 
   return (
     <div className="space-y-5">
+      {/* Estimation Banner */}
+      {data.estimation_sectorielle && (
+        <Card className="border-amber-400/50 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="py-3">
+            <div className="flex items-start gap-2">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Projections indicatives</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                  Ce plan financier est basé sur des estimations sectorielles et les informations du BMC/SIC. 
+                  <strong> Uploadez le template Analyse Financière Excel</strong> pour un plan financier basé sur vos données comptables réelles.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

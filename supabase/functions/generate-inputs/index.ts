@@ -327,12 +327,61 @@ serve(async (req) => {
     );
 
     if (!financialDetected) {
-      console.log("generate-inputs: No financial documents detected — returning empty skeleton");
-      const emptyData = buildEmptyInputs(
-        ent.name, ent.sector || "", ent.country || "", fiscalParams.devise
-      );
-      await saveDeliverable(ctx.supabase, ctx.enterprise_id, "inputs_data", emptyData, "inputs");
-      return jsonResponse({ success: true, data: emptyData, score: 0 });
+      console.log("generate-inputs: No financial documents detected — switching to sectoral estimation mode");
+      
+      // Build estimation prompt using BMC/SIC + sector benchmarks
+      const sicData = ctx.deliverableMap["sic_analysis"] || {};
+      const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteurs"]);
+      
+      const estimationSystemPrompt = `Tu es un analyste financier expert spécialisé PME africaines.
+MISSION: Estimer des données financières INDICATIVES à partir du secteur d'activité, du pays, et des informations du Business Model Canvas et Social Impact Canvas.
+
+ATTENTION CRITIQUE: Tu n'as PAS de documents financiers réels. Toutes les valeurs que tu produis sont des ESTIMATIONS SECTORIELLES basées sur les benchmarks du secteur "${ent.sector || 'services'}" en ${ent.country || "Côte d'Ivoire"}.
+
+RÈGLES:
+1. Base tes estimations UNIQUEMENT sur les benchmarks sectoriels connus pour le pays et le secteur.
+2. Utilise les informations du BMC (proposition de valeur, segments clients, canaux, sources de revenus) pour affiner les estimations.
+3. Les montants doivent être réalistes pour une PME du secteur dans ce pays.
+4. Mets fiabilite = "Indicative — estimation sectorielle" et estimation_sectorielle = true.
+5. Le score DOIT être entre 10 et 20 (reflète l'absence de données réelles).
+6. Ajoute dans donnees_manquantes: "Aucun document financier réel — estimations basées sur benchmarks sectoriels"
+7. Ajoute dans hypotheses les benchmarks utilisés pour chaque estimation.
+
+${getExtractionKnowledgePrompt()}
+
+IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
+
+      const estimationUserPrompt = `Estime les données financières INDICATIVES pour "${ent.name}" (Secteur: ${ent.sector || 'N/A'}, Pays: ${ent.country || "Côte d'Ivoire"}).
+
+${bmcData?.canvas ? `DONNÉES BMC (pour calibrer les estimations):\n${JSON.stringify(bmcData.canvas, null, 2)}` : ""}
+${sicData?.canvas ? `DONNÉES SIC (pour contexte impact):\n${JSON.stringify(sicData.canvas, null, 2)}` : ""}
+${ragContext}
+
+PARAMÈTRES FISCAUX: ${JSON.stringify(fiscalParams)}
+
+Génère le même format JSON que pour une extraction réelle, mais avec:
+- estimation_sectorielle: true
+- fiabilite: "Indicative — estimation sectorielle"  
+- score: 15
+- Toutes les valeurs basées sur les benchmarks sectoriels du pays
+- donnees_manquantes incluant "Aucun document financier réel — estimations basées sur benchmarks sectoriels. Uploadez le template Analyse Financière Excel pour des données précises."
+
+${userPrompt(ent.name, ent.sector || "", ent.country || "", "", bmcData, fiscalParams.devise)}`;
+
+      const rawEstimation = await callAI(estimationSystemPrompt, estimationUserPrompt, 16384);
+      const estimationData = normalizeInputs(rawEstimation);
+      
+      // Force estimation flags
+      estimationData.estimation_sectorielle = true;
+      estimationData.fiabilite = "Indicative — estimation sectorielle";
+      estimationData.score = Math.min(estimationData.score || 15, 20); // Cap at 20
+      if (!estimationData.donnees_manquantes) estimationData.donnees_manquantes = [];
+      if (!estimationData.donnees_manquantes.includes("Aucun document financier réel — estimations basées sur benchmarks sectoriels")) {
+        estimationData.donnees_manquantes.unshift("Aucun document financier réel — estimations basées sur benchmarks sectoriels. Uploadez le template Analyse Financière Excel pour des données précises.");
+      }
+      
+      await saveDeliverable(ctx.supabase, ctx.enterprise_id, "inputs_data", estimationData, "inputs");
+      return jsonResponse({ success: true, data: estimationData, score: estimationData.score, estimation_sectorielle: true });
     }
 
     // ── Financial docs found — proceed with AI extraction ──

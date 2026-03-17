@@ -108,6 +108,21 @@ export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) 
 
   return (
     <div className="space-y-4">
+      {/* Estimation Banner */}
+      {bp.estimation_sectorielle && (
+        <div className="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <span className="text-lg">⚠️</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Projections financières indicatives</p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                Les données financières de ce Business Plan sont basées sur des estimations sectorielles. 
+                <strong> Uploadez le template Analyse Financière Excel</strong> pour un Business Plan avec des données comptables réelles.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div>
         <h2 className="text-xl font-display font-bold text-primary">{bp.company_name || "Business Plan"}</h2>

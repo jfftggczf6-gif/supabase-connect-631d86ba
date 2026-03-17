@@ -216,12 +216,18 @@ serve(async (req) => {
       plan_ovo: ctx.deliverableMap["plan_ovo"] || {},
     };
 
+    const isEstimation = allData.inputs?.estimation_sectorielle === true || allData.framework?.estimation_sectorielle === true;
+
     // RAG: enrichir avec benchmarks et fiscal
     const ragContext = await buildRAGContext(ctx.supabase, country, ent.sector || "", ["benchmarks", "fiscal", "bailleurs"]);
 
+    const estimationWarning = isEstimation
+      ? `\n\n⚠️ ATTENTION — MODE ESTIMATION SECTORIELLE ⚠️\nLes données d'entrée sont des ESTIMATIONS SECTORIELLES, pas des données financières réelles. Toutes les projections doivent être considérées comme INDICATIVES. Base-toi sur les benchmarks sectoriels et le BMC/SIC. Ajoute "estimation_sectorielle: true" dans le JSON.\n`
+      : '';
+
     const rawData = await callAI(buildSystemPrompt(country, ent.sector || ""), buildUserPrompt(
       ent.name, ent.sector || "", country, ctx.documentContent, allData, ctx.baseYear
-    ) + ragContext);
+    ) + estimationWarning + ragContext);
     
     // Normalize: fix years, ensure consistency, fill gaps
     let data = normalizePlanOvo(rawData);
@@ -229,6 +235,13 @@ serve(async (req) => {
     // Enforce Framework constraints: overwrite projections with exact Framework values
     const frameworkData = allData.framework;
     data = enforceFrameworkConstraints(data, frameworkData, allData.inputs, country);
+
+    // Propagate estimation flag
+    if (isEstimation) {
+      data.estimation_sectorielle = true;
+      if (!data.key_assumptions) data.key_assumptions = [];
+      data.key_assumptions.unshift("⚠️ Projections indicatives — basées sur des estimations sectorielles, pas sur des données financières réelles.");
+    }
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "plan_ovo", data, "plan_ovo");
 
