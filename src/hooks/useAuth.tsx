@@ -116,9 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setRole = async (newRole: AppRole) => {
     if (!user) throw new Error('Not authenticated');
-    const { error } = await supabase.from('user_roles').upsert(
-      { user_id: user.id, role: newRole },
-      { onConflict: 'user_id,role' }
+    // Remove existing coach/entrepreneur roles before inserting the new one
+    // (keep super_admin if it exists)
+    await supabase.from('user_roles')
+      .delete()
+      .eq('user_id', user.id)
+      .in('role', ['coach', 'entrepreneur']);
+    const { error } = await supabase.from('user_roles').insert(
+      { user_id: user.id, role: newRole }
     );
     if (error) throw error;
     setRoleState(newRole);
