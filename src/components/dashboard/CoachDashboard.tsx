@@ -878,8 +878,6 @@ export default function CoachDashboard() {
                       </div>
                     )}
                   </div>
-                  <input ref={bmcInputRef} type="file" accept=".docx,.doc,.pdf" className="hidden"
-                    onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0], 'bmc_sic', ent.id); e.target.value = ''; }} />
                 </CardContent>
               </Card>
 
