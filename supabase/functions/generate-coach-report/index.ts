@@ -187,24 +187,24 @@ ${dataContext}`;
 
     console.log("Generating coach report for enterprise:", ent.name);
 
-    // Call Claude Sonnet via callAI
-    // We need raw HTML, not JSON, so we'll use a special approach
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+    // Call Lovable AI Gateway (OpenAI-compatible) with a fast model
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
 
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": anthropicApiKey,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${lovableApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "google/gemini-2.5-flash",
         max_tokens: 8192,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
       }),
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(50000),
     });
 
     if (!aiResponse.ok) {
@@ -224,7 +224,7 @@ ${dataContext}`;
     }
 
     const aiResult = await aiResponse.json();
-    let htmlContent = aiResult.content?.[0]?.text || "";
+    let htmlContent = aiResult.choices?.[0]?.message?.content || "";
 
     // Clean up any markdown wrappers
     htmlContent = htmlContent
