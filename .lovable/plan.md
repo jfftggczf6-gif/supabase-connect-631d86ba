@@ -1,14 +1,21 @@
 
 
-## Réponse
+## Repasser le rapport coach sur Anthropic avec timeout augmenté
 
-Lovable offre deux options pour tester des modifications sans affecter le projet principal :
+### Problème
+La fonction `generate-coach-report` utilise actuellement le Lovable AI Gateway (Gemini 2.5 Flash) qui retourne une erreur 402 (crédits insuffisants). L'utilisateur souhaite revenir sur l'API Anthropic directe (clé `ANTHROPIC_API_KEY` déjà configurée) et augmenter le timeout.
 
-1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
+### Modifications
 
-2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
+**Fichier : `supabase/functions/generate-coach-report/index.ts`** (lignes 190-230)
 
-Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
+Remplacer l'appel Lovable AI Gateway par un appel direct à `https://api.anthropic.com/v1/messages` :
+- Modèle : `claude-sonnet-4-20250514` (cohérent avec la stratégie existante)
+- `max_tokens: 8192`
+- Timeout : `AbortSignal.timeout(120000)` (120 secondes au lieu de 50)
+- Headers Anthropic : `x-api-key`, `anthropic-version: 2023-06-01`
+- Adapter le parsing de la réponse au format Anthropic (`content[0].text` au lieu de `choices[0].message.content`)
+- Conserver la gestion d'erreurs 429/402 existante
 
-**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
+Aucune autre modification nécessaire — la clé `ANTHROPIC_API_KEY` est déjà en place dans les secrets.
 
