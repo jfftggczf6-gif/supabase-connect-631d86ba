@@ -1010,6 +1010,22 @@ export default function CoachDashboard() {
                 Documents supplémentaires
                 {suppUploads.length > 0 && <span className="text-[10px]">({suppUploads.length})</span>}
               </button>
+              {suppUploads.length > 0 && (
+                <div className="mx-4 mb-2 space-y-1">
+                  {suppUploads.map((u: any) => (
+                    <div key={u.id} className="flex items-center gap-1.5 px-2 py-1 group/file">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-none" />
+                      <span className="text-xs text-muted-foreground truncate font-medium flex-1">{u.filename}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveUpload(u.id, u.storage_path); }}
+                        className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex-1" />
             </div>
 
@@ -1507,15 +1523,32 @@ export default function CoachDashboard() {
             </div>
 
             {/* Documents supplémentaires */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => suppInputRef.current?.click()}
-                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border border-dashed border-muted hover:border-primary/50 rounded-lg px-3 py-2 transition-all"
-              >
-                <Plus className="h-3.5 w-3.5" /> Documents supplémentaires
-              </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => suppInputRef.current?.click()}
+                  className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border border-dashed border-muted hover:border-primary/50 rounded-lg px-3 py-2 transition-all"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Documents supplémentaires
+                </button>
+                {uploadsByCategory.supplementary.length > 0 && (
+                  <span className="text-xs text-muted-foreground">{uploadsByCategory.supplementary.length} doc(s)</span>
+                )}
+              </div>
               {uploadsByCategory.supplementary.length > 0 && (
-                <span className="text-xs text-muted-foreground">{uploadsByCategory.supplementary.length} doc(s)</span>
+                <div className="space-y-1 pl-1">
+                  {uploadsByCategory.supplementary.map((u: any) => (
+                    <div key={u.id} className="flex items-center gap-2 p-1.5 rounded-lg group/file hover:bg-muted/50">
+                      <span className="text-xs text-muted-foreground truncate font-medium flex-1">{u.filename}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveUpload(u.id, u.storage_path); }}
+                        className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 

@@ -1,23 +1,14 @@
 
 
-## Afficher et gérer les documents supplémentaires uploadés
+## Réponse
 
-### Problème actuel
-L'upload multiple fonctionne déjà techniquement (attribut `multiple` présent). Mais les fichiers supplémentaires ne sont **jamais listés** dans l'UI après upload — ils sont mélangés avec les fichiers doc/fin dans le stockage sans distinction visuelle.
+Lovable offre deux options pour tester des modifications sans affecter le projet principal :
 
-### Modifications
+1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
 
-**1. `EntrepreneurDashboard.tsx`** — Ajouter une section de liste sous le bouton "Documents supplémentaires"
-- Créer une 3e catégorie `extraFiles` : fichiers qui ne matchent ni doc (`.docx, .doc, .pdf, .txt`) ni fin (`.xlsx, .xls, .csv`) — ou bien tous les fichiers au-delà de ceux déjà listés dans doc/fin.
-- Afficher chaque fichier supplémentaire avec nom, taille, et bouton supprimer (même pattern que les listes BMC/Inputs existantes).
-- Afficher un compteur `({extraFiles.length})` à côté du bouton.
+2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
 
-**2. `CoachDashboard.tsx`** — Même traitement pour les deux vues (volet réduit et volet étendu)
-- Les fichiers `supplementary` sont déjà catégorisés via `coach_uploads`. Ajouter un `.map()` pour lister chaque fichier avec nom et bouton supprimer.
-- Les deux endroits (ligne ~1004 et ligne ~1509) doivent afficher la liste des `suppUploads`.
+Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
 
-### Résultat attendu
-- Upload multiple : déjà fonctionnel, inchangé.
-- Après upload : les fichiers supplémentaires apparaissent listés avec nom + icône supprimer.
-- Suppression individuelle possible.
+**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
 

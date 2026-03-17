@@ -753,6 +753,8 @@ export default function EntrepreneurDashboard() {
   // Classify uploaded files
   const docFiles = uploadedFiles.filter(f => /\.(docx?|pdf|txt)$/i.test(f.name));
   const finFiles = uploadedFiles.filter(f => /\.(xlsx?|csv)$/i.test(f.name));
+  const knownFiles = new Set([...docFiles.map(f => f.name), ...finFiles.map(f => f.name)]);
+  const extraFiles = uploadedFiles.filter(f => !knownFiles.has(f.name));
   const inputsCount = docFiles.length + finFiles.length;
   const deliverablesCount = deliverables.length;
 
@@ -1034,11 +1036,29 @@ export default function EntrepreneurDashboard() {
           <input ref={extraInputRef} type="file" multiple className="hidden" onChange={e => handleFileUpload(e, 'extra')} />
           <button
             onClick={() => extraInputRef.current?.click()}
-            className="mx-4 mb-4 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2 border-t border-dashed border-border"
+            className="mx-4 mb-1 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2 border-t border-dashed border-border"
           >
             <FolderPlus className="h-3.5 w-3.5" />
             Documents supplémentaires
+            {extraFiles.length > 0 && <span className="text-[10px] font-medium text-primary">({extraFiles.length})</span>}
           </button>
+          {extraFiles.length > 0 && (
+            <div className="mx-4 mb-4 space-y-1">
+              {extraFiles.map(f => (
+                <div key={f.name} className="flex items-center gap-1.5 px-2 py-1 group/file">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-none" />
+                  <span className="text-xs text-muted-foreground truncate font-medium flex-1">{f.name}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }}
+                    className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {uploading === 'extra' && <div className="mx-4 mb-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>}
 
           {/* Spacer */}
           <div className="flex-1" />
