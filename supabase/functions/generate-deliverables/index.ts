@@ -107,6 +107,14 @@ serve(async (req) => {
     for (const step of PIPELINE_STEPS) {
       const delivType = fnToDelivType[step.function];
       
+      // Skip financial steps if inputs has no real financial data
+      if (inputsScoreZero && FINANCIAL_STEPS.has(step.function)) {
+        console.log(`Skipping ${step.name}: pas de données financières réelles`);
+        results.push({ step: step.name, success: true, skipped: true, error: "Pas de données financières — module ignoré" });
+        completedCount++;
+        continue;
+      }
+      
       // Never skip generate-ovo-plan — it must always run to keep Excel in sync
       const isAlwaysRun = step.function === "generate-ovo-plan";
       
