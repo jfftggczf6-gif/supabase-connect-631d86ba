@@ -1,42 +1,30 @@
 
 
-## Audit : Vue Entrepreneur (mirror) vs Dashboard Entrepreneur
+## Deux corrections : documents coach dans le contexte IA + extraction d'infos entreprise
 
-### Résultat de l'analyse
+### Problème 1 : Les documents coach ne sont pas lus par l'IA
 
-Après comparaison détaillée des deux composants, la Vue Entrepreneur du coach est **fonctionnellement correcte et cohérente** avec le dashboard entrepreneur. Voici le détail :
+Le coach uploade les fichiers dans `documents/{enterprise_id}/coach/{category}/...`, mais `verifyAndGetContext()` dans `helpers.ts` fait `list(enterprise_id)` qui ne liste que les fichiers **à la racine**. Les fichiers dans les sous-dossiers `coach/` ne sont jamais trouvés → l'IA hallucine.
 
-### Structure identique ✓
-- Panel gauche Sources (BMC & Impact Social, Inputs Financiers, Documents supplémentaires)
-- Panel central avec barre titre module + contenu scrollable
-- Barre de modules en bas (bottom bar)
-- Bouton flottant "Générer les livrables" + "Régénération complète"
-- Bannière de progression non-bloquante pendant la génération
+**Correction dans `supabase/functions/_shared/helpers.ts`** — après la boucle de lecture des fichiers root (ligne ~195), ajouter :
 
-### Modules dans la barre du bas
-Les deux utilisent `MODULE_CONFIG` (7 modules) : Diagnostic, BMC, SIC, Framework, Plan OVO, Business Plan, ODD. Le module `inputs` n'apparaît dans aucune des deux barres — c'est cohérent.
+1. Requête vers la table `coach_uploads` pour récupérer tous les `storage_path` liés à l'`enterprise_id`
+2. Pour chaque entrée, télécharger le fichier via `storage_path` et le parser (docx/xlsx/csv/txt) avec les mêmes fonctions existantes
+3. Ajouter le contenu parsé à `documentContent` avec un label `Document Coach ({category})`
 
-### Barres de téléchargement par module — différences mineures
+Le `supabase` client utilisé est déjà le service role, donc pas de problème RLS.
 
-| Module | Entrepreneur | Coach Mirror | Écart |
-|--------|-------------|--------------|-------|
-| Diagnostic | Rapport HTML | Rapport HTML + Regénérer | Coach a un bouton en plus ✓ |
-| BMC | Rapport HTML | Rapport HTML + Regénérer | Coach a un bouton en plus ✓ |
-| SIC | Rapport HTML | Rapport HTML + Regénérer | Coach a un bouton en plus ✓ |
-| Framework | Rapport HTML | Rapport HTML (pas de Regénérer) | Identique |
-| Plan OVO | Excel + HTML + Regénérer | Excel + HTML + Regénérer | Identique |
-| Business Plan | Word + Regénérer | Word + Regénérer | Identique |
-| ODD | Excel + HTML | Excel + HTML | Identique |
+### Problème 2 : Pas d'extraction d'infos (secteur, etc.) côté coach
 
-### Ce qui manque dans la Vue Entrepreneur (mirror) par rapport à l'Entrepreneur
+Côté entrepreneur, après upload d'un document source, la fonction `extract-enterprise-info` est appelée et un dialog s'affiche pour confirmer le nom, pays et secteur extraits. Cette logique est **totalement absente** du `CoachDashboard`.
 
-1. **Barre de score Investment Readiness** (barre sombre en bas avec score global, jauge, label maturité, historique) — absente du mirror, remplacée par un simple badge score dans le header.
+**Correction dans `src/components/dashboard/CoachDashboard.tsx`** :
 
-2. **Bouton "Rapport HTML" pour Plan OVO** quand le livrable existe mais pas l'Excel — l'entrepreneur affiche le bouton "Rapport HTML" seul, le coach mirror l'affiche aussi ✓.
+1. Ajouter les states `extractedInfo`, `showExtractDialog`, `extractingEntId`
+2. Après un upload réussi dans `handleUpload`, appeler `extract-enterprise-info` avec l'`enterprise_id` (best-effort, silencieux)
+3. Si l'info extraite diffère de l'entreprise actuelle, afficher un Dialog de confirmation identique à celui de l'entrepreneur
+4. Sur confirmation, mettre à jour l'entreprise via `supabase.from('enterprises').update(...)`
 
-### Conclusion
-
-Aucun bouton critique n'est manquant. La seule différence notable est la **barre de score IR** qui n'est pas reproduite dans le mirror. Les boutons regénérer supplémentaires côté coach sont un avantage (pas un défaut).
-
-**Aucune modification n'est nécessaire** — la vue miroir fonctionne correctement et tous les boutons essentiels (génération, téléchargement, upload) sont présents.
+### Aucune migration requise
+Les deux corrections utilisent des tables et fonctions existantes.
 
