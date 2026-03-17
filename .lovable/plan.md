@@ -1,14 +1,34 @@
 
 
-## Réponse
+## Ajouter un onglet "Coaches" au Dashboard Super Admin
 
-Lovable offre deux options pour tester des modifications sans affecter le projet principal :
+### Objectif
+Voir l'activité de chaque coach en détail : entreprises suivies, livrables générés, documents uploadés, et timeline des actions.
 
-1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
+### Modifications
 
-2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
+**Fichier unique : `src/components/dashboard/SuperAdminDashboard.tsx`**
 
-Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
+1. **Fetch `coach_uploads`** dans `fetchAll` (RLS super_admin déjà en place)
 
-**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
+2. **Nouvel onglet "Coaches"** entre "Utilisateurs" et "Entreprises" dans les Tabs :
+   - **Barre de recherche** par nom/email de coach
+   - **Tableau principal** avec une ligne par coach :
+     - Nom / Email
+     - Nb entreprises assignées (compté depuis `enterprises.coach_id`)
+     - Nb livrables générés (filtrés `generated_by = 'coach' | 'coach_mirror'`)
+     - Nb documents uploadés (depuis `coach_uploads`)
+     - Dernière activité (date la plus récente entre livrables et uploads)
+   - **Lignes expandables** (Collapsible) : cliquer sur un coach affiche :
+     - Liste de ses entreprises (nom, secteur, score IR, phase)
+     - Derniers livrables générés (type, entreprise, visibilité shared/private, date)
+     - Documents uploadés (filename, catégorie, date)
+
+3. **Données calculées** via `useMemo` :
+   - `coachStats` : agrège entreprises, livrables et uploads par `coach_id`
+   - `coachDeliverables` : filtre `deliverables` où `generated_by` contient 'coach'
+   - `coachUploadsMap` : groupe `coach_uploads` par `coach_id`
+
+### Aucune migration requise
+Toutes les tables et politiques RLS sont déjà en place pour `super_admin`.
 
