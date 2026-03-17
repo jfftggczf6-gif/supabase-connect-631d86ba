@@ -205,6 +205,7 @@ export default function SuperAdminDashboard() {
       <Tabs defaultValue="users">
         <TabsList className="mb-4">
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+          <TabsTrigger value="coaches">Coaches</TabsTrigger>
           <TabsTrigger value="enterprises">Entreprises</TabsTrigger>
           <TabsTrigger value="activity">Activité récente</TabsTrigger>
         </TabsList>
