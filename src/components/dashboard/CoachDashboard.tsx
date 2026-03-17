@@ -245,7 +245,8 @@ export default function CoachDashboard() {
     if (!file || !user) return;
     setUploadingCategory(category);
     try {
-      const filePath = `${enterpriseId}/coach/${category}/${Date.now()}_${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${enterpriseId}/coach/${category}/${Date.now()}_${safeName}`;
       const { error: storageError } = await supabase.storage
         .from('documents')
         .upload(filePath, file, { upsert: true });
@@ -264,11 +265,13 @@ export default function CoachDashboard() {
           { coach_id: user.id, enterprise_id: enterpriseId, category: 'sic', filename: file.name, file_size: file.size, storage_path: filePath },
         ]);
       } else {
-        const existingUploads = uploadsMap[enterpriseId] || [];
-        const existing = existingUploads.filter((u) => u.category === category);
-        for (const u of existing) {
-          await supabase.from('coach_uploads').delete().eq('id', u.id);
-          await supabase.storage.from('documents').remove([u.storage_path]);
+        if (category !== 'supplementary') {
+          const existingUploads = uploadsMap[enterpriseId] || [];
+          const existing = existingUploads.filter((u) => u.category === category);
+          for (const u of existing) {
+            await supabase.from('coach_uploads').delete().eq('id', u.id);
+            await supabase.storage.from('documents').remove([u.storage_path]);
+          }
         }
         await supabase.from('coach_uploads').insert({
           coach_id: user.id, enterprise_id: enterpriseId,
