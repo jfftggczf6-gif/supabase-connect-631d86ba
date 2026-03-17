@@ -373,7 +373,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "coach" | "entrepreneur"
+      app_role: "coach" | "entrepreneur" | "super_admin"
       deliverable_type:
         | "bmc_analysis"
         | "bmc_html"
@@ -529,7 +529,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["coach", "entrepreneur"],
+      app_role: ["coach", "entrepreneur", "super_admin"],
       deliverable_type: [
         "bmc_analysis",
         "bmc_html",
