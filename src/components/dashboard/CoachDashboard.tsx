@@ -1060,7 +1060,14 @@ export default function CoachDashboard() {
           </div>
         )}
 
-        {/* ═══ TAB: VUE MIROIR ═══ */}
+        {/* Hidden file inputs — always in DOM regardless of active tab */}
+        <input ref={bmcInputRef} type="file" accept=".docx,.doc,.pdf" className="hidden"
+          onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0], 'bmc_sic', ent.id); e.target.value = ''; }} />
+        <input ref={inputsInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+          onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0], 'inputs', ent.id); e.target.value = ''; }} />
+        <input ref={suppInputRef} type="file" multiple accept=".docx,.doc,.pdf,.xlsx,.xls,.csv,.txt" className="hidden"
+          onChange={e => { Array.from(e.target.files || []).forEach(f => handleUpload(f, 'supplementary', ent.id)); e.target.value = ''; }} />
+
         {detailTab === 'mirror' && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white text-sm font-medium">
