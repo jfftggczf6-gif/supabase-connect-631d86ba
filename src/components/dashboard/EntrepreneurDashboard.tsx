@@ -753,6 +753,8 @@ export default function EntrepreneurDashboard() {
   // Classify uploaded files
   const docFiles = uploadedFiles.filter(f => /\.(docx?|pdf|txt)$/i.test(f.name));
   const finFiles = uploadedFiles.filter(f => /\.(xlsx?|csv)$/i.test(f.name));
+  const knownFiles = new Set([...docFiles.map(f => f.name), ...finFiles.map(f => f.name)]);
+  const extraFiles = uploadedFiles.filter(f => !knownFiles.has(f.name));
   const inputsCount = docFiles.length + finFiles.length;
   const deliverablesCount = deliverables.length;
 
