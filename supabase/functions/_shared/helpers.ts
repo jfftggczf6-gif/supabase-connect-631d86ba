@@ -1,3 +1,4 @@
+// helpers.ts — shared utilities for edge functions (v2 — no .catch on Supabase queries)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 
