@@ -205,10 +205,11 @@ export default function SuperAdminDashboard() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex-wrap">
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
           <TabsTrigger value="coaches">Coaches</TabsTrigger>
           <TabsTrigger value="enterprises">Entreprises</TabsTrigger>
+          <TabsTrigger value="screening" className="gap-1"><Target className="h-3.5 w-3.5" />Screening</TabsTrigger>
           <TabsTrigger value="activity">Activité récente</TabsTrigger>
         </TabsList>
 
