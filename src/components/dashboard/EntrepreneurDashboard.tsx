@@ -1126,16 +1126,14 @@ export default function EntrepreneurDashboard() {
               </>
             )}
             <div className="ml-auto flex gap-2">
-              {(enterprise as any).operating_mode === 'due_diligence' && (
-                <Button
-                  variant={selectedModule === 'dataroom' ? 'default' : 'outline'}
-                  size="sm"
-                  className="gap-2 text-xs"
-                  onClick={() => setSelectedModule('dataroom')}
-                >
-                  <FolderPlus className="h-3.5 w-3.5" /> Data Room
-                </Button>
-              )}
+              <Button
+                variant={selectedModule === 'dataroom' ? 'default' : 'outline'}
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={() => setSelectedModule('dataroom')}
+              >
+                <FolderPlus className="h-3.5 w-3.5" /> Data Room
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
