@@ -25,6 +25,10 @@ import BusinessPlanPreview from './BusinessPlanPreview';
 import ReconstructionUploader from './ReconstructionUploader';
 import ScreeningReportViewer from './ScreeningReportViewer';
 import PreScreeningViewer from './PreScreeningViewer';
+import ValuationViewer from './ValuationViewer';
+import OnePagerViewer from './OnePagerViewer';
+import PitchDeckViewer from './PitchDeckViewer';
+import InvestmentMemoViewer from './InvestmentMemoViewer';
 import DataRoomManager from './DataRoomManager';
 import {
   MODULE_CONFIG, PIPELINE, MODULE_FN_MAP,
