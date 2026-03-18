@@ -413,6 +413,11 @@ export default function SuperAdminDashboard() {
           <ProgrammeCriteriaEditor />
           <ScreeningDashboard />
         </TabsContent>
+
+        {/* KNOWLEDGE BASE TAB */}
+        <TabsContent value="knowledge">
+          <KnowledgeBaseManager />
+        </TabsContent>
       </Tabs>
     </DashboardLayout>
   );

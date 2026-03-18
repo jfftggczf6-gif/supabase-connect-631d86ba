@@ -693,7 +693,35 @@ export function getFiscalParamsForPrompt(country: string): {
   };
 }
 
-// ===== RAG: BUILD KNOWLEDGE CONTEXT =====
+// ===== RAG: EMBEDDING HELPER =====
+async function getQueryEmbedding(text: string): Promise<number[] | null> {
+  try {
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiKey) return null;
+
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: text.substring(0, 2000),
+        dimensions: 1536,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch {
+    return null;
+  }
+}
+
+// ===== RAG: BUILD KNOWLEDGE CONTEXT (v2 — semantic search + fallback) =====
 export async function buildRAGContext(
   supabase: any,
   country: string,
@@ -701,31 +729,57 @@ export async function buildRAGContext(
   categories: string[]
 ): Promise<string> {
   try {
-    let query = supabase
-      .from("knowledge_base")
-      .select("title, content, category, source")
-      .in("category", categories)
-      .limit(30);
+    const queryText = `PME ${sector || "entreprise"} en ${country || "Afrique"} : benchmarks financiers, conditions bancaires, fiscalité, bailleurs de fonds, cours matières premières, réglementation`;
 
-    const { data: entries } = await query;
+    // Try semantic search first
+    const queryEmbedding = await getQueryEmbedding(queryText);
+    let entries: any[] = [];
+
+    if (queryEmbedding) {
+      const { data: semanticResults } = await supabase.rpc("search_knowledge", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.5,
+        match_count: 15,
+        filter_categories: categories,
+        filter_country: country || null,
+        filter_sector: sector || null,
+      });
+
+      if (semanticResults && semanticResults.length > 0) {
+        entries = semanticResults;
+      }
+    }
+
+    // Fallback to text-based search
+    if (entries.length === 0) {
+      const { data: textResults } = await supabase
+        .from("knowledge_base")
+        .select("title, content, category, source, country, sector")
+        .in("category", categories)
+        .limit(30);
+
+      if (textResults) {
+        const countryLower = (country || "").toLowerCase();
+        const sectorLower = (sector || "").toLowerCase();
+
+        const relevant = textResults.filter((e: any) => {
+          const matchCountry = !e.country || e.country.toLowerCase().includes(countryLower) || countryLower.includes((e.country || "").toLowerCase());
+          const matchSector = !e.sector || e.sector.toLowerCase().includes(sectorLower) || sectorLower.includes((e.sector || "").toLowerCase());
+          return matchCountry || matchSector;
+        });
+
+        entries = relevant.length > 0 ? relevant : textResults.slice(0, 15);
+      }
+    }
+
     if (!entries || entries.length === 0) return "";
 
-    const countryLower = (country || "").toLowerCase();
-    const sectorLower = (sector || "").toLowerCase();
-    
-    const relevant = entries.filter((e: any) => {
-      const matchCountry = !e.country || e.country.toLowerCase().includes(countryLower) || countryLower.includes((e.country || "").toLowerCase());
-      const matchSector = !e.sector || e.sector.toLowerCase().includes(sectorLower) || sectorLower.includes((e.sector || "").toLowerCase());
-      return matchCountry || matchSector;
-    });
-
-    const selected = relevant.length > 0 ? relevant : entries.slice(0, 15);
-
     let ragText = "\n\n══════ BASE DE CONNAISSANCES (RAG) ══════\n";
-    for (const entry of selected.slice(0, 20)) {
-      ragText += `\n--- ${entry.category.toUpperCase()}: ${entry.title} ---\n`;
-      ragText += entry.content.substring(0, 2000) + "\n";
+    for (const entry of entries.slice(0, 20)) {
+      ragText += `\n--- ${(entry.category || "").toUpperCase()}: ${entry.title} ---\n`;
+      ragText += (entry.content || "").substring(0, 2000) + "\n";
       if (entry.source) ragText += `(Source: ${entry.source})\n`;
+      if (entry.similarity) ragText += `(Pertinence: ${Math.round(entry.similarity * 100)}%)\n`;
     }
     ragText += "══════════════════════════════════════════\n";
 

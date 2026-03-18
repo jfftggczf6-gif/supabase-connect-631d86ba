@@ -336,6 +336,18 @@ serve(async (req) => {
 
     if (error) throw error;
 
+    // Trigger embedding generation for entries without embeddings
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/generate-embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+        body: JSON.stringify({ mode: "backfill" }),
+      });
+      console.log("Embedding backfill triggered after seed");
+    } catch (e) {
+      console.warn("Embedding generation failed (non-blocking):", e);
+    }
+
     return new Response(JSON.stringify({
       success: true,
       inserted: data?.length || 0,
