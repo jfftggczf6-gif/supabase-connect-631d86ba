@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS knowledge_base_title_unique_idx ON public.knowledge_base (title) WHERE title IS NOT NULL;
