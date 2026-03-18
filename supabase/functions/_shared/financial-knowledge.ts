@@ -585,3 +585,10 @@ export function getValidationRulesPrompt(): string {
 export function getDonorCriteriaPrompt(): string {
   return DONOR_CRITERIA;
 }
+
+/**
+ * Retourne les multiples de valorisation PME Afrique.
+ */
+export function getValuationBenchmarksPrompt(): string {
+  return VALUATION_BENCHMARKS;
+}
