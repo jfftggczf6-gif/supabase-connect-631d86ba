@@ -414,6 +414,63 @@ export type Database = {
         }
         Relationships: []
       }
+      programme_criteria: {
+        Row: {
+          country_filter: string[] | null
+          created_at: string | null
+          created_by: string
+          custom_criteria: Json | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          max_debt_ratio: number | null
+          max_score_ir: number | null
+          min_margin: number | null
+          min_revenue: number | null
+          min_score_ir: number | null
+          name: string
+          required_deliverables: string[] | null
+          sector_filter: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          country_filter?: string[] | null
+          created_at?: string | null
+          created_by: string
+          custom_criteria?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_debt_ratio?: number | null
+          max_score_ir?: number | null
+          min_margin?: number | null
+          min_revenue?: number | null
+          min_score_ir?: number | null
+          name: string
+          required_deliverables?: string[] | null
+          sector_filter?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          country_filter?: string[] | null
+          created_at?: string | null
+          created_by?: string
+          custom_criteria?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_debt_ratio?: number | null
+          max_score_ir?: number | null
+          min_margin?: number | null
+          min_revenue?: number | null
+          min_score_ir?: number | null
+          name?: string
+          required_deliverables?: string[] | null
+          sector_filter?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       score_history: {
         Row: {
           created_at: string
