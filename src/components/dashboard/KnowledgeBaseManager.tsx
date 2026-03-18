@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, RefreshCw, Plus, Trash2, Search, Sparkles, Globe, Loader2 } from 'lucide-react';
+import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2 } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 interface KBEntry {
