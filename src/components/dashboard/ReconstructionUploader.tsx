@@ -109,10 +109,25 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       }
 
       const data = await response.json();
+      const resultData = data.data || data;
+      const confidence = resultData.score_confiance || 0;
+
+      // Auto-detect operating mode based on confidence score
+      const autoMode = confidence >= 70 ? 'due_diligence' : 'reconstruction';
+      const modeUpdates: Record<string, unknown> = { operating_mode: autoMode };
+      if (autoMode === 'due_diligence') {
+        modeUpdates.data_room_enabled = true;
+        modeUpdates.data_room_slug = crypto.randomUUID().substring(0, 12);
+      }
+      await supabase.from('enterprises').update(modeUpdates).eq('id', enterpriseId);
+
       setProgress(100);
       setProgressLabel('Terminé !');
-      setResult(data.data || data);
-      toast.success('Reconstruction terminée !');
+      setResult(resultData);
+      toast.success(confidence >= 70
+        ? 'Données solides — mode Due Diligence activé !'
+        : 'Reconstruction terminée — ajoutez plus de documents pour améliorer la qualité.');
+
     } catch (err: any) {
       toast.error(err.message || 'Erreur');
     } finally {
