@@ -335,7 +335,7 @@ serve(async (req) => {
     }
 
     // ── Financial docs found — proceed with AI extraction ──
-    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal"]);
+    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal"], "inputs_data");
 
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "", ctx.documentContent, bmcData, fiscalParams.devise
