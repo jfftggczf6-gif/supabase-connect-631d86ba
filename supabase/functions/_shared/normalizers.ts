@@ -1241,6 +1241,155 @@ export function normalizeReconstruction(raw: any): any {
   return d;
 }
 
+// ===== PRE-SCREENING NORMALIZER =====
+export function normalizePreScreening(raw: any): any {
+  if (!raw) return raw;
+  const d = { ...raw };
+
+  d.pre_screening_score = toNumber(pick(d, 'pre_screening_score', 'score', 'screening_score', 'score_global'), 0);
+  d.score = d.pre_screening_score;
+
+  // Classification
+  d.classification = pick(d, 'classification', 'decision', 'verdict') || 'COMPLETER_DABORD';
+  const classMap: Record<string, string> = {
+    'AVANCER': 'AVANCER_DIRECTEMENT', 'GO': 'AVANCER_DIRECTEMENT', 'ELIGIBLE': 'AVANCER_DIRECTEMENT',
+    'ACCOMPAGNER': 'ACCOMPAGNER', 'CONDITIONNEL': 'ACCOMPAGNER',
+    'COMPLETER': 'COMPLETER_DABORD', 'INSUFFISANT': 'COMPLETER_DABORD',
+    'REJETER': 'REJETER', 'NON_ELIGIBLE': 'REJETER',
+  };
+  for (const [key, val] of Object.entries(classMap)) {
+    if (d.classification.toUpperCase().includes(key)) { d.classification = val; break; }
+  }
+
+  d.classification_label = pick(d, 'classification_label', 'label') || '';
+  d.classification_detail = pick(d, 'classification_detail', 'detail', 'rationale') || '';
+
+  // Resume executif
+  const re = pick(d, 'resume_executif', 'executive_summary', 'resume') || {};
+  d.resume_executif = {
+    synthese: re.synthese || re.summary || '',
+    points_forts: toArray(re.points_forts || re.forces || re.strengths),
+    points_faibles: toArray(re.points_faibles || re.faiblesses || re.weaknesses),
+    potentiel_estime: re.potentiel_estime || re.potentiel || '',
+  };
+
+  // Qualite dossier
+  const qd = pick(d, 'qualite_dossier', 'document_quality', 'quality') || {};
+  d.qualite_dossier = {
+    score_qualite: toNumber(qd.score_qualite || qd.score, 0),
+    total_documents: toNumber(qd.total_documents || qd.total, 0),
+    documents_exploitables: toNumber(qd.documents_exploitables || qd.exploitables, 0),
+    documents_illisibles: toNumber(qd.documents_illisibles || qd.illisibles, 0),
+    niveau_preuve: qd.niveau_preuve || qd.level || 'N0 Declaratif',
+    couverture: qd.couverture || {},
+    note_qualite: qd.note_qualite || qd.note || '',
+  };
+
+  // Anomalies
+  d.anomalies = toArray(pick(d, 'anomalies', 'issues', 'red_flags')).map((a: any) => {
+    if (typeof a === 'string') return { severity: 'attention', category: 'general', title: a, detail: a, impact_investisseur: '', recommendation: '', effort: 'moyen', responsable: 'entrepreneur' };
+    return {
+      severity: pick(a, 'severity', 'severite') || 'attention',
+      category: pick(a, 'category', 'categorie') || 'general',
+      title: pick(a, 'title', 'titre') || '',
+      detail: pick(a, 'detail', 'description') || '',
+      impact_investisseur: pick(a, 'impact_investisseur', 'impact') || '',
+      recommendation: pick(a, 'recommendation', 'recommandation') || '',
+      effort: pick(a, 'effort', 'difficulty') || 'moyen',
+      responsable: pick(a, 'responsable', 'responsible') || 'entrepreneur',
+    };
+  });
+
+  // Cross-validation
+  const cv = pick(d, 'cross_validation', 'validation_croisee') || {};
+  d.cross_validation = {
+    ca_coherent: cv.ca_coherent ?? null,
+    ca_declared: toNumber(cv.ca_declared, null),
+    ca_from_documents: toNumber(cv.ca_from_documents, null),
+    ca_ecart_pct: toNumber(cv.ca_ecart_pct, null),
+    ca_detail: cv.ca_detail || '',
+    bilan_equilibre: cv.bilan_equilibre ?? null,
+    bilan_detail: cv.bilan_detail || '',
+    charges_vs_effectifs: cv.charges_vs_effectifs ?? null,
+    charges_vs_effectifs_detail: cv.charges_vs_effectifs_detail || '',
+    tresorerie_coherent: cv.tresorerie_coherent ?? null,
+    tresorerie_detail: cv.tresorerie_detail || '',
+    dates_coherentes: cv.dates_coherentes ?? null,
+    dates_detail: cv.dates_detail || '',
+  };
+
+  // Sante financiere
+  const sf = pick(d, 'sante_financiere', 'financial_health') || {};
+  d.sante_financiere = {
+    ca_estime: toNumber(sf.ca_estime, null),
+    marge_brute_pct: toNumber(sf.marge_brute_pct, null),
+    marge_nette_pct: toNumber(sf.marge_nette_pct, null),
+    ratio_endettement_pct: toNumber(sf.ratio_endettement_pct, null),
+    tresorerie_nette: toNumber(sf.tresorerie_nette, null),
+    benchmark_comparison: Array.isArray(sf.benchmark_comparison) ? sf.benchmark_comparison : [],
+    health_label: sf.health_label || 'Non evaluable',
+    health_detail: sf.health_detail || '',
+  };
+
+  // Potentiel et reconstructibilite
+  const pr = pick(d, 'potentiel_et_reconstructibilite', 'potential', 'reconstructibilite') || {};
+  d.potentiel_et_reconstructibilite = {
+    donnees_fiables: toArray(pr.donnees_fiables || pr.reliable),
+    donnees_estimables_ia: toArray(pr.donnees_estimables_ia || pr.estimable),
+    donnees_non_reconstituables: toArray(pr.donnees_non_reconstituables || pr.non_reconstituable),
+    fiabilite_pipeline_estimee: toNumber(pr.fiabilite_pipeline_estimee || pr.fiabilite, 0),
+    fiabilite_detail: pr.fiabilite_detail || pr.detail || '',
+    signaux_positifs: toArray(pr.signaux_positifs || pr.positifs),
+    signaux_negatifs: toArray(pr.signaux_negatifs || pr.negatifs),
+  };
+
+  // Profil risque
+  const risk = pick(d, 'profil_risque', 'risk_profile') || {};
+  d.profil_risque = {
+    score_risque: toNumber(risk.score_risque || risk.score, 50),
+    risques: Array.isArray(risk.risques || risk.risks) ? (risk.risques || risk.risks) : [],
+  };
+
+  // Plan action
+  const rawPlan = pick(d, 'plan_action', 'action_plan', 'actions');
+  d.plan_action = Array.isArray(rawPlan)
+    ? rawPlan.map((a: any) => ({
+        priorite: toNumber(a.priorite || a.priority, 5),
+        action: a.action || a.description || '',
+        responsable: a.responsable || 'entrepreneur',
+        delai: a.delai || a.timeline || '',
+        effort: a.effort || 'moyen',
+        impact_score: a.impact_score || a.impact || '',
+        bloquant_pipeline: a.bloquant_pipeline ?? a.blocking ?? false,
+      }))
+    : [];
+
+  // Pathway financement
+  const pf = pick(d, 'pathway_financement', 'financing') || {};
+  d.pathway_financement = {
+    type_recommande: pf.type_recommande || pf.type || '',
+    bailleurs_potentiels: toArray(pf.bailleurs_potentiels || pf.donors),
+    montant_eligible_estime: pf.montant_eligible_estime || pf.amount || '',
+    conditions_prealables: toArray(pf.conditions_prealables || pf.conditions),
+    timeline_estimee: pf.timeline_estimee || pf.timeline || '',
+  };
+
+  // Recommandation pipeline
+  const rp = pick(d, 'recommandation_pipeline', 'pipeline_recommendation') || {};
+  d.recommandation_pipeline = {
+    lancer_pipeline: rp.lancer_pipeline ?? rp.go ?? false,
+    raison: rp.raison || rp.reason || '',
+    modules_pertinents: toArray(rp.modules_pertinents || rp.relevant),
+    modules_inutiles: toArray(rp.modules_inutiles || rp.useless),
+    avertissement: rp.avertissement || rp.warning || null,
+  };
+
+  // Programme match
+  d.programme_match = pick(d, 'programme_match') || null;
+
+  return d;
+}
+
 // ===== AUTO NORMALIZE BY TYPE =====
 export function normalizeByType(type: string, data: any): any {
   const normalizers: Record<string, (d: any) => any> = {
@@ -1255,6 +1404,7 @@ export function normalizeByType(type: string, data: any): any {
     screening_report: normalizeScreeningReport,
     screening: normalizeScreeningReport,
     reconstruction: normalizeReconstruction,
+    pre_screening: normalizePreScreening,
   };
 
   const normalizer = normalizers[type];

@@ -19,6 +19,7 @@ interface ReconstructionUploaderProps {
   session: any;
   navigate: (path: string) => void;
   onComplete: () => void;
+  onPreScreeningDone?: (data: any) => void;
 }
 
 interface ReconstructionResult {
@@ -35,7 +36,7 @@ interface ReconstructionResult {
   };
 }
 
-export default function ReconstructionUploader({ enterpriseId, session, navigate, onComplete }: ReconstructionUploaderProps) {
+export default function ReconstructionUploader({ enterpriseId, session, navigate, onComplete, onPreScreeningDone }: ReconstructionUploaderProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -120,6 +121,26 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         modeUpdates.data_room_slug = crypto.randomUUID().substring(0, 12);
       }
       await supabase.from('enterprises').update(modeUpdates).eq('id', enterpriseId);
+
+      // Auto-launch pre-screening
+      setProgressLabel('Analyse du dossier en cours…');
+      setProgress(90);
+      try {
+        const preScreenResp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ enterprise_id: enterpriseId }),
+          }
+        );
+        if (preScreenResp.ok) {
+          const preScreenData = await preScreenResp.json();
+          onPreScreeningDone?.(preScreenData.data);
+        }
+      } catch (e) {
+        console.warn('Pre-screening failed (non-blocking):', e);
+      }
 
       setProgress(100);
       setProgressLabel('Terminé !');

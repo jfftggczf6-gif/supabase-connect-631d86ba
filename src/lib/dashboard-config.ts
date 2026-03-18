@@ -39,6 +39,7 @@ export const MODULE_CONFIG_COACH = [
 ];
 
 export const DELIVERABLE_CONFIG = [
+  { type: 'pre_screening',   label: 'Pre-screening / Triage',                     formats: ['html', 'json'], icon: '🔍' },
   { type: 'bmc_analysis',    label: 'Business Model Canvas',                     formats: ['html', 'json'], icon: '📊' },
   { type: 'sic_analysis',    label: 'Social Impact Canvas',                      formats: ['html', 'json'], icon: '🌍' },
   { type: 'framework_data',  label: 'Plan Financier Intermédiaire',              formats: ['html', 'xlsx'], icon: '📈' },
@@ -70,4 +71,5 @@ export const MODULE_FN_MAP: Record<string, string> = {
   plan_ovo: 'generate-plan-ovo',
   business_plan: 'generate-business-plan',
   odd: 'generate-odd',
+  pre_screening: 'generate-pre-screening',
 };
