@@ -1,3 +1,4 @@
+// v3 — force redeploy 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
@@ -144,6 +145,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    console.log("[generate-investment-memo] v3 loaded");
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
 

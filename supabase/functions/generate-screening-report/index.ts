@@ -1,3 +1,4 @@
+// v3 — force redeploy 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
@@ -212,18 +213,19 @@ const SCREENING_SCHEMA = `{
 }`;
 
 serve(async (req) => {
+  console.log("[generate-screening-report] v3 loaded");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const ctx = await verifyAndGetContext(req);
-    const ent = ctx.enterprise;
-
-    // Optional: programme criteria from body
+    // Clone BEFORE verifyAndGetContext consumes req.json()
     let programmeCriteria: any = null;
     try {
-      const body = await req.clone().json().catch(() => ({}));
-      programmeCriteria = body.programme_criteria || null;
+      const bodyClone = await req.clone().json().catch(() => ({}));
+      programmeCriteria = bodyClone.programme_criteria || null;
     } catch (_) { /* ignore */ }
+
+    const ctx = await verifyAndGetContext(req);
+    const ent = ctx.enterprise;
 
     // Gather existing deliverables for cross-validation
     const { data: existingDeliverables } = await ctx.supabase

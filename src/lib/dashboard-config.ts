@@ -77,6 +77,7 @@ export const PIPELINE = [
   { name: 'One-Pager',     fn: 'generate-onepager',      type: 'onepager' as DeliverableType },
   { name: 'Pitch Deck',    fn: 'generate-pitch-deck',    type: 'pitch_deck' as DeliverableType },
   { name: 'Investment Memo', fn: 'generate-investment-memo', type: 'investment_memo' as DeliverableType },
+  { name: 'Screening', fn: 'generate-screening-report', type: 'screening_report' as DeliverableType },
 ];
 
 export const MODULE_FN_MAP: Record<string, string> = {
@@ -93,4 +94,5 @@ export const MODULE_FN_MAP: Record<string, string> = {
   onepager: 'generate-onepager',
   pitch_deck: 'generate-pitch-deck',
   investment_memo: 'generate-investment-memo',
+  screening_report: 'generate-screening-report',
 };
