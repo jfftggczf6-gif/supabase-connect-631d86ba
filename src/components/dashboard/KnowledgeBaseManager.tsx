@@ -159,12 +159,6 @@ export default function KnowledgeBaseManager() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    // Delete via edge function since knowledge_base has no DELETE RLS for authenticated users
-    // For now we'll use the service role approach through ingest-knowledge or direct
-    toast({ title: 'Suppression non disponible', description: 'Contactez un administrateur pour supprimer des entrées de la base.' });
-  };
-
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
   return (
