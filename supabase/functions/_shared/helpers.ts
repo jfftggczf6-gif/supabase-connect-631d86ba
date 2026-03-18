@@ -605,7 +605,7 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
       validation_errors: data._validation?.errors || 0,
       trigger_reason: triggerReason,
     },
-  }).catch(() => {});
+  }).then(() => {}).catch(() => {});
 
   // 6. Recalculate global score_ir
   try {
