@@ -55,7 +55,11 @@ interface ScoredEnterprise extends Enterprise {
   verdict: string;
 }
 
-export default function ScreeningDashboard() {
+interface ScreeningDashboardProps {
+  coachId?: string;
+}
+
+export default function ScreeningDashboard({ coachId }: ScreeningDashboardProps = {}) {
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [criteria, setCriteria] = useState<ProgrammeCriteria[]>([]);
