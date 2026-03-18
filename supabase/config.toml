@@ -1,7 +1,1 @@
-project_id = "uduxtueedfadmbiomxme"
-
-[functions.generate-screening-report]
-verify_jwt = false
-
-[functions.access-data-room]
-verify_jwt = false
+project_id = "vfmzgsiwynsawwemsawj"
