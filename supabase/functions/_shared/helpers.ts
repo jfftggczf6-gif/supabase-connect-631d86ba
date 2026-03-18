@@ -372,7 +372,7 @@ export async function verifyAndGetContext(req: Request) {
   return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap, baseYear };
 }
 
-export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514") {
+export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514", temperature = 0) {
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
   const doCall = async (mt: number): Promise<string> => {
@@ -386,7 +386,7 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
       body: JSON.stringify({
         model,
         max_tokens: mt,
-        temperature: 0,
+        temperature,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
       }),
