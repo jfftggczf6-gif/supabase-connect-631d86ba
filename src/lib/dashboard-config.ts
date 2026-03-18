@@ -94,4 +94,5 @@ export const MODULE_FN_MAP: Record<string, string> = {
   onepager: 'generate-onepager',
   pitch_deck: 'generate-pitch-deck',
   investment_memo: 'generate-investment-memo',
+  screening_report: 'generate-screening-report',
 };

@@ -145,6 +145,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    console.log("[generate-investment-memo] v3 loaded");
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
 

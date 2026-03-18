@@ -198,18 +198,19 @@ const PRE_SCREENING_SCHEMA = `{
 }`;
 
 serve(async (req) => {
+  console.log("[generate-pre-screening] v3 loaded");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const ctx = await verifyAndGetContext(req);
-    const ent = ctx.enterprise;
-
-    // Optional: programme criteria
+    // Clone BEFORE verifyAndGetContext consumes req.json()
     let programmeCriteria: any = null;
     try {
-      const body = await req.clone().json().catch(() => ({}));
-      programmeCriteria = body.programme_criteria || null;
+      const bodyClone = await req.clone().json().catch(() => ({}));
+      programmeCriteria = bodyClone.programme_criteria || null;
     } catch (_) {}
+
+    const ctx = await verifyAndGetContext(req);
+    const ent = ctx.enterprise;
 
     // Get reconstructed inputs if they exist
     const { data: inputsDeliv } = await ctx.supabase
