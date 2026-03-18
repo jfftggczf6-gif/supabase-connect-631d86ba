@@ -528,18 +528,54 @@ function tryParseAIJson(content: string): any | null {
   }
 }
 
-export async function saveDeliverable(supabase: any, enterprise_id: string, type: string, data: any, moduleCode: string, htmlContent?: string) {
-  // Get current version to increment
+export async function saveDeliverable(supabase: any, enterprise_id: string, type: string, data: any, moduleCode: string, htmlContent?: string, triggerReason?: string) {
+  // 1. Get existing deliverable for versioning
   const { data: existing } = await supabase
     .from("deliverables")
-    .select("version")
+    .select("id, version, data, score")
     .eq("enterprise_id", enterprise_id)
     .eq("type", type)
     .maybeSingle();
   
   const newVersion = (existing?.version || 0) + 1;
 
-  await supabase.from("deliverables").upsert({
+  // 2. Archive previous version if exists
+  if (existing?.data && typeof existing.data === 'object' && Object.keys(existing.data).length > 0) {
+    await supabase.from("deliverable_versions").insert({
+      deliverable_id: existing.id,
+      enterprise_id,
+      type,
+      version: existing.version || 1,
+      data: existing.data,
+      score: existing.score,
+      validation_report: existing.data?._validation || null,
+      generated_by: existing.data?._metadata?.generated_by || 'ai',
+      trigger_reason: triggerReason || 'regeneration',
+    }).catch((e: any) => console.warn("[saveDeliverable] version archive failed:", e));
+
+    // Purge old versions (keep last 10)
+    const { data: versions } = await supabase
+      .from("deliverable_versions")
+      .select("id")
+      .eq("deliverable_id", existing.id)
+      .order("version", { ascending: false });
+    if (versions && versions.length > 10) {
+      const toDelete = versions.slice(10).map((v: any) => v.id);
+      await supabase.from("deliverable_versions").delete().in("id", toDelete).catch(() => {});
+    }
+  }
+
+  // 3. Add metadata
+  data._metadata = {
+    ...(data._metadata || {}),
+    version: newVersion,
+    generated_at: new Date().toISOString(),
+    generated_by: 'ai',
+    trigger_reason: triggerReason || 'pipeline',
+  };
+
+  // 4. Upsert deliverable
+  const { data: upserted } = await supabase.from("deliverables").upsert({
     enterprise_id,
     type,
     data,
@@ -547,14 +583,31 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     html_content: htmlContent || null,
     ai_generated: true,
     version: newVersion,
-  }, { onConflict: "enterprise_id,type" });
+  }, { onConflict: "enterprise_id,type" }).select("id").maybeSingle();
 
   await supabase.from("enterprise_modules")
     .update({ status: "completed", progress: 100, data })
     .eq("enterprise_id", enterprise_id)
     .eq("module", moduleCode);
 
-  // Recalculate and update global score_ir after each deliverable save
+  // 5. Activity log (non-blocking)
+  await supabase.from("activity_log").insert({
+    enterprise_id,
+    actor_role: 'ai',
+    action: 'generate',
+    resource_type: 'deliverable',
+    resource_id: upserted?.id || existing?.id || null,
+    deliverable_type: type,
+    metadata: {
+      version: newVersion,
+      score: data.score,
+      validation_valid: data._validation?.valid,
+      validation_errors: data._validation?.errors || 0,
+      trigger_reason: triggerReason,
+    },
+  }).catch(() => {});
+
+  // 6. Recalculate global score_ir
   try {
     const { data: allDeliverables } = await supabase
       .from("deliverables")
@@ -569,7 +622,6 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
       await supabase.from("enterprises").update({ score_ir: globalScore }).eq("id", enterprise_id);
     }
   } catch (e) {
-    // Non-blocking — score update failure should not break deliverable save
     console.warn("[saveDeliverable] score_ir update failed:", e);
   }
 }
