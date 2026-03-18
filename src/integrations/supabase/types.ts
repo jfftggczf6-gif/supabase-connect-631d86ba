@@ -168,6 +168,8 @@ export type Database = {
           country: string | null
           created_at: string
           creation_date: string | null
+          data_room_enabled: boolean | null
+          data_room_slug: string | null
           description: string | null
           employees_count: number | null
           id: string
@@ -175,6 +177,7 @@ export type Database = {
           legal_form: string | null
           logo_url: string | null
           name: string
+          operating_mode: Database["public"]["Enums"]["operating_mode"] | null
           phase: string | null
           score_ir: number | null
           sector: string | null
@@ -191,6 +194,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           creation_date?: string | null
+          data_room_enabled?: boolean | null
+          data_room_slug?: string | null
           description?: string | null
           employees_count?: number | null
           id?: string
@@ -198,6 +203,7 @@ export type Database = {
           legal_form?: string | null
           logo_url?: string | null
           name: string
+          operating_mode?: Database["public"]["Enums"]["operating_mode"] | null
           phase?: string | null
           score_ir?: number | null
           sector?: string | null
@@ -214,6 +220,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           creation_date?: string | null
+          data_room_enabled?: boolean | null
+          data_room_slug?: string | null
           description?: string | null
           employees_count?: number | null
           id?: string
@@ -221,6 +229,7 @@ export type Database = {
           legal_form?: string | null
           logo_url?: string | null
           name?: string
+          operating_mode?: Database["public"]["Enums"]["operating_mode"] | null
           phase?: string | null
           score_ir?: number | null
           sector?: string | null
@@ -402,6 +411,7 @@ export type Database = {
         | "business_plan"
         | "odd"
       module_status: "not_started" | "in_progress" | "completed"
+      operating_mode: "reconstruction" | "due_diligence"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -560,6 +570,7 @@ export const Constants = {
         "odd",
       ],
       module_status: ["not_started", "in_progress", "completed"],
+      operating_mode: ["reconstruction", "due_diligence"],
     },
   },
 } as const
