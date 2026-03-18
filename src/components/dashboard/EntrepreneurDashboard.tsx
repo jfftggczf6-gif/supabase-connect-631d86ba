@@ -1123,13 +1123,32 @@ export default function EntrepreneurDashboard() {
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Module title bar */}
           <div className="flex-none h-12 border-b border-border bg-card/50 flex items-center px-6 gap-3">
-            {selectedMod && (
+            {selectedModule === 'screening' ? (
+              <>
+                <Search className="h-5 w-5 text-muted-foreground" />
+                <h1 className="font-display font-semibold text-base">Diagnostic & Screening</h1>
+              </>
+            ) : selectedMod && (
               <>
                 <selectedMod.icon className="h-5 w-5 text-muted-foreground" />
                 <h1 className="font-display font-semibold text-base">{selectedMod.title}</h1>
               </>
             )}
-            {/* Module-specific download handled via contextual bars below */}
+            <div className="ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={() => { if (selectedModule === 'screening') { handleGenerateScreening(); } else { setSelectedModule('screening'); } }}
+                disabled={generatingScreening}
+              >
+                {generatingScreening ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Screening en cours…</>
+                ) : (
+                  <><Search className="h-3.5 w-3.5" /> {selectedModule === 'screening' ? 'Regénérer le screening' : '🔍 Diagnostic & Screening'}</>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Scrollable content */}
