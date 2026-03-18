@@ -246,6 +246,8 @@ export async function verifyAndGetContext(req: Request) {
             jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp"
           };
           const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 45000);
           const imgResponse = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -270,7 +272,9 @@ export async function verifyAndGetContext(req: Request) {
                 ]
               }]
             }),
+            signal: controller.signal,
           });
+          clearTimeout(timeoutId);
           if (imgResponse.ok) {
             const imgResult = await imgResponse.json();
             const extractedText = imgResult.content?.[0]?.text || "";

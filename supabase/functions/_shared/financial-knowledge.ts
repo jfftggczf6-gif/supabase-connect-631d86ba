@@ -256,6 +256,41 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     payback: "1-3 ans",
     alerte: "Churn > 15 % ou dépendance un client > 40 % CA",
   },
+  transport_logistique: {
+    margeBrute: "20-35 %",
+    margeEbitda: "8-15 %",
+    croissanceCA: "5-15 %/an",
+    payback: "3-5 ans",
+    alerte: "Carburant > 45 % CA ou véhicules > 7 ans sans renouvellement",
+  },
+  education_formation: {
+    margeBrute: "35-55 %",
+    margeEbitda: "12-25 %",
+    croissanceCA: "10-20 %/an",
+    payback: "2-4 ans",
+    alerte: "Effectif enseignant > 55 % CA ou taux d'occupation < 60 %",
+  },
+  immobilier: {
+    margeBrute: "30-50 %",
+    margeEbitda: "20-35 %",
+    croissanceCA: "10-20 %/an",
+    payback: "5-10 ans",
+    alerte: "Cycle vente > 24 mois ou endettement > 70 %",
+  },
+  textile_mode: {
+    margeBrute: "35-55 %",
+    margeEbitda: "10-20 %",
+    croissanceCA: "10-25 %/an",
+    payback: "2-4 ans",
+    alerte: "Dépendance import tissu > 80 % ou stocks > 90 jours",
+  },
+  mines_extraction: {
+    margeBrute: "30-50 %",
+    margeEbitda: "20-40 %",
+    croissanceCA: "5-15 %/an",
+    payback: "5-10 ans",
+    alerte: "Permis non renouvelé ou cours matière < seuil de rentabilité",
+  },
 };
 
 const GLOBAL_ALERT_RATIOS = `

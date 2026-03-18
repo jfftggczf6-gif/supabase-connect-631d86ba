@@ -1101,6 +1101,146 @@ export function syncBusinessPlanWithPlanOvo(bpData: any, planOvoData: any): any 
   return bpData;
 }
 
+// ===== SCREENING REPORT NORMALIZER =====
+export function normalizeScreeningReport(raw: any): any {
+  if (!raw) return raw;
+  const d = { ...raw };
+
+  d.screening_score = toNumber(pick(d, 'screening_score', 'score_global', 'score', 'score_screening'), 0);
+  d.score = d.screening_score;
+
+  d.verdict = pick(d, 'verdict', 'decision', 'eligibility') || 'INSUFFISANT';
+  d.verdict = d.verdict.toUpperCase().replace(/É/g, 'E');
+  if (!['ELIGIBLE', 'CONDITIONNEL', 'NON_ELIGIBLE', 'INSUFFISANT'].includes(d.verdict)) {
+    d.verdict = d.screening_score >= 70 ? 'ELIGIBLE' : d.screening_score >= 40 ? 'CONDITIONNEL' : 'NON_ELIGIBLE';
+  }
+
+  d.verdict_summary = pick(d, 'verdict_summary', 'summary', 'resume', 'résumé') || '';
+
+  d.anomalies = toArray(pick(d, 'anomalies', 'anomalies_detectees', 'issues', 'red_flags')).map((a: any) => {
+    if (typeof a === 'string') return { severity: 'attention', category: 'general', title: a, detail: a, source_documents: [], recommendation: '' };
+    return {
+      severity: pick(a, 'severity', 'severite', 'level') || 'attention',
+      category: pick(a, 'category', 'categorie', 'type') || 'general',
+      title: pick(a, 'title', 'titre', 'label', 'name') || '',
+      detail: pick(a, 'detail', 'details', 'description', 'explication') || '',
+      source_documents: toArray(pick(a, 'source_documents', 'documents', 'sources')),
+      recommendation: pick(a, 'recommendation', 'recommandation', 'action', 'fix') || '',
+    };
+  });
+
+  const cv = pick(d, 'cross_validation', 'crossValidation', 'validation_croisee') || {};
+  d.cross_validation = {
+    ca_coherent: cv.ca_coherent ?? cv.ca_ok ?? null,
+    ca_declared: toNumber(cv.ca_declared || cv.ca_declare, null),
+    ca_from_documents: toNumber(cv.ca_from_documents || cv.ca_documents, null),
+    ca_ecart_pct: toNumber(cv.ca_ecart_pct || cv.ecart_ca_pct, null),
+    bilan_equilibre: cv.bilan_equilibre ?? cv.bilan_ok ?? null,
+    bilan_ecart: toNumber(cv.bilan_ecart, null),
+    charges_personnel_coherent: cv.charges_personnel_coherent ?? cv.personnel_ok ?? null,
+    tresorerie_coherent: cv.tresorerie_coherent ?? cv.tresorerie_ok ?? null,
+    notes: toArray(cv.notes || cv.observations),
+  };
+
+  const dq = pick(d, 'document_quality', 'qualite_documentaire', 'doc_quality') || {};
+  d.document_quality = {
+    total_documents: toNumber(dq.total_documents || dq.total, 0),
+    documents_exploitables: toNumber(dq.documents_exploitables || dq.exploitables, 0),
+    documents_illisibles: toNumber(dq.documents_illisibles || dq.illisibles, 0),
+    couverture: dq.couverture || {},
+    documents_manquants_critiques: toArray(dq.documents_manquants_critiques || dq.manquants),
+    anciennete_documents: dq.anciennete_documents || dq.anciennete || '',
+  };
+
+  const fh = pick(d, 'financial_health', 'sante_financiere', 'health') || {};
+  d.financial_health = {
+    marge_brute_pct: toNumber(fh.marge_brute_pct || fh.marge_brute, null),
+    marge_nette_pct: toNumber(fh.marge_nette_pct || fh.marge_nette, null),
+    ratio_endettement_pct: toNumber(fh.ratio_endettement_pct || fh.endettement, null),
+    ratio_liquidite: toNumber(fh.ratio_liquidite || fh.liquidite, null),
+    bfr_jours: toNumber(fh.bfr_jours || fh.bfr, null),
+    benchmark_sector: fh.benchmark_sector || fh.benchmark || '',
+    health_label: fh.health_label || fh.label || 'Non évaluable',
+  };
+
+  const pm = pick(d, 'programme_match', 'match_programme');
+  d.programme_match = pm ? {
+    programme_name: pm.programme_name || pm.name || '',
+    match_score: toNumber(pm.match_score || pm.score, 0),
+    criteres_ok: toArray(pm.criteres_ok || pm.ok),
+    criteres_ko: toArray(pm.criteres_ko || pm.ko),
+    criteres_partiels: toArray(pm.criteres_partiels || pm.partiels),
+    recommandation: pm.recommandation || pm.recommendation || '',
+  } : null;
+
+  return d;
+}
+
+// ===== RECONSTRUCTION NORMALIZER =====
+export function normalizeReconstruction(raw: any): any {
+  if (!raw) return raw;
+  const d = { ...raw };
+
+  d.score_confiance = toNumber(pick(d, 'score_confiance', 'score', 'confidence_score', 'confidence'), 0);
+  d.score = d.score_confiance;
+
+  const cr = pick(d, 'compte_resultat', 'income_statement', 'cdr') || {};
+  d.compte_resultat = {
+    chiffre_affaires: toNumber(pick(cr, 'chiffre_affaires', 'ca', 'revenue', 'chiffre_d_affaires'), 0),
+    achats_matieres: toNumber(pick(cr, 'achats_matieres', 'achats', 'cogs', 'cout_ventes'), 0),
+    charges_personnel: toNumber(pick(cr, 'charges_personnel', 'personnel', 'salaires', 'masse_salariale'), 0),
+    charges_externes: toNumber(pick(cr, 'charges_externes', 'externes', 'opex'), 0),
+    dotations_amortissements: toNumber(pick(cr, 'dotations_amortissements', 'amortissements', 'depreciation'), 0),
+    impots_taxes: toNumber(pick(cr, 'impots_taxes', 'impots', 'taxes'), 0),
+    resultat_exploitation: toNumber(pick(cr, 'resultat_exploitation', 'ebit', 'operating_income'), 0),
+    charges_financieres: toNumber(pick(cr, 'charges_financieres', 'frais_financiers', 'interest'), 0),
+    resultat_net: toNumber(pick(cr, 'resultat_net', 'net_income', 'benefice_net'), 0),
+    source: 'reconstruction',
+  };
+
+  const b = pick(d, 'bilan', 'balance_sheet') || {};
+  const ba = b.actif || b;
+  const bp = b.passif || b;
+  d.bilan = {
+    immobilisations: toNumber(pick(ba, 'immobilisations', 'fixed_assets'), 0),
+    stocks: toNumber(pick(ba, 'stocks', 'inventories', 'inventory'), 0),
+    creances_clients: toNumber(pick(ba, 'creances_clients', 'creances', 'receivables'), 0),
+    tresorerie_actif: toNumber(pick(ba, 'tresorerie_actif', 'tresorerie', 'cash'), 0),
+    total_actif: toNumber(pick(ba, 'total_actif', 'total_assets', 'actif_total'), 0),
+    capitaux_propres: toNumber(pick(bp, 'capitaux_propres', 'equity', 'fonds_propres'), 0),
+    dettes_financieres: toNumber(pick(bp, 'dettes_financieres', 'dettes_lt', 'long_term_debt'), 0),
+    dettes_fournisseurs: toNumber(pick(bp, 'dettes_fournisseurs', 'fournisseurs', 'payables'), 0),
+    total_passif: toNumber(pick(bp, 'total_passif', 'total_liabilities', 'passif_total'), 0),
+  };
+
+  const ef = pick(d, 'effectifs', 'employees', 'staff') || {};
+  d.effectifs = {
+    total: toNumber(pick(ef, 'total', 'headcount'), 0),
+    cadres: toNumber(pick(ef, 'cadres', 'managers', 'management'), 0),
+    employes: toNumber(pick(ef, 'employes', 'employees', 'ouvriers'), 0),
+    temporaires: toNumber(pick(ef, 'temporaires', 'temp', 'contractuels'), 0),
+  };
+
+  const k = pick(d, 'kpis', 'ratios', 'indicators') || {};
+  d.kpis = {
+    marge_brute_pct: toNumber(pick(k, 'marge_brute_pct', 'marge_brute', 'gross_margin'), 0),
+    marge_nette_pct: toNumber(pick(k, 'marge_nette_pct', 'marge_nette', 'net_margin'), 0),
+    ratio_endettement_pct: toNumber(pick(k, 'ratio_endettement_pct', 'endettement', 'debt_ratio'), 0),
+    bfr_jours: toNumber(pick(k, 'bfr_jours', 'bfr', 'working_capital_days'), 0),
+    ca_par_employe: toNumber(pick(k, 'ca_par_employe', 'revenue_per_employee'), 0),
+  };
+
+  const rr = pick(d, 'reconstruction_report', 'report') || {};
+  d.reconstruction_report = {
+    source_documents: toArray(rr.source_documents || rr.documents || rr.sources),
+    hypotheses: toArray(rr.hypotheses || rr.assumptions),
+    donnees_manquantes: toArray(rr.donnees_manquantes || rr.missing_data || rr.manquantes),
+    note_analyste: rr.note_analyste || rr.analyst_note || rr.note || '',
+  };
+
+  return d;
+}
+
 // ===== AUTO NORMALIZE BY TYPE =====
 export function normalizeByType(type: string, data: any): any {
   const normalizers: Record<string, (d: any) => any> = {
@@ -1112,6 +1252,9 @@ export function normalizeByType(type: string, data: any): any {
     business_plan: normalizeBusinessPlan,
     odd: normalizeOdd, odd_analysis: normalizeOdd,
     plan_ovo: normalizePlanOvo,
+    screening_report: normalizeScreeningReport,
+    screening: normalizeScreeningReport,
+    reconstruction: normalizeReconstruction,
   };
 
   const normalizer = normalizers[type];
