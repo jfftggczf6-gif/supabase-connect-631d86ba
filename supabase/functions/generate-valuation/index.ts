@@ -4,6 +4,7 @@ import {
   jsonResponse, errorResponse,
 } from "../_shared/helpers.ts";
 import { getFinancialKnowledgePrompt, getValuationBenchmarksPrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { validateAndEnrich } from "../_shared/post-validator.ts";
 
 const SYSTEM_PROMPT = `Tu es un analyste en Corporate Finance spécialisé dans la valorisation de PME africaines (UEMOA/CEMAC).
 
