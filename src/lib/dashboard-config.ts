@@ -63,6 +63,7 @@ export const DELIVERABLE_CONFIG = [
 ];
 
 export const PIPELINE = [
+  { name: 'Pre-screening', fn: 'generate-pre-screening', type: 'pre_screening' as DeliverableType },
   { name: 'BMC',           fn: 'generate-bmc',           type: 'bmc_analysis' as DeliverableType },
   { name: 'SIC',           fn: 'generate-sic',           type: 'sic_analysis' as DeliverableType },
   { name: 'Inputs',        fn: 'generate-inputs',        type: 'inputs_data' as DeliverableType },
