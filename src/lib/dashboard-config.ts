@@ -1,6 +1,7 @@
 import {
   LayoutGrid, Globe, FileSpreadsheet, BarChart3,
   Stethoscope, ListChecks, FileText, Target,
+  TrendingUp, Briefcase, Presentation,
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -25,6 +26,10 @@ export const MODULE_CONFIG = [
   { code: 'plan_ovo' as ModuleCode,   title: 'Plan Financier Final',     shortTitle: 'Plan Financier Final',     icon: ListChecks,  color: 'bg-amber-100 text-amber-600',  step: 5 },
   { code: 'business_plan' as ModuleCode, title: 'Business Plan',         shortTitle: 'Business Plan',            icon: FileText,    color: 'bg-indigo-100 text-indigo-600', step: 6 },
   { code: 'odd' as ModuleCode,        title: 'ODD',                      shortTitle: 'ODD',                      icon: Target,      color: 'bg-red-100 text-red-600',      step: 7 },
+  { code: 'valuation' as ModuleCode,  title: 'Valorisation',             shortTitle: 'Valorisation',             icon: TrendingUp,  color: 'bg-violet-100 text-violet-600', step: 8 },
+  { code: 'onepager' as ModuleCode,   title: 'One-Pager Investisseur',   shortTitle: 'One-Pager',                icon: FileText,    color: 'bg-cyan-100 text-cyan-600',    step: 9 },
+  { code: 'pitch_deck' as ModuleCode, title: 'Pitch Deck',               shortTitle: 'Pitch Deck',               icon: Presentation, color: 'bg-pink-100 text-pink-600',   step: 10 },
+  { code: 'investment_memo' as ModuleCode, title: "Mémo d'Investissement", shortTitle: 'Mémo Investisseur',      icon: Briefcase,   color: 'bg-slate-100 text-slate-700',  step: 11 },
 ];
 
 export const MODULE_CONFIG_COACH = [
@@ -36,6 +41,10 @@ export const MODULE_CONFIG_COACH = [
   { code: 'plan_ovo',      title: 'Plan Financier Final',        icon: ListChecks,      color: '#ea580c' },
   { code: 'business_plan', title: 'Business Plan',               icon: FileText,        color: '#4338ca' },
   { code: 'odd',           title: 'Due Diligence ODD',           icon: Target,          color: '#0891b2' },
+  { code: 'valuation',     title: 'Valorisation',                icon: TrendingUp,      color: '#7c3aed' },
+  { code: 'onepager',      title: 'One-Pager Investisseur',      icon: FileText,        color: '#0891b2' },
+  { code: 'pitch_deck',    title: 'Pitch Deck',                  icon: Presentation,    color: '#db2777' },
+  { code: 'investment_memo', title: "Mémo d'Investissement",     icon: Briefcase,       color: '#475569' },
 ];
 
 export const DELIVERABLE_CONFIG = [
@@ -47,6 +56,10 @@ export const DELIVERABLE_CONFIG = [
   { type: 'plan_ovo',        label: 'Plan Financier Final',                      formats: ['html', 'xlsx'], icon: '📋' },
   { type: 'business_plan',   label: 'Business Plan',                             formats: ['html', 'json', 'docx'], icon: '📄' },
   { type: 'odd_analysis',    label: 'ODD (17 Objectifs de Développement Durable)', formats: ['html', 'json', 'xlsx'], icon: '🌍' },
+  { type: 'valuation',       label: 'Valorisation',                              formats: ['html', 'json'], icon: '💰' },
+  { type: 'onepager',        label: 'One-Pager Investisseur',                    formats: ['html', 'json'], icon: '📃' },
+  { type: 'pitch_deck',      label: 'Pitch Deck',                               formats: ['html', 'json'], icon: '🎯' },
+  { type: 'investment_memo', label: "Mémo d'Investissement",                     formats: ['html', 'json'], icon: '💼' },
 ];
 
 export const PIPELINE = [
@@ -60,6 +73,10 @@ export const PIPELINE = [
   { name: 'Business Plan', fn: 'generate-business-plan', type: 'business_plan' as DeliverableType },
   { name: 'ODD',           fn: 'generate-odd',           type: 'odd_analysis' as DeliverableType },
   { name: 'Diagnostic',    fn: 'generate-diagnostic',    type: 'diagnostic_data' as DeliverableType },
+  { name: 'Valuation',     fn: 'generate-valuation',     type: 'valuation' as DeliverableType },
+  { name: 'One-Pager',     fn: 'generate-onepager',      type: 'onepager' as DeliverableType },
+  { name: 'Pitch Deck',    fn: 'generate-pitch-deck',    type: 'pitch_deck' as DeliverableType },
+  { name: 'Investment Memo', fn: 'generate-investment-memo', type: 'investment_memo' as DeliverableType },
 ];
 
 export const MODULE_FN_MAP: Record<string, string> = {
@@ -72,4 +89,8 @@ export const MODULE_FN_MAP: Record<string, string> = {
   business_plan: 'generate-business-plan',
   odd: 'generate-odd',
   pre_screening: 'generate-pre-screening',
+  valuation: 'generate-valuation',
+  onepager: 'generate-onepager',
+  pitch_deck: 'generate-pitch-deck',
+  investment_memo: 'generate-investment-memo',
 };
