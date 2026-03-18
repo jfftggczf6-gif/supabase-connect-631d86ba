@@ -88,7 +88,7 @@ ${sections}
     URL.revokeObjectURL(a.href);
   };
 
-  const renderSectionHtml = (key: string, d: any): string => {
+  const renderSectionHtml = (_key: string, d: any): string => {
     if (typeof d === 'string') return `<p>${d}</p>`;
     if (Array.isArray(d)) return `<ul>${d.map(i => `<li>${typeof i === 'string' ? i : JSON.stringify(i)}</li>`).join('')}</ul>`;
     return Object.entries(d).map(([k, v]) => {
