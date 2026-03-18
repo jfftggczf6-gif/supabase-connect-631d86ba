@@ -55,7 +55,11 @@ interface ScoredEnterprise extends Enterprise {
   verdict: string;
 }
 
-export default function ScreeningDashboard() {
+interface ScreeningDashboardProps {
+  coachId?: string;
+}
+
+export default function ScreeningDashboard({ coachId }: ScreeningDashboardProps = {}) {
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [criteria, setCriteria] = useState<ProgrammeCriteria[]>([]);
@@ -69,8 +73,10 @@ export default function ScreeningDashboard() {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
+      let entQuery = supabase.from('enterprises').select('id, name, sector, country, score_ir, phase, contact_email, coach_id');
+      if (coachId) entQuery = entQuery.eq('coach_id', coachId);
       const [eRes, dRes, cRes, pRes] = await Promise.all([
-        supabase.from('enterprises').select('id, name, sector, country, score_ir, phase, contact_email, coach_id'),
+        entQuery,
         supabase.from('deliverables').select('id, enterprise_id, type, data, score'),
         supabase.from('programme_criteria').select('*').eq('is_active', true),
         supabase.from('profiles').select('user_id, full_name, email'),

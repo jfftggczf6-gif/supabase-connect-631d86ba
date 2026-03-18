@@ -29,6 +29,8 @@ import {
 } from '@/lib/dashboard-config';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { runPipelineFromClient, getPipelineState, type PipelineState } from '@/lib/pipeline-runner';
+import ScreeningDashboard from './ScreeningDashboard';
+import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ function getPhaseLabel(phase: string) {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type View = 'list' | 'detail';
+type View = 'list' | 'detail' | 'screening';
 type DetailTab = 'parcours' | 'mirror' | 'livrables';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -1750,6 +1752,27 @@ export default function CoachDashboard() {
     );
   }
 
+  // ─── RENDER: Screening View ────────────────────────────────────────────────
+
+  if (view === 'screening') {
+    return (
+      <DashboardLayout
+        title="Screening & Programmes"
+        subtitle="Évaluez vos entreprises par critères programme"
+      >
+        <div className="flex gap-3 mb-6">
+          <Button variant="outline" onClick={() => setView('list')} className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> Retour au portefeuille
+          </Button>
+        </div>
+        <ProgrammeCriteriaEditor />
+        <div className="mt-6">
+          <ScreeningDashboard coachId={user?.id} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // ─── RENDER: List View ────────────────────────────────────────────────────
 
   return (
@@ -1769,6 +1792,9 @@ export default function CoachDashboard() {
       <div className="flex flex-wrap gap-3 mb-6">
         <Button onClick={() => setShowAddModal(true)} className="gap-2">
           <UserPlus className="h-4 w-4" /> Ajouter un entrepreneur
+        </Button>
+        <Button variant="outline" onClick={() => setView('screening')} className="gap-2">
+          <ListChecks className="h-4 w-4" /> Screening & Programmes
         </Button>
         <Button variant="outline" asChild className="gap-2">
           <a href="/templates"><Download className="h-4 w-4" /> Templates vierges</a>

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, Download, Shield, BarChart3, Briefcase, Users, Globe, FolderOpen } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, FileText, Download, Shield, BarChart3, Briefcase, Users, Globe, FolderOpen, Lock } from 'lucide-react';
 
 const CATEGORY_META: Record<string, { label: string; icon: typeof FileText; color: string }> = {
   legal: { label: 'Juridique', icon: Shield, color: 'bg-blue-100 text-blue-600' },
@@ -15,52 +16,80 @@ const CATEGORY_META: Record<string, { label: string; icon: typeof FileText; colo
 };
 
 export default function DataRoomPublic() {
-  const { token } = useParams<{ token: string }>();
-  const [loading, setLoading] = useState(true);
+  const { slug } = useParams<{ slug: string }>();
+  const [inputToken, setInputToken] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
+  const [validated, setValidated] = useState(false);
 
-  useEffect(() => {
-    if (!token) return;
-    const fetchDataRoom = async () => {
-      try {
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/access-data-room?token=${token}`
-        );
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({ error: 'Erreur' }));
-          throw new Error(err.error || 'Lien invalide');
+  const handleValidate = async () => {
+    if (!slug || !inputToken.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/access-data-room`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, token: inputToken.trim(), action: 'validate' }),
         }
-        setData(await resp.json());
-      } catch (e: any) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Erreur' }));
+        throw new Error(err.error || 'Token invalide');
       }
-    };
-    fetchDataRoom();
-  }, [token]);
+      setData(await resp.json());
+      setValidated(true);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (loading) {
+  // Token entry form
+  if (!validated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card/80 backdrop-blur-sm">
+          <div className="container flex h-14 items-center justify-between">
+            <span className="font-display font-bold text-lg tracking-tight">ESONO</span>
+            <Badge variant="outline" className="text-xs">Data Room</Badge>
+          </div>
+        </header>
+
+        <div className="container max-w-md py-16">
+          <Card className="p-8">
+            <div className="text-center mb-6">
+              <Lock className="h-10 w-10 text-primary mx-auto mb-3" />
+              <h2 className="font-display font-bold text-xl mb-1">Accès Data Room</h2>
+              <p className="text-sm text-muted-foreground">Entrez le token d'accès qui vous a été communiqué</p>
+            </div>
+            <div className="space-y-4">
+              <Input
+                type="text"
+                placeholder="Entrez votre token d'accès"
+                value={inputToken}
+                onChange={e => setInputToken(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleValidate()}
+              />
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
+              <Button onClick={handleValidate} disabled={loading || !inputToken.trim()} className="w-full">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Accéder
+              </Button>
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  if (error || !data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="p-8 text-center max-w-md">
-          <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="font-display font-bold text-lg mb-2">Accès impossible</h2>
-          <p className="text-sm text-muted-foreground">{error || 'Ce lien est invalide ou a expiré.'}</p>
-        </Card>
-      </div>
-    );
-  }
-
+  // Document view (after validation)
   const { enterprise, investor_name, can_download, documents } = data;
   const categories = Object.keys(CATEGORY_META);
   const grouped = categories.map(cat => ({

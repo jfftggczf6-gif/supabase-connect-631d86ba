@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   FolderOpen, Upload, Trash2, FileText, Shield, Users, BarChart3,
-  Globe, Briefcase, Copy, Link, Loader2, Star, Plus, Share2, Eye,
+  Globe, Briefcase, Copy, Link, Loader2, Star, Plus, Share2, Eye, AlertTriangle,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -53,9 +53,10 @@ interface DataRoomShare {
 interface DataRoomManagerProps {
   enterpriseId: string;
   userId: string;
+  dataRoomSlug: string;
 }
 
-export default function DataRoomManager({ enterpriseId, userId }: DataRoomManagerProps) {
+export default function DataRoomManager({ enterpriseId, userId, dataRoomSlug }: DataRoomManagerProps) {
   const [docs, setDocs] = useState<DataRoomDoc[]>([]);
   const [shares, setShares] = useState<DataRoomShare[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,10 +147,15 @@ export default function DataRoomManager({ enterpriseId, userId }: DataRoomManage
     }
   };
 
-  const handleCopyLink = (token: string) => {
-    const url = `${window.location.origin}/data-room/${token}`;
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/data-room/${dataRoomSlug}`;
     navigator.clipboard.writeText(url);
-    toast.success('Lien copié !');
+    toast.success('Lien copié ! Envoyez le token séparément.');
+  };
+
+  const handleCopyToken = (accessToken: string) => {
+    navigator.clipboard.writeText(accessToken);
+    toast.success('Token copié ! Envoyez-le dans un message séparé du lien.');
   };
 
   const handleDeleteShare = async (id: string) => {
@@ -285,8 +291,11 @@ export default function DataRoomManager({ enterpriseId, userId }: DataRoomManage
                     <Eye className="h-2.5 w-2.5" /> Vu
                   </Badge>
                 )}
-                <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => handleCopyLink(share.access_token)}>
-                  <Copy className="h-3 w-3" /> Copier
+                <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={handleCopyLink}>
+                  <Link className="h-3 w-3" /> Lien
+                </Button>
+                <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => handleCopyToken(share.access_token || '')}>
+                  <Copy className="h-3 w-3" /> Token
                 </Button>
                 <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => handleDeleteShare(share.id)}>
                   <Trash2 className="h-3 w-3" />
@@ -313,6 +322,10 @@ export default function DataRoomManager({ enterpriseId, userId }: DataRoomManage
               <Input value={investorEmail} onChange={e => setInvestorEmail(e.target.value)} placeholder="contact@investisseur.com" />
             </div>
             <p className="text-xs text-muted-foreground">Un lien unique sera généré, valide 30 jours.</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-none" />
+              <p className="text-xs text-amber-700">Sécurité : Envoyez le lien et le token dans <strong>DEUX messages séparés</strong>. Ne mettez jamais le token dans le lien.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowShare(false)}>Annuler</Button>

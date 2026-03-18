@@ -5,12 +5,20 @@ import { corsHeaders } from "../_shared/helpers.ts";
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // SECURITY: Only accept POST — token must never be in URL
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Méthode non autorisée" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
-    const url = new URL(req.url);
-    const token = url.searchParams.get("token");
+    const body = await req.json();
+    const { token, slug } = body;
 
     if (!token) {
-      return new Response(JSON.stringify({ error: "Token manquant" }), {
+      return new Response(JSON.stringify({ error: "Token requis" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -28,8 +36,8 @@ serve(async (req) => {
       .maybeSingle();
 
     if (shareErr || !share) {
-      return new Response(JSON.stringify({ error: "Lien invalide ou expiré" }), {
-        status: 404,
+      return new Response(JSON.stringify({ error: "Token invalide" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -40,6 +48,21 @@ serve(async (req) => {
         status: 410,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Verify slug matches enterprise (additional security layer)
+    if (slug) {
+      const { data: ent } = await sb
+        .from("enterprises")
+        .select("data_room_slug")
+        .eq("id", share.enterprise_id)
+        .single();
+      if (ent?.data_room_slug && ent.data_room_slug !== slug) {
+        return new Response(JSON.stringify({ error: "Token invalide pour cette Data Room" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Mark as viewed

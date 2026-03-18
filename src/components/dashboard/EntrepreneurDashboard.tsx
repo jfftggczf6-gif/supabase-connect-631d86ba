@@ -1385,7 +1385,7 @@ export default function EntrepreneurDashboard() {
 
             {selectedModule === 'dataroom' && enterprise && user ? (
               <div className="p-6">
-                <DataRoomManager enterpriseId={enterprise.id} userId={user.id} />
+                <DataRoomManager enterpriseId={enterprise.id} userId={user.id} dataRoomSlug={(enterprise as any).data_room_slug || ''} />
               </div>
             ) : selectedModule === 'screening' && selectedDeliv?.data && typeof selectedDeliv.data === 'object' ? (
               <div className="p-6">
