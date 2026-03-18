@@ -28,9 +28,9 @@ export default function Register() {
   const [country, setCountry] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [signupDone, setSignupDone] = useState(false);
 
-  const { signUp, setRole: _setRole } = useAuth();
-  const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +41,7 @@ export default function Register() {
     setIsLoading(true);
     try {
       await signUp(email, password, fullName, selectedRole);
-      toast.success('Compte créé avec succès !');
-      navigate('/dashboard');
+      setSignupDone(true);
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'inscription");
     } finally {
