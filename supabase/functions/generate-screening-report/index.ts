@@ -164,6 +164,15 @@ ${ctx.documentContent || "(Aucun document uploadé)"}
 ══════ LIVRABLES EXISTANTS ══════
 ${delivSummary.length > 0 ? delivSummary.join("\n\n") : "(Aucun livrable généré)"}
 
+══════ BENCHMARKS SECTORIELS ══════
+${getSectorKnowledgePrompt(ent.sector || "services_b2b")}
+
+══════ CRITÈRES BAILLEURS DE RÉFÉRENCE ══════
+${getDonorCriteriaPrompt()}
+
+══════ RÈGLES DE VALIDATION CROISÉE ══════
+${getValidationRulesPrompt()}
+
 ${ragContext}
 ${programmeSection}
 
