@@ -95,6 +95,9 @@ serve(async (req) => {
       return str.length > maxLen ? str.substring(0, maxLen) + "..." : str;
     }
 
+    const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
+    const donorCriteria = getDonorCriteriaPrompt();
+
     const dataContext = `
 === INFORMATIONS ENTREPRISE ===
 Nom: ${ent.name}
@@ -135,6 +138,12 @@ ${summarize(delivMap["business_plan"], 2500)}
 
 === ODD (Objectifs de Développement Durable) ===
 ${summarize(delivMap["odd_analysis"], 1500)}
+
+=== BENCHMARKS SECTORIELS ===
+${sectorBenchmarks}
+
+=== CRITÈRES BAILLEURS ===
+${donorCriteria}
 `;
 
     const coachName = coachProfile?.full_name || coachProfile?.email || "Coach";
