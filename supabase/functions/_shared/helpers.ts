@@ -166,39 +166,178 @@ export async function verifyAndGetContext(req: Request) {
     if (ext === "docx" || ext === "doc") {
       const buffer = await fileData.arrayBuffer();
       const text = await parseDocx(buffer);
-      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 20000)}`;
+      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 25000)}`;
     } else if (ext === "xlsx" || ext === "xls") {
       const buffer = await fileData.arrayBuffer();
       const text = await parseXlsx(buffer);
-      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 20000)}`;
+      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 25000)}`;
     } else if (ext === "csv") {
       const text = await fileData.text();
-      documentContent += `\n\n--- CSV: ${fileName} ---\n${text.substring(0, 20000)}`;
+      documentContent += `\n\n--- CSV: ${fileName} ---\n${text.substring(0, 25000)}`;
     } else if (ext === "txt" || ext === "md") {
       const text = await fileData.text();
-      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 15000)}`;
+      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 20000)}`;
     } else if (ext === "pdf") {
-      documentContent += `\n\n--- ${label}: ${fileName} (PDF) ---`;
+      // Parse PDF via Claude Vision API
+      const buffer = await fileData.arrayBuffer();
+      if (buffer.byteLength > 20 * 1024 * 1024) {
+        documentContent += `\n\n--- PDF: ${fileName} (trop volumineux: ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB) ---`;
+      } else {
+        try {
+          const uint8 = new Uint8Array(buffer);
+          let binary = "";
+          for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+          const base64 = btoa(binary);
+          const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+          const pdfResponse = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": anthropicApiKey,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 4096,
+              messages: [{
+                role: "user",
+                content: [
+                  {
+                    type: "document",
+                    source: { type: "base64", media_type: "application/pdf", data: base64 },
+                  },
+                  {
+                    type: "text",
+                    text: "Extrais TOUT le contenu textuel et les données chiffrées de ce document. Si c'est un relevé bancaire, liste chaque transaction. Si c'est une facture, extrais montant, date, fournisseur/client. Si c'est un bilan ou compte de résultat, extrais tous les postes avec leurs valeurs. Réponds en texte brut structuré."
+                  }
+                ]
+              }]
+            }),
+          });
+          if (pdfResponse.ok) {
+            const pdfResult = await pdfResponse.json();
+            const extractedText = pdfResult.content?.[0]?.text || "";
+            documentContent += `\n\n--- PDF analysé: ${fileName} ---\n${extractedText.substring(0, 25000)}`;
+          } else {
+            console.error(`PDF extraction error for ${fileName}: status ${pdfResponse.status}`);
+            documentContent += `\n\n--- PDF: ${fileName} (erreur extraction: ${pdfResponse.status}) ---`;
+          }
+        } catch (e) {
+          console.error(`PDF extraction error for ${fileName}:`, e);
+          documentContent += `\n\n--- PDF: ${fileName} (erreur extraction) ---`;
+        }
+      }
+    } else if (["jpg", "jpeg", "png", "webp"].includes(ext || "")) {
+      // Parse images via Claude Vision API (OCR)
+      const buffer = await fileData.arrayBuffer();
+      if (buffer.byteLength > 10 * 1024 * 1024) {
+        documentContent += `\n\n--- Image: ${fileName} (trop volumineuse: ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB) ---`;
+      } else {
+        try {
+          const uint8 = new Uint8Array(buffer);
+          let binary = "";
+          for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+          const base64 = btoa(binary);
+          const mimeMap: Record<string, string> = {
+            jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp"
+          };
+          const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+          const imgResponse = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": anthropicApiKey,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 4096,
+              messages: [{
+                role: "user",
+                content: [
+                  {
+                    type: "image",
+                    source: { type: "base64", media_type: mimeMap[ext || ""] || "image/jpeg", data: base64 },
+                  },
+                  {
+                    type: "text",
+                    text: "Cette image est un document d'entreprise (facture, relevé, reçu, tableau). Extrais TOUT le texte visible, les montants, dates, noms. Si l'image est illisible, indique-le."
+                  }
+                ]
+              }]
+            }),
+          });
+          if (imgResponse.ok) {
+            const imgResult = await imgResponse.json();
+            const extractedText = imgResult.content?.[0]?.text || "";
+            documentContent += `\n\n--- Image OCR: ${fileName} ---\n${extractedText.substring(0, 15000)}`;
+          } else {
+            documentContent += `\n\n--- Image: ${fileName} (erreur OCR: ${imgResponse.status}) ---`;
+          }
+        } catch (e) {
+          console.error(`Image OCR error for ${fileName}:`, e);
+          documentContent += `\n\n--- Image: ${fileName} (erreur OCR) ---`;
+        }
+      }
     } else {
       documentContent += `\n\n--- ${label}: ${fileName} (format non supporté) ---`;
     }
   };
 
-  // 1. Read root-level files (entrepreneur uploads)
-  if (files && files.length > 0) {
-    for (const file of files.slice(0, 10)) {
+  // Helper to process a list of storage files from a given prefix
+  const processStorageFiles = async (fileList: any[], prefix: string, label: string, maxFiles: number) => {
+    for (const file of fileList.slice(0, maxFiles)) {
+      if (file.id === null || file.id === undefined) continue; // skip folders
       const fileSizeBytes = file.metadata?.size || 0;
       if (fileSizeBytes > MAX_FILE_SIZE_BYTES) {
         console.warn(`[verifyAndGetContext] Skipping ${file.name} — file size ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
-        documentContent += `\n\n--- Document: ${file.name} (ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 50MB) ---`;
+        documentContent += `\n\n--- ${label}: ${file.name} (ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 50MB) ---`;
         continue;
       }
       const ext = file.name.split(".").pop()?.toLowerCase();
-      const storagePath = `${enterprise_id}/${file.name}`;
+      const storagePath = `${prefix}${file.name}`;
+      if (processedPaths.has(storagePath)) continue;
       processedPaths.add(storagePath);
       const { data: fileData } = await supabase.storage.from("documents").download(storagePath);
       if (!fileData) continue;
-      await parseAndAppend(fileData, file.name, ext || "", "Document");
+      await parseAndAppend(fileData, file.name, ext || "", label);
+    }
+  };
+
+  // 1. Read root-level files (entrepreneur uploads)
+  if (files && files.length > 0) {
+    await processStorageFiles(files, `${enterprise_id}/`, "Document", 20);
+  }
+
+  // 1b. Read subfolders (coach/, dataroom/, etc.)
+  const subfolders = (files || []).filter((f: any) => f.id === null || f.name === ".emptyFolderPlaceholder" === false);
+  const knownSubfolders = ["coach", "dataroom", "supplementary"];
+  for (const subfolder of knownSubfolders) {
+    try {
+      const { data: subFiles } = await supabase.storage.from("documents").list(`${enterprise_id}/${subfolder}`, { limit: 50 });
+      if (subFiles && subFiles.length > 0) {
+        // Recursively list one more level deep (e.g. coach/inputs/, dataroom/finance/)
+        for (const subItem of subFiles) {
+          const subPath = `${enterprise_id}/${subfolder}/${subItem.name}`;
+          if (subItem.metadata) {
+            // It's a file
+            if (!processedPaths.has(subPath)) {
+              processedPaths.add(subPath);
+              const ext = subItem.name.split(".").pop()?.toLowerCase();
+              const { data: fileData } = await supabase.storage.from("documents").download(subPath);
+              if (fileData) await parseAndAppend(fileData, subItem.name, ext || "", `Document (${subfolder})`);
+            }
+          } else {
+            // It's a nested folder — list its contents
+            const { data: nestedFiles } = await supabase.storage.from("documents").list(subPath, { limit: 20 });
+            if (nestedFiles) {
+              await processStorageFiles(nestedFiles, `${subPath}/`, `Document (${subfolder}/${subItem.name})`, 20);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[verifyAndGetContext] Error reading subfolder ${subfolder}:`, e);
     }
   }
 
