@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConfidenceIndicator from './ConfidenceIndicator';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
