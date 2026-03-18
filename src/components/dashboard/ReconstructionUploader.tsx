@@ -19,6 +19,7 @@ interface ReconstructionUploaderProps {
   session: any;
   navigate: (path: string) => void;
   onComplete: () => void;
+  onPreScreeningDone?: (data: any) => void;
 }
 
 interface ReconstructionResult {
