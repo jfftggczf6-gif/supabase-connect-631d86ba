@@ -78,6 +78,17 @@ const OUTPUT_SCHEMA = `{
     "hypotheses": ["string — chaque hypothèse formulée avec justification"],
     "donnees_manquantes": ["string — données impossibles à reconstituer"],
     "note_analyste": "string — résumé en 3-4 phrases de la qualité du dossier"
+  },
+
+  "_confidence": {
+    "chiffre_affaires": { "level": <0-100>, "source": "string — d'où vient cette valeur" },
+    "achats_matieres": { "level": <0-100>, "source": "string" },
+    "charges_personnel": { "level": <0-100>, "source": "string" },
+    "charges_externes": { "level": <0-100>, "source": "string" },
+    "tresorerie": { "level": <0-100>, "source": "string" },
+    "capitaux_propres": { "level": <0-100>, "source": "string" },
+    "resultat_net": { "level": <0-100>, "source": "string" },
+    "effectif_total": { "level": <0-100>, "source": "string" }
   }
 }`;
 
