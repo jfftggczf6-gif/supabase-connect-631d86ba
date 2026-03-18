@@ -15,7 +15,7 @@ import {
   Plus, Building2, Sparkles, Download,
   LogOut, Clock, CheckCircle2, Loader2,
   FolderPlus, Pencil, Trash2, TrendingUp,
-  FileText, BarChart3, Stethoscope, LayoutGrid, Globe, FileSpreadsheet, Target, Search
+  FileText, BarChart3, Stethoscope, LayoutGrid, Globe, FileSpreadsheet, Target, Search, FileSearch
 } from 'lucide-react';
 import BmcViewer from './BmcViewer';
 import SicViewer from './SicViewer';
@@ -1141,6 +1141,17 @@ export default function EntrepreneurDashboard() {
               </>
             )}
             <div className="ml-auto flex gap-2">
+              {deliverables.some(d => d.type === 'pre_screening') && (
+                <Button
+                  variant={selectedModule === 'pre_screening' ? 'default' : 'outline'}
+                  size="sm"
+                  className="gap-2 text-xs"
+                  onClick={() => setSelectedModule('pre_screening')}
+                >
+                  <FileSearch className="h-3.5 w-3.5" />
+                  {selectedModule === 'pre_screening' ? 'Triage' : 'Pre-screening'}
+                </Button>
+              )}
               <Button
                 variant={selectedModule === 'dataroom' ? 'default' : 'outline'}
                 size="sm"
