@@ -499,12 +499,17 @@ export type Database = {
       }
       knowledge_base: {
         Row: {
+          auto_refresh: boolean | null
           category: string
           content: string
           country: string | null
           created_at: string
+          embedding: string | null
+          expires_at: string | null
           id: string
+          last_refreshed_at: string | null
           metadata: Json | null
+          refresh_source: string | null
           sector: string | null
           source: string | null
           tags: string[] | null
@@ -512,12 +517,17 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_refresh?: boolean | null
           category: string
           content: string
           country?: string | null
           created_at?: string
+          embedding?: string | null
+          expires_at?: string | null
           id?: string
+          last_refreshed_at?: string | null
           metadata?: Json | null
+          refresh_source?: string | null
           sector?: string | null
           source?: string | null
           tags?: string[] | null
@@ -525,12 +535,17 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_refresh?: boolean | null
           category?: string
           content?: string
           country?: string | null
           created_at?: string
+          embedding?: string | null
+          expires_at?: string | null
           id?: string
+          last_refreshed_at?: string | null
           metadata?: Json | null
+          refresh_source?: string | null
           sector?: string | null
           source?: string | null
           tags?: string[] | null
@@ -694,6 +709,26 @@ export type Database = {
       link_enterprise_to_coach_by_email: {
         Args: { enterprise_email: string }
         Returns: string
+      }
+      search_knowledge: {
+        Args: {
+          filter_categories?: string[]
+          filter_country?: string
+          filter_sector?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          content: string
+          country: string
+          id: string
+          sector: string
+          similarity: number
+          source: string
+          title: string
+        }[]
       }
     }
     Enums: {
