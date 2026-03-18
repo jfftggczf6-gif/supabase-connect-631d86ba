@@ -235,8 +235,12 @@ export async function verifyAndGetContext(req: Request) {
       } else {
         try {
           const uint8 = new Uint8Array(buffer);
-          let binary = "";
-          for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+          const CHUNK_SIZE = 0x8000;
+          let binary = '';
+          for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
+            const chunk = uint8.subarray(i, i + CHUNK_SIZE);
+            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          }
           const base64 = btoa(binary);
           const mimeMap: Record<string, string> = {
             jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp"
