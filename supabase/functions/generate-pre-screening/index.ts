@@ -5,6 +5,7 @@ import {
 } from "../_shared/helpers.ts";
 import { getSectorKnowledgePrompt, getDonorCriteriaPrompt, getValidationRulesPrompt } from "../_shared/financial-knowledge.ts";
 import { normalizePreScreening } from "../_shared/normalizers.ts";
+import { validateAndEnrich } from "../_shared/post-validator.ts";
 
 const SYSTEM_PROMPT = `Tu es un analyste financier senior qui fait le TRIAGE INITIAL de dossiers PME africaines pour des programmes de financement.
 
