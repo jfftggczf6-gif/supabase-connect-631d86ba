@@ -405,6 +405,12 @@ export default function SuperAdminDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* SCREENING TAB */}
+        <TabsContent value="screening" className="space-y-6">
+          <ProgrammeCriteriaEditor />
+          <ScreeningDashboard />
+        </TabsContent>
       </Tabs>
     </DashboardLayout>
   );
