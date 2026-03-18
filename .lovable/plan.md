@@ -1,15 +1,14 @@
 
 
-## Probleme
+## Réponse
 
-Le bouton "Démarrer" est masqué car le contenu du modal dépasse la hauteur visible du viewport. Le `DialogContent` n'a pas de scroll et le bouton en bas est coupé.
+Lovable offre deux options pour tester des modifications sans affecter le projet principal :
 
-## Solution
+1. **Remix (clone)** : Créer une copie complète du projet. Allez dans **Settings → Remix this project**. Cela crée un nouveau projet identique où vous pouvez tester librement.
 
-Ajouter `max-h-[90vh] overflow-y-auto` au `DialogContent` pour permettre le défilement quand le contenu dépasse la hauteur de l'écran.
+2. **Branches GitHub** (expérimental) : Si votre projet est connecté à GitHub, vous pouvez activer le switching de branches dans **Account Settings → Labs → GitHub Branch Switching**. Cela vous permet de travailler sur une branche séparée.
 
-### Fichier modifie
+Je ne peux pas créer de remix ou de branche directement pour vous — ces actions se font depuis l'interface Lovable.
 
-**`src/components/dashboard/ModeSelectionModal.tsx`** (ligne 62) :
-- Ajouter les classes `max-h-[90vh] overflow-y-auto` au `DialogContent` pour que le modal soit scrollable et que le bouton "Démarrer" soit toujours accessible.
+**Recommandation** : Le remix est le plus simple et le plus fiable pour tester des modifications en isolation.
 
