@@ -305,11 +305,34 @@ Deno.serve(async (req: Request) => {
 
     if (dlError || !templateBlob) {
       console.warn(`[generate-ovo-plan] Primary template not found: ${dlError?.message}. Trying fallback...`);
-      // Try without path prefix
       const fallbackName = TEMPLATE_FILE.split("/").pop() || TEMPLATE_FILE;
       ({ data: templateBlob, error: dlError } = await supabase.storage
         .from(TEMPLATE_BUCKET)
         .download(fallbackName));
+    }
+
+    // Auto-upload from public templates if not found in storage
+    if (dlError || !templateBlob) {
+      console.warn(`[generate-ovo-plan] Template not in storage, attempting auto-upload from public URL...`);
+      const origin = req.headers.get("origin") || req.headers.get("referer") || "";
+      const baseUrl = origin ? new URL(origin).origin : "";
+      if (baseUrl) {
+        const publicUrl = `${baseUrl}/templates/${TEMPLATE_FILE}`;
+        console.log(`[generate-ovo-plan] Fetching template from: ${publicUrl}`);
+        const fetchResp = await fetch(publicUrl);
+        if (fetchResp.ok) {
+          const fetchedBuffer = await fetchResp.arrayBuffer();
+          console.log(`[generate-ovo-plan] Fetched ${fetchedBuffer.byteLength} bytes, uploading to storage...`);
+          await supabase.storage.from(TEMPLATE_BUCKET).upload(TEMPLATE_FILE, fetchedBuffer, {
+            contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
+            upsert: true,
+          });
+          // Re-download to get a proper Blob
+          ({ data: templateBlob, error: dlError } = await supabase.storage
+            .from(TEMPLATE_BUCKET)
+            .download(TEMPLATE_FILE));
+        }
+      }
     }
 
     if (dlError || !templateBlob) {
@@ -317,6 +340,18 @@ Deno.serve(async (req: Request) => {
     }
 
     const templateBuffer = await templateBlob.arrayBuffer();
+    console.log(`[generate-ovo-plan] Template size: ${templateBuffer.byteLength} bytes`);
+
+    // Validate that it's actually a ZIP file (XLSM = ZIP)
+    if (templateBuffer.byteLength < 100) {
+      throw new Error(`Template file is too small (${templateBuffer.byteLength} bytes) — likely not a valid XLSM file.`);
+    }
+    const headerView = new DataView(templateBuffer);
+    const zipMagic = headerView.getUint32(0, true);
+    if (zipMagic !== 0x04034b50) {
+      const preview = new TextDecoder().decode(new Uint8Array(templateBuffer, 0, Math.min(200, templateBuffer.byteLength)));
+      throw new Error(`Template is not a valid ZIP/XLSM file (magic: 0x${zipMagic.toString(16)}). Content preview: ${preview.slice(0, 100)}`);
+    }
 
     // ── Étape 3 : Construire la liste des cellules à écrire ────────────
     console.log("[generate-ovo-plan] Building cell writes...");
