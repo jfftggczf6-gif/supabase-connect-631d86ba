@@ -322,6 +322,10 @@ export default function DataRoomManager({ enterpriseId, userId, dataRoomSlug }: 
               <Input value={investorEmail} onChange={e => setInvestorEmail(e.target.value)} placeholder="contact@investisseur.com" />
             </div>
             <p className="text-xs text-muted-foreground">Un lien unique sera généré, valide 30 jours.</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-none" />
+              <p className="text-xs text-amber-700">Sécurité : Envoyez le lien et le token dans <strong>DEUX messages séparés</strong>. Ne mettez jamais le token dans le lien.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowShare(false)}>Annuler</Button>
