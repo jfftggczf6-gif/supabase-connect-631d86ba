@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string | null
+          created_at: string | null
+          deliverable_type: string | null
+          enterprise_id: string
+          id: string
+          metadata: Json | null
+          resource_id: string | null
+          resource_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string | null
+          deliverable_type?: string | null
+          enterprise_id: string
+          id?: string
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string | null
+          deliverable_type?: string | null
+          enterprise_id?: string
+          id?: string
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_uploads: {
         Row: {
           category: string
@@ -148,6 +195,117 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "data_room_shares_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deliverable_corrections: {
+        Row: {
+          corrected_by: string
+          corrected_value: Json | null
+          correction_reason: string | null
+          created_at: string | null
+          deliverable_id: string
+          deliverable_type: string
+          enterprise_id: string
+          field_path: string
+          id: string
+          original_value: Json | null
+        }
+        Insert: {
+          corrected_by: string
+          corrected_value?: Json | null
+          correction_reason?: string | null
+          created_at?: string | null
+          deliverable_id: string
+          deliverable_type: string
+          enterprise_id: string
+          field_path: string
+          id?: string
+          original_value?: Json | null
+        }
+        Update: {
+          corrected_by?: string
+          corrected_value?: Json | null
+          correction_reason?: string | null
+          created_at?: string | null
+          deliverable_id?: string
+          deliverable_type?: string
+          enterprise_id?: string
+          field_path?: string
+          id?: string
+          original_value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliverable_corrections_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliverable_corrections_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deliverable_versions: {
+        Row: {
+          created_at: string | null
+          data: Json
+          deliverable_id: string
+          enterprise_id: string
+          generated_by: string | null
+          id: string
+          score: number | null
+          trigger_reason: string | null
+          type: string
+          validation_report: Json | null
+          version: number
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          deliverable_id: string
+          enterprise_id: string
+          generated_by?: string | null
+          id?: string
+          score?: number | null
+          trigger_reason?: string | null
+          type: string
+          validation_report?: Json | null
+          version: number
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          deliverable_id?: string
+          enterprise_id?: string
+          generated_by?: string | null
+          id?: string
+          score?: number | null
+          trigger_reason?: string | null
+          type?: string
+          validation_report?: Json | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliverable_versions_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliverable_versions_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
             referencedRelation: "enterprises"
