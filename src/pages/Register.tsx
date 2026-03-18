@@ -28,7 +28,7 @@ export default function Register() {
   const [country, setCountry] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [signupDone, setSignupDone] = useState(false);
+  
 
   const { signUp } = useAuth();
   const navigate = useNavigate();
