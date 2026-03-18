@@ -52,7 +52,7 @@ const App = () => (
             <Route path="/module/:moduleCode" element={
               <ProtectedRoute><GenericModule /></ProtectedRoute>
             } />
-            <Route path="/data-room/:token" element={<DataRoomPublic />} />
+            <Route path="/data-room/:slug" element={<DataRoomPublic />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
