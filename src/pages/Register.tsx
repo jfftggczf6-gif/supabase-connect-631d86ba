@@ -54,21 +54,6 @@ export default function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-lg">
-        {signupDone ? (
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <MailCheck className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Vérifiez votre email</h1>
-            <p className="text-muted-foreground">
-              Un email de confirmation a été envoyé à <strong className="text-foreground">{email}</strong>.
-              Cliquez sur le lien dans l'email pour activer votre compte.
-            </p>
-            <Link to="/login" className="text-primary hover:underline font-medium text-sm">
-              Retour à la connexion
-            </Link>
-          </div>
-        ) : (<>
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">
