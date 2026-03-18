@@ -935,14 +935,6 @@ export default function EntrepreneurDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* ===== MODE SELECTION MODAL ===== */}
-      {enterprise && !(enterprise as any).operating_mode && (
-        <ModeSelectionModal
-          enterpriseId={enterprise.id}
-          open={true}
-          onModeSelected={fetchData}
-        />
-      )}
 
       <div className="flex-none bg-[hsl(222,47%,15%)]">
         <div className="h-12 flex items-center px-6 gap-6">
