@@ -70,16 +70,18 @@ export default function DeliverableEditor({
       await supabase.from('deliverables').update({ data: newData }).eq('id', deliverableId);
 
       // Log activity
-      await supabase.from('activity_log').insert({
-        enterprise_id: enterpriseId,
-        actor_id: user?.id,
-        actor_role: 'coach',
-        action: 'correction',
-        resource_type: 'deliverable',
-        resource_id: deliverableId,
-        deliverable_type: deliverableType,
-        metadata: { field_path: fieldPath, original_value: currentValue, corrected_value: parsed },
-      } as any).catch(() => {});
+      try {
+        await (supabase.from('activity_log') as any).insert({
+          enterprise_id: enterpriseId,
+          actor_id: user?.id,
+          actor_role: 'coach',
+          action: 'correction',
+          resource_type: 'deliverable',
+          resource_id: deliverableId,
+          deliverable_type: deliverableType,
+          metadata: { field_path: fieldPath, original_value: currentValue, corrected_value: parsed },
+        });
+      } catch (_) { /* non-blocking */ }
     }
 
     setSaving(false);

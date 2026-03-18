@@ -25,10 +25,7 @@ interface Props {
   onRestore?: () => void;
 }
 
-export default function VersionHistory({ deliverableId, enterpriseId, deliverableType, onRestore }: Props) {
-  const [versions, setVersions] = useState<Version[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Version | null>(null);
+export default function VersionHistory({ deliverableId, onRestore }: Props) {
   const [comparing, setComparing] = useState<[Version, Version] | null>(null);
 
   const fetchVersions = async () => {

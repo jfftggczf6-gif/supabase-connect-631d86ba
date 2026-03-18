@@ -31,10 +31,8 @@ export default function ValidationBanner({ validation }: Props) {
 
   if (!validation) return null;
 
-  const { valid, errors, warnings, corrections_applied, issues } = validation;
+  const { warnings, corrections_applied, issues } = validation;
   const uncorrectedErrors = issues.filter(i => i.severity === 'error' && !i.auto_corrected).length;
-
-  let variant: 'success' | 'warning' | 'error' = 'success';
   let Icon = CheckCircle2;
   let label = '✅ Données validées — aucune incohérence détectée';
   let bgClass = 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300';

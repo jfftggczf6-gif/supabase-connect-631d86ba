@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Activity, Upload, Cpu, PenLine, Share2, Download, Eye } from 'lucide-react';
+import { Upload, Cpu, PenLine, Share2, Download, Eye } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
