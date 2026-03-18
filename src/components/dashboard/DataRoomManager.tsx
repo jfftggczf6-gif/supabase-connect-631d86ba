@@ -56,7 +56,7 @@ interface DataRoomManagerProps {
   dataRoomSlug: string;
 }
 
-export default function DataRoomManager({ enterpriseId, userId }: DataRoomManagerProps) {
+export default function DataRoomManager({ enterpriseId, userId, dataRoomSlug }: DataRoomManagerProps) {
   const [docs, setDocs] = useState<DataRoomDoc[]>([]);
   const [shares, setShares] = useState<DataRoomShare[]>([]);
   const [loading, setLoading] = useState(true);
