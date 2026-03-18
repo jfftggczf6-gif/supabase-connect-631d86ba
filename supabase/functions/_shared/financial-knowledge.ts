@@ -482,6 +482,48 @@ const REFERENCE_COMPANIES = `
 `;
 
 // ─────────────────────────────────────────────────────────────────
+// SECTION 8 — MULTIPLES DE VALORISATION PME AFRIQUE
+// ─────────────────────────────────────────────────────────────────
+
+const VALUATION_BENCHMARKS = `
+## MULTIPLES DE VALORISATION — PME AFRIQUE SUBSAHARIENNE
+
+### Multiples EBITDA par secteur (transactions 2020-2025, PME 100M-5B FCFA CA)
+| Secteur | Multiple EBITDA | Multiple CA | Sources |
+|---------|----------------|-------------|---------|
+| Agro-industrie | 5-7× | 0.8-1.2× | I&P IPAE, Adenia Partners, Phatisa |
+| Tech/SaaS B2B | 8-12× | 2-5× | Partech, TLcom, CRE Venture Capital |
+| Fintech | 6-10× | 3-6× | Partech, Quona Capital |
+| Commerce/Distribution | 3-5× | 0.3-0.7× | Amethis, Helios, AfricInvest |
+| Services B2B | 5-8× | 1-2× | I&P, Investisseurs & Partenaires |
+| Santé/Pharma | 6-9× | 1-2× | I&P, AfricInvest, LeapFrog |
+| BTP/Construction | 3-5× | 0.3-0.6× | Rares transactions PE |
+| Énergie renouvelable | 7-10× | 1.5-3× | Meridiam, Actis, responsAbility |
+| Éducation | 5-7× | 1-2× | I&P, Emerging Capital Partners |
+| Agriculture | 4-6× | 0.5-1× | Phatisa, Pearl Capital, Injaro |
+| Transport/Logistique | 4-6× | 0.5-1× | AfricInvest, Development Partners |
+| Industrie manufacturière | 4-6× | 0.5-0.8× | Amethis, Adenia |
+
+### WACC typiques par zone
+| Zone | Risk-Free | ERP Afrique | Size Premium | Illiquidity | WACC typique PME |
+|------|-----------|-------------|--------------|-------------|------------------|
+| UEMOA (CI, SN, BF...) | 3.0% | 8-10% | 3-5% | 2-4% | 16-22% |
+| CEMAC (CM, GA...) | 3.0% | 9-12% | 3-5% | 3-5% | 18-25% |
+| RDC | 3.0% | 12-15% | 4-6% | 4-6% | 23-30% |
+| Afrique Est (KE, TZ) | 3.0% | 7-9% | 3-4% | 2-3% | 15-19% |
+
+### Décotes standard
+| Type | Fourchette | Application |
+|------|-----------|-------------|
+| Illiquidité | 20-30% | Toutes PME non cotées |
+| Taille (micro) | 15-25% | CA < 200M FCFA |
+| Taille (petite) | 10-15% | CA 200M-1B FCFA |
+| Gouvernance | 5-15% | Pas d'audit, pas de PV AG, confusion patrimoine |
+| Prime croissance | +10-25% | CAGR > 20% sur 3+ ans |
+| Risque pays | 0-20% | Instabilité politique/sécuritaire |
+`;
+
+// ─────────────────────────────────────────────────────────────────
 // EXPORTS PUBLICS
 // ─────────────────────────────────────────────────────────────────
 
@@ -542,4 +584,11 @@ export function getValidationRulesPrompt(): string {
  */
 export function getDonorCriteriaPrompt(): string {
   return DONOR_CRITERIA;
+}
+
+/**
+ * Retourne les multiples de valorisation PME Afrique.
+ */
+export function getValuationBenchmarksPrompt(): string {
+  return VALUATION_BENCHMARKS;
 }

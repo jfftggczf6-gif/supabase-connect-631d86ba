@@ -560,6 +560,10 @@ export type Database = {
         | "odd_excel"
         | "screening_report"
         | "pre_screening"
+        | "valuation"
+        | "onepager"
+        | "pitch_deck"
+        | "investment_memo"
       module_code:
         | "bmc"
         | "sic"
@@ -569,6 +573,10 @@ export type Database = {
         | "plan_ovo"
         | "business_plan"
         | "odd"
+        | "valuation"
+        | "onepager"
+        | "pitch_deck"
+        | "investment_memo"
       module_status: "not_started" | "in_progress" | "completed"
       operating_mode: "reconstruction" | "due_diligence"
     }
@@ -719,6 +727,10 @@ export const Constants = {
         "odd_excel",
         "screening_report",
         "pre_screening",
+        "valuation",
+        "onepager",
+        "pitch_deck",
+        "investment_memo",
       ],
       module_code: [
         "bmc",
@@ -729,6 +741,10 @@ export const Constants = {
         "plan_ovo",
         "business_plan",
         "odd",
+        "valuation",
+        "onepager",
+        "pitch_deck",
+        "investment_memo",
       ],
       module_status: ["not_started", "in_progress", "completed"],
       operating_mode: ["reconstruction", "due_diligence"],

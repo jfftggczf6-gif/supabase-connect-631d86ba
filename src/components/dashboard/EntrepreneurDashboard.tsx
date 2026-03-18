@@ -25,6 +25,10 @@ import BusinessPlanPreview from './BusinessPlanPreview';
 import ReconstructionUploader from './ReconstructionUploader';
 import ScreeningReportViewer from './ScreeningReportViewer';
 import PreScreeningViewer from './PreScreeningViewer';
+import ValuationViewer from './ValuationViewer';
+import OnePagerViewer from './OnePagerViewer';
+import PitchDeckViewer from './PitchDeckViewer';
+import InvestmentMemoViewer from './InvestmentMemoViewer';
 import DataRoomManager from './DataRoomManager';
 import {
   MODULE_CONFIG, PIPELINE, MODULE_FN_MAP,
@@ -821,6 +825,7 @@ export default function EntrepreneurDashboard() {
     bmc: 'bmc_analysis', sic: 'sic_analysis', inputs: 'inputs_data', framework: 'framework_data',
     diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
     screening: 'screening_report', pre_screening: 'pre_screening',
+    valuation: 'valuation', onepager: 'onepager', pitch_deck: 'pitch_deck', investment_memo: 'investment_memo',
   };
   const selectedDelivType = delivTypeMap[selectedModule];
   const selectedDeliv = selectedDelivType ? getDeliverable(selectedDelivType) : null;
@@ -1426,6 +1431,14 @@ export default function EntrepreneurDashboard() {
                   <SicViewer data={selectedDeliv.data} />
                 ) : selectedModule === 'business_plan' ? (
                   <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} />
+                ) : selectedModule === 'valuation' ? (
+                  <ValuationViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('valuation')} />
+                ) : selectedModule === 'onepager' ? (
+                  <OnePagerViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('onepager')} />
+                ) : selectedModule === 'pitch_deck' ? (
+                  <PitchDeckViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('pitch_deck')} />
+                ) : selectedModule === 'investment_memo' ? (
+                  <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} />
                 ) : (
                   <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} />
                 )}
