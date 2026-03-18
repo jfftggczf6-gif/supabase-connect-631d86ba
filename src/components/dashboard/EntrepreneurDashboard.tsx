@@ -1091,17 +1091,15 @@ export default function EntrepreneurDashboard() {
           )}
           {uploading === 'extra' && <div className="mx-4 mb-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>}
 
-          {/* Reconstruction uploader for reconstruction mode */}
-          {(enterprise as any).operating_mode === 'reconstruction' && (
-            <div className="mx-4 my-3">
-              <ReconstructionUploader
-                enterpriseId={enterprise.id}
-                session={authSession}
-                navigate={navigate}
-                onComplete={fetchData}
-              />
-            </div>
-          )}
+          {/* Reconstruction uploader — always visible */}
+          <div className="mx-4 my-3">
+            <ReconstructionUploader
+              enterpriseId={enterprise.id}
+              session={authSession}
+              navigate={navigate}
+              onComplete={fetchData}
+            />
+          </div>
 
           {/* Spacer */}
           <div className="flex-1" />
