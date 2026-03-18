@@ -1428,6 +1428,15 @@ export default function EntrepreneurDashboard() {
               </div>
             ) : selectedDeliv?.data && typeof selectedDeliv.data === 'object' ? (
               <div className="p-6">
+                <ValidationBanner validation={(selectedDeliv.data as any)?._validation} />
+                <div className="flex gap-2 mb-4">
+                  <VersionHistory
+                    deliverableId={selectedDeliv.id}
+                    enterpriseId={enterprise?.id || ''}
+                    deliverableType={selectedDeliv.type}
+                    onRestore={() => fetchData()}
+                  />
+                </div>
                 {selectedModule === 'bmc' ? (
                   <BmcViewer data={selectedDeliv.data} />
                 ) : selectedModule === 'sic' ? (
