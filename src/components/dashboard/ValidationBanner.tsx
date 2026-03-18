@@ -38,12 +38,10 @@ export default function ValidationBanner({ validation }: Props) {
   let bgClass = 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300';
 
   if (uncorrectedErrors > 0) {
-    variant = 'error';
     Icon = XCircle;
     label = `❌ ${uncorrectedErrors} incohérence${uncorrectedErrors > 1 ? 's' : ''} détectée${uncorrectedErrors > 1 ? 's' : ''} — fiabilité réduite`;
     bgClass = 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300';
   } else if (warnings > 0) {
-    variant = 'warning';
     Icon = AlertTriangle;
     label = `⚠️ ${warnings} avertissement${warnings > 1 ? 's' : ''} détecté${warnings > 1 ? 's' : ''}`;
     bgClass = 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300';

@@ -26,6 +26,8 @@ interface Props {
 }
 
 export default function VersionHistory({ deliverableId, onRestore }: Props) {
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [loading, setLoading] = useState(false);
   const [comparing, setComparing] = useState<[Version, Version] | null>(null);
 
   const fetchVersions = async () => {
