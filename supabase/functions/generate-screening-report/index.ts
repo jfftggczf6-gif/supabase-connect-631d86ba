@@ -13,6 +13,9 @@ TON RÔLE :
 2. Évaluer la QUALITÉ DOCUMENTAIRE du dossier
 3. Produire un VERDICT de screening rapide pour un bailleur
 4. Comparer le dossier aux CRITÈRES DU PROGRAMME si fournis
+5. Évaluer le PROFIL DE RISQUE complet de l'entreprise
+6. Proposer un PLAN D'ACTION PRIORITAIRE avec actions concrètes
+7. Recommander un PATHWAY DE FINANCEMENT adapté
 
 TYPES D'INCOHÉRENCES À DÉTECTER :
 - Bilan déséquilibré (Total Actif ≠ Total Passif, écart > 2%)
@@ -38,21 +41,66 @@ CLASSIFICATION DES ANOMALIES :
 - 🟡 ATTENTION : anomalie à vérifier mais pas bloquante (estimation probable, données partielles)
 - 🟢 NOTE : observation mineure, information contextuelle
 
+PROFIL DE RISQUE À ÉVALUER :
+- Risque opérationnel : dépendance à un fournisseur, un client, une personne clé, une infrastructure
+- Risque financier : tension de trésorerie, surendettement, absence de fonds de roulement, BFR excessif
+- Risque de marché : concentration sectorielle, concurrence, barrières à l'entrée, saisonnalité non provisionnée
+- Risque juridique : conformité RCCM, statuts, licences sectorielles, contrats de travail
+- Risque de gouvernance : absence de PV d'AG, confusion patrimoine personnel/professionnel, pas de comptabilité séparée
+- Risque pays : instabilité politique, inflation, risque de change, problèmes sécuritaires régionaux
+
+RECOMMANDATIONS PRIORITAIRES :
+- Classer par priorité (1 = urgent/bloquant, 5 = amélioration)
+- Chaque recommandation doit être ACTIONNABLE (pas "améliorer la gouvernance" mais "rédiger un PV d'AG annuel et le faire signer par tous les associés")
+- Estimer l'impact sur le score si l'action est réalisée
+- Indiquer si c'est l'entrepreneur ou le coach qui doit agir
+
+PATHWAY DE FINANCEMENT :
+- Recommander le type de financement adapté au stade actuel de l'entreprise
+- Lister les bailleurs potentiels concrets (pas des catégories génériques)
+- Estimer le montant éligible en fourchette
+- Lister les conditions préalables (ex: "obtenir un bilan certifié N-1")
+- Donner une timeline réaliste pour atteindre le niveau requis
+
+RÉSUMÉ EXÉCUTIF :
+- Le résumé doit être écrit comme si un analyste présentait le dossier à son directeur
+- Inclure les chiffres clés (CA, marge, score)
+- Identifier clairement les 3-5 forces ET les 3-5 faiblesses
+- Le decision_rationale explique la logique du verdict
+
+BENCHMARK :
+- Pour CHAQUE ratio financier, comparer avec le benchmark du secteur
+- Indiquer si la valeur est conforme, optimiste (au-dessus du benchmark), en alerte (en dessous), ou critique (très en dessous)
+- Si pas de données pour un ratio, indiquer "Non évaluable" plutôt que 0
+
+DÉTAIL DES CROSS-VALIDATIONS :
+- Pour chaque vérification (CA, bilan, charges, trésorerie, dates), rédiger 1-2 phrases expliquant le calcul et la conclusion
+- Citer les documents sources utilisés pour la comparaison
+
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
 const SCREENING_SCHEMA = `{
   "screening_score": <0-100>,
   "verdict": "ELIGIBLE | CONDITIONNEL | NON_ELIGIBLE | INSUFFISANT",
-  "verdict_summary": "string — 2-3 phrases résumant le verdict pour le bailleur",
+  "verdict_summary": "string — 3-5 phrases résumant le verdict de manière détaillée et argumentée",
+
+  "resume_executif": {
+    "synthese": "string — paragraphe de 5-8 lignes résumant l'ensemble du dossier comme un analyste le ferait pour son supérieur",
+    "points_forts": ["string — 3-5 forces principales identifiées"],
+    "points_faibles": ["string — 3-5 faiblesses principales identifiées"],
+    "decision_rationale": "string — 2-3 phrases expliquant pourquoi ce verdict et pas un autre"
+  },
 
   "anomalies": [
     {
       "severity": "bloquant | attention | note",
-      "category": "finance | documents | coherence | completude",
-      "title": "string — titre court de l'anomalie",
-      "detail": "string — explication détaillée",
-      "source_documents": ["string — quels documents sont concernés"],
-      "recommendation": "string — que doit faire l'entrepreneur pour corriger"
+      "category": "finance | documents | coherence | completude | gouvernance | legal",
+      "title": "string — titre court",
+      "detail": "string — explication détaillée avec chiffres précis",
+      "impact": "string — conséquence concrète de cette anomalie pour un investisseur",
+      "source_documents": ["string"],
+      "recommendation": "string — action corrective précise",
+      "effort": "facile | moyen | difficile"
     }
   ],
 
@@ -61,11 +109,17 @@ const SCREENING_SCHEMA = `{
     "ca_declared": <number ou null>,
     "ca_from_documents": <number ou null>,
     "ca_ecart_pct": <number ou null>,
+    "ca_detail": "string — explication du calcul et de la comparaison",
     "bilan_equilibre": true|false,
     "bilan_ecart": <number ou null>,
+    "bilan_detail": "string",
     "charges_personnel_coherent": true|false,
+    "charges_personnel_detail": "string — masse salariale vs effectifs vs SMIG",
     "tresorerie_coherent": true|false,
-    "notes": ["string — observations sur la cross-validation"]
+    "tresorerie_detail": "string — comparaison bilan vs relevés bancaires",
+    "dates_coherentes": true|false,
+    "dates_detail": "string — cohérence des exercices entre documents",
+    "notes": ["string"]
   },
 
   "document_quality": {
@@ -73,31 +127,86 @@ const SCREENING_SCHEMA = `{
     "documents_exploitables": <number>,
     "documents_illisibles": <number>,
     "couverture": {
-      "legal": true|false,
-      "finance": true|false,
-      "commercial": true|false
+      "legal": { "present": true|false, "documents": ["string — docs trouvés"], "manquants": ["string — docs attendus mais absents"] },
+      "finance": { "present": true|false, "documents": ["string"], "manquants": ["string"] },
+      "commercial": { "present": true|false, "documents": ["string"], "manquants": ["string"] },
+      "rh": { "present": true|false, "documents": ["string"], "manquants": ["string"] },
+      "esg": { "present": true|false, "documents": ["string"], "manquants": ["string"] }
     },
-    "documents_manquants_critiques": ["string — document manquant"],
-    "anciennete_documents": "string — ex: 'Documents de 2024, cohérents avec exercice déclaré'"
+    "documents_manquants_critiques": ["string"],
+    "anciennete_documents": "string",
+    "niveau_preuve_global": "N0 Declaratif | N1 Faible | N2 Intermediaire | N3 Solide",
+    "note_qualite": "string — 2-3 phrases évaluant la qualité documentaire globale"
   },
 
   "financial_health": {
+    "compte_resultat_resume": {
+      "chiffre_affaires": <number ou null>,
+      "marge_brute": <number ou null>,
+      "ebitda": <number ou null>,
+      "resultat_net": <number ou null>,
+      "source": "string — d'où viennent ces chiffres (documents, reconstruction, déclaration)"
+    },
     "marge_brute_pct": <number ou null>,
     "marge_nette_pct": <number ou null>,
     "ratio_endettement_pct": <number ou null>,
     "ratio_liquidite": <number ou null>,
     "bfr_jours": <number ou null>,
-    "benchmark_sector": "string — comparaison aux normes du secteur",
-    "health_label": "Saine | Fragile | Critique | Non évaluable"
+    "dscr": <number ou null>,
+    "tresorerie_nette": <number ou null>,
+    "benchmark_comparison": [
+      {
+        "indicateur": "string — ex: Marge brute",
+        "valeur_entreprise": "string — ex: 45%",
+        "benchmark_secteur": "string — ex: 30-50% (Agriculture)",
+        "verdict": "conforme | optimiste | alerte | critique"
+      }
+    ],
+    "health_label": "Saine | Fragile | Critique | Non evaluable",
+    "health_detail": "string — paragraphe détaillant la santé financière avec chiffres"
+  },
+
+  "profil_risque": {
+    "score_risque": <0-100 — 0=très risqué, 100=très sûr>,
+    "risques_identifies": [
+      {
+        "type": "operationnel | financier | marche | legal | gouvernance | pays",
+        "description": "string",
+        "probabilite": "faible | moyenne | elevee",
+        "impact": "faible | moyen | fort",
+        "mitigation": "string — mesure d'atténuation suggérée"
+      }
+    ],
+    "concentration_client": "string — % CA du top client si connu, sinon 'Non évalué'",
+    "dependance_fournisseur": "string — risque de dépendance identifié ou 'Non évalué'",
+    "risque_pays": "string — contexte politique/économique/sécuritaire du pays"
+  },
+
+  "recommandations_prioritaires": [
+    {
+      "priorite": 1|2|3|4|5,
+      "action": "string — action concrète et précise",
+      "responsable": "entrepreneur | coach | les deux",
+      "delai": "string — ex: 2 semaines, 1 mois, 3 mois",
+      "impact_score": "string — ex: +10 à +15 points sur le score si réalisé"
+    }
+  ],
+
+  "pathway_financement": {
+    "type_recommande": "string — type de financement recommandé",
+    "bailleurs_potentiels": ["string — noms de bailleurs avec ticket range"],
+    "montant_eligible_estime": "string — fourchette en FCFA ou EUR",
+    "conditions_prealables": ["string — ce qui doit être résolu avant de postuler"],
+    "timeline_estimee": "string — ex: 3-6 mois pour atteindre le niveau requis"
   },
 
   "programme_match": null | {
     "programme_name": "string",
     "match_score": <0-100>,
-    "criteres_ok": ["string — critère satisfait"],
-    "criteres_ko": ["string — critère non satisfait"],
-    "criteres_partiels": ["string — critère partiellement satisfait"],
-    "recommandation": "string — verdict par rapport au programme"
+    "criteres_ok": [{ "critere": "string", "detail": "string — comment c'est satisfait" }],
+    "criteres_ko": [{ "critere": "string", "detail": "string — pourquoi pas satisfait", "comment_corriger": "string" }],
+    "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string — ce qu'il reste à faire" }],
+    "recommandation": "string — verdict détaillé"
   }
 }`;
 
@@ -180,11 +289,14 @@ ${programmeSection}
 Analyse TOUT le dossier ci-dessus. Détecte les incohérences, évalue la qualité documentaire, produis un verdict de screening.
 Cross-valide les données entre les différentes sources (documents vs livrables vs déclarations).
 Le screening_score reflète la fiabilité globale du dossier pour un bailleur.
+Évalue le profil de risque complet. Propose des recommandations prioritaires actionnables.
+Recommande un pathway de financement adapté au stade de l'entreprise.
+Rédige un résumé exécutif détaillé comme un analyste le ferait pour son directeur.
 
 Réponds en JSON selon ce schéma :
 ${SCREENING_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 12288);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt, 16384);
     const normalizedData = normalizeScreeningReport(rawData);
 
     // Save as screening_report deliverable
