@@ -56,7 +56,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
           {[
             { label: 'Marge EBITDA', value: kpis.marge_ebitda },
             { label: 'CA Année N', value: <>{formatAmount(kpis.ca_annee_n)}<ConfidenceIndicator field="chiffre_affaires_y0" confidence={data._confidence} /></> },
-            { label: 'EBITDA', value: formatAmount(kpis.ebitda) },
+            { label: 'EBITDA', value: <>{formatAmount(kpis.ebitda)}<ConfidenceIndicator field="ebitda" confidence={data._confidence} /></> },
             { label: 'CA An 5 projeté', value: formatAmount(kpis.ca_an5_projete) },
           ].map((k, i) => (
             <Card key={i}><CardContent className="py-3 text-center">
