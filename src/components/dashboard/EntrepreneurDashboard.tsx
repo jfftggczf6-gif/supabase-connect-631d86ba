@@ -30,6 +30,9 @@ import OnePagerViewer from './OnePagerViewer';
 import PitchDeckViewer from './PitchDeckViewer';
 import InvestmentMemoViewer from './InvestmentMemoViewer';
 import DataRoomManager from './DataRoomManager';
+import ValidationBanner from './ValidationBanner';
+import VersionHistory from './VersionHistory';
+import ActivityTimeline from './ActivityTimeline';
 import {
   MODULE_CONFIG, PIPELINE, MODULE_FN_MAP,
   type Enterprise, type Deliverable, type EnterpriseModule, type UploadedFile,
