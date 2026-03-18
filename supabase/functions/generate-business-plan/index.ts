@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext } from "../_shared/helpers.ts";
 import { syncBusinessPlanWithPlanOvo } from "../_shared/normalizers.ts";
+import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "npm:docx@8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
