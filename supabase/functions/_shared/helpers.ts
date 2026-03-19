@@ -160,219 +160,274 @@ export async function verifyAndGetContext(req: Request) {
 
   const { data: files } = await supabase.storage.from("documents").list(enterprise_id);
   let documentContent = "";
-  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // H8: 50MB max per file
+  const MAX_STORAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024;
+  const MAX_DOCUMENT_CONTEXT_CHARS = 120_000;
+  const MAX_TEXT_EXTRACT_CHARS = 25_000;
+  const MAX_PDF_TEXT_SAMPLE_BYTES = 256 * 1024;
+  const MAX_PDF_AI_BYTES = 5 * 1024 * 1024;
+  const MAX_IMAGE_AI_BYTES = 10 * 1024 * 1024;
+  const MAX_PROCESSED_FILES = 12;
   const processedPaths = new Set<string>();
+  let processedFileCount = 0;
   let visionCallCount = 0;
   const MAX_VISION_CALLS = 5;
 
-  const parseAndAppend = async (fileData: Blob, fileName: string, ext: string, label: string) => {
+  const canProcessMore = () => (
+    processedFileCount < MAX_PROCESSED_FILES && documentContent.length < MAX_DOCUMENT_CONTEXT_CHARS
+  );
+
+  const appendDocumentSection = (title: string, content: string, maxChars = MAX_TEXT_EXTRACT_CHARS) => {
+    if (!content || documentContent.length >= MAX_DOCUMENT_CONTEXT_CHARS) return;
+
+    const normalized = content.substring(0, maxChars).trim();
+    if (!normalized) return;
+
+    const header = `\n\n--- ${title} ---\n`;
+    const remaining = MAX_DOCUMENT_CONTEXT_CHARS - documentContent.length;
+    if (remaining <= header.length) return;
+
+    const availableContentChars = remaining - header.length;
+    if (normalized.length <= availableContentChars) {
+      documentContent += `${header}${normalized}`;
+      return;
+    }
+
+    const truncatedNote = "\n[contenu tronqué]";
+    const safeLength = Math.max(0, availableContentChars - truncatedNote.length);
+    documentContent += `${header}${normalized.substring(0, safeLength)}${truncatedNote}`;
+  };
+
+  const extractReadablePdfText = (rawText: string) => rawText
+    .replace(/[^-\u00c0-\u00ff\n\r\t]/g, " ")
+    .replace(/\s{3,}/g, "\n")
+    .trim();
+
+  const toBase64 = (buffer: ArrayBuffer) => {
+    const bytes = new Uint8Array(buffer);
+    const chunks: string[] = [];
+    const CHUNK_SIZE = 0x2000;
+
+    for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+      chunks.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK_SIZE)));
+    }
+
+    return btoa(chunks.join(""));
+  };
+
+  const parseAndAppend = async (
+    fileData: Blob,
+    fileName: string,
+    ext: string,
+    label: string,
+    fileSizeBytes = 0,
+  ) => {
+    if (!canProcessMore()) {
+      appendDocumentSection(`${label}: ${fileName}`, "ignoré — limite de contexte atteinte", 200);
+      return;
+    }
+
     if (ext === "docx" || ext === "doc") {
       const buffer = await fileData.arrayBuffer();
       const text = await parseDocx(buffer);
-      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 25000)}`;
+      appendDocumentSection(`${label}: ${fileName}`, text);
     } else if (ext === "xlsx" || ext === "xls") {
       const buffer = await fileData.arrayBuffer();
       const text = await parseXlsx(buffer);
-      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 25000)}`;
+      appendDocumentSection(`${label}: ${fileName}`, text);
     } else if (ext === "csv") {
       const text = await fileData.text();
-      documentContent += `\n\n--- CSV: ${fileName} ---\n${text.substring(0, 25000)}`;
+      appendDocumentSection(`CSV: ${fileName}`, text);
     } else if (ext === "txt" || ext === "md") {
       const text = await fileData.text();
-      documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 20000)}`;
+      appendDocumentSection(`${label}: ${fileName}`, text, 20_000);
     } else if (ext === "pdf") {
-      const rawPdfText = await fileData.text();
-      const readablePdfText = rawPdfText
-        .replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ")
-        .replace(/\s{3,}/g, "\n")
-        .trim();
+      const pdfTextSample = await fileData.slice(0, MAX_PDF_TEXT_SAMPLE_BYTES).text();
+      const readablePdfText = extractReadablePdfText(pdfTextSample);
+      const printableRatio = pdfTextSample.length > 0
+        ? readablePdfText.length / pdfTextSample.length
+        : 0;
 
-      if (readablePdfText.length > 500) {
-        documentContent += `\n\n--- PDF texte: ${fileName} ---\n${readablePdfText.substring(0, 25000)}`;
-      } else {
-        if (visionCallCount >= MAX_VISION_CALLS) {
-          documentContent += `\n\n--- PDF: ${fileName} (ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte) ---`;
-          return;
-        }
-
-        const fullBuffer = await fileData.arrayBuffer();
-        const MAX_PDF_AI_BYTES = 5 * 1024 * 1024;
-        const pdfBuffer = fullBuffer.byteLength > MAX_PDF_AI_BYTES
-          ? fullBuffer.slice(0, MAX_PDF_AI_BYTES)
-          : fullBuffer;
-
-        try {
-          visionCallCount++;
-          const uint8 = new Uint8Array(pdfBuffer);
-          const CHUNK_SIZE = 0x8000;
-          let binary = "";
-          for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
-            const chunk = uint8.subarray(i, i + CHUNK_SIZE);
-            binary += String.fromCharCode.apply(null, Array.from(chunk));
-          }
-          const base64 = btoa(binary);
-          const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-          const pdfResponse = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": anthropicApiKey,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-3-haiku-20240307",
-              max_tokens: 1024,
-              messages: [{
-                role: "user",
-                content: [
-                  {
-                    type: "document",
-                    source: { type: "base64", media_type: "application/pdf", data: base64 },
-                  },
-                  {
-                    type: "text",
-                    text: "Extrais uniquement le texte utile et les données chiffrées visibles de ce PDF. Si le fichier est illisible ou incomplet, indique-le brièvement."
-                  }
-                ]
-              }]
-            }),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          if (pdfResponse.ok) {
-            const pdfResult = await pdfResponse.json();
-            const extractedText = pdfResult.content?.[0]?.text || "";
-            documentContent += `\n\n--- PDF analysé: ${fileName} ---\n${extractedText.substring(0, 20000)}`;
-          } else {
-            const errorText = await pdfResponse.text();
-            console.error(`PDF extraction error for ${fileName}: status ${pdfResponse.status} - ${errorText}`);
-            documentContent += `\n\n--- PDF: ${fileName} (lecture partielle impossible, extraction ignorée) ---`;
-          }
-        } catch (e) {
-          console.error(`PDF extraction error for ${fileName}:`, e);
-          documentContent += `\n\n--- PDF: ${fileName} (erreur extraction) ---`;
-        }
-      }
-    } else if (["jpg", "jpeg", "png", "webp"].includes(ext || "")) {
-      // Parse images via Claude Vision API (OCR)
-      if (visionCallCount >= MAX_VISION_CALLS) {
-        documentContent += `\n\n--- Image: ${fileName} (ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte) ---`;
+      if (readablePdfText.length > 500 && printableRatio > 0.15) {
+        appendDocumentSection(`PDF texte: ${fileName}`, readablePdfText);
         return;
       }
-      const buffer = await fileData.arrayBuffer();
-      if (buffer.byteLength > 10 * 1024 * 1024) {
-        documentContent += `\n\n--- Image: ${fileName} (trop volumineuse: ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB) ---`;
-      } else {
-        try {
-          visionCallCount++;
-          const uint8 = new Uint8Array(buffer);
-          const CHUNK_SIZE = 0x8000;
-          let binary = '';
-          for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
-            const chunk = uint8.subarray(i, i + CHUNK_SIZE);
-            binary += String.fromCharCode.apply(null, Array.from(chunk));
-          }
-          const base64 = btoa(binary);
-          const mimeMap: Record<string, string> = {
-            jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp"
-          };
-          const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 45000);
-          const imgResponse = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": anthropicApiKey,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-3-haiku-20240307",
-              max_tokens: 2048,
-              messages: [{
-                role: "user",
-                content: [
-                  {
-                    type: "image",
-                    source: { type: "base64", media_type: mimeMap[ext || ""] || "image/jpeg", data: base64 },
-                  },
-                  {
-                    type: "text",
-                    text: "Cette image est un document d'entreprise (facture, relevé, reçu, tableau). Extrais TOUT le texte visible, les montants, dates, noms. Si l'image est illisible, indique-le."
-                  }
-                ]
-              }]
-            }),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          if (imgResponse.ok) {
-            const imgResult = await imgResponse.json();
-            const extractedText = imgResult.content?.[0]?.text || "";
-            documentContent += `\n\n--- Image OCR: ${fileName} ---\n${extractedText.substring(0, 15000)}`;
-          } else {
-            documentContent += `\n\n--- Image: ${fileName} (erreur OCR: ${imgResponse.status}) ---`;
-          }
-        } catch (e) {
-          console.error(`Image OCR error for ${fileName}:`, e);
-          documentContent += `\n\n--- Image: ${fileName} (erreur OCR) ---`;
+
+      if (visionCallCount >= MAX_VISION_CALLS) {
+        appendDocumentSection(`PDF: ${fileName}`, `ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte`, 300);
+        return;
+      }
+
+      try {
+        visionCallCount++;
+        const pdfBuffer = await fileData.slice(0, MAX_PDF_AI_BYTES).arrayBuffer();
+        const base64 = toBase64(pdfBuffer);
+        const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+        const pdfResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": anthropicApiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-3-haiku-20240307",
+            max_tokens: 1024,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "document",
+                  source: { type: "base64", media_type: "application/pdf", data: base64 },
+                },
+                {
+                  type: "text",
+                  text: "Extrais uniquement le texte utile et les données chiffrées visibles de ce PDF. Si le fichier est illisible ou incomplet, indique-le brièvement."
+                }
+              ]
+            }]
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (pdfResponse.ok) {
+          const pdfResult = await pdfResponse.json();
+          const extractedText = pdfResult.content?.[0]?.text || "";
+          appendDocumentSection(`PDF analysé: ${fileName}`, extractedText, 20_000);
+        } else {
+          const errorText = await pdfResponse.text();
+          console.error(`PDF extraction error for ${fileName}: status ${pdfResponse.status} - ${errorText}`);
+          appendDocumentSection(`PDF: ${fileName}`, "lecture partielle impossible, extraction ignorée", 200);
         }
+      } catch (e) {
+        console.error(`PDF extraction error for ${fileName}:`, e);
+        appendDocumentSection(`PDF: ${fileName}`, "erreur extraction", 200);
+      }
+    } else if (["jpg", "jpeg", "png", "webp"].includes(ext || "")) {
+      if (visionCallCount >= MAX_VISION_CALLS) {
+        appendDocumentSection(`Image: ${fileName}`, `ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte`, 300);
+        return;
+      }
+
+      const effectiveSize = fileSizeBytes || fileData.size;
+      if (effectiveSize > MAX_IMAGE_AI_BYTES) {
+        appendDocumentSection(`Image: ${fileName}`, `trop volumineuse: ${(effectiveSize / 1024 / 1024).toFixed(1)}MB`, 200);
+        return;
+      }
+
+      try {
+        visionCallCount++;
+        const base64 = toBase64(await fileData.arrayBuffer());
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp"
+        };
+        const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+        const imgResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": anthropicApiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-3-haiku-20240307",
+            max_tokens: 2048,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: mimeMap[ext || ""] || "image/jpeg", data: base64 },
+                },
+                {
+                  type: "text",
+                  text: "Cette image est un document d'entreprise (facture, relevé, reçu, tableau). Extrais TOUT le texte visible, les montants, dates, noms. Si l'image est illisible, indique-le."
+                }
+              ]
+            }]
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (imgResponse.ok) {
+          const imgResult = await imgResponse.json();
+          const extractedText = imgResult.content?.[0]?.text || "";
+          appendDocumentSection(`Image OCR: ${fileName}`, extractedText, 15_000);
+        } else {
+          appendDocumentSection(`Image: ${fileName}`, `erreur OCR: ${imgResponse.status}`, 200);
+        }
+      } catch (e) {
+        console.error(`Image OCR error for ${fileName}:`, e);
+        appendDocumentSection(`Image: ${fileName}`, "erreur OCR", 200);
       }
     } else {
-      documentContent += `\n\n--- ${label}: ${fileName} (format non supporté) ---`;
+      appendDocumentSection(`${label}: ${fileName}`, "format non supporté", 200);
     }
   };
 
-  // Helper to process a list of storage files from a given prefix
   const processStorageFiles = async (fileList: any[], prefix: string, label: string, maxFiles: number) => {
     for (const file of fileList.slice(0, maxFiles)) {
-      if (file.id === null || file.id === undefined) continue; // skip folders
+      if (!canProcessMore()) break;
+      if (file.id === null || file.id === undefined) continue;
+
       const fileSizeBytes = file.metadata?.size || 0;
-      if (fileSizeBytes > MAX_FILE_SIZE_BYTES) {
-        console.warn(`[verifyAndGetContext] Skipping ${file.name} — file size ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
-        documentContent += `\n\n--- ${label}: ${file.name} (ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 50MB) ---`;
+      if (fileSizeBytes > MAX_STORAGE_FILE_SIZE_BYTES) {
+        console.warn(`[verifyAndGetContext] Skipping ${file.name} — file size ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds 15MB limit`);
+        appendDocumentSection(`${label}: ${file.name}`, `ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 15MB`, 250);
         continue;
       }
+
       const ext = file.name.split(".").pop()?.toLowerCase();
       const storagePath = `${prefix}${file.name}`;
       if (processedPaths.has(storagePath)) continue;
+
       processedPaths.add(storagePath);
       const { data: fileData } = await supabase.storage.from("documents").download(storagePath);
       if (!fileData) continue;
-      await parseAndAppend(fileData, file.name, ext || "", label);
+
+      processedFileCount++;
+      await parseAndAppend(fileData, file.name, ext || "", label, fileSizeBytes);
     }
   };
 
-  // 1. Read root-level files (entrepreneur uploads)
   if (files && files.length > 0) {
     await processStorageFiles(files, `${enterprise_id}/`, "Document", 20);
   }
 
-  // 1b. Read subfolders (coach/, dataroom/, etc.)
-  const subfolders = (files || []).filter((f: any) => f.id === null || f.name === ".emptyFolderPlaceholder" === false);
   const knownSubfolders = ["coach", "dataroom", "supplementary"];
   for (const subfolder of knownSubfolders) {
+    if (!canProcessMore()) break;
+
     try {
       const { data: subFiles } = await supabase.storage.from("documents").list(`${enterprise_id}/${subfolder}`, { limit: 50 });
       if (subFiles && subFiles.length > 0) {
-        // Recursively list one more level deep (e.g. coach/inputs/, dataroom/finance/)
         for (const subItem of subFiles) {
+          if (!canProcessMore()) break;
+
           const subPath = `${enterprise_id}/${subfolder}/${subItem.name}`;
           if (subItem.metadata) {
-            // It's a file
-            if (!processedPaths.has(subPath)) {
-              processedPaths.add(subPath);
-              const ext = subItem.name.split(".").pop()?.toLowerCase();
-              const { data: fileData } = await supabase.storage.from("documents").download(subPath);
-              if (fileData) await parseAndAppend(fileData, subItem.name, ext || "", `Document (${subfolder})`);
+            if (processedPaths.has(subPath)) continue;
+
+            const fileSizeBytes = subItem.metadata?.size || 0;
+            if (fileSizeBytes > MAX_STORAGE_FILE_SIZE_BYTES) {
+              appendDocumentSection(`Document (${subfolder}): ${subItem.name}`, `ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 15MB`, 250);
+              continue;
             }
+
+            processedPaths.add(subPath);
+            const ext = subItem.name.split(".").pop()?.toLowerCase();
+            const { data: fileData } = await supabase.storage.from("documents").download(subPath);
+            if (!fileData) continue;
+
+            processedFileCount++;
+            await parseAndAppend(fileData, subItem.name, ext || "", `Document (${subfolder})`, fileSizeBytes);
           } else {
-            // It's a nested folder — list its contents
             const { data: nestedFiles } = await supabase.storage.from("documents").list(subPath, { limit: 20 });
             if (nestedFiles) {
               await processStorageFiles(nestedFiles, `${subPath}/`, `Document (${subfolder}/${subItem.name})`, 20);
@@ -385,20 +440,29 @@ export async function verifyAndGetContext(req: Request) {
     }
   }
 
-  // 2. Read coach-uploaded files from coach_uploads table
   const { data: coachUploads } = await supabase
     .from("coach_uploads")
-    .select("storage_path, filename, category")
+    .select("storage_path, filename, category, file_size")
     .eq("enterprise_id", enterprise_id);
 
   if (coachUploads && coachUploads.length > 0) {
     for (const cu of coachUploads) {
-      if (processedPaths.has(cu.storage_path)) continue; // deduplicate
+      if (!canProcessMore()) break;
+      if (processedPaths.has(cu.storage_path)) continue;
+
+      const fileSizeBytes = cu.file_size || 0;
+      if (fileSizeBytes > MAX_STORAGE_FILE_SIZE_BYTES) {
+        appendDocumentSection(`Document Coach (${cu.category}): ${cu.filename}`, `ignoré — fichier trop volumineux: ${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB > 15MB`, 250);
+        continue;
+      }
+
       processedPaths.add(cu.storage_path);
       const ext = cu.filename.split(".").pop()?.toLowerCase();
       const { data: fileData } = await supabase.storage.from("documents").download(cu.storage_path);
       if (!fileData) continue;
-      await parseAndAppend(fileData, cu.filename, ext || "", `Document Coach (${cu.category})`);
+
+      processedFileCount++;
+      await parseAndAppend(fileData, cu.filename, ext || "", `Document Coach (${cu.category})`, fileSizeBytes);
     }
   }
 
