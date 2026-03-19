@@ -1,42 +1,47 @@
 
 
-## Problème
+## Problème identifié
 
-Actuellement il y a **un seul bouton** "Générer tout le pipeline" dans la sidebar, qui appelle `handleGenerate()` → `runPipelineFromClient()`. Ce pipeline commence directement par BMC car le `PIPELINE` array dans `dashboard-config.ts` ne contient pas le pre-screening.
+Le mémo d'investissement utilise **Claude Opus** en 2 passes, ce qui prend **200+ secondes** au total (Pass 1 ~160s + Pass 2 ~40s). Or, le timeout côté client dans `pipeline-runner.ts` est de **180 secondes** pour les "longSteps".
 
-Avant, l'ancien UX avait probablement deux boutons séparés : un pour le pre-screening/triage et un pour la génération complète.
+Chronologie des logs :
+- Pass 1/2 démarre à 13:36:34
+- Pass 2/2 démarre à 13:39:14 (160s plus tard)
+- Shutdown forcé à 13:39:52
 
-Le problème est double :
-1. Le **pre-screening manque** dans le `PIPELINE` array (côté client)
-2. Le **pre-screening manque** dans `PIPELINE_STEPS` du serveur (`generate-deliverables/index.ts`)
-3. Le **screening final** manque aussi dans les deux pipelines (il est en Phase 4 mais jamais exécuté automatiquement)
+Le client `AbortController` tue la connexion HTTP à 180s. Quand la connexion se ferme, le runtime Deno arrête le handler **avant** que `saveDeliverable()` ne soit appelé. Résultat : **aucun `investment_memo` en base** → le viewer affiche "Prêt à être généré" au lieu du contenu.
 
 ## Plan
 
-### Étape 1 — Ajouter pre-screening + screening final dans le PIPELINE client
+### Étape 1 — Augmenter le timeout client pour le mémo
 
-**Fichier** : `src/lib/dashboard-config.ts`
+**Fichier** : `src/lib/pipeline-runner.ts`
 
-Modifier le tableau `PIPELINE` pour ajouter :
-- En **tête** : `{ name: 'Pre-screening', fn: 'generate-pre-screening', type: 'pre_screening' }`
-- En **fin** (déjà présent) : le screening report est déjà là ✓
+Créer un 3e niveau de timeout pour les étapes très longues (Opus) :
 
-### Étape 2 — Ajouter pre-screening dans le pipeline serveur
+```typescript
+const veryLongSteps = new Set(['generate-investment-memo']);
+const longSteps = new Set(['generate-business-plan', 'generate-pitch-deck']);
+const timeoutMs = veryLongSteps.has(step.fn) ? 360000 : longSteps.has(step.fn) ? 180000 : 120000;
+```
+
+360 secondes (6 min) couvre largement les 2 passes Opus.
+
+### Étape 2 — Augmenter aussi le timeout dans le pipeline serveur
 
 **Fichier** : `supabase/functions/generate-deliverables/index.ts`
 
-- Ajouter `{ name: "Pre-screening", function: "generate-pre-screening" }` en tête de `PIPELINE_STEPS`
-- Ajouter le mapping `"generate-pre-screening": "pre_screening"` dans `fnToDelivType`
+Pas de timeout côté serveur sur les fetch internes, mais vérifier que le runtime Deno ne tue pas la fonction. L'edge function a un wall clock de ~400s, ce qui devrait suffire. Aucune modif nécessaire ici.
 
-### Étape 3 — Screening final dans le pipeline serveur
+### Étape 3 — Ajouter le mémo d'investissement dans le pipeline serveur
 
-Ajouter `{ name: "Screening", function: "generate-screening-report" }` en fin de `PIPELINE_STEPS` + mapping `"generate-screening-report": "screening_report"`.
+Le `generate-deliverables` serveur n'inclut PAS le memo, la valuation ni le onepager dans `PIPELINE_STEPS`. Ces étapes ne sont exécutées que via le pipeline client. C'est cohérent mais on pourrait les ajouter pour la robustesse. **Pas bloquant pour ce bug.**
 
-### Résumé des fichiers modifiés
+### Résumé
+
 | Fichier | Modification |
 |---------|-------------|
-| `src/lib/dashboard-config.ts` | Ajouter pre-screening en tête du PIPELINE |
-| `supabase/functions/generate-deliverables/index.ts` | Ajouter pre-screening en tête + screening en fin de PIPELINE_STEPS, + mappings fnToDelivType |
+| `src/lib/pipeline-runner.ts` | Timeout 360s pour `generate-investment-memo` |
 
-Le bouton unique "Générer tout" exécutera alors correctement : Pre-screening → BMC → SIC → … → Screening final.
+Correction simple d'une ligne qui résout le problème de timeout causant la perte du mémo.
 
