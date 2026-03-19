@@ -1458,8 +1458,6 @@ export default function EntrepreneurDashboard() {
                   <ValuationViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('valuation')} />
                 ) : selectedModule === 'onepager' ? (
                   <OnePagerViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('onepager')} />
-                ) : selectedModule === 'pitch_deck' ? (
-                  <PitchDeckViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('pitch_deck')} />
                 ) : selectedModule === 'investment_memo' ? (
                   <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} />
                 ) : (
