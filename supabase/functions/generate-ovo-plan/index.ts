@@ -311,26 +311,32 @@ Deno.serve(async (req: Request) => {
         .download(fallbackName));
     }
 
-    // Auto-upload from public templates if not found in storage
+    // Auto-upload from Supabase public templates bucket if not found
     if (dlError || !templateBlob) {
-      console.warn(`[generate-ovo-plan] Template not in storage, attempting auto-upload from public URL...`);
-      const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-      const baseUrl = origin ? new URL(origin).origin : "";
-      if (baseUrl) {
-        const publicUrl = `${baseUrl}/templates/${TEMPLATE_FILE}`;
+      console.warn(`[generate-ovo-plan] Template not in storage, attempting auto-upload from public templates bucket...`);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+      if (supabaseUrl) {
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/templates/${TEMPLATE_FILE}`;
         console.log(`[generate-ovo-plan] Fetching template from: ${publicUrl}`);
         const fetchResp = await fetch(publicUrl);
         if (fetchResp.ok) {
           const fetchedBuffer = await fetchResp.arrayBuffer();
-          console.log(`[generate-ovo-plan] Fetched ${fetchedBuffer.byteLength} bytes, uploading to storage...`);
-          await supabase.storage.from(TEMPLATE_BUCKET).upload(TEMPLATE_FILE, fetchedBuffer, {
-            contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
-            upsert: true,
-          });
-          // Re-download to get a proper Blob
-          ({ data: templateBlob, error: dlError } = await supabase.storage
-            .from(TEMPLATE_BUCKET)
-            .download(TEMPLATE_FILE));
+          // Validate it's actually a ZIP before uploading
+          if (fetchedBuffer.byteLength > 100) {
+            const magic = new DataView(fetchedBuffer).getUint32(0, true);
+            if (magic === 0x04034b50) {
+              console.log(`[generate-ovo-plan] Fetched ${fetchedBuffer.byteLength} bytes, uploading to storage...`);
+              await supabase.storage.from(TEMPLATE_BUCKET).upload(TEMPLATE_FILE, fetchedBuffer, {
+                contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
+                upsert: true,
+              });
+              ({ data: templateBlob, error: dlError } = await supabase.storage
+                .from(TEMPLATE_BUCKET)
+                .download(TEMPLATE_FILE));
+            } else {
+              console.error(`[generate-ovo-plan] Fetched file is not a valid ZIP (magic: 0x${magic.toString(16)})`);
+            }
+          }
         }
       }
     }
