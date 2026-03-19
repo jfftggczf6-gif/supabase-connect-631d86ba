@@ -237,11 +237,16 @@ export async function verifyAndGetContext(req: Request) {
       }
     } else if (["jpg", "jpeg", "png", "webp"].includes(ext || "")) {
       // Parse images via Claude Vision API (OCR)
+      if (visionCallCount >= MAX_VISION_CALLS) {
+        documentContent += `\n\n--- Image: ${fileName} (ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte) ---`;
+        return;
+      }
       const buffer = await fileData.arrayBuffer();
       if (buffer.byteLength > 10 * 1024 * 1024) {
         documentContent += `\n\n--- Image: ${fileName} (trop volumineuse: ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB) ---`;
       } else {
         try {
+          visionCallCount++;
           const uint8 = new Uint8Array(buffer);
           const CHUNK_SIZE = 0x8000;
           let binary = '';
@@ -264,8 +269,8 @@ export async function verifyAndGetContext(req: Request) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-20250514",
-              max_tokens: 4096,
+              model: "claude-3-haiku-20240307",
+              max_tokens: 2048,
               messages: [{
                 role: "user",
                 content: [
