@@ -107,14 +107,18 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       setProgressLabel('Reconstruction IA en cours…');
       setProgress(85);
       const token = await getValidAccessToken(session, navigate);
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 180000);
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reconstruct-from-traces`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ enterprise_id: enterpriseId }),
+          signal: abortController.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Erreur' }));
@@ -162,7 +166,10 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         : 'Reconstruction terminée — ajoutez plus de documents pour améliorer la qualité.');
 
     } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+      const message = err.name === 'AbortError'
+        ? 'La reconstruction a pris trop de temps. Essayez avec moins de fichiers (max 5 PDF/images).'
+        : (err.message || 'Erreur');
+      toast.error(message);
     } finally {
       setUploading(false);
     }
