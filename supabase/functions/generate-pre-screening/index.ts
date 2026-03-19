@@ -204,9 +204,11 @@ serve(async (req) => {
   try {
     // Clone BEFORE verifyAndGetContext consumes req.json()
     let programmeCriteria: any = null;
+    let programmeCriteriaId: string | null = null;
     try {
       const bodyClone = await req.clone().json().catch(() => ({}));
       programmeCriteria = bodyClone.programme_criteria || null;
+      programmeCriteriaId = bodyClone.programme_criteria_id || null;
     } catch (_) {}
 
     const ctx = await verifyAndGetContext(req);
@@ -230,9 +232,32 @@ serve(async (req) => {
       ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "pre_screening"
     );
 
-    const programmeSection = programmeCriteria
-      ? `\n══════ CRITÈRES DU PROGRAMME ══════\n${JSON.stringify(programmeCriteria, null, 2)}\nCompare le dossier à ces critères et remplis programme_match.`
-      : `\nAucun critère programme — laisse programme_match à null.`;
+    // If a programme_criteria_id is provided, fetch the full record including raw_criteria_text
+    let rawCriteriaText: string | null = null;
+    if (programmeCriteriaId && !programmeCriteria) {
+      const { data: pcRecord } = await ctx.supabase
+        .from("programme_criteria")
+        .select("*")
+        .eq("id", programmeCriteriaId)
+        .maybeSingle();
+      if (pcRecord) {
+        programmeCriteria = pcRecord;
+        rawCriteriaText = (pcRecord as any).raw_criteria_text || null;
+      }
+    } else if (programmeCriteria?.raw_criteria_text) {
+      rawCriteriaText = programmeCriteria.raw_criteria_text;
+    }
+
+    let programmeSection: string;
+    if (programmeCriteria) {
+      const structuredPart = JSON.stringify(programmeCriteria, null, 2);
+      const rawPart = rawCriteriaText
+        ? `\n\n══════ DOCUMENT SOURCE DU PROGRAMME (TEXTE COMPLET) ══════\n${rawCriteriaText.substring(0, 15000)}\n══════ FIN DOCUMENT SOURCE ══════`
+        : "";
+      programmeSection = `\n══════ CRITÈRES DU PROGRAMME ══════\n${structuredPart}${rawPart}\nCompare le dossier à ces critères et remplis programme_match. Utilise le document source pour les détails qualitatifs.`;
+    } else {
+      programmeSection = `\nAucun critère programme — laisse programme_match à null.`;
+    }
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}

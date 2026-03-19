@@ -1,1 +1,4 @@
 project_id = "vfmzgsiwynsawwemsawj"
+
+[functions.extract-programme-criteria]
+verify_jwt = false
