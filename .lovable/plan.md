@@ -1,47 +1,38 @@
 
 
-## Problème identifié
+## Diagnostic
 
-Le mémo d'investissement utilise **Claude Opus** en 2 passes, ce qui prend **200+ secondes** au total (Pass 1 ~160s + Pass 2 ~40s). Or, le timeout côté client dans `pipeline-runner.ts` est de **180 secondes** pour les "longSteps".
+L'erreur "new row violates row-level security policy" vient de l'**upload de fichiers vers le bucket storage `documents`**. Les requêtes réseau montrent clairement que le `Bearer token` envoyé est la **clé anon** au lieu du JWT de l'utilisateur authentifié. Le storage exige le rôle `authenticated` pour les insertions.
 
-Chronologie des logs :
-- Pass 1/2 démarre à 13:36:34
-- Pass 2/2 démarre à 13:39:14 (160s plus tard)
-- Shutdown forcé à 13:39:52
+**Cause probable** : la session Supabase côté client est expirée ou perdue au moment de l'upload. Le dashboard s'affiche car `useAuth` utilise une session cachée, mais le client Supabase n'a plus de token valide pour les requêtes storage.
 
-Le client `AbortController` tue la connexion HTTP à 180s. Quand la connexion se ferme, le runtime Deno arrête le handler **avant** que `saveDeliverable()` ne soit appelé. Résultat : **aucun `investment_memo` en base** → le viewer affiche "Prêt à être généré" au lieu du contenu.
+## Plan de correction
 
-## Plan
+### Fichier : `src/components/dashboard/ReconstructionUploader.tsx`
 
-### Étape 1 — Augmenter le timeout client pour le mémo
-
-**Fichier** : `src/lib/pipeline-runner.ts`
-
-Créer un 3e niveau de timeout pour les étapes très longues (Opus) :
+Avant de lancer les uploads, forcer un rafraîchissement de session pour s'assurer que le client Supabase a un JWT valide :
 
 ```typescript
-const veryLongSteps = new Set(['generate-investment-memo']);
-const longSteps = new Set(['generate-business-plan', 'generate-pitch-deck']);
-const timeoutMs = veryLongSteps.has(step.fn) ? 360000 : longSteps.has(step.fn) ? 180000 : 120000;
+// Au début de handleReconstruct, avant la boucle d'upload
+const { data: { session: currentSession } } = await supabase.auth.getSession();
+if (!currentSession) {
+  const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+  if (!refreshed) {
+    toast.error('Session expirée — veuillez vous reconnecter');
+    navigate('/login');
+    return;
+  }
+}
 ```
 
-360 secondes (6 min) couvre largement les 2 passes Opus.
+### Fichier : `src/components/dashboard/EntrepreneurDashboard.tsx`
 
-### Étape 2 — Augmenter aussi le timeout dans le pipeline serveur
+Appliquer la même protection dans `handleFileUpload` (même pattern de storage upload) pour éviter la même erreur dans l'upload classique.
 
-**Fichier** : `supabase/functions/generate-deliverables/index.ts`
+### Résultat attendu
 
-Pas de timeout côté serveur sur les fetch internes, mais vérifier que le runtime Deno ne tue pas la fonction. L'edge function a un wall clock de ~400s, ce qui devrait suffire. Aucune modif nécessaire ici.
-
-### Étape 3 — Ajouter le mémo d'investissement dans le pipeline serveur
-
-Le `generate-deliverables` serveur n'inclut PAS le memo, la valuation ni le onepager dans `PIPELINE_STEPS`. Ces étapes ne sont exécutées que via le pipeline client. C'est cohérent mais on pourrait les ajouter pour la robustesse. **Pas bloquant pour ce bug.**
-
-### Résumé
-
-| Fichier | Modification |
-|---------|-------------|
-| `src/lib/pipeline-runner.ts` | Timeout 360s pour `generate-investment-memo` |
-
-Correction simple d'une ligne qui résout le problème de timeout causant la perte du mémo.
+| Avant | Après |
+|-------|-------|
+| Upload envoie la clé anon → RLS bloque | Session rafraîchie → JWT valide envoyé |
+| Erreur 403 silencieuse | Upload réussit ou redirige vers /login |
 
