@@ -167,20 +167,25 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         }
       }
 
-      // === STEP 4: Build and cache document content ===
+      // === STEP 4: Build, classify, and cache document content ===
       setProgressLabel('Compilation du dossier…');
       setProgress(78);
 
+      // Update summaries after vision
+      setParsingSummary(buildParsingReport(parsedDocs, 0));
+
       const documentContent = buildDocumentContent(parsedDocs);
-      const filesCount = parsedDocs.filter(d => d.content.length > 10).length;
+      const parsingReport = buildParsingReport(parsedDocs, documentContent.length);
+      setParsingSummary(parsingReport);
 
       await supabase.from('enterprises').update({
         document_content: documentContent,
         document_content_updated_at: new Date().toISOString(),
-        document_files_count: filesCount,
+        document_files_count: parsedDocs.length,
+        document_parsing_report: parsingReport,
       } as any).eq('id', enterpriseId);
 
-      console.log('Document content cached:', documentContent.length, 'chars from', filesCount, 'files');
+      console.log('Document content cached:', documentContent.length, 'chars from', parsingReport.files_parsed_ok, 'files');
 
       // === STEP 5: Reconstruction (reads cache — fast) ===
       setProgressLabel('Reconstruction IA en cours…');
