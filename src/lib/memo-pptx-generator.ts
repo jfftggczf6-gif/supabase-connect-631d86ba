@@ -28,7 +28,7 @@ function addTitleSlide(pres: PptxGenJS, title: string, subtitle: string, date: s
   slide.addText('ESONO', { x: 0.8, y: 4.9, w: 2, h: 0.3, fontSize: 10, color: GRAY, fontFace: 'Calibri', italic: true });
 }
 
-function addSectionTitle(pres: PptxGenJS, num: string, title: string) {
+function _addSectionTitle(pres: PptxGenJS, num: string, title: string) {
   const slide = pres.addSlide();
   slide.background = { fill: NAVY };
   slide.addText(num, { x: 0.8, y: 2.0, w: 1.2, h: 1.0, fontSize: 48, color: GOLD, fontFace: 'Georgia', bold: true });

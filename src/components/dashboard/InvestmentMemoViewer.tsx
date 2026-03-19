@@ -80,10 +80,8 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
   // ── Enhanced HTML Download ──
   const handleDownloadHtml = () => {
     const pg = data.page_de_garde || {};
-    const re = data.resume_executif || {};
     const reco = data.recommandation_finale || {};
     const valo = data.valorisation || {};
-    const risques = data.analyse_risques || {};
     const besoin = data.besoins_financement || {};
     const these = data.these_investissement || {};
 
