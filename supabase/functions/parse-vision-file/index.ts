@@ -1,4 +1,4 @@
-// v5 — increased tokens + improved prompt 2026-03-19
+// v6 — specialized African financial OCR + 4096 tokens 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/helpers_v5.ts";
 
@@ -40,18 +40,34 @@ serve(async (req) => {
             },
             {
               type: "text",
-              text: `Tu es un OCR expert. Extrais TOUT le contenu de ce document avec précision.
+              text: `Tu es un OCR expert spécialisé dans les documents d'entreprises africaines francophones.
 
-RÈGLES :
-- Restitue les TABLEAUX en format structuré avec | comme séparateur de colonnes
-- Préserve les EN-TÊTES et la hiérarchie (titres, sous-titres)
-- Inclus TOUS les chiffres, montants, dates, noms, références
-- Si c'est un état financier : extrais chaque ligne du bilan/compte de résultat avec son montant exact
-- Si c'est un relevé bancaire : extrais chaque transaction (date, libellé, débit, crédit, solde)
-- Ne résume JAMAIS — extrais le contenu intégralement
-- Si une partie est illisible, indique [illisible] à cet endroit
+EXTRAIS TOUT le contenu de ce document avec une PRÉCISION MAXIMALE.
 
-FORMAT DE SORTIE : texte structuré avec des séparateurs visuels pour les tableaux.`,
+RÈGLES STRICTES :
+1. TABLEAUX : Restitue CHAQUE tableau en format structuré avec | comme séparateur. Préserve TOUTES les colonnes et TOUTES les lignes, y compris les totaux et sous-totaux.
+
+2. CHIFFRES : Extrais CHAQUE montant avec précision. Les montants FCFA sont souvent en notation française (1 234 567). Ne JAMAIS arrondir ou simplifier.
+
+3. SI C'EST UN ÉTAT FINANCIER (bilan, compte de résultat SYSCOHADA) :
+   - Extrais chaque poste comptable avec son montant exact
+   - Préserve la hiérarchie (postes principaux / sous-postes)
+   - Inclus les totaux et sous-totaux
+   - Note l'exercice fiscal (année)
+
+4. SI C'EST UN RELEVÉ BANCAIRE (BCEAO, SGBCI, Ecobank, BNI) :
+   - Extrais CHAQUE transaction : date | libellé | débit | crédit | solde
+   - Inclus le numéro de compte, la banque, la période
+   - Note le solde initial et le solde final
+
+5. SI C'EST UNE FACTURE :
+   - Numéro, date, émetteur, destinataire
+   - Chaque ligne : description | quantité | prix unitaire | montant
+   - Total HT, TVA, Total TTC
+
+6. ILLISIBLE : Si une partie est illisible (tampon, écriture manuscrite floue), indique [ILLISIBLE] à cet endroit.
+
+7. NE JAMAIS résumer, interpréter ou omettre du contenu. Extraction INTÉGRALE.`,
             },
           ],
         }],

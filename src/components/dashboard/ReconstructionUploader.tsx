@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
-import { parseFile, buildDocumentContent, fileToBase64, type ParsedDocument } from '@/lib/document-parser';
+import { parseFile, buildDocumentContent, buildParsingReport, fileToBase64, type ParsedDocument, type ParsingReport } from '@/lib/document-parser';
 import {
   Wand2, X, FileText, Loader2, CheckCircle2,
   AlertTriangle, RotateCcw
@@ -44,7 +44,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [result, setResult] = useState<ReconstructionResult | null>(null);
-  const [parsingSummary, setParsingSummary] = useState<ParsedDocument[]>([]);
+  const [parsingSummary, setParsingSummary] = useState<ParsingReport | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -124,8 +124,8 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         }
       }
 
-      // Show parsing summary to user
-      setParsingSummary([...parsedDocs]);
+      // Show initial parsing summary to user
+      setParsingSummary(buildParsingReport(parsedDocs, 0));
 
       // === STEP 3: Send scanned PDFs/images to Vision API (one by one) ===
       const visionCount = Math.min(needsVision.length, MAX_VISION_FILES);
@@ -167,20 +167,25 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         }
       }
 
-      // === STEP 4: Build and cache document content ===
+      // === STEP 4: Build, classify, and cache document content ===
       setProgressLabel('Compilation du dossier…');
       setProgress(78);
 
+      // Update summaries after vision
+      setParsingSummary(buildParsingReport(parsedDocs, 0));
+
       const documentContent = buildDocumentContent(parsedDocs);
-      const filesCount = parsedDocs.filter(d => d.content.length > 10).length;
+      const parsingReport = buildParsingReport(parsedDocs, documentContent.length);
+      setParsingSummary(parsingReport);
 
       await supabase.from('enterprises').update({
         document_content: documentContent,
         document_content_updated_at: new Date().toISOString(),
-        document_files_count: filesCount,
+        document_files_count: parsedDocs.length,
+        document_parsing_report: parsingReport,
       } as any).eq('id', enterpriseId);
 
-      console.log('Document content cached:', documentContent.length, 'chars from', filesCount, 'files');
+      console.log('Document content cached:', documentContent.length, 'chars from', parsingReport.files_parsed_ok, 'files');
 
       // === STEP 5: Reconstruction (reads cache — fast) ===
       setProgressLabel('Reconstruction IA en cours…');
@@ -264,7 +269,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setResult(null);
     setFiles([]);
     setProgress(0);
-    setParsingSummary([]);
+    setParsingSummary(null);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -393,17 +398,43 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
           </div>
         )}
 
-        {/* Parsing summary */}
-        {parsingSummary.length > 0 && uploading && (
-          <div className="mt-4 space-y-1.5">
-            <p className="text-sm font-medium text-muted-foreground">Documents analysés :</p>
-            {parsingSummary.map((doc, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span>{doc.extractionQuality === 'high' || doc.extractionQuality === 'medium' ? '✅' : doc.extractionQuality === 'low' ? '⚠️' : '❌'}</span>
-                <span className="font-medium truncate">{doc.fileName}</span>
-                <span className="text-muted-foreground">— {doc.summary}</span>
+        {/* Parsing report */}
+        {parsingSummary && uploading && (
+          <div className="mt-4 p-4 bg-muted/30 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold">Rapport d'extraction</h4>
+              <span className="text-xs text-muted-foreground">
+                {parsingSummary.total_chars_extracted > 0
+                  ? `${(parsingSummary.total_chars_extracted / 1000).toFixed(0)}K caractères`
+                  : 'Analyse en cours…'}
+              </span>
+            </div>
+
+            {parsingSummary.files.map((f, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs border-b border-border/50 pb-2">
+                <span className="mt-0.5">
+                  {f.extractionQuality === 'high' ? '✅' : f.extractionQuality === 'medium' ? '🟡' : f.extractionQuality === 'low' ? '⚠️' : '❌'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate">{f.fileName}</span>
+                    <span className="px-1.5 py-0.5 bg-muted rounded text-[10px] uppercase shrink-0">
+                      {f.category.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">{f.summary}</p>
+                </div>
+                <span className="text-muted-foreground whitespace-nowrap shrink-0">
+                  {f.charsExtracted > 0 ? `${(f.charsExtracted / 1000).toFixed(1)}K` : '—'}
+                </span>
               </div>
             ))}
+
+            {parsingSummary.files_failed > 0 && (
+              <p className="text-xs text-destructive">
+                ⚠️ {parsingSummary.files_failed} fichier(s) n'ont pas pu être lu(s).
+              </p>
+            )}
           </div>
         )}
 
