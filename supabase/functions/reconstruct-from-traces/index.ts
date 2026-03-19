@@ -99,6 +99,12 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
 
+    if (!ctx.documentContent || ctx.documentContent.trim().length < 50) {
+      throw { status: 400, message: "Aucun contenu documentaire. Veuillez d'abord uploader et analyser des documents." };
+    }
+
+    console.log("[reconstruct] Docs cache length:", ctx.documentContent.length);
+
     // Build RAG context for sector benchmarks
     const ragContext = await buildRAGContext(
       ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data"
@@ -112,7 +118,7 @@ FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}
 
 ══════ DOCUMENTS DISPONIBLES ══════
-${ctx.documentContent || "(Aucun document uploadé)"}
+${ctx.documentContent}
 
 ══════ INVARIANTS COMPTABLES & BENCHMARKS ══════
 ${getExtractionKnowledgePrompt()}
@@ -138,7 +144,7 @@ Indique la source de chaque valeur (nom du document ou "estimation benchmark").
 Réponds en JSON selon ce schéma :
 ${OUTPUT_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 4096);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt, 8192);
     const normalizedData = normalizeReconstruction(rawData);
 
     if (normalizedData.compte_resultat && !normalizedData.compte_resultat.source) {

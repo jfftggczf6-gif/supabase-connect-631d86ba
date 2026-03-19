@@ -429,6 +429,9 @@ export type Database = {
           data_room_enabled: boolean | null
           data_room_slug: string | null
           description: string | null
+          document_content: string | null
+          document_content_updated_at: string | null
+          document_files_count: number | null
           employees_count: number | null
           id: string
           last_activity: string | null
@@ -455,6 +458,9 @@ export type Database = {
           data_room_enabled?: boolean | null
           data_room_slug?: string | null
           description?: string | null
+          document_content?: string | null
+          document_content_updated_at?: string | null
+          document_files_count?: number | null
           employees_count?: number | null
           id?: string
           last_activity?: string | null
@@ -481,6 +487,9 @@ export type Database = {
           data_room_enabled?: boolean | null
           data_room_slug?: string | null
           description?: string | null
+          document_content?: string | null
+          document_content_updated_at?: string | null
+          document_files_count?: number | null
           employees_count?: number | null
           id?: string
           last_activity?: string | null
