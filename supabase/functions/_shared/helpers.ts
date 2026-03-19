@@ -181,22 +181,40 @@ export async function verifyAndGetContext(req: Request) {
       const text = await fileData.text();
       documentContent += `\n\n--- ${label}: ${fileName} ---\n${text.substring(0, 20000)}`;
     } else if (ext === "pdf") {
-      // Parse PDF via Claude Vision API
-      if (visionCallCount >= MAX_VISION_CALLS) {
-        documentContent += `\n\n--- PDF: ${fileName} (ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte) ---`;
-        return;
-      }
-      const buffer = await fileData.arrayBuffer();
-      if (buffer.byteLength > 20 * 1024 * 1024) {
-        documentContent += `\n\n--- PDF: ${fileName} (trop volumineux: ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB) ---`;
+      const rawPdfText = await fileData.text();
+      const readablePdfText = rawPdfText
+        .replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ")
+        .replace(/\s{3,}/g, "\n")
+        .trim();
+
+      if (readablePdfText.length > 500) {
+        documentContent += `\n\n--- PDF texte: ${fileName} ---\n${readablePdfText.substring(0, 25000)}`;
       } else {
+        if (visionCallCount >= MAX_VISION_CALLS) {
+          documentContent += `\n\n--- PDF: ${fileName} (ignoré — limite de ${MAX_VISION_CALLS} fichiers vision atteinte) ---`;
+          return;
+        }
+
+        const fullBuffer = await fileData.arrayBuffer();
+        const MAX_PDF_AI_BYTES = 5 * 1024 * 1024;
+        const pdfBuffer = fullBuffer.byteLength > MAX_PDF_AI_BYTES
+          ? fullBuffer.slice(0, MAX_PDF_AI_BYTES)
+          : fullBuffer;
+
         try {
           visionCallCount++;
-          const uint8 = new Uint8Array(buffer);
+          const uint8 = new Uint8Array(pdfBuffer);
+          const CHUNK_SIZE = 0x8000;
           let binary = "";
-          for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+          for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
+            const chunk = uint8.subarray(i, i + CHUNK_SIZE);
+            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          }
           const base64 = btoa(binary);
           const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 45000);
+
           const pdfResponse = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -205,8 +223,8 @@ export async function verifyAndGetContext(req: Request) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-3-haiku-20240307",
-              max_tokens: 2048,
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 1024,
               messages: [{
                 role: "user",
                 content: [
@@ -216,19 +234,24 @@ export async function verifyAndGetContext(req: Request) {
                   },
                   {
                     type: "text",
-                    text: "Extrais TOUT le contenu textuel et les données chiffrées de ce document. Si c'est un relevé bancaire, liste chaque transaction. Si c'est une facture, extrais montant, date, fournisseur/client. Si c'est un bilan ou compte de résultat, extrais tous les postes avec leurs valeurs. Réponds en texte brut structuré."
+                    text: "Extrais uniquement le texte utile et les données chiffrées visibles de ce PDF. Si le fichier est illisible ou incomplet, indique-le brièvement."
                   }
                 ]
               }]
             }),
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
+
           if (pdfResponse.ok) {
             const pdfResult = await pdfResponse.json();
             const extractedText = pdfResult.content?.[0]?.text || "";
-            documentContent += `\n\n--- PDF analysé: ${fileName} ---\n${extractedText.substring(0, 25000)}`;
+            documentContent += `\n\n--- PDF analysé: ${fileName} ---\n${extractedText.substring(0, 20000)}`;
           } else {
-            console.error(`PDF extraction error for ${fileName}: status ${pdfResponse.status}`);
-            documentContent += `\n\n--- PDF: ${fileName} (erreur extraction: ${pdfResponse.status}) ---`;
+            const errorText = await pdfResponse.text();
+            console.error(`PDF extraction error for ${fileName}: status ${pdfResponse.status} - ${errorText}`);
+            documentContent += `\n\n--- PDF: ${fileName} (lecture partielle impossible, extraction ignorée) ---`;
           }
         } catch (e) {
           console.error(`PDF extraction error for ${fileName}:`, e);
