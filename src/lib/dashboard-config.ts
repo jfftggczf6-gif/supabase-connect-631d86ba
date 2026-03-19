@@ -61,6 +61,8 @@ export const DELIVERABLE_CONFIG = [
 ];
 
 export const PIPELINE = [
+  // Phase 1 — Triage
+  { name: 'Pre-screening',    fn: 'generate-pre-screening',    type: 'pre_screening' as DeliverableType },
   // Phase 2 — Analyse
   { name: 'BMC',              fn: 'generate-bmc',              type: 'bmc_analysis' as DeliverableType },
   { name: 'SIC',              fn: 'generate-sic',              type: 'sic_analysis' as DeliverableType },

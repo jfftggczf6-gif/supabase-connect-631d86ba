@@ -8,6 +8,7 @@ const corsHeaders = {
 
 // Pipeline: sequential agents in order
 const PIPELINE_STEPS = [
+  { name: "Pre-screening", function: "generate-pre-screening" },
   { name: "BMC", function: "generate-bmc" },
   { name: "SIC", function: "generate-sic" },
   { name: "Inputs", function: "generate-inputs" },
@@ -17,6 +18,7 @@ const PIPELINE_STEPS = [
   { name: "Business Plan", function: "generate-business-plan" },
   { name: "ODD", function: "generate-odd" },
   { name: "Diagnostic", function: "generate-diagnostic" },
+  { name: "Screening", function: "generate-screening-report" },
 ];
 
 serve(async (req) => {
