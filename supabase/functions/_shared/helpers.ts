@@ -2,26 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-export function errorResponse(message: string, status = 500) {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-export function jsonResponse(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-// ===== DOCX PARSER =====
+// ===== DOCX PARSER (used by extract-enterprise-info, extract-programme-criteria) =====
 export async function parseDocx(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
     const zip = await JSZip.loadAsync(arrayBuffer);
@@ -60,7 +41,7 @@ export async function parseDocx(arrayBuffer: ArrayBuffer): Promise<string> {
   }
 }
 
-// ===== XLSX PARSER =====
+// ===== XLSX PARSER (used by extract-enterprise-info) =====
 export async function parseXlsx(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
     const zip = await JSZip.loadAsync(arrayBuffer);

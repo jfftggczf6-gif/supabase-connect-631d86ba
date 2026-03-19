@@ -103,12 +103,23 @@ serve(async (req) => {
       throw { status: 400, message: "Aucun contenu documentaire. Veuillez d'abord uploader et analyser des documents." };
     }
 
-    console.log("[reconstruct] Docs cache length:", ctx.documentContent.length);
+    // Cap document content to 80K chars to avoid Deno memory limits
+    const MAX_PROMPT_CHARS = 80_000;
+    const docContent = ctx.documentContent.length > MAX_PROMPT_CHARS
+      ? ctx.documentContent.substring(0, MAX_PROMPT_CHARS) + "\n[... contenu tronqué à 80K caractères]"
+      : ctx.documentContent;
 
-    // Build RAG context for sector benchmarks
-    const ragContext = await buildRAGContext(
-      ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data"
-    );
+    console.log("[reconstruct] Docs cache length:", ctx.documentContent.length, "→ prompt length:", docContent.length);
+
+    // Build RAG context for sector benchmarks (protected)
+    let ragContext = "";
+    try {
+      ragContext = await buildRAGContext(
+        ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data"
+      );
+    } catch (e) {
+      console.warn("[reconstruct] RAG context failed, continuing without:", e);
+    }
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
@@ -118,7 +129,7 @@ FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}
 
 ══════ DOCUMENTS DISPONIBLES ══════
-${ctx.documentContent}
+${docContent}
 
 ══════ INVARIANTS COMPTABLES & BENCHMARKS ══════
 ${getExtractionKnowledgePrompt()}
