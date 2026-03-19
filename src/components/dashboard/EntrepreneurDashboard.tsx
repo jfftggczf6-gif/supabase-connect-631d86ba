@@ -765,8 +765,8 @@ export default function EntrepreneurDashboard() {
   const finFiles = uploadedFiles.filter(f => /\.(xlsx?|csv)$/i.test(f.name));
   const knownFiles = new Set([...docFiles.map(f => f.name), ...finFiles.map(f => f.name)]);
   const extraFiles = uploadedFiles.filter(f => !knownFiles.has(f.name));
-  const inputsCount = docFiles.length + finFiles.length;
-  const deliverablesCount = deliverables.length;
+  void (docFiles.length + finFiles.length); // inputsCount
+  void deliverables.length; // deliverablesCount
 
   // No enterprise yet
   if (initialLoading) {
