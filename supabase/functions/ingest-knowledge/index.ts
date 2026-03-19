@@ -1,3 +1,4 @@
+// v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/helpers.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
