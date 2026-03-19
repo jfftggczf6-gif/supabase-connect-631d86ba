@@ -162,6 +162,8 @@ export async function verifyAndGetContext(req: Request) {
   let documentContent = "";
   const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // H8: 50MB max per file
   const processedPaths = new Set<string>();
+  let visionCallCount = 0;
+  const MAX_VISION_CALLS = 5;
 
   const parseAndAppend = async (fileData: Blob, fileName: string, ext: string, label: string) => {
     if (ext === "docx" || ext === "doc") {
