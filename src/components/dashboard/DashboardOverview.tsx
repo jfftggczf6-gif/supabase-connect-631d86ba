@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertTriangle, ArrowRight, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowRight, TrendingUp } from 'lucide-react';
 import { PHASES, type Enterprise, type Deliverable, type EnterpriseModule } from '@/lib/dashboard-config';
 import ActivityTimeline from './ActivityTimeline';
 
