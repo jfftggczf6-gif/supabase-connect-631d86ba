@@ -138,7 +138,7 @@ Indique la source de chaque valeur (nom du document ou "estimation benchmark").
 Réponds en JSON selon ce schéma :
 ${OUTPUT_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 12288);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt, 6144);
     const normalizedData = normalizeReconstruction(rawData);
 
     if (normalizedData.compte_resultat && !normalizedData.compte_resultat.source) {
