@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { parseFile, buildDocumentContent, fileToBase64, type ParsedDocument } from '@/lib/document-parser';
 import {
   Wand2, X, FileText, Loader2, CheckCircle2,
   AlertTriangle, RotateCcw
@@ -13,6 +14,7 @@ import {
 
 const ACCEPTED_EXTENSIONS = '.csv,.txt,.md,.xlsx,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.webp';
 const MAX_FILES = 20;
+const MAX_VISION_FILES = 3;
 
 interface ReconstructionUploaderProps {
   enterpriseId: string;
@@ -79,7 +81,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setResult(null);
 
     try {
-      // 0. Ensure valid auth session for storage uploads
+      // 0. Ensure valid auth session
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!currentSession) {
         const { data: { session: refreshed } } = await supabase.auth.refreshSession();
@@ -91,22 +93,94 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         }
       }
 
-      // 1. Upload all files to storage
-      const totalSteps = files.length + 1; // files + reconstruction call
+      const token = await getValidAccessToken(session, navigate);
+
+      // === STEP 1: Upload all files to storage ===
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const filePath = `${enterpriseId}/${Date.now()}_${safeName}`;
         const { error } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true });
         if (error) throw error;
-        setProgress(Math.round(((i + 1) / totalSteps) * 100));
+        setProgress(Math.round(((i + 1) / files.length) * 40));
         setProgressLabel(`Upload ${i + 1}/${files.length}…`);
       }
 
-      // 2. Call reconstruct-from-traces
+      // === STEP 2: Parse files client-side ===
+      setProgressLabel('Analyse des documents…');
+      const parsedDocs: ParsedDocument[] = [];
+      const needsVision: { file: File; parsed: ParsedDocument }[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        setProgressLabel(`Lecture de ${files[i].name}…`);
+        setProgress(Math.round(40 + (i / files.length) * 20)); // 40-60%
+
+        const parsed = await parseFile(files[i]);
+        parsedDocs.push(parsed);
+
+        if (parsed.method === 'needs_vision') {
+          needsVision.push({ file: files[i], parsed });
+        }
+      }
+
+      // === STEP 3: Send scanned PDFs/images to Vision API (one by one) ===
+      const visionCount = Math.min(needsVision.length, MAX_VISION_FILES);
+      for (let i = 0; i < visionCount; i++) {
+        const { file, parsed } = needsVision[i];
+        setProgressLabel(`OCR de ${file.name} (${i + 1}/${visionCount})…`);
+        setProgress(Math.round(60 + (i / visionCount) * 15)); // 60-75%
+
+        try {
+          const base64 = await fileToBase64(file);
+
+          const visionResp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-vision-file`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                file_base64: base64,
+                file_name: file.name,
+                media_type: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+              }),
+            }
+          );
+
+          if (visionResp.ok) {
+            const visionData = await visionResp.json();
+            parsed.content = visionData.text || '';
+            parsed.method = 'client_pdf_text';
+          }
+        } catch (err) {
+          console.warn('Vision parsing failed for', file.name, err);
+          parsed.content = `[OCR échoué pour ${file.name}]`;
+        }
+      }
+
+      if (needsVision.length > MAX_VISION_FILES) {
+        for (let i = MAX_VISION_FILES; i < needsVision.length; i++) {
+          needsVision[i].parsed.content = `[OCR ignoré — limite de ${MAX_VISION_FILES} fichiers vision atteinte]`;
+        }
+      }
+
+      // === STEP 4: Build and cache document content ===
+      setProgressLabel('Compilation du dossier…');
+      setProgress(78);
+
+      const documentContent = buildDocumentContent(parsedDocs);
+      const filesCount = parsedDocs.filter(d => d.content.length > 10).length;
+
+      await supabase.from('enterprises').update({
+        document_content: documentContent,
+        document_content_updated_at: new Date().toISOString(),
+        document_files_count: filesCount,
+      } as any).eq('id', enterpriseId);
+
+      console.log('Document content cached:', documentContent.length, 'chars from', filesCount, 'files');
+
+      // === STEP 5: Reconstruction (reads cache — fast) ===
       setProgressLabel('Reconstruction IA en cours…');
-      setProgress(85);
-      const token = await getValidAccessToken(session, navigate);
+      setProgress(82);
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => abortController.abort(), 180000);
       const response = await fetch(
@@ -138,7 +212,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       }
       await supabase.from('enterprises').update(modeUpdates).eq('id', enterpriseId);
 
-      // Auto-launch pre-screening
+      // === STEP 6: Auto-launch pre-screening ===
       setProgressLabel('Analyse du dossier en cours…');
       setProgress(90);
       try {
@@ -167,7 +241,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
 
     } catch (err: any) {
       const message = err.name === 'AbortError'
-        ? 'La reconstruction a pris trop de temps. Essayez avec moins de fichiers (max 5 PDF/images).'
+        ? 'La reconstruction a pris trop de temps. Essayez avec moins de fichiers.'
         : (err.message || 'Erreur');
       toast.error(message);
     } finally {
