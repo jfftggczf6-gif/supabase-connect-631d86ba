@@ -247,32 +247,63 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
           <Card className="p-4 text-center text-sm text-muted-foreground">Aucune anomalie {anomalyFilter !== 'all' ? 'de ce type' : 'détectée'}</Card>
         ) : (
           <div className="space-y-2">
-            {filteredAnomalies.map((a: any, i: number) => (
-              <Card key={i} className={`p-4 border ${severityBg(a.severity)}`}>
-                <div className="flex items-start gap-3">
-                  {severityIcon(a.severity)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-sm font-semibold">{a.title}</span>
-                      <Badge variant="outline" className="text-[10px]">{a.category}</Badge>
-                      {a.effort && effortBadge(a.effort)}
+            {filteredAnomalies.map((a: any, i: number) => {
+              // Final safety: if title still looks like JSON, try to extract fields
+              let displayTitle = a.title || '';
+              let displayDetail = a.detail || '';
+              let displayCategory = a.category || 'general';
+              let displayImpact = a.impact || '';
+              let displayRecommendation = a.recommendation || '';
+              let displayEffort = a.effort || '';
+              let displaySeverity = a.severity || 'note';
+              let displaySourceDocs = a.source_documents || [];
+
+              if (typeof displayTitle === 'string' && displayTitle.startsWith('{')) {
+                try {
+                  const parsed = JSON.parse(displayTitle);
+                  displayTitle = parsed.title || displayTitle;
+                  displayDetail = parsed.detail || displayDetail;
+                  displayCategory = parsed.category || displayCategory;
+                  displayImpact = parsed.impact || displayImpact;
+                  displayRecommendation = parsed.recommendation || displayRecommendation;
+                  displayEffort = parsed.effort || displayEffort;
+                  displaySeverity = parsed.severity || displaySeverity;
+                  displaySourceDocs = parsed.source_documents || displaySourceDocs;
+                } catch { /* keep as-is */ }
+              }
+
+              // Skip if detail is just a duplicate JSON string
+              if (typeof displayDetail === 'string' && displayDetail.startsWith('{') && displayDetail.includes('"title"')) {
+                try { const p = JSON.parse(displayDetail); displayDetail = p.detail || ''; } catch { displayDetail = ''; }
+              }
+
+              return (
+                <Card key={i} className={`p-4 border ${severityBg(displaySeverity)}`}>
+                  <div className="flex items-start gap-3">
+                    {severityIcon(displaySeverity)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-sm font-semibold">{displayTitle}</span>
+                        <Badge variant="outline" className="text-[10px]">{displayCategory}</Badge>
+                        {displayEffort && effortBadge(displayEffort)}
+                      </div>
+                      {displayDetail && <p className="text-xs text-muted-foreground">{displayDetail}</p>}
+                      {displayImpact && (
+                        <p className={`text-xs mt-1 font-medium ${displaySeverity === 'bloquant' ? 'text-red-600' : 'text-amber-600'}`}>
+                          ⚠️ Impact : {displayImpact}
+                        </p>
+                      )}
+                      {displaySourceDocs?.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">📎 {displaySourceDocs.join(', ')}</p>
+                      )}
+                      {displayRecommendation && (
+                        <p className="text-xs mt-2 text-primary font-medium">💡 {displayRecommendation}</p>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{a.detail}</p>
-                    {a.impact && (
-                      <p className={`text-xs mt-1 font-medium ${a.severity === 'bloquant' ? 'text-red-600' : 'text-amber-600'}`}>
-                        ⚠️ Impact : {a.impact}
-                      </p>
-                    )}
-                    {a.source_documents?.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground/70 mt-1">📎 {a.source_documents.join(', ')}</p>
-                    )}
-                    {a.recommendation && (
-                      <p className="text-xs mt-2 text-primary font-medium">💡 {a.recommendation}</p>
-                    )}
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
