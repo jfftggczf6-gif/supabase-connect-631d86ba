@@ -432,6 +432,7 @@ export type Database = {
           document_content: string | null
           document_content_updated_at: string | null
           document_files_count: number | null
+          document_parsing_report: Json | null
           employees_count: number | null
           id: string
           last_activity: string | null
@@ -461,6 +462,7 @@ export type Database = {
           document_content?: string | null
           document_content_updated_at?: string | null
           document_files_count?: number | null
+          document_parsing_report?: Json | null
           employees_count?: number | null
           id?: string
           last_activity?: string | null
@@ -490,6 +492,7 @@ export type Database = {
           document_content?: string | null
           document_content_updated_at?: string | null
           document_files_count?: number | null
+          document_parsing_report?: Json | null
           employees_count?: number | null
           id?: string
           last_activity?: string | null
