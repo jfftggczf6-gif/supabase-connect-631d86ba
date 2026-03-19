@@ -179,7 +179,8 @@ export async function runPipelineFromClient(
 
     try {
       const controller = new AbortController();
-      const timeoutMs = step.fn === 'generate-business-plan' ? 180000 : 120000;
+      const longSteps = new Set(['generate-business-plan', 'generate-investment-memo', 'generate-pitch-deck']);
+      const timeoutMs = longSteps.has(step.fn) ? 180000 : 120000;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const currentToken = await getFreshToken();
