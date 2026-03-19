@@ -602,8 +602,10 @@ export type Database = {
           min_revenue: number | null
           min_score_ir: number | null
           name: string
+          raw_criteria_text: string | null
           required_deliverables: string[] | null
           sector_filter: string[] | null
+          source_document_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -620,8 +622,10 @@ export type Database = {
           min_revenue?: number | null
           min_score_ir?: number | null
           name: string
+          raw_criteria_text?: string | null
           required_deliverables?: string[] | null
           sector_filter?: string[] | null
+          source_document_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -638,8 +642,10 @@ export type Database = {
           min_revenue?: number | null
           min_score_ir?: number | null
           name?: string
+          raw_criteria_text?: string | null
           required_deliverables?: string[] | null
           sector_filter?: string[] | null
+          source_document_url?: string | null
           updated_at?: string | null
         }
         Relationships: []
