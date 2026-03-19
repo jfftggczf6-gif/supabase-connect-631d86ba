@@ -79,6 +79,18 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setResult(null);
 
     try {
+      // 0. Ensure valid auth session for storage uploads
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        if (!refreshed) {
+          toast.error('Session expirée — veuillez vous reconnecter');
+          navigate('/login');
+          setUploading(false);
+          return;
+        }
+      }
+
       // 1. Upload all files to storage
       const totalSteps = files.length + 1; // files + reconstruction call
       for (let i = 0; i < files.length; i++) {

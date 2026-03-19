@@ -210,6 +210,16 @@ export default function EntrepreneurDashboard() {
     if (!enterprise) return;
     setUploading(category);
     try {
+      // Ensure valid auth session for storage uploads
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        if (!refreshed) {
+          toast.error('Session expirée — veuillez vous reconnecter');
+          navigate('/login');
+          return;
+        }
+      }
       for (const file of Array.from(files || [])) {
         const filePath = `${enterprise.id}/${file.name}`;
         const { error } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true });
