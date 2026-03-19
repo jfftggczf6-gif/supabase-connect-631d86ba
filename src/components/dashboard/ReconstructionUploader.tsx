@@ -44,6 +44,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [result, setResult] = useState<ReconstructionResult | null>(null);
+  const [parsingSummary, setParsingSummary] = useState<ParsedDocument[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
