@@ -1,19 +1,27 @@
+## Architecture : Fix timeout définitif (v2)
 
+**Problème** : Les Edge Functions crashaient (WORKER_LIMIT 546) quand elles tentaient de parser + OCR + reconstruire dans un seul appel.
 
-## Correction : modèle OCR PDF trop lent
+**Solution** : Séparer parsing et reconstruction en étapes isolées.
 
-**Problème confirmé** : Ligne 226 de `helpers.ts`, l'extraction PDF vision utilise `claude-sonnet-4-20250514` (lent, ~45s/appel) alors que les images utilisent déjà Haiku.
+### Flow actuel
 
-**Correction** : Un seul changement — remplacer le modèle PDF par `claude-3-haiku-20240307`.
+| Étape | Où | Temps |
+|-------|-----|-------|
+| Upload fichiers | Client → Storage | instantané |
+| Parse DOCX/XLSX/CSV/TXT/PDF texte | **Client (navigateur)** | instantané |
+| OCR PDF scannés / images | **Edge function `parse-vision-file`** (1 par 1, max 3) | 10-30s chacun |
+| Cache texte | Client → `enterprises.document_content` | instantané |
+| Reconstruction IA | Edge function `reconstruct-from-traces` (lit le cache) | 20-40s |
+| Pre-screening | Edge function `generate-pre-screening` | 15-30s |
 
-### Fichier modifié
+### Fichiers créés/modifiés
 
-| Fichier | Ligne | Changement |
-|---------|-------|------------|
-| `supabase/functions/_shared/helpers.ts` | 226 | `claude-sonnet-4-20250514` → `claude-3-haiku-20240307` |
-
-### Impact
-
-- 5 appels vision PDF : ~225s → ~20-30s
-- Combiné avec le timeout client de 180s, la reconstruction passera largement dans les limites
-
+| Fichier | Changement |
+|---------|------------|
+| `src/lib/document-parser.ts` | **Nouveau** — parsing côté client (mammoth, xlsx-js-style) |
+| `supabase/functions/parse-vision-file/index.ts` | **Nouveau** — Vision API pour UN fichier |
+| `supabase/functions/_shared/helpers.ts` | `verifyAndGetContext` simplifié (lit `document_content` du cache) |
+| `supabase/functions/reconstruct-from-traces/index.ts` | max_tokens 8192, check cache |
+| `src/components/dashboard/ReconstructionUploader.tsx` | Nouveau flow client-side |
+| Migration SQL | `document_content`, `document_content_updated_at`, `document_files_count` ajoutés à `enterprises` |
