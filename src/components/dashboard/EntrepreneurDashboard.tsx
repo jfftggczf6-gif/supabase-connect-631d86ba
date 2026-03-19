@@ -75,7 +75,7 @@ export default function EntrepreneurDashboard() {
   const [extractedInfo, setExtractedInfo] = useState<{ name: string | null; country: string | null; sector: string | null } | null>(null);
   const [showExtractDialog, setShowExtractDialog] = useState(false);
   const [_extracting, setExtracting] = useState(false);
-  const [pipelineState, setPipelineState] = useState<PipelineState>('generate');
+  const [_pipelineState, setPipelineState] = useState<PipelineState>('generate');
   const docInputRef = useRef<HTMLInputElement>(null);
   const finInputRef = useRef<HTMLInputElement>(null);
   const extraInputRef = useRef<HTMLInputElement>(null);
