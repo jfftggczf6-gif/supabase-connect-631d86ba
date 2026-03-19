@@ -2,7 +2,6 @@ import PptxGenJS from 'pptxgenjs';
 
 // ── Colors ──
 const NAVY = '0F2B46';
-const _BLUE = '1B5E8A';
 const TEAL = '0E7C6B';
 const GOLD = 'C4841D';
 const RED = '9B2C2C';
@@ -28,13 +27,6 @@ function addTitleSlide(pres: PptxGenJS, title: string, subtitle: string, date: s
   slide.addText('ESONO', { x: 0.8, y: 4.9, w: 2, h: 0.3, fontSize: 10, color: GRAY, fontFace: 'Calibri', italic: true });
 }
 
-function _addSectionTitle(pres: PptxGenJS, num: string, title: string) {
-  const slide = pres.addSlide();
-  slide.background = { fill: NAVY };
-  slide.addText(num, { x: 0.8, y: 2.0, w: 1.2, h: 1.0, fontSize: 48, color: GOLD, fontFace: 'Georgia', bold: true });
-  slide.addText(title, { x: 2.2, y: 2.0, w: 7, h: 1.0, fontSize: 28, color: WHITE, fontFace: 'Georgia', bold: true, valign: 'middle' });
-  slide.addShape(pres.ShapeType.rect, { x: 2.2, y: 3.1, w: 3, h: 0.04, fill: { color: GOLD } });
-}
 
 function addContentSlide(pres: PptxGenJS, title: string, bullets: string[], opts?: { twoCol?: boolean }) {
   const slide = pres.addSlide();
