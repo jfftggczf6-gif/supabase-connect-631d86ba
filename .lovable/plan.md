@@ -1,36 +1,45 @@
 
 
-## Probleme identifie
+## Analyse du flux de reconstruction
 
-Le classement des fichiers uploades dans les sections **"BMC & Impact Social"** et **"Inputs Financiers"** est base uniquement sur l'extension du fichier :
+### Ce qui s'est passe
 
-```
-docFiles = uploadedFiles.filter(f => /\.(docx?|pdf|txt)$/i.test(f.name))
-finFiles = uploadedFiles.filter(f => /\.(xlsx?|csv)$/i.test(f.name))
-```
+Le flux a fonctionne correctement en 5 etapes :
 
-Tous les fichiers — qu'ils viennent du drag-and-drop de reconstruction ou des boutons d'upload specifiques — atterrissent dans le meme dossier Storage (`documents/{enterpriseId}/`). Le panneau d'upload ne fait aucune distinction d'origine.
+1. **Upload** des 12 fichiers vers `documents/{enterpriseId}/reconstruction/` — OK
+2. **Parsing** via le serveur Python — OK (12 fichiers parses, 257K caracteres caches)
+3. **Reconstruction IA** (`reconstruct-from-traces`) — OK, le score de confiance s'est affiche
+4. **Pre-screening auto** (`generate-pre-screening`) — **ECHOUE** silencieusement (le log console montre : `Pre-screening failed (non-blocking): TypeError: Load failed`)
+5. **Ecran de resultat** : l'ecran de confiance (score, hypotheses, donnees manquantes) s'est affiche correctement
 
-Resultat : quand vous deposez 25 fichiers via le reconstructeur (etats financiers PDF, rapport d'activite DOCX, images, etc.), ils apparaissent tous sous "BMC & Impact Social" (pour les .pdf/.docx) et "Inputs Financiers" (pour les .xlsx), ce qui est trompeur.
+### Probleme 1 : Le pre-screening n'a pas ete lance
 
-## Solution proposee
+Le pre-screening a echoue avec `TypeError: Load failed` — c'est une erreur reseau (timeout ou connexion coupee). L'appel au pre-screening arrive a la fin de la reconstruction (etape 5, ligne 182-196 de `ReconstructionUploader.tsx`), apres deja ~2-3 minutes de traitement. Le navigateur peut couper la connexion.
 
-**Separer visuellement les fichiers du reconstructeur des fichiers d'upload manuel** en utilisant le prefixe timestamp que le reconstructeur ajoute deja aux noms de fichiers.
+Le code gere cette erreur comme "non-blocking" (`catch` a la ligne 194), donc le flux continue sans erreur visible. Mais `onPreScreeningDone` n'est jamais appele, donc la navigation vers le module `pre_screening` n'a pas lieu.
 
-### Changements
+### Probleme 2 : L'ecran de confiance a disparu
 
-1. **`EntrepreneurDashboard.tsx`** — Modifier la logique de classification :
-   - Les fichiers uploades via le reconstructeur ont un prefixe timestamp (`1773960..._{nom}`). Utiliser ce pattern pour les exclure des sections BMC/Inputs.
-   - Creer une nouvelle section **"Documents de reconstruction"** qui affiche ces fichiers separement, avec un badge indiquant le nombre.
-   - Les sections BMC et Inputs ne montrent que les fichiers uploades manuellement (sans prefixe timestamp).
+C'est le comportement normal actuel. L'ecran de confiance est un **etat local** du composant `ReconstructionUploader` (la variable `result`). Quand vous cliquez sur "Utiliser ces donnees" ou quand vous naviguez vers un autre module dans la sidebar, le composant se demonte et l'etat est perdu. Il n'y a aucune persistance de ce resultat.
 
-2. **Alternative plus propre** (recommandee) : Stocker les fichiers du reconstructeur dans un sous-dossier distinct (`documents/{enterpriseId}/reconstruction/`) pour une separation nette.
-   - Modifier `ReconstructionUploader.tsx` ligne ~103 : changer le path de `${enterpriseId}/${Date.now()}_${safeName}` a `${enterpriseId}/reconstruction/${Date.now()}_${safeName}`
-   - Modifier `EntrepreneurDashboard.tsx` : filtrer les fichiers dont le nom commence par `reconstruction/` hors des sections BMC/Inputs, et les afficher dans une section dediee "Documents analysés par l'IA"
+### Corrections proposees
 
-### Impact
+#### 1. Rendre le pre-screening plus robuste
+- Ajouter un timeout explicite de 180s pour l'appel pre-screening (comme pour la reconstruction)
+- En cas d'echec, afficher un bouton "Relancer le pre-screening" au lieu de silencieusement ignorer l'erreur
+- Notifier l'utilisateur que le pre-screening sera disponible apres relance
 
-- Les sections BMC et Inputs Financiers ne montrent que les fichiers volontairement uploades par l'utilisateur via ces boutons specifiques
-- Les fichiers du reconstructeur apparaissent dans leur propre section clairement identifiee
-- Aucun impact sur le backend — le cache `document_content` et les edge functions lisent tout le dossier de l'enterprise
+#### 2. Persister le score de confiance
+- Sauvegarder le resultat de reconstruction dans le deliverable `reconstruction_data` (deja fait par l'edge function)
+- Afficher un indicateur de confiance permanent dans le header ou l'overview du dashboard, en lisant le deliverable existant
+- Quand l'utilisateur revient sur le module "upload", afficher le dernier resultat de reconstruction s'il existe
+
+#### 3. Ameliorer le flux post-reconstruction
+- Apres reconstruction reussie + pre-screening OK : naviguer automatiquement vers le pre-screening
+- Apres reconstruction reussie + pre-screening echoue : rester sur l'ecran de confiance avec un bouton explicite "Voir le pre-screening" (grise) et "Relancer l'analyse"
+
+### Fichiers concernes
+
+- `src/components/dashboard/ReconstructionUploader.tsx` — timeout pre-screening, gestion d'erreur visible, persistance resultat
+- `src/components/dashboard/EntrepreneurDashboard.tsx` — affichage confiance dans overview, lecture du deliverable reconstruction
 
