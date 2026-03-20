@@ -180,7 +180,7 @@ export async function runPipelineFromClient(
     try {
       const controller = new AbortController();
       const veryLongSteps = new Set(['generate-investment-memo']);
-      const longSteps = new Set(['generate-business-plan', 'generate-pitch-deck']);
+      const longSteps = new Set(['generate-business-plan', 'generate-pitch-deck', 'generate-pre-screening']);
       const timeoutMs = veryLongSteps.has(step.fn) ? 360000 : longSteps.has(step.fn) ? 180000 : 120000;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
