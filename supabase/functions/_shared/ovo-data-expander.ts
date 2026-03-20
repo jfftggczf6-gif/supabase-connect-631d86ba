@@ -1077,7 +1077,23 @@ function expandOpex(opex: any): any {
       result.travel = expandTravelOpex(catData);
       continue;
     }
-    if (catData && typeof catData === 'object' && !Array.isArray(catData)) {
+    // Guard: if AI returned an array instead of an object, wrap it into sub-categories
+    if (Array.isArray(catData)) {
+      console.warn(`[expandOpex] Category "${category}" is an array — converting to sub-category dict`);
+      const splits = OPEX_SPLITS[category] || { main: 1.0 };
+      if (catData.length >= 8 && typeof catData[0] === 'number') {
+        const expanded: Record<string, number[]> = {};
+        for (const [subKey, ratio] of Object.entries(splits)) {
+          expanded[subKey] = (catData as number[]).map(v => Math.round((v || 0) * (ratio as number) / 1000) * 1000);
+        }
+        result[category] = expanded;
+      } else {
+        const firstSubKey = Object.keys(splits)[0] || 'main';
+        result[category] = { [firstSubKey]: catData };
+      }
+      continue;
+    }
+    if (catData && typeof catData === 'object') {
       const vals = Object.values(catData as Record<string, unknown>);
       if (vals.length > 0 && Array.isArray(vals[0])) {
         result[category] = catData;
