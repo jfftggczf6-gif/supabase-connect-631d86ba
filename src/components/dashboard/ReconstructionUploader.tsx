@@ -37,8 +37,14 @@ interface ReconstructionResult {
   };
 }
 
+interface StorageFile {
+  name: string;
+  metadata?: { size?: number };
+}
+
 export default function ReconstructionUploader({ enterpriseId, session, navigate, onComplete, onPreScreeningDone }: ReconstructionUploaderProps) {
   const [files, setFiles] = useState<File[]>([]);
+  const [existingFiles, setExistingFiles] = useState<StorageFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
@@ -50,6 +56,17 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  const fetchExistingFiles = useCallback(async () => {
+    const { data } = await supabase.storage.from('documents').list(`${enterpriseId}/reconstruction/`);
+    if (data && data.length > 0) {
+      setExistingFiles(data.filter(f => f.name !== '.emptyFolderPlaceholder'));
+    }
+  }, [enterpriseId]);
+
+  useEffect(() => {
+    fetchExistingFiles();
+  }, [fetchExistingFiles]);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles);
