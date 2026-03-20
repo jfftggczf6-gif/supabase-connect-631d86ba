@@ -1,4 +1,4 @@
-// v4 — restore corsHeaders 2026-03-19
+// v5 — Python Excel generation 2026-03-20
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, errorResponse, jsonResponse,
@@ -6,7 +6,6 @@ import {
 } from "../_shared/helpers_v5.ts";
 import { normalizeOdd } from "../_shared/normalizers.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
-import { fillOddExcelTemplate } from "../_shared/odd-excel-template.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en Objectifs de Développement Durable (ODD) pour PME en Afrique de l'Ouest (UEMOA).
 Tu évalues l'alignement des projets avec les 17 ODD de l'ONU à partir du Business Model Canvas (BMC) et du Social Impact Canvas (SIC).
@@ -14,7 +13,6 @@ RÈGLE ABSOLUE : L'évaluation se base UNIQUEMENT sur BMC + SIC. PAS sur les don
 IMPORTANT: Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.`;
 
 // These are the EXACT 41 target IDs present in the ODD_template.xlsx
-// They MUST match exactly for the Excel filling to work
 const TEMPLATE_TARGETS = [
   "1.1", "1.4",
   "2.1", "2.4", "2.a",
@@ -180,15 +178,79 @@ serve(async (req) => {
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "odd_analysis", data, "odd");
     console.log(`[generate-odd] ✅ odd_analysis sauvegardé (${(data as any).metadata?.total_cibles_evaluees} cibles)`);
 
-    // Generate Excel (non-blocking) — upload to storage instead of base64
+    // Generate Excel via Python server (non-blocking)
     let excelGenerated = false;
     try {
-      const xlsxBytes = await fillOddExcelTemplate(data, ent.name, ctx.supabase);
+      const PARSER_URL = Deno.env.get("PARSER_URL") || "";
+      const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
+
+      if (!PARSER_URL) {
+        console.warn("[generate-odd] PARSER_URL not configured, skipping Excel generation");
+        throw new Error("PARSER_URL not configured");
+      }
+
+      // Download ODD template from storage
+      const { data: oddTemplate, error: dlErr } = await ctx.supabase.storage
+        .from('ovo-templates')
+        .download('ODD_template.xlsx');
+
+      if (dlErr || !oddTemplate) {
+        throw new Error(`ODD template download failed: ${dlErr?.message || 'not found'}`);
+      }
+
+      // Encode template as base64
+      const templateBuffer = await oddTemplate.arrayBuffer();
+      const templateBytes = new Uint8Array(templateBuffer);
+      let templateBase64 = "";
+      const CHUNK = 32768;
+      for (let i = 0; i < templateBytes.length; i += CHUNK) {
+        templateBase64 += String.fromCharCode(...templateBytes.subarray(i, i + CHUNK));
+      }
+      templateBase64 = btoa(templateBase64);
+
+      // Prepare data for the Python server
+      const oddData = data as any;
+      const oddExcelData = {
+        project_name: `${ent.name} — ${ent.country || "Côte d'Ivoire"}`,
+        date: new Date().toLocaleDateString('fr-FR'),
+        cibles: oddData.evaluation_cibles_odd?.cibles?.map((c: any) => ({
+          cible_id: c.target_id || c.cible_number || c.cible || c.odd_number,
+          positif: c.evaluation === 'positif' ? 1 : 0,
+          neutre: c.evaluation === 'neutre' ? 1 : 0,
+          negatif: c.evaluation === 'negatif' || c.evaluation === 'négatif' ? 1 : 0,
+          justification: c.justification || '',
+          recommandation: c.recommandation || c.info_additionnelle || '',
+        })) || [],
+        indicateurs: oddData.indicateurs_impact?.indicateurs?.map((ind: any) => ({
+          cible_id: ind.target_id || ind.cible || ind.odd_lie || '',
+          focus_ovo: ind.focus_ovo || false,
+          baseline: ind.valeur || ind.valeur_actuelle || '',
+          target: ind.cible || ind.objectif || '',
+        })) || [],
+      };
+
+      console.log(`[generate-odd] Calling Python server at ${PARSER_URL}/generate-odd-excel...`);
+      const oddResp = await fetch(`${PARSER_URL}/generate-odd-excel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${PARSER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(120_000),
+        body: JSON.stringify({ data: oddExcelData, template_base64: templateBase64 }),
+      });
+
+      if (!oddResp.ok) {
+        const errText = await oddResp.text();
+        throw new Error(`Python ODD Excel generation failed: ${oddResp.status} ${errText}`);
+      }
+
+      const excelBlob = await oddResp.blob();
       const fileName = `odd_${ctx.enterprise_id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.xlsx`;
 
       const { error: uploadErr } = await ctx.supabase.storage
         .from("ovo-outputs")
-        .upload(fileName, xlsxBytes, {
+        .upload(fileName, excelBlob, {
           contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           cacheControl: "no-store",
           upsert: true,
@@ -206,7 +268,7 @@ serve(async (req) => {
         data: {
           generated_at: new Date().toISOString(),
           template: "ODD_template.xlsx",
-          size_bytes: xlsxBytes.byteLength,
+          size_bytes: excelBlob.size,
           file_name: fileName,
         },
         file_url: fileUrl,
@@ -215,7 +277,7 @@ serve(async (req) => {
       }, { onConflict: "enterprise_id,type" });
 
       excelGenerated = true;
-      console.log(`[generate-odd] ✅ Excel uploadé: ${fileName} (${xlsxBytes.byteLength} bytes)`);
+      console.log(`[generate-odd] ✅ Excel uploadé: ${fileName} (${excelBlob.size} bytes)`);
     } catch (xlsxErr: unknown) {
       console.warn("[generate-odd] Excel non-bloquant:", (xlsxErr as Error)?.message);
     }
