@@ -323,7 +323,7 @@ serve(async (req) => {
       .select("category, filename")
       .eq("enterprise_id", ctx.enterprise_id);
 
-    const agentDocs = getDocumentContentForAgent(ent, "inputs", 100_000);
+    const agentDocs = getDocumentContentForAgent(ent, "inputs", 260_000);
     const financialDetected = hasFinancialContent(
       agentDocs,
       coachUploads || [],

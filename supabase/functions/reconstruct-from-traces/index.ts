@@ -106,7 +106,7 @@ serve(async (req) => {
     }
 
     // Use agent-prioritized document content
-    const docContent = getDocumentContentForAgent(ent, "reconstruct", 80_000);
+    const docContent = getDocumentContentForAgent(ent, "reconstruct", 260_000);
     console.log("[reconstruct] Docs cache length:", ctx.documentContent.length, "→ prompt length:", docContent.length);
 
     // Build RAG context for sector benchmarks (protected)
