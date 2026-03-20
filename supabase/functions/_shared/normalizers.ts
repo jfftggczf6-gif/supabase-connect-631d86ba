@@ -72,21 +72,45 @@ export function getFinancialTruth(inputsData: any): {
   );
   const annee_n = detectedYear || toNumber(inputsData.annee_courante || inputsData.annee_n, 0) || new Date().getFullYear();
 
+  // ── Chaîne SYSCOHADA déterministe (AUCUNE estimation IA) ──
+  const achats_consommes = toNumber(cr.achats_matieres || cr.achats_consommes || cr.cout_ventes || cr.cogs, 0);
+  const services_exterieurs = toNumber(cr.charges_externes || cr.services_exterieurs, 0);
+  const impots_taxes = toNumber(cr.impots_taxes, 0);
+  const dotations_amortissements = toNumber(cr.dotations_amortissements || cr.amortissements, 0);
+  const charges_financieres = toNumber(cr.charges_financieres, 0);
+  const resultat_exploitation = toNumber(cr.resultat_exploitation, 0);
+
+  const chaine_comptable = {
+    ca: ca_n,
+    achats_consommes,
+    marge_brute: ca_n - achats_consommes,
+    valeur_ajoutee: (ca_n - achats_consommes) - services_exterieurs,
+    ebe: (ca_n - achats_consommes) - services_exterieurs - charges_personnel - impots_taxes,
+    resultat_exploitation: resultat_exploitation || ((ca_n - achats_consommes) - services_exterieurs - charges_personnel - impots_taxes - dotations_amortissements),
+    resultat_financier: -charges_financieres,
+    resultat_net: toNumber(cr.resultat_net, 0),
+    dotations_amortissements,
+    charges_financieres,
+    impots_taxes,
+    services_exterieurs,
+  };
+
   return {
     ca_n,
     ca_n_minus_1,
     ca_n_minus_2,
-    marge_brute,
-    marge_brute_pct: ca_n > 0 ? Math.round(marge_brute / ca_n * 1000) / 10 : 0,
-    ebitda,
-    ebitda_pct: ca_n > 0 ? Math.round(ebitda / ca_n * 1000) / 10 : 0,
-    resultat_net,
+    marge_brute: chaine_comptable.marge_brute,
+    marge_brute_pct: ca_n > 0 ? Math.round(chaine_comptable.marge_brute / ca_n * 1000) / 10 : 0,
+    ebitda: chaine_comptable.ebe,
+    ebitda_pct: ca_n > 0 ? Math.round(chaine_comptable.ebe / ca_n * 1000) / 10 : 0,
+    resultat_net: chaine_comptable.resultat_net,
     tresorerie_nette,
     endettement: dettes_financieres,
     capitaux_propres,
     total_actif,
     charges_personnel,
     annee_n,
+    chaine_comptable,
   };
 }
 
