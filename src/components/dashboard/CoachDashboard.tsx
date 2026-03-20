@@ -478,43 +478,9 @@ export default function CoachDashboard() {
     }
   };
 
-  const handleGenerateModuleCoach = async (moduleCode: string, enterpriseId: string) => {
-    if (!user) return;
-    setGeneratingModuleCoach(moduleCode);
-    try {
-      const token = await getValidAccessToken(authSession);
-      const fnMap: Record<string, string> = {
-        bmc: 'generate-bmc', sic: 'generate-sic', inputs: 'generate-inputs',
-        framework: 'generate-framework', diagnostic: 'generate-diagnostic',
-        plan_ovo: 'generate-plan-ovo', business_plan: 'generate-business-plan', odd: 'generate-odd',
-      };
-      const fn = fnMap[moduleCode] || `generate-${moduleCode}`;
-      const timeoutMs = moduleCode === 'business_plan' ? 180000 : 120000;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fn}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ enterprise_id: enterpriseId }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
-      const result = await response.json();
-      await supabase.from('deliverables')
-        .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() })
-        .eq('enterprise_id', enterpriseId)
-        .eq('type', DELIV_MAP[moduleCode] as any);
-      toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score || '—'}/100`);
-      setSelectedModule(moduleCode);
-      await fetchData();
-    } catch (err: any) {
-      if (err.name === 'AbortError') toast.error('La génération a pris trop de temps. Réessayez.');
-      else toast.error(err.message || 'Erreur de génération');
-    } finally {
-      setGeneratingModuleCoach(null);
-    }
-  };
+
+  // (handleGenerateModuleCoach removed — mirror view now delegates to EntrepreneurDashboard)
+
 
   const handleDownloadBpWordCoach = async (fileUrl: string, entName: string) => {
     try {
