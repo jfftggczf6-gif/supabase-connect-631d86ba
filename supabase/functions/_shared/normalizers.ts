@@ -979,6 +979,18 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
+  // Force funding_need > 0 for VAN/TRI calculations
+  if (!data.funding_need || data.funding_need <= 0) {
+    const capexTotal = (data.capex || []).reduce((sum: number, c: any) => sum + toNumber(c.acquisition_value, 0), 0);
+    const fwFunding = toNumber(frameworkData?.besoin_financement?.montant_total || frameworkData?.funding_need, 0);
+    const inputsFunding = toNumber(inputsData?.investissements?.capex_total || inputsData?.besoins_investissement?.total, 0);
+    const proxy = data.revenue?.year2 ? Math.round(data.revenue.year2 * 0.15) : 0;
+    data.funding_need = inputsFunding || capexTotal || fwFunding || proxy;
+    if (data.funding_need > 0) {
+      console.log(`[enforceConstraints] funding_need forced to ${data.funding_need}`);
+    }
+  }
+
   // Recalculate investment metrics deterministically
   if (data.investment_metrics && data.cashflow) {
     const discountRate = data.investment_metrics.discount_rate || 0.12;
