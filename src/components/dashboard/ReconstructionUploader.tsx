@@ -335,6 +335,25 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
             </div>
           )}
 
+          {preScreeningFailed && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-amber-800">Le pre-screening n'a pas pu être lancé (timeout réseau).</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs"
+                  onClick={handleRetryPreScreening}
+                  disabled={retryingPreScreening}
+                >
+                  {retryingPreScreening ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Relancer le pre-screening
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <Button onClick={handleUseData} className="flex-1">
               <CheckCircle2 className="h-4 w-4 mr-1" /> Utiliser ces données
