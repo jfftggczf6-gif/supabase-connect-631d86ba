@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   Plus, Building2, Sparkles, Download,
   LogOut, Clock, CheckCircle2, Loader2,
-  FolderPlus, Pencil, Trash2,
+  FolderPlus, Pencil, Trash2, ArrowLeft,
   FileText, BarChart3, Stethoscope, LayoutGrid, Globe, FileSpreadsheet, Target, Search, FileSearch
 } from 'lucide-react';
 import BmcViewer from './BmcViewer';
@@ -39,7 +39,19 @@ import {
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { runPipelineFromClient, getPipelineState, type PipelineState } from '@/lib/pipeline-runner';
 
-export default function EntrepreneurDashboard() {
+interface EntrepreneurDashboardProps {
+  enterpriseId?: string;
+  showBackButton?: boolean;
+  onBack?: () => void;
+  coachMode?: boolean;
+}
+
+export default function EntrepreneurDashboard({
+  enterpriseId,
+  showBackButton = false,
+  onBack,
+  coachMode = false,
+}: EntrepreneurDashboardProps = {}) {
   const { user, profile, session: authSession, signOut } = useAuth();
   const navigate = useNavigate();
   const [initialLoading, setInitialLoading] = useState(true);
@@ -82,8 +94,19 @@ export default function EntrepreneurDashboard() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-    const { data: ent } = await supabase
-      .from('enterprises').select('*').eq('user_id', user.id).maybeSingle();
+    let ent: Enterprise | null = null;
+
+    if (enterpriseId) {
+      // Coach mode: load specific enterprise
+      const { data } = await supabase
+        .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
+      ent = data;
+    } else {
+      // Entrepreneur mode: load own enterprise
+      const { data } = await supabase
+        .from('enterprises').select('*').eq('user_id', user.id).maybeSingle();
+      ent = data;
+    }
 
     if (ent) {
       setEnterprise(ent);
@@ -99,7 +122,7 @@ export default function EntrepreneurDashboard() {
       setUploadedFiles((filesRes.data || []).map((f) => ({ name: f.name, size: (f.metadata as { size?: number } | null)?.size || 0 })));
     }
     setInitialLoading(false);
-  }, [user]);
+  }, [user, enterpriseId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -863,6 +886,11 @@ export default function EntrepreneurDashboard() {
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* ===== TOP HEADER ===== */}
       <header className="flex-none h-14 border-b border-border bg-card flex items-center px-6 z-50">
+        {showBackButton && onBack && (
+          <Button variant="ghost" size="sm" onClick={onBack} className="mr-2">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Retour liste
+          </Button>
+        )}
         <span className="font-display font-bold text-lg tracking-tight">ESONO</span>
         <span className="mx-3 text-muted-foreground">·</span>
         <span className="text-sm font-medium text-foreground">{enterprise.name}</span>
@@ -874,9 +902,11 @@ export default function EntrepreneurDashboard() {
           <span className="text-sm text-foreground">
             {profile?.full_name} · <span className="text-muted-foreground">{profile?.email}</span>
           </span>
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4" /> Déconnexion
-          </Button>
+          {!coachMode && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" /> Déconnexion
+            </Button>
+          )}
         </div>
       </header>
 
