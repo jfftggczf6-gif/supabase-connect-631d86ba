@@ -1,45 +1,76 @@
 
 
-## Analyse du flux de reconstruction
+## Plan : Correction timeout Investment Memo — reprise 2 temps + Sonnet + timeouts max
 
-### Ce qui s'est passe
+### Résumé
+Découper la génération en 2 appels HTTP avec checkpoint persisté dans `enterprise_modules.data`. Remplacer Opus par Sonnet. Maximiser les timeouts frontend par passe.
 
-Le flux a fonctionne correctement en 5 etapes :
+---
 
-1. **Upload** des 12 fichiers vers `documents/{enterpriseId}/reconstruction/` — OK
-2. **Parsing** via le serveur Python — OK (12 fichiers parses, 257K caracteres caches)
-3. **Reconstruction IA** (`reconstruct-from-traces`) — OK, le score de confiance s'est affiche
-4. **Pre-screening auto** (`generate-pre-screening`) — **ECHOUE** silencieusement (le log console montre : `Pre-screening failed (non-blocking): TypeError: Load failed`)
-5. **Ecran de resultat** : l'ecran de confiance (score, hypotheses, donnees manquantes) s'est affiche correctement
+### Fichier 1 : `supabase/functions/generate-investment-memo/index.ts`
 
-### Probleme 1 : Le pre-screening n'a pas ete lance
+**Changements :**
 
-Le pre-screening a echoue avec `TypeError: Load failed` — c'est une erreur reseau (timeout ou connexion coupee). L'appel au pre-screening arrive a la fin de la reconstruction (etape 5, ligne 182-196 de `ReconstructionUploader.tsx`), apres deja ~2-3 minutes de traitement. Le navigateur peut couper la connexion.
+1. **Modèle** : remplacer `claude-opus-4-20250514` par `claude-sonnet-4-20250514`
 
-Le code gere cette erreur comme "non-blocking" (`catch` a la ligne 194), donc le flux continue sans erreur visible. Mais `onPreScreeningDone` n'est jamais appele, donc la navigation vers le module `pre_screening` n'a pas lieu.
+2. **Fonction utilitaire locale** `updateMemoModuleState(supabase, enterpriseId, data, progress, status)` — update sur `enterprise_modules` filtré par `enterprise_id` + `module = 'investment_memo'`
 
-### Probleme 2 : L'ecran de confiance a disparu
+3. **Logique principale** (après `verifyAndGetContext`) :
+   - Lire `ctx.moduleMap["investment_memo"]` (ligne 169-171 de helpers_v5)
+   - Générer `requestId` (crypto.randomUUID) et `startedAt`
+   - Déclarer `let part1` en scope du try
 
-C'est le comportement normal actuel. L'ecran de confiance est un **etat local** du composant `ReconstructionUploader` (la variable `result`). Quand vous cliquez sur "Utiliser ces donnees" ou quand vous naviguez vers un autre module dans la sidebar, le composant se demonte et l'etat est perdu. Il n'y a aucune persistance de ce resultat.
+   **Cas A — Reprise passe 2** : si moduleMap contient `status === "processing"` ET `phase === "part1_completed"` ET `part1` existant :
+   - Recharger `part1` depuis checkpoint
+   - Update module state : `phase: "part2"`, `status: "processing"`
+   - Construire contexte (deliverables, knowledge, RAG — même code existant)
+   - Exécuter uniquement passe 2 (prompt2 + callAI avec Sonnet)
+   - Fusionner `{ ...part1, ...part2 }` + `.score`
+   - `saveDeliverable(...)`
+   - Update module state : `status: "completed"`, `progress: 100`
+   - Retourner `jsonResponse` HTTP 200
 
-### Corrections proposees
+   **Cas B — Premier appel** :
+   - Update module state : `phase: "part1"`, `status: "processing"`
+   - Construire contexte (code existant inchangé)
+   - Exécuter passe 1 uniquement
+   - Sauvegarder checkpoint : `phase: "part1_completed"`, `part1`, `score`, `progress: 50`
+   - Retourner HTTP 202 : `{ success: true, processing: true, phase: "part1_completed", score, request_id }`
 
-#### 1. Rendre le pre-screening plus robuste
-- Ajouter un timeout explicite de 180s pour l'appel pre-screening (comme pour la reconstruction)
-- En cas d'echec, afficher un bouton "Relancer le pre-screening" au lieu de silencieusement ignorer l'erreur
-- Notifier l'utilisateur que le pre-screening sera disponible apres relance
+4. **Gestion d'erreur** : si `part1` existe, conserver checkpoint (`status: "processing"`, `phase: "part1_completed"`), stocker `error`, `failed_at`. Sinon état d'échec simple.
 
-#### 2. Persister le score de confiance
-- Sauvegarder le resultat de reconstruction dans le deliverable `reconstruction_data` (deja fait par l'edge function)
-- Afficher un indicateur de confiance permanent dans le header ou l'overview du dashboard, en lisant le deliverable existant
-- Quand l'utilisateur revient sur le module "upload", afficher le dernier resultat de reconstruction s'il existe
+**Conservés intacts** : `MEMO_SYSTEM_PROMPT`, `MEMO_SCHEMA_PART1/2`, tous les `substring(...)`, fusion `{ ...part1, ...part2 }` + `.score`, `saveDeliverable(...)`, prompts, contextBlock.
 
-#### 3. Ameliorer le flux post-reconstruction
-- Apres reconstruction reussie + pre-screening OK : naviguer automatiquement vers le pre-screening
-- Apres reconstruction reussie + pre-screening echoue : rester sur l'ecran de confiance avec un bouton explicite "Voir le pre-screening" (grise) et "Relancer l'analyse"
+---
 
-### Fichiers concernes
+### Fichier 2 : `src/components/dashboard/EntrepreneurDashboard.tsx`
 
-- `src/components/dashboard/ReconstructionUploader.tsx` — timeout pre-screening, gestion d'erreur visible, persistance resultat
-- `src/components/dashboard/EntrepreneurDashboard.tsx` — affichage confiance dans overview, lecture du deliverable reconstruction
+**Changement dans `handleGenerateModule` (lignes 342-378) :**
+
+1. Extraire la logique fetch dans `runSingleAttempt(functionName, token, enterpriseId, timeoutMs)` → retourne JSON
+
+2. **Timeouts maximaux par passe** :
+   - `investment_memo` : **360000ms (6 min) par passe** — chaque passe est un appel indépendant, on donne le maximum à chacune
+   - `business_plan` : 300000ms (inchangé)
+   - Autres : 120000ms (inchangé)
+
+3. Pour `moduleCode === 'investment_memo'` :
+   - Appel 1 via `runSingleAttempt` avec timeout 360s
+   - Si `result.processing === true` → toast info "Mémo d'investissement — passe 1 terminée, finalisation en cours..." → appel 2 avec timeout 360s
+   - Flow normal ensuite
+
+4. Autres modules : comportement inchangé
+
+---
+
+### Fichier 3 : `src/lib/pipeline-runner.ts`
+
+**Changement mineur (ligne 163-164) :**
+- Garder le timeout `veryLongSteps` à 360000ms pour `generate-investment-memo` — c'est le timeout par appel, et le pipeline fait 2 appels séquentiels si nécessaire
+- Ajouter la même logique de détection `result.processing === true` + relance automatique dans la boucle du pipeline runner, pour que le pipeline complet fonctionne aussi
+
+---
+
+### Fichier non modifié
+`src/components/dashboard/InvestmentMemoViewer.tsx` — structure JSON finale identique.
 
