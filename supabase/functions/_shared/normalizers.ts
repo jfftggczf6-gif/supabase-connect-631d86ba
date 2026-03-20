@@ -789,36 +789,56 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
-  // ── Back-derive year_minus_1 / year_minus_2 from implied Framework growth rate ──
-  // If AI-generated historical values look wrong, recalculate from current_year
-  if (data.revenue?.current_year > 0 && data.revenue?.year2 > 0) {
-    // Implied annual growth rate from Framework (current_year → year2)
-    const impliedGrowth = (data.revenue.year2 / data.revenue.current_year) - 1;
-    // Cap growth rate to reasonable bounds (5%–60%)
-    const g = Math.min(Math.max(impliedGrowth, 0.05), 0.60);
+  // ── Anchor year_minus on REAL historical data (not back-derived) ──
+  const truth = getFinancialTruth(inputsData);
+  if (truth && truth.ca_n > 0) {
+    const series: string[] = ['revenue', 'gross_profit', 'ebitda', 'net_profit', 'cogs', 'cashflow'];
 
-    const series: Array<[string, string]> = [
-      ['revenue', 'revenue'], ['gross_profit', 'gross_profit'],
-      ['ebitda', 'ebitda'], ['net_profit', 'net_profit'], ['cogs', 'cogs'], ['cashflow', 'cashflow'],
-    ];
-
-    for (const [seriesKey] of series) {
+    for (const seriesKey of series) {
       const s = data[seriesKey];
       if (!s || typeof s !== 'object') continue;
-      const cy = toNumber(s.current_year);
-      if (cy <= 0) continue;
 
-      const ym1Derived = Math.round(cy / (1 + g));
-      const ym2Derived = Math.round(ym1Derived / (1 + g));
+      if (seriesKey === 'revenue') {
+        if (truth.ca_n_minus_1 > 0) s.year_minus_1 = truth.ca_n_minus_1;
+        if (truth.ca_n_minus_2 > 0) s.year_minus_2 = truth.ca_n_minus_2;
+        s.current_year = truth.ca_n;
+      } else if (seriesKey === 'gross_profit' && truth.ca_n > 0) {
+        const mbPct = s.current_year / truth.ca_n;
+        if (truth.ca_n_minus_1 > 0 && (!s.year_minus_1 || s.year_minus_1 <= 0)) s.year_minus_1 = Math.round(truth.ca_n_minus_1 * mbPct);
+        if (truth.ca_n_minus_2 > 0 && (!s.year_minus_2 || s.year_minus_2 <= 0)) s.year_minus_2 = Math.round(truth.ca_n_minus_2 * mbPct);
+      } else if (seriesKey === 'ebitda' && truth.ca_n > 0) {
+        const ebitdaPct = s.current_year / truth.ca_n;
+        if (truth.ca_n_minus_1 > 0 && (!s.year_minus_1 || s.year_minus_1 <= 0)) s.year_minus_1 = Math.round(truth.ca_n_minus_1 * ebitdaPct);
+        if (truth.ca_n_minus_2 > 0 && (!s.year_minus_2 || s.year_minus_2 <= 0)) s.year_minus_2 = Math.round(truth.ca_n_minus_2 * ebitdaPct);
+      } else if (seriesKey === 'cogs' && truth.ca_n > 0) {
+        const cogsPct = s.current_year / truth.ca_n;
+        if (truth.ca_n_minus_1 > 0 && (!s.year_minus_1 || s.year_minus_1 <= 0)) s.year_minus_1 = Math.round(truth.ca_n_minus_1 * cogsPct);
+        if (truth.ca_n_minus_2 > 0 && (!s.year_minus_2 || s.year_minus_2 <= 0)) s.year_minus_2 = Math.round(truth.ca_n_minus_2 * cogsPct);
+      } else if (seriesKey === 'net_profit' && truth.ca_n > 0) {
+        const rnPct = s.current_year / truth.ca_n;
+        if (truth.ca_n_minus_1 > 0 && (!s.year_minus_1 || s.year_minus_1 <= 0)) s.year_minus_1 = Math.round(truth.ca_n_minus_1 * rnPct);
+        if (truth.ca_n_minus_2 > 0 && (!s.year_minus_2 || s.year_minus_2 <= 0)) s.year_minus_2 = Math.round(truth.ca_n_minus_2 * rnPct);
+      } else if (seriesKey === 'cashflow' && truth.ca_n > 0) {
+        const cfPct = s.current_year / truth.ca_n;
+        if (truth.ca_n_minus_1 > 0 && (!s.year_minus_1 || s.year_minus_1 <= 0)) s.year_minus_1 = Math.round(truth.ca_n_minus_1 * cfPct);
+        if (truth.ca_n_minus_2 > 0 && (!s.year_minus_2 || s.year_minus_2 <= 0)) s.year_minus_2 = Math.round(truth.ca_n_minus_2 * cfPct);
+      }
+    }
 
-      // Only overwrite if AI value is zero OR deviates more than 25% from derived value
-      const overwriteYm1 = !s.year_minus_1 || s.year_minus_1 <= 0 ||
-        Math.abs(toNumber(s.year_minus_1) - ym1Derived) / ym1Derived > 0.25;
-      const overwriteYm2 = !s.year_minus_2 || s.year_minus_2 <= 0 ||
-        Math.abs(toNumber(s.year_minus_2) - ym2Derived) / ym2Derived > 0.25;
-
-      if (overwriteYm1) s.year_minus_1 = ym1Derived;
-      if (overwriteYm2) s.year_minus_2 = ym2Derived;
+    // Also fix base_year / years mapping based on truth
+    const cy = truth.annee_n;
+    if (cy > 2000 && cy < 2100) {
+      data.base_year = cy;
+      data.years = {
+        year_minus_2: cy - 2,
+        year_minus_1: cy - 1,
+        current_year: cy,
+        year2: cy + 1,
+        year3: cy + 2,
+        year4: cy + 3,
+        year5: cy + 4,
+        year6: cy + 5,
+      };
     }
   }
 
