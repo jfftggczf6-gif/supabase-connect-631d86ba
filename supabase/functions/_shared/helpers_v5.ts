@@ -207,8 +207,8 @@ export function getDocumentContentForAgent(
     valuation: ['etats_financiers', 'budget_previsionnel', 'releve_bancaire', 'business_plan'],
     onepager: ['business_plan', 'etats_financiers', 'rapport_activite', 'budget_previsionnel'],
     investment_memo: ['etats_financiers', 'business_plan', 'rapport_activite', 'budget_previsionnel', 'document_legal', 'releve_bancaire'],
-    screening: ['etats_financiers', 'releve_bancaire', 'document_legal', 'business_plan', 'budget_previsionnel'],
-    pre_screening: ['etats_financiers', 'releve_bancaire', 'business_plan', 'budget_previsionnel', 'document_legal', 'facture'],
+    screening: ['etats_financiers', 'releve_bancaire', 'business_plan', 'rapport_activite', 'document_legal', 'budget_previsionnel', 'facture', 'organigramme_rh', 'photo_installation', 'autre'],
+    pre_screening: ['etats_financiers', 'releve_bancaire', 'business_plan', 'rapport_activite', 'budget_previsionnel', 'document_legal', 'facture', 'organigramme_rh', 'photo_installation', 'autre'],
   };
 
   const priorities = AGENT_PRIORITIES[agentType] || AGENT_PRIORITIES['reconstruct'];

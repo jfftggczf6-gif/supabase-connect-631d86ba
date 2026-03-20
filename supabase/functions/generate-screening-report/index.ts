@@ -272,7 +272,7 @@ DATE CRÉATION : ${ent.creation_date || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}
 
 ══════ DOCUMENTS UPLOADÉS ══════
-${getDocumentContentForAgent(ent, "screening", 80_000) || "(Aucun document uploadé)"}
+${getDocumentContentForAgent(ent, "screening", 250_000) || "(Aucun document uploadé)"}
 
 ══════ LIVRABLES EXISTANTS ══════
 ${delivSummary.length > 0 ? delivSummary.join("\n\n") : "(Aucun livrable généré)"}
@@ -300,7 +300,7 @@ Rédige un résumé exécutif détaillé comme un analyste le ferait pour son di
 Réponds en JSON selon ce schéma :
 ${SCREENING_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 16384);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt, 32768);
     const normalizedData = normalizeScreeningReport(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 
