@@ -387,6 +387,26 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   return (
     <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
       <CardContent className="py-6">
+        {/* Existing files from storage */}
+        {existingFiles.length > 0 && files.length === 0 && !uploading && (
+          <div className="mb-4 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" /> {existingFiles.length} document(s) déjà uploadé(s)
+            </p>
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {existingFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs bg-muted/40 rounded-lg px-3 py-1.5">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{f.name.replace(/^\d+_/, '')}</span>
+                  {f.metadata?.size && (
+                    <span className="text-muted-foreground/50 shrink-0">{formatFileSize(f.metadata.size)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Drop zone */}
         <div
           ref={dropRef}
