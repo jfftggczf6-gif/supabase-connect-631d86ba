@@ -269,6 +269,34 @@ Deno.serve(async (req: Request) => {
       throw new Error("PARSER_URL not configured. Please set the PARSER_URL secret.");
     }
 
+    // Sanitize: Python server calls .get() on values — ensure no raw lists where dicts expected
+    function sanitizeForPython(obj: any): any {
+      if (obj === null || obj === undefined) return obj;
+      if (Array.isArray(obj)) return obj.map(sanitizeForPython);
+      if (typeof obj !== 'object') return obj;
+      const result: any = {};
+      for (const [k, v] of Object.entries(obj)) {
+        // opex sub-categories: Python expects { subKey: [...] } dicts, not raw arrays
+        if (k === 'opex' && v && typeof v === 'object' && !Array.isArray(v)) {
+          const sanitizedOpex: any = {};
+          for (const [cat, catVal] of Object.entries(v as any)) {
+            if (Array.isArray(catVal)) {
+              // Wrap bare array into { main: [...] }
+              console.warn(`[sanitize] opex.${cat} is array — wrapping as {main: [...]}`);
+              sanitizedOpex[cat] = { main: catVal };
+            } else {
+              sanitizedOpex[cat] = sanitizeForPython(catVal);
+            }
+          }
+          result[k] = sanitizedOpex;
+        } else {
+          result[k] = sanitizeForPython(v);
+        }
+      }
+      return result;
+    }
+
+    const sanitizedJson = sanitizeForPython(financialJson);
     console.log(`[generate-ovo-plan] Calling Python server at ${PARSER_URL}/generate-ovo-excel...`);
     const excelResp = await fetch(`${PARSER_URL}/generate-ovo-excel`, {
       method: 'POST',
@@ -278,7 +306,7 @@ Deno.serve(async (req: Request) => {
       },
       signal: AbortSignal.timeout(180_000), // 3 min timeout
       body: JSON.stringify({
-        data: financialJson,
+        data: sanitizedJson,
         template_base64: templateBase64,
       }),
     });
