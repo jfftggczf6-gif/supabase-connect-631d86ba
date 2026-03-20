@@ -790,7 +790,7 @@ export default function EntrepreneurDashboard({
   // Classify uploaded files — exclude reconstruction subfolder from manual upload sections
   const isReconstructionFile = (f: { name: string }) => f.name.startsWith('reconstruction/');
   const manualFiles = uploadedFiles.filter(f => !isReconstructionFile(f));
-  const reconstructionFiles = uploadedFiles.filter(f => isReconstructionFile(f));
+  const _reconstructionFiles = uploadedFiles.filter(f => isReconstructionFile(f));
   const docFiles = manualFiles.filter(f => /\.(docx?|pdf|txt)$/i.test(f.name));
   const finFiles = manualFiles.filter(f => /\.(xlsx?|csv)$/i.test(f.name));
   const knownFiles = new Set([...docFiles.map(f => f.name), ...finFiles.map(f => f.name)]);
