@@ -731,7 +731,7 @@ export default function CoachDashboard() {
     const ent = selectedEnt;
     const entDelivs = deliverablesMap[ent.id] || [];
     const entUploads = uploadsMap[ent.id] || [];
-    const _entMods = modulesMap[ent.id] || [];
+    // entMods not needed in non-mirror tabs
 
     const uploadsByCategory = {
       bmc: entUploads.filter((u) => u.category === 'bmc'),
