@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, Download, Copy, CheckCircle2, FileText, Presentation, Loader2 } from 'lucide-react';
+import { Briefcase, Download, Copy, CheckCircle2, FileText, Presentation, Loader2, AlertTriangle, TrendingUp, Users, Shield, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateMemoPptx, SLIDE_TITLES } from '@/lib/memo-pptx-generator';
+import { generateMemoHtml } from '@/lib/memo-html-generator';
 
 interface Props {
   data: Record<string, any>;
@@ -35,6 +36,8 @@ const verdictColors: Record<string, string> = {
   APPROFONDIR: 'bg-amber-500 text-white',
   DECLINER: 'bg-red-600 text-white',
 };
+
+const arr = (v: any): any[] => (Array.isArray(v) ? v : []);
 
 export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
   const [activeSection, setActiveSection] = useState('resume_executif');
@@ -77,156 +80,161 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
     }
   };
 
-  // ── Enhanced HTML Download ──
   const handleDownloadHtml = () => {
-    const pg = data.page_de_garde || {};
-    const reco = data.recommandation_finale || {};
-    const valo = data.valorisation || {};
-    const besoin = data.besoins_financement || {};
-    const these = data.these_investissement || {};
-
-    const verdictColor = reco.verdict === 'INVESTIR' ? '#0E7C6B' : reco.verdict === 'APPROFONDIR' ? '#C4841D' : '#9B2C2C';
-
-    const renderObj = (obj: any, depth = 0): string => {
-      if (!obj) return '';
-      if (typeof obj === 'string') return `<p>${obj}</p>`;
-      if (Array.isArray(obj)) return `<ul>${obj.map(i => `<li>${typeof i === 'string' ? i : typeof i === 'object' ? Object.values(i).join(' — ') : String(i)}</li>`).join('')}</ul>`;
-      return Object.entries(obj).filter(([k]) => !k.startsWith('_')).map(([k, v]) => {
-        if (Array.isArray(v)) return `<h3>${k.replace(/_/g, ' ')}</h3><ul>${(v as any[]).map(i => `<li>${typeof i === 'string' ? i : typeof i === 'object' ? Object.values(i as Record<string, unknown>).join(' — ') : String(i)}</li>`).join('')}</ul>`;
-        if (typeof v === 'object' && v) return `<h3>${k.replace(/_/g, ' ')}</h3>${renderObj(v, depth + 1)}`;
-        return `<p><strong>${k.replace(/_/g, ' ')} :</strong> ${v}</p>`;
-      }).join('');
-    };
-
-    const sectionHtml = SECTIONS.filter(s => s.key !== 'page_de_garde').map(s => {
-      const d = data[s.key];
-      if (!d) return '';
-      // Special rendering for certain sections
-      if (s.key === 'resume_executif') {
-        return `<h2>${s.label}</h2>
-          <div class="callout">${d.synthese || ''}</div>
-          ${d.points_cles ? `<ul>${d.points_cles.map((p: string) => `<li>✓ ${p}</li>`).join('')}</ul>` : ''}
-          ${d.recommandation_preliminaire ? `<p><strong>Recommandation :</strong> ${d.recommandation_preliminaire}</p>` : ''}`;
-      }
-      if (s.key === 'analyse_risques' && d.risques_identifies) {
-        return `<h2>${s.label}</h2>
-          <table><thead><tr><th>Risque</th><th>Catégorie</th><th>Probabilité</th><th>Impact</th><th>Mitigation</th></tr></thead><tbody>
-          ${d.risques_identifies.map((r: any) => `<tr><td>${r.description || '—'}</td><td>${r.categorie || '—'}</td>
-            <td><span class="badge badge-${r.probabilite === 'elevee' ? 'red' : r.probabilite === 'moyenne' ? 'amber' : 'green'}">${r.probabilite || '—'}</span></td>
-            <td><span class="badge badge-${r.impact === 'fort' ? 'red' : r.impact === 'moyen' ? 'amber' : 'green'}">${r.impact || '—'}</span></td>
-            <td>${r.mitigation || '—'}</td></tr>`).join('')}</tbody></table>
-          ${d.matrice_risque_synthese ? `<p class="note">${d.matrice_risque_synthese}</p>` : ''}`;
-      }
-      if (s.key === 'recommandation_finale') {
-        return `<h2>${s.label}</h2>
-          <div class="verdict-banner" style="background:${verdictColor}">${reco.verdict || '—'}</div>
-          <p>${reco.justification || ''}</p>
-          ${reco.conditions?.length ? `<div class="callout callout-amber"><strong>Conditions :</strong><ul>${reco.conditions.map((c: string) => `<li>${c}</li>`).join('')}</ul></div>` : ''}
-          ${reco.prochaines_etapes?.length ? `<div class="callout callout-blue"><strong>Prochaines étapes :</strong><ul>${reco.prochaines_etapes.map((s: string) => `<li>→ ${s}</li>`).join('')}</ul></div>` : ''}`;
-      }
-      if (s.key === 'valorisation') {
-        return `<h2>${s.label}</h2>
-          <div class="grid-2">
-            <div class="card"><h3>Méthodes</h3>${(valo.methodes_utilisees || []).map((m: string) => `<span class="tag">${m}</span>`).join(' ')}</div>
-            <div class="card"><h3>Fourchette</h3><p class="big-number">${valo.fourchette_valorisation || '—'}</p><p>Médiane : ${valo.valeur_mediane || '—'}</p></div>
-          </div>
-          ${valo.note_valorisation ? `<p>${valo.note_valorisation}</p>` : ''}`;
-      }
-      if (s.key === 'these_investissement') {
-        return `<h2>${s.label}</h2>
-          <div class="grid-2">
-            <div class="card card-green"><h3>✅ Arguments Pour</h3><ul>${(these.arguments_pour || []).map((a: string) => `<li>${a}</li>`).join('')}</ul></div>
-            <div class="card card-red"><h3>⚠️ Arguments Contre</h3><ul>${(these.arguments_contre || []).map((a: string) => `<li>${a}</li>`).join('')}</ul></div>
-          </div>
-          ${these.these || these.synthese ? `<p>${these.these || these.synthese}</p>` : ''}`;
-      }
-      if (s.key === 'besoins_financement' && besoin.utilisation_fonds) {
-        return `<h2>${s.label}</h2>
-          <p class="big-number">${besoin.montant_recherche || '—'}</p>
-          <table><thead><tr><th>Poste</th><th>Montant</th><th>%</th></tr></thead><tbody>
-          ${besoin.utilisation_fonds.map((u: any) => `<tr><td>${u.poste || '—'}</td><td>${u.montant || '—'}</td><td>${u.pourcentage || '—'}</td></tr>`).join('')}</tbody></table>
-          ${besoin.calendrier_deploiement ? `<p>📅 ${besoin.calendrier_deploiement}</p>` : ''}
-          ${besoin.retour_attendu ? `<p>📈 ${besoin.retour_attendu}</p>` : ''}`;
-      }
-      return `<h2>${s.label}</h2>${renderObj(d)}`;
-    }).join('\n');
-
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${pg.titre || 'Investment Memo'}</title>
-<style>
-:root{--navy:#0F2B46;--blue:#1B5E8A;--teal:#0E7C6B;--gold:#C4841D;--red:#9B2C2C;--gray:#64748B;--light:#F8FAFC;--border:#E2E8F0}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Georgia,serif;max-width:800px;margin:0 auto;padding:0;color:#1e293b;font-size:10pt;line-height:1.6}
-.cover{background:linear-gradient(135deg,var(--navy) 0%,#1a3a5c 100%);color:white;padding:80px 60px;page-break-after:always;min-height:400px}
-.cover h1{font-size:28pt;margin-bottom:8px;letter-spacing:1px}.cover .subtitle{font-size:14pt;color:#94a3b8;margin-bottom:24px}
-.cover .meta{font-size:9pt;color:#64748b;margin-top:40px}.cover .conf{display:inline-block;background:var(--red);color:white;padding:4px 16px;border-radius:4px;font-size:8pt;font-weight:700;letter-spacing:2px;margin-top:16px}
-.toc{padding:40px 60px;page-break-after:always}.toc h2{color:var(--navy);font-size:16pt;border-bottom:2px solid var(--blue);padding-bottom:6px;margin-bottom:20px}
-.toc ol{counter-reset:toc;list-style:none;padding:0}.toc li{counter-increment:toc;padding:6px 0;border-bottom:1px dotted var(--border);font-size:10pt}
-.toc li::before{content:counter(toc) ".";font-weight:700;color:var(--blue);margin-right:8px}
-h2{font-size:14pt;color:var(--navy);border-bottom:2px solid var(--blue);padding-bottom:4px;margin:32px 60px 12px;page-break-after:avoid}
-h3{font-size:11pt;color:var(--blue);margin:16px 60px 8px;text-transform:capitalize}
-p,ul,ol{margin:8px 60px;text-align:justify}ul{padding-left:20px}li{margin-bottom:4px}
-table{width:calc(100% - 120px);margin:12px 60px;border-collapse:collapse;font-size:9pt}
-th{background:var(--navy);color:white;padding:8px 10px;text-align:left;font-weight:600}
-td{padding:6px 10px;border:1px solid var(--border)}tr:nth-child(even) td{background:var(--light)}
-.callout{margin:12px 60px;padding:12px 16px;border-left:4px solid var(--blue);background:#eff6ff;border-radius:0 6px 6px 0;font-size:10pt}
-.callout-amber{border-left-color:var(--gold);background:#fffbeb}.callout-blue{border-left-color:var(--blue);background:#eff6ff}
-.verdict-banner{display:block;text-align:center;padding:16px;margin:16px 60px;border-radius:8px;color:white;font-size:18pt;font-weight:700;letter-spacing:2px}
-.score-badge{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:var(--navy);color:white;font-size:20pt;font-weight:700}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 60px}
-.card{padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--light)}
-.card-green{border-left:4px solid var(--teal)}.card-red{border-left:4px solid var(--red)}
-.big-number{font-size:18pt;font-weight:700;color:var(--navy);text-align:center;margin:8px 60px}
-.tag{display:inline-block;background:#e8e6ff;color:var(--blue);padding:2px 10px;border-radius:4px;font-size:9pt;margin:2px}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:8pt;font-weight:600;color:white}
-.badge-green{background:var(--teal)}.badge-amber{background:var(--gold)}.badge-red{background:var(--red)}
-.note{font-style:italic;color:var(--gray);font-size:9pt}
-.footer{margin-top:40px;padding:16px 60px;border-top:1px solid var(--border);font-size:8pt;color:var(--gray);text-align:center}
-@media print{body{padding:0;max-width:none}h2{page-break-before:always;margin-top:20px}.cover{page-break-before:avoid}}
-</style></head><body>
-<div class="cover">
-  <h1>${pg.titre || 'Investment Memorandum'}</h1>
-  <div class="subtitle">${pg.sous_titre || ''}</div>
-  <div class="meta">${pg.date || new Date().toLocaleDateString('fr-FR')}</div>
-  <div class="conf">CONFIDENTIEL</div>
-</div>
-<div class="toc"><h2>Table des Matières</h2><ol>
-${SECTIONS.filter(s => s.key !== 'page_de_garde').map(s => `<li>${s.label.replace(/^\d+\.\s*/, '')}</li>`).join('\n')}
-</ol></div>
-<div class="score-section" style="text-align:center;padding:24px 60px">
-  <span class="score-badge">${score}</span>
-  <span class="verdict-banner" style="background:${verdictColor};display:inline-block;padding:8px 24px;margin-left:16px;font-size:14pt">${verdict}</span>
-</div>
-${sectionHtml}
-<div class="footer">ESONO — Plateforme d'analyse d'investissement · Document confidentiel · ${new Date().toLocaleDateString('fr-FR')}</div>
-</body></html>`;
-
+    const html = generateMemoHtml(data);
     const blob = new Blob([html], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `InvestmentMemo_${pg.titre?.replace(/[^a-zA-Z0-9]/g, '_') || 'memo'}.html`;
+    a.download = `InvestmentMemo_${data.page_de_garde?.titre?.replace(/[^a-zA-Z0-9]/g, '_') || 'memo'}.html`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
 
+  // ── Enhanced Section Renderers ──
   const renderSection = (key: string) => {
     const d = data[key];
     if (!d) return <p className="text-sm text-muted-foreground italic">Section non générée</p>;
 
     switch (key) {
+      case 'page_de_garde':
+        return (
+          <div className="space-y-2">
+            {d.titre && <p className="text-lg font-bold text-foreground">{d.titre}</p>}
+            {d.sous_titre && <p className="text-sm text-muted-foreground">{d.sous_titre}</p>}
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              {d.entreprise && <InfoField label="Entreprise" value={d.entreprise} />}
+              {d.secteur && <InfoField label="Secteur" value={d.secteur} />}
+              {d.pays && <InfoField label="Pays" value={d.pays} />}
+              {d.date && <InfoField label="Date" value={d.date} />}
+            </div>
+          </div>
+        );
+
       case 'resume_executif':
         return (
           <div className="space-y-4">
             <p className="text-sm leading-relaxed">{d.synthese}</p>
             {d.points_cles && (
-              <div>
+              <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-4">
                 <p className="text-xs font-semibold mb-2">Points Clés</p>
-                <ul className="space-y-1">{d.points_cles.map((p: string, i: number) => (
+                <ul className="space-y-1.5">{d.points_cles.map((p: string, i: number) => (
                   <li key={i} className="text-sm flex items-start gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 flex-none" />{p}</li>
+                ))}</ul>
+              </div>
+            )}
+            {d.recommandation_preliminaire && (
+              <div className="flex items-center gap-3 mt-2">
+                <Badge className={scoreBg}>{score}/100</Badge>
+                <span className="text-sm text-muted-foreground">Recommandation : {d.recommandation_preliminaire}</span>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'presentation_entreprise':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/50 p-4 border">
+              {d.raison_sociale && <InfoField label="Raison sociale" value={d.raison_sociale || d.nom} />}
+              {d.forme_juridique && <InfoField label="Forme juridique" value={d.forme_juridique} />}
+              {d.date_creation && <InfoField label="Date de création" value={d.date_creation} />}
+              {(d.siege_social || d.ville) && <InfoField label="Siège social" value={d.siege_social || d.ville} />}
+              {d.secteur && <InfoField label="Secteur" value={d.secteur} />}
+              {d.effectif && <InfoField label="Effectif" value={d.effectif} />}
+            </div>
+            {d.historique && <TextBlock title="Historique" text={d.historique} />}
+            {(d.description || d.activite) && <TextBlock title="Activités" text={d.description || d.activite} />}
+            {d.positionnement && <TextBlock title="Positionnement" text={d.positionnement} />}
+            {arr(d.avantages_competitifs).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Avantages compétitifs</p>
+                <ul className="space-y-1">{arr(d.avantages_competitifs).map((a: string, i: number) => (
+                  <li key={i} className="text-sm flex items-start gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 flex-none" />{a}</li>
                 ))}</ul>
               </div>
             )}
           </div>
         );
+
+      case 'analyse_marche':
+        return (
+          <div className="space-y-4">
+            {d.contexte_macroeconomique && <TextBlock title="Contexte macro" text={d.contexte_macroeconomique} />}
+            <div className="grid grid-cols-2 gap-3">
+              {d.taille_marche && <KpiCard icon={<Target className="h-4 w-4" />} label="Taille du marché" value={d.taille_marche} />}
+              {d.croissance && <KpiCard icon={<TrendingUp className="h-4 w-4" />} label="Croissance" value={d.croissance} />}
+            </div>
+            {d.tendances && <TextBlock title="Tendances" text={d.tendances} />}
+            {d.positionnement_concurrentiel && <TextBlock title="Positionnement concurrentiel" text={d.positionnement_concurrentiel} />}
+            {arr(d.concurrents).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Concurrents</p>
+                <ul className="space-y-1">{arr(d.concurrents).map((c: any, i: number) => (
+                  <li key={i} className="text-sm text-muted-foreground">• {typeof c === 'string' ? c : c.nom || JSON.stringify(c)}</li>
+                ))}</ul>
+              </div>
+            )}
+            {d.opportunites && <Callout type="green" title="Opportunités" text={d.opportunites} />}
+            {d.menaces && <Callout type="amber" title="Menaces" text={d.menaces} />}
+            {renderGenericFields(d, ['contexte_macroeconomique', 'taille_marche', 'croissance', 'tendances', 'positionnement_concurrentiel', 'concurrents', 'opportunites', 'menaces'])}
+          </div>
+        );
+
+      case 'modele_economique':
+        return (
+          <div className="space-y-4">
+            {(d.description || d.modele) && <p className="text-sm leading-relaxed">{d.description || d.modele}</p>}
+            {d.proposition_valeur && <Callout type="blue" title="Proposition de valeur" text={d.proposition_valeur} />}
+            {arr(d.sources_revenus).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-2">Sources de revenus</p>
+                <div className="space-y-2">{arr(d.sources_revenus).map((s: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 border">
+                    <span className="text-sm font-medium">{typeof s === 'string' ? s : s.nom || s.source || '—'}</span>
+                    {typeof s === 'object' && (s.pourcentage || s.detail) && (
+                      <span className="text-xs text-muted-foreground ml-auto">{s.pourcentage || s.detail}</span>
+                    )}
+                  </div>
+                ))}</div>
+              </div>
+            )}
+            {d.scalabilite && <TextBlock title="Scalabilité" text={d.scalabilite} />}
+            {renderGenericFields(d, ['description', 'modele', 'proposition_valeur', 'sources_revenus', 'scalabilite'])}
+          </div>
+        );
+
+      case 'analyse_financiere':
+        return (
+          <div className="space-y-4">
+            {(d.commentaire || d.analyse) && <p className="text-sm leading-relaxed">{d.commentaire || d.analyse}</p>}
+            <div className="grid grid-cols-3 gap-3">
+              <KpiCard label="Chiffre d'affaires" value={d.chiffre_affaires || d.ca || '—'} />
+              <KpiCard label="Marge brute" value={d.marge_brute || '—'} />
+              <KpiCard label="EBITDA" value={d.ebitda || '—'} />
+              <KpiCard label="Résultat net" value={d.resultat_net || '—'} />
+              <KpiCard label="Trésorerie" value={d.tresorerie || '—'} />
+              <KpiCard label="Ratio dette" value={d.ratio_dette || d.endettement || '—'} />
+            </div>
+            {d.points_forts && <Callout type="green" title="Points forts" text={d.points_forts} />}
+            {d.points_attention && <Callout type="amber" title="Points d'attention" text={d.points_attention} />}
+            {(d.projections || d.previsions) && (() => {
+              const proj = d.projections || d.previsions || {};
+              return (
+                <div>
+                  <p className="text-xs font-semibold mb-2">Projections</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {proj.ca_n1 && <KpiCard label="CA projeté N+1" value={proj.ca_n1} />}
+                    {proj.ca_n3 && <KpiCard label="CA projeté N+3" value={proj.ca_n3} />}
+                    {proj.ebitda_projete && <KpiCard label="EBITDA projeté" value={proj.ebitda_projete} />}
+                    {(proj.point_mort || proj.breakeven) && <KpiCard label="Point mort" value={proj.point_mort || proj.breakeven} />}
+                  </div>
+                </div>
+              );
+            })()}
+            {renderGenericFields(d, ['commentaire', 'analyse', 'chiffre_affaires', 'ca', 'marge_brute', 'ebitda', 'resultat_net', 'tresorerie', 'ratio_dette', 'endettement', 'points_forts', 'points_attention', 'projections', 'previsions', 'evolution'])}
+          </div>
+        );
+
       case 'analyse_risques':
         return (
           <div className="space-y-3">
@@ -235,38 +243,57 @@ ${sectionHtml}
                 <div className="flex items-center justify-between mb-1">
                   <Badge variant="outline" className="text-xs">{r.categorie}</Badge>
                   <div className="flex gap-2">
-                    <Badge className={r.probabilite === 'elevee' ? 'bg-red-100 text-red-700' : r.probabilite === 'moyenne' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}>P: {r.probabilite}</Badge>
-                    <Badge className={r.impact === 'fort' ? 'bg-red-100 text-red-700' : r.impact === 'moyen' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}>I: {r.impact}</Badge>
+                    <ProbBadge label="P" value={r.probabilite} />
+                    <ProbBadge label="I" value={r.impact} />
                   </div>
                 </div>
-                <p className="text-sm">{r.description}</p>
-                <p className="text-xs text-muted-foreground mt-1">🛡️ {r.mitigation}</p>
+                <p className="text-sm">{r.description || r.risque}</p>
+                {r.mitigation && <p className="text-xs text-muted-foreground mt-1">🛡️ {r.mitigation}</p>}
               </div>
             ))}
-            {d.matrice_risque_synthese && <p className="text-sm text-muted-foreground italic">{d.matrice_risque_synthese}</p>}
+            {(d.matrice_risque_synthese || d.commentaire || d.analyse_globale) && (
+              <p className="text-sm text-muted-foreground italic">{d.matrice_risque_synthese || d.commentaire || d.analyse_globale}</p>
+            )}
           </div>
         );
+
       case 'recommandation_finale':
         return (
           <div className="space-y-4">
-            <div className={`inline-block px-6 py-3 rounded-xl text-lg font-bold ${verdictColors[d.verdict] || 'bg-gray-200'}`}>
-              {d.verdict === 'INVESTIR' ? '✅' : d.verdict === 'APPROFONDIR' ? '⚠️' : '❌'} {d.verdict}
+            <div className="flex items-center gap-4">
+              <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full text-xl font-bold ${scoreBg}`}>
+                {score}
+              </div>
+              <div className={`inline-block px-6 py-3 rounded-xl text-lg font-bold ${verdictColors[d.verdict] || 'bg-gray-200'}`}>
+                {d.verdict === 'INVESTIR' ? '✅' : d.verdict === 'APPROFONDIR' ? '⚠️' : '❌'} {d.verdict}
+              </div>
             </div>
             <p className="text-sm leading-relaxed">{d.justification}</p>
             {d.conditions?.length > 0 && (
-              <div><p className="text-xs font-semibold mb-1">Conditions</p><ul className="space-y-1">{d.conditions.map((c: string, i: number) => <li key={i} className="text-sm text-muted-foreground">• {c}</li>)}</ul></div>
+              <div className="rounded-lg border-l-4 border-amber-400 bg-amber-50 p-4">
+                <p className="text-xs font-semibold mb-1">Conditions</p>
+                <ul className="space-y-1">{d.conditions.map((c: string, i: number) => <li key={i} className="text-sm">• {c}</li>)}</ul>
+              </div>
             )}
             {d.prochaines_etapes?.length > 0 && (
-              <div><p className="text-xs font-semibold mb-1">Prochaines Étapes</p><ul className="space-y-1">{d.prochaines_etapes.map((s: string, i: number) => <li key={i} className="text-sm text-muted-foreground">→ {s}</li>)}</ul></div>
+              <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-4">
+                <p className="text-xs font-semibold mb-1">Prochaines Étapes</p>
+                <ul className="space-y-1">{d.prochaines_etapes.map((s: string, i: number) => <li key={i} className="text-sm">→ {s}</li>)}</ul>
+              </div>
             )}
           </div>
         );
+
       case 'besoins_financement':
         return (
-          <div className="space-y-3">
-            <p className="text-sm"><strong>Montant :</strong> {d.montant_recherche}</p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {d.montant_recherche && <KpiCard label="Montant recherché" value={d.montant_recherche} />}
+              {d.retour_attendu && <KpiCard label="Retour attendu" value={d.retour_attendu} />}
+            </div>
             {d.utilisation_fonds?.length > 0 && (
               <div className="space-y-2">
+                <p className="text-xs font-semibold">Utilisation des fonds</p>
                 {d.utilisation_fonds.map((u: any, i: number) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="flex-1">
@@ -278,23 +305,133 @@ ${sectionHtml}
               </div>
             )}
             {d.calendrier_deploiement && <p className="text-sm text-muted-foreground">📅 {d.calendrier_deploiement}</p>}
-            {d.retour_attendu && <p className="text-sm text-muted-foreground">📈 {d.retour_attendu}</p>}
           </div>
         );
+
       case 'valorisation':
         return (
           <div className="space-y-3">
+            {d.description || d.commentaire ? <p className="text-sm leading-relaxed">{d.description || d.commentaire}</p> : null}
             <div className="grid grid-cols-3 gap-3">
               {d.methodes_utilisees?.map((m: string, i: number) => <Badge key={i} variant="secondary" className="justify-center">{m}</Badge>)}
             </div>
-            <div className="p-3 rounded-lg bg-violet-50 text-center">
+            <div className="p-4 rounded-lg bg-violet-50 text-center border border-violet-200">
               <p className="text-xs text-violet-600 mb-1">Fourchette de Valorisation</p>
               <p className="text-xl font-bold text-violet-700">{d.fourchette_valorisation || '—'}</p>
               <p className="text-sm text-violet-600">Médiane : {d.valeur_mediane || '—'}</p>
             </div>
-            {d.note_valorisation && <p className="text-sm text-muted-foreground">{d.note_valorisation}</p>}
+            {d.note_valorisation && <p className="text-sm text-muted-foreground italic">{d.note_valorisation}</p>}
           </div>
         );
+
+      case 'equipe_et_gouvernance':
+        return (
+          <div className="space-y-4">
+            {(d.description || d.synthese) && <p className="text-sm leading-relaxed">{d.description || d.synthese}</p>}
+            {arr(d.membres_cles).length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold">Membres clés</p>
+                {arr(d.membres_cles).map((m: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-none">
+                      <Users className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{m.nom || m.name || '—'}</p>
+                      <p className="text-xs text-muted-foreground">{m.role || m.poste || '—'}</p>
+                      {m.experience && <p className="text-xs text-muted-foreground mt-1">{m.experience}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {d.gouvernance && <TextBlock title="Gouvernance" text={d.gouvernance} />}
+            {arr(d.gaps_identifies).length > 0 && (
+              <Callout type="amber" title="Gaps identifiés" text={arr(d.gaps_identifies).join(' • ')} />
+            )}
+          </div>
+        );
+
+      case 'esg_impact':
+        return (
+          <div className="space-y-4">
+            {(d.description || d.synthese) && <p className="text-sm leading-relaxed">{d.description || d.synthese}</p>}
+            {arr(d.odd_cibles || d.odd_alignement).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-2">Alignement ODD</p>
+                <div className="flex flex-wrap gap-2">{arr(d.odd_cibles || d.odd_alignement).map((o: any, i: number) => (
+                  <Badge key={i} variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">
+                    🌍 {typeof o === 'string' ? o : o.odd || o.nom || '—'}
+                  </Badge>
+                ))}</div>
+              </div>
+            )}
+            {d.impact_social && <Callout type="green" title="Impact social" text={d.impact_social} />}
+            {d.impact_environnemental && <Callout type="green" title="Impact environnemental" text={d.impact_environnemental} />}
+            {d.conformite_ifc && <TextBlock title="Conformité IFC" text={d.conformite_ifc} />}
+          </div>
+        );
+
+      case 'these_investissement':
+        return (
+          <div className="space-y-4">
+            {(d.these || d.synthese) && <p className="text-sm leading-relaxed">{d.these || d.synthese}</p>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border-l-4 border-emerald-400 bg-emerald-50/50 p-4">
+                <p className="text-xs font-semibold text-emerald-700 mb-2">✅ Arguments Pour</p>
+                <ul className="space-y-1">{arr(d.arguments_pour).map((a: string, i: number) => (
+                  <li key={i} className="text-sm">{a}</li>
+                ))}</ul>
+              </div>
+              <div className="rounded-lg border-l-4 border-red-400 bg-red-50/50 p-4">
+                <p className="text-xs font-semibold text-red-700 mb-2">⚠️ Arguments Contre</p>
+                <ul className="space-y-1">{arr(d.arguments_contre).map((a: string, i: number) => (
+                  <li key={i} className="text-sm">{a}</li>
+                ))}</ul>
+              </div>
+            </div>
+            {arr(d.facteurs_cles).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Facteurs clés de succès</p>
+                <ul className="space-y-1">{arr(d.facteurs_cles).map((f: string, i: number) => (
+                  <li key={i} className="text-sm flex items-start gap-2"><Target className="h-3.5 w-3.5 text-primary mt-0.5 flex-none" />{f}</li>
+                ))}</ul>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'structure_proposee':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/50 p-4 border">
+              {d.type_instrument && <InfoField label="Instrument" value={d.type_instrument || d.instrument} />}
+              {d.montant && <InfoField label="Montant" value={d.montant} />}
+              {d.valorisation_premoney && <InfoField label="Valo pré-money" value={d.valorisation_premoney} />}
+              {d.dilution && <InfoField label="Dilution" value={d.dilution} />}
+              {(d.horizon_sortie || d.calendrier) && <InfoField label="Horizon" value={d.horizon_sortie || d.calendrier} />}
+              {d.irr_cible && <InfoField label="IRR cible" value={d.irr_cible} />}
+            </div>
+            {d.conditions && <TextBlock title="Conditions" text={typeof d.conditions === 'string' ? d.conditions : JSON.stringify(d.conditions)} />}
+            {arr(d.droits_investisseur).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Droits investisseur</p>
+                <ul className="space-y-1">{arr(d.droits_investisseur).map((dr: string, i: number) => (
+                  <li key={i} className="text-sm flex items-start gap-2"><Shield className="h-3.5 w-3.5 text-primary mt-0.5 flex-none" />{dr}</li>
+                ))}</ul>
+              </div>
+            )}
+            {arr(d.termes).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Termes</p>
+                <ul className="space-y-1">{arr(d.termes).map((t: any, i: number) => (
+                  <li key={i} className="text-sm">• {typeof t === 'string' ? t : `${t.terme || t.label || '—'} : ${t.valeur || t.detail || '—'}`}</li>
+                ))}</ul>
+              </div>
+            )}
+          </div>
+        );
+
       default:
         return (
           <div className="space-y-3">
@@ -306,6 +443,9 @@ ${sectionHtml}
               );
               if (typeof v === 'string') return (
                 <div key={k}><p className="text-xs font-semibold capitalize text-muted-foreground">{k.replace(/_/g, ' ')}</p><p className="text-sm leading-relaxed">{v}</p></div>
+              );
+              if (typeof v === 'object' && v) return (
+                <div key={k}><p className="text-xs font-semibold capitalize text-muted-foreground">{k.replace(/_/g, ' ')}</p><p className="text-sm leading-relaxed">{JSON.stringify(v)}</p></div>
               );
               return null;
             })}
@@ -332,7 +472,7 @@ ${sectionHtml}
 
       {/* Tabs: HTML / PPTX */}
       <Tabs defaultValue="html" className="w-full">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="html" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Document HTML</TabsTrigger>
           <TabsTrigger value="pptx" className="gap-1.5"><Presentation className="h-3.5 w-3.5" /> Présentation PPTX</TabsTrigger>
         </TabsList>
@@ -373,7 +513,7 @@ ${sectionHtml}
 
         {/* ── PPTX Tab ── */}
         <TabsContent value="pptx">
-          <div className="space-y-6">
+          <div className="space-y-6 pt-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Aperçu des slides de la présentation comité d'investissement (~20 slides)</p>
               <Button onClick={handleDownloadPptx} disabled={generatingPptx} className="gap-2">
@@ -387,11 +527,11 @@ ${sectionHtml}
               {SLIDE_TITLES.map((title, i) => (
                 <div key={i} className="group relative">
                   <div className={`aspect-[16/9] rounded-lg border-2 flex flex-col items-center justify-center p-4 transition-colors ${
-                    i === 0 ? 'bg-[#0F2B46] border-[#0F2B46] text-white' :
+                    i === 0 ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))] text-primary-foreground' :
                     i === SLIDE_TITLES.length - 1 ? 'bg-muted/50 border-border text-muted-foreground' :
                     'bg-card border-border hover:border-primary/30'
                   }`}>
-                    <span className={`text-[10px] font-mono mb-1 ${i === 0 ? 'text-[#C4841D]' : 'text-muted-foreground'}`}>
+                    <span className={`text-[10px] font-mono mb-1 ${i === 0 ? 'text-amber-300' : 'text-muted-foreground'}`}>
                       Slide {i + 1}
                     </span>
                     <span className={`text-xs font-semibold text-center leading-tight ${i === 0 ? '' : 'text-foreground'}`}>
@@ -405,5 +545,72 @@ ${sectionHtml}
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ── Small UI helpers ──
+
+function InfoField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function KpiCard({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+  return (
+    <div className="p-3 rounded-lg border bg-muted/30 text-center">
+      {icon && <div className="flex justify-center mb-1 text-muted-foreground">{icon}</div>}
+      <p className="text-lg font-bold text-foreground">{value}</p>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+    </div>
+  );
+}
+
+function TextBlock({ title, text }: { title: string; text: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold mb-1">{title}</p>
+      <p className="text-sm leading-relaxed text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function Callout({ type, title, text }: { type: 'blue' | 'green' | 'amber'; title: string; text: string }) {
+  const borderColor = type === 'green' ? 'border-emerald-400 bg-emerald-50' : type === 'amber' ? 'border-amber-400 bg-amber-50' : 'border-primary bg-primary/5';
+  return (
+    <div className={`rounded-r-lg border-l-4 p-3 ${borderColor}`}>
+      <p className="text-xs font-semibold mb-1">{title}</p>
+      <p className="text-sm">{text}</p>
+    </div>
+  );
+}
+
+function ProbBadge({ label, value }: { label: string; value: string }) {
+  const v = (value || '').toLowerCase();
+  const cls = v.includes('elev') || v.includes('fort') || v.includes('haute')
+    ? 'bg-red-100 text-red-700'
+    : v.includes('moyen') ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+  return <Badge className={cls}>{label}: {value}</Badge>;
+}
+
+function renderGenericFields(d: Record<string, any>, exclude: string[]) {
+  const remaining = Object.entries(d).filter(([k]) => !exclude.includes(k) && !k.startsWith('_'));
+  if (remaining.length === 0) return null;
+  return (
+    <>
+      {remaining.map(([k, v]) => {
+        if (typeof v === 'string') return <TextBlock key={k} title={k.replace(/_/g, ' ')} text={v} />;
+        if (Array.isArray(v)) return (
+          <div key={k}>
+            <p className="text-xs font-semibold mb-1 capitalize">{k.replace(/_/g, ' ')}</p>
+            <ul className="space-y-1">{v.map((item, i) => <li key={i} className="text-sm text-muted-foreground">• {typeof item === 'string' ? item : JSON.stringify(item)}</li>)}</ul>
+          </div>
+        );
+        return null;
+      })}
+    </>
   );
 }
