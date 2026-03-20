@@ -704,6 +704,7 @@ serve(async (req) => {
   try {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+    (ctx as any)._agentDocs = getDocumentContentForAgent(ent, "business_plan", 100_000);
 
     console.log("[BP] Generating Business Plan for:", ent.name);
 
