@@ -1,29 +1,27 @@
 
 
-## Plan : Augmenter le timeout du Pre-screening
+## Plan : Afficher les fichiers de reconstruction déjà uploadés
 
-### Constat
+### Probleme
+Le `ReconstructionUploader` utilise `useState<File[]>([])` — état local perdu au remontage du composant. Les fichiers sont bien dans le stockage mais ne sont jamais rechargés à l'affichage.
 
-- `ReconstructionUploader.tsx` : déjà à **180s** ✅
-- `pipeline-runner.ts` : **120s** (timeout par défaut) — trop court avec 260k caractères de contexte
+### Solution
+Au montage du composant, lister les fichiers existants dans `{enterpriseId}/reconstruction/` depuis le stockage et les afficher comme "fichiers déjà uploadés". Séparer visuellement les fichiers déjà uploadés (non supprimables sauf action explicite) des nouveaux fichiers en attente.
 
-### Changement
+### Changements
 
-**Fichier : `src/lib/pipeline-runner.ts`**
+**Fichier : `src/components/dashboard/ReconstructionUploader.tsx`**
 
-Ajouter `generate-pre-screening` dans le set `longSteps` (180s) à la ligne ~155, aux côtés de `generate-business-plan` et `generate-pitch-deck`.
+1. Ajouter un état `existingFiles` pour stocker les fichiers déjà présents en storage
+2. Ajouter un `useEffect` au montage qui appelle `supabase.storage.from('documents').list('{enterpriseId}/reconstruction/')` et peuple `existingFiles`
+3. Afficher ces fichiers existants dans une section "Documents déjà uploadés" au-dessus de la zone de drop, avec leur nom et taille
+4. Après une reconstruction réussie, re-fetcher les fichiers existants pour refléter les nouveaux uploads
+5. Ne pas reset `existingFiles` dans `handleReset` — seuls les nouveaux fichiers en attente sont vidés
 
-```typescript
-// Avant
-const longSteps = new Set(['generate-business-plan', 'generate-pitch-deck']);
-
-// Après
-const longSteps = new Set(['generate-business-plan', 'generate-pitch-deck', 'generate-pre-screening']);
-```
-
-Cela passe le timeout de 120s → **180s** dans le pipeline "Générer tout", aligné avec le timeout déjà utilisé dans le `ReconstructionUploader`.
+### Résultat attendu
+Quand l'utilisateur revient sur l'onglet reconstruction, il voit la liste des fichiers déjà uploadés. Il peut en ajouter de nouveaux pour relancer une reconstruction.
 
 | Fichier | Modification |
 |---|---|
-| `pipeline-runner.ts` | Ajouter `generate-pre-screening` au set `longSteps` (180s) |
+| `ReconstructionUploader.tsx` | Ajouter fetch des fichiers existants au montage + affichage persistant |
 
