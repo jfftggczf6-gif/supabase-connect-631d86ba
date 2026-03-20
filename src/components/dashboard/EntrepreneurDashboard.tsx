@@ -94,8 +94,19 @@ export default function EntrepreneurDashboard({
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-    const { data: ent } = await supabase
-      .from('enterprises').select('*').eq('user_id', user.id).maybeSingle();
+    let ent: Enterprise | null = null;
+
+    if (enterpriseId) {
+      // Coach mode: load specific enterprise
+      const { data } = await supabase
+        .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
+      ent = data;
+    } else {
+      // Entrepreneur mode: load own enterprise
+      const { data } = await supabase
+        .from('enterprises').select('*').eq('user_id', user.id).maybeSingle();
+      ent = data;
+    }
 
     if (ent) {
       setEnterprise(ent);
@@ -111,7 +122,7 @@ export default function EntrepreneurDashboard({
       setUploadedFiles((filesRes.data || []).map((f) => ({ name: f.name, size: (f.metadata as { size?: number } | null)?.size || 0 })));
     }
     setInitialLoading(false);
-  }, [user]);
+  }, [user, enterpriseId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
