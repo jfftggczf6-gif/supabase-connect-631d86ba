@@ -4,6 +4,93 @@
  */
 import { getFiscalParams } from "./helpers_v5.ts";
 
+// ===== FINANCIAL TRUTH ANCHOR =====
+/**
+ * Extrait la vérité financière des inputs_data.
+ * C'est la SOURCE UNIQUE de vérité pour tous les agents.
+ * Tout chiffre financier produit par l'IA qui dévie de ces valeurs doit être corrigé.
+ */
+export function getFinancialTruth(inputsData: any): {
+  ca_n: number;
+  ca_n_minus_1: number;
+  ca_n_minus_2: number;
+  marge_brute: number;
+  marge_brute_pct: number;
+  ebitda: number;
+  ebitda_pct: number;
+  resultat_net: number;
+  tresorerie_nette: number;
+  endettement: number;
+  capitaux_propres: number;
+  total_actif: number;
+  charges_personnel: number;
+  annee_n: number;
+} | null {
+  if (!inputsData) return null;
+
+  const cr = inputsData.compte_resultat || {};
+  const bilan = inputsData.bilan || {};
+  const actif = bilan.actif || {};
+  const passif = bilan.passif || {};
+  const hist = inputsData.historique_3ans || {};
+
+  const ca_n = toNumber(cr.chiffre_affaires, 0);
+  if (ca_n <= 0) return null;
+
+  // Historique — chercher dans historique_3ans
+  const years = Object.keys(hist).sort();
+  let ca_n_minus_1 = 0, ca_n_minus_2 = 0;
+  if (years.length >= 2) {
+    ca_n_minus_1 = toNumber(hist[years[years.length - 2]]?.ca_total || hist[years[years.length - 2]]?.chiffre_affaires, 0);
+  }
+  if (years.length >= 3) {
+    ca_n_minus_2 = toNumber(hist[years[years.length - 3]]?.ca_total || hist[years[years.length - 3]]?.chiffre_affaires, 0);
+  }
+  // Fallback
+  if (ca_n_minus_1 === 0 && inputsData.ca_year_minus_1) ca_n_minus_1 = toNumber(inputsData.ca_year_minus_1, 0);
+  if (ca_n_minus_2 === 0 && inputsData.ca_year_minus_2) ca_n_minus_2 = toNumber(inputsData.ca_year_minus_2, 0);
+
+  const cout_ventes = toNumber(cr.cout_ventes || cr.cout_des_ventes || cr.cogs, 0);
+  const marge_brute = ca_n - cout_ventes;
+  const charges_personnel = toNumber(cr.charges_personnel || cr.personnel, 0);
+  const charges_externes = toNumber(cr.charges_externes || cr.services_exterieurs, 0);
+  const ebitda = marge_brute - charges_personnel - charges_externes;
+  const resultat_net = toNumber(cr.resultat_net, 0);
+
+  const tresorerie = toNumber(actif.tresorerie, 0);
+  const tresorerie_nette = tresorerie - toNumber(passif.tresorerie_passif, 0);
+
+  const dettes_financieres = toNumber(passif.dettes_financieres || passif.emprunts, 0);
+  const capitaux_propres = toNumber(passif.capitaux_propres, 0);
+  const total_actif = toNumber(actif.total_actif, 0) || (toNumber(actif.immobilisations, 0) + toNumber(actif.actif_circulant, 0) + tresorerie);
+
+  // Année courante = année des données les plus récentes
+  const detectedYear = Math.max(
+    toNumber(hist.n?.annee, 0),
+    toNumber(hist.n_moins_1?.annee, 0),
+    toNumber(hist.n_moins_2?.annee, 0)
+  );
+  const annee_n = detectedYear || toNumber(inputsData.annee_courante || inputsData.annee_n, 0) || new Date().getFullYear();
+
+  return {
+    ca_n,
+    ca_n_minus_1,
+    ca_n_minus_2,
+    marge_brute,
+    marge_brute_pct: ca_n > 0 ? Math.round(marge_brute / ca_n * 1000) / 10 : 0,
+    ebitda,
+    ebitda_pct: ca_n > 0 ? Math.round(ebitda / ca_n * 1000) / 10 : 0,
+    resultat_net,
+    tresorerie_nette,
+    endettement: dettes_financieres,
+    capitaux_propres,
+    total_actif,
+    charges_personnel,
+    annee_n,
+  };
+}
+
+
 // ===== GENERIC HELPERS =====
 function pick(obj: any, ...keys: string[]): any {
   for (const k of keys) {
