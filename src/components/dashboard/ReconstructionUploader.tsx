@@ -269,6 +269,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setProgress(0);
     setParsedDocs([]);
     setParsingSummary(null);
+    setPreScreeningFailed(false);
   };
 
   const formatFileSize = (bytes: number) => {
