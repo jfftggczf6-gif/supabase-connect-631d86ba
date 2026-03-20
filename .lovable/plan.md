@@ -1,27 +1,31 @@
 
 
-## Plan : Afficher les fichiers de reconstruction déjà uploadés
+## Plan : Nettoyage complet de GOTCHE-SARL (données + fichiers)
 
-### Probleme
-Le `ReconstructionUploader` utilise `useState<File[]>([])` — état local perdu au remontage du composant. Les fichiers sont bien dans le stockage mais ne sont jamais rechargés à l'affichage.
+### Enterprise
+- ID : `e7cfb861-02b0-4679-a91f-4d399001fa4f`
 
-### Solution
-Au montage du composant, lister les fichiers existants dans `{enterpriseId}/reconstruction/` depuis le stockage et les afficher comme "fichiers déjà uploadés". Séparer visuellement les fichiers déjà uploadés (non supprimables sauf action explicite) des nouveaux fichiers en attente.
+### Actions
 
-### Changements
+**1. Migration SQL — Supprimer toutes les données liées**
 
-**Fichier : `src/components/dashboard/ReconstructionUploader.tsx`**
+```sql
+DELETE FROM deliverable_versions WHERE enterprise_id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+DELETE FROM deliverable_corrections WHERE enterprise_id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+DELETE FROM deliverables WHERE enterprise_id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+DELETE FROM enterprise_modules WHERE enterprise_id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+DELETE FROM score_history WHERE enterprise_id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+DELETE FROM activity_log WHERE enterprise_id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+UPDATE enterprises SET score_ir = 0, phase = 'identite', document_content = NULL, document_content_updated_at = NULL, document_files_count = 0, document_parsing_report = NULL, operating_mode = NULL, data_room_enabled = false, data_room_slug = NULL WHERE id = 'e7cfb861-02b0-4679-a91f-4d399001fa4f';
+```
 
-1. Ajouter un état `existingFiles` pour stocker les fichiers déjà présents en storage
-2. Ajouter un `useEffect` au montage qui appelle `supabase.storage.from('documents').list('{enterpriseId}/reconstruction/')` et peuple `existingFiles`
-3. Afficher ces fichiers existants dans une section "Documents déjà uploadés" au-dessus de la zone de drop, avec leur nom et taille
-4. Après une reconstruction réussie, re-fetcher les fichiers existants pour refléter les nouveaux uploads
-5. Ne pas reset `existingFiles` dans `handleReset` — seuls les nouveaux fichiers en attente sont vidés
+**2. Script — Supprimer les fichiers dans le bucket `documents`**
 
-### Résultat attendu
-Quand l'utilisateur revient sur l'onglet reconstruction, il voit la liste des fichiers déjà uploadés. Il peut en ajouter de nouveaux pour relancer une reconstruction.
+Lister et supprimer tous les fichiers dans `documents/e7cfb861-02b0-4679-a91f-4d399001fa4f/` (dossiers `reconstruction/` et autres).
 
-| Fichier | Modification |
+| Action | Cible |
 |---|---|
-| `ReconstructionUploader.tsx` | Ajouter fetch des fichiers existants au montage + affichage persistant |
+| DELETE (SQL) | deliverable_versions, deliverable_corrections, deliverables, enterprise_modules, score_history, activity_log |
+| UPDATE (SQL) | enterprises — reset complet |
+| DELETE (Storage) | Tous les fichiers dans `documents/{enterpriseId}/` |
 
