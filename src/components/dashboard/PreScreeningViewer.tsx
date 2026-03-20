@@ -207,7 +207,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       </Card>
 
       {/* ═══ ROW: Fiche Entreprise + Qualité Dossier ═══ */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 items-start">
         {/* Fiche entreprise */}
         <Card>
           <CardHeader className="pb-3">
@@ -380,7 +380,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       </Card>
 
       {/* ═══ ROW: Cross-validation + Santé financière ═══ */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 items-start">
         {/* Cross-validation */}
         <Card>
           <CardHeader className="pb-3">
@@ -623,7 +623,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       )}
 
       {/* ═══ ROW: Pipeline recommendation + Pathway financement ═══ */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 items-start">
         {/* Recommandation pipeline */}
         {recommandationPipeline && (
           <Card className={`border ${recommandationPipeline.lancer_pipeline ? 'border-emerald-300 bg-emerald-50/30' : 'border-amber-300 bg-amber-50/30'}`}>
