@@ -339,6 +339,15 @@ serve(async (req) => {
       return jsonResponse({ success: true, score: 0 });
     }
 
+    let ragContext = "";
+    try {
+      ragContext = await buildRAGContext(
+        ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data"
+      );
+    } catch (e) {
+      console.warn("[inputs] RAG context failed, continuing without:", e);
+    }
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData, fiscalParams.devise
     ) + ragContext + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`;
