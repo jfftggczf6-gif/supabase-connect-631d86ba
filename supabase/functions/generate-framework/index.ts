@@ -411,14 +411,45 @@ serve(async (req) => {
       equipeContext = `\n\nÉQUIPE DÉTAILLÉE (source documents) :\n${inputsData.equipe.map((e: any) => `  - ${e.poste}: ${e.nombre} personne(s), salaire ${e.salaire_mensuel || 'N/A'} ${fiscalParams.devise}/mois`).join('\n')}`;
     }
 
+    // Inject Financial Truth Anchor into prompt
+    const { getFinancialTruth } = await import("../_shared/normalizers.ts");
+    const truth = getFinancialTruth(inputsData);
+    let truthBlock = "";
+    if (truth) {
+      truthBlock = `
+
+══════ DONNÉES FINANCIÈRES VÉRIFIÉES (SOURCE: ÉTATS FINANCIERS AUDITÉS) ══════
+⚠ CES CHIFFRES SONT LA VÉRITÉ — NE PAS LES MODIFIER, NE PAS LES ARRONDIR, NE PAS LES CONFONDRE AVEC D'AUTRES ANNÉES
+
+CA ANNÉE N (${truth.annee_n}) = ${truth.ca_n.toLocaleString('fr-FR')} FCFA
+CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
+CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2.toLocaleString('fr-FR')} FCFA
+Marge brute = ${truth.marge_brute.toLocaleString('fr-FR')} FCFA (${truth.marge_brute_pct}%)
+EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
+Résultat net = ${truth.resultat_net.toLocaleString('fr-FR')} FCFA
+Trésorerie nette = ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+Charges personnel = ${truth.charges_personnel.toLocaleString('fr-FR')} FCFA
+
+⚠ kpis.ca_annee_n DOIT être EXACTEMENT ${truth.ca_n}
+⚠ Les projections DÉMARRENT à partir de ${truth.ca_n}, PAS de ${truth.ca_n_minus_1}
+══════ FIN DONNÉES VÉRIFIÉES ══════
+`;
+    }
+
     const agentDocs = getDocumentContentForAgent(ent, "framework", 100_000);
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", agentDocs, inputsData, bmcData, fiscalParams.devise
-    ) + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
+    ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const enrichedSystemPrompt = SYSTEM_PROMPT + "\n\n" + knowledgeBase;
 
     const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt, 16384, OPUS_MODEL);
+    
+    // Post-force CA année N from truth
+    if (truth && rawData.kpis) {
+      rawData.kpis.ca_annee_n = truth.ca_n;
+    }
+    
     const normalized = normalizeFramework(rawData);
     const data = validateAndEnrich(normalized, ent.country, ent.sector);
 

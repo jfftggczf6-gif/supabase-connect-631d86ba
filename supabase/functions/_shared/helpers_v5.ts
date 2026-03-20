@@ -170,7 +170,16 @@ export async function verifyAndGetContext(req: Request) {
   const moduleMap: Record<string, any> = {};
   (modulesData || []).forEach((m: any) => { moduleMap[m.module] = m.data || {}; });
 
-  const baseYear: number = ent.base_year || new Date(ent.created_at || Date.now()).getFullYear();
+  // Derive base_year from inputs historique_3ans (last year with real financial data)
+  const inputsDeliv = deliverableMap["inputs_data"];
+  const inputsDataForYear = inputsDeliv?.data || inputsDeliv;
+  const hist3 = inputsDataForYear?.historique_3ans;
+  const detectedBaseYear = hist3 ? Math.max(
+    hist3.n?.annee || 0,
+    hist3.n_moins_1?.annee || 0,
+    hist3.n_moins_2?.annee || 0
+  ) : 0;
+  const baseYear: number = (detectedBaseYear > 2000 ? detectedBaseYear : 0) || ent.base_year || new Date(ent.created_at || Date.now()).getFullYear();
 
   return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap, baseYear };
 }

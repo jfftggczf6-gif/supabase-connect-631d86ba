@@ -1,6 +1,7 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParamsForPrompt, getDocumentContentForAgent } from "../_shared/helpers_v5.ts";
+import { getFinancialTruth } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { normalizePlanOvo, enforceFrameworkConstraints } from "../_shared/normalizers.ts";
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
@@ -211,12 +212,32 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
     const country = ent.country || "Côte d'Ivoire";
+    const inputsRaw = ctx.deliverableMap["inputs_data"]?.data || ctx.deliverableMap["inputs_data"] || {};
     const allData = {
-      inputs: ctx.deliverableMap["inputs_data"] || {},
-      framework: ctx.deliverableMap["framework_data"] || {},
-      bmc: ctx.deliverableMap["bmc_analysis"] || {},
-      plan_ovo: ctx.deliverableMap["plan_ovo"] || {},
+      inputs: inputsRaw,
+      framework: ctx.deliverableMap["framework_data"]?.data || ctx.deliverableMap["framework_data"] || {},
+      bmc: ctx.deliverableMap["bmc_analysis"]?.data || ctx.deliverableMap["bmc_analysis"] || {},
+      plan_ovo: ctx.deliverableMap["plan_ovo"]?.data || ctx.deliverableMap["plan_ovo"] || {},
     };
+
+    // Financial Truth Anchor
+    const truth = getFinancialTruth(inputsRaw);
+    let truthBlock = "";
+    if (truth) {
+      truthBlock = `
+
+══════ DONNÉES FINANCIÈRES VÉRIFIÉES (ÉTATS FINANCIERS AUDITÉS) ══════
+⚠ CES CHIFFRES SONT LA VÉRITÉ — utiliser pour year_minus_2, year_minus_1, current_year
+
+CA ANNÉE N (${truth.annee_n}) = ${truth.ca_n} FCFA → current_year
+CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1} FCFA → year_minus_1
+CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2} FCFA → year_minus_2
+Marge brute = ${truth.marge_brute} FCFA (${truth.marge_brute_pct}%)
+EBITDA = ${truth.ebitda} FCFA (${truth.ebitda_pct}%)
+Résultat net = ${truth.resultat_net} FCFA
+══════ FIN DONNÉES VÉRIFIÉES ══════
+`;
+    }
 
     // RAG: enrichir avec benchmarks et fiscal
     const ragContext = await buildRAGContext(ctx.supabase, country, ent.sector || "", ["benchmarks", "fiscal", "bailleurs"], "plan_ovo");
@@ -224,7 +245,7 @@ serve(async (req) => {
     const agentDocs = getDocumentContentForAgent(ent, "plan_ovo", 80_000);
     const rawData = await callAI(buildSystemPrompt(country, ent.sector || ""), buildUserPrompt(
       ent.name, ent.sector || "", country, agentDocs, allData, ctx.baseYear
-    ) + ragContext);
+    ) + truthBlock + ragContext);
     
     // Normalize: fix years, ensure consistency, fill gaps
     let data = normalizePlanOvo(rawData);

@@ -360,6 +360,24 @@ serve(async (req) => {
       programmeSection = `\nAucun critère programme — laisse programme_match à null.`;
     }
 
+    // Financial Truth Anchor
+    const { getFinancialTruth } = await import("../_shared/normalizers.ts");
+    const truth = getFinancialTruth(inputsData);
+    let truthBlock = "";
+    if (truth) {
+      truthBlock = `
+══════ VÉRITÉ FINANCIÈRE (ÉTATS FINANCIERS) ══════
+CA = ${truth.ca_n.toLocaleString('fr-FR')} FCFA (année ${truth.annee_n})
+Trésorerie nette = ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} FCFA
+Marge brute = ${truth.marge_brute_pct}%
+Endettement = ${truth.endettement.toLocaleString('fr-FR')} FCFA
+Résultat net = ${truth.resultat_net.toLocaleString('fr-FR')} FCFA
+⚠ UTILISER CES CHIFFRES — ils viennent des états financiers certifiés
+══════ FIN ══════
+`;
+    }
+
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
 PAYS : ${ent.country || "Côte d'Ivoire"}
@@ -367,6 +385,8 @@ EFFECTIFS DÉCLARÉS : ${ent.employees_count || "Non spécifié"}
 FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DATE CRÉATION : ${ent.creation_date || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}
+
+${truthBlock}
 
 ══════ DOCUMENTS UPLOADÉS (MATIÈRE BRUTE) ══════
 ${getDocumentContentForAgent(ent, "pre_screening", 250_000) || "(Aucun document uploadé)"}
