@@ -425,7 +425,7 @@ CA ANNÉE N (${truth.annee_n}) = ${truth.ca_n.toLocaleString('fr-FR')} FCFA
 CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
 CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2.toLocaleString('fr-FR')} FCFA
 Marge brute = ${truth.marge_brute.toLocaleString('fr-FR')} FCFA (${truth.marge_brute_pct}%)
-EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
+EBITDA (EBE) = ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
 Résultat net = ${truth.resultat_net.toLocaleString('fr-FR')} FCFA
 Trésorerie nette = ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
 Charges personnel = ${truth.charges_personnel.toLocaleString('fr-FR')} FCFA
@@ -433,6 +433,24 @@ Charges personnel = ${truth.charges_personnel.toLocaleString('fr-FR')} FCFA
 ⚠ kpis.ca_annee_n DOIT être EXACTEMENT ${truth.ca_n}
 ⚠ Les projections DÉMARRENT à partir de ${truth.ca_n}, PAS de ${truth.ca_n_minus_1}
 ══════ FIN DONNÉES VÉRIFIÉES ══════
+
+══════ CHAÎNE SYSCOHADA DÉTERMINISTE (CALCULÉE, PAS ESTIMÉE) ══════
+Ces chiffres sont le résultat de SOUSTRACTIONS vérifiables — ne PAS les remplacer par des estimations IA :
+  CA                     = ${truth.ca_n.toLocaleString('fr-FR')} FCFA
+  - Achats consommés     = ${truth.chaine_comptable.achats_consommes.toLocaleString('fr-FR')} FCFA
+  ═ MARGE BRUTE          = ${truth.chaine_comptable.marge_brute.toLocaleString('fr-FR')} FCFA (${truth.marge_brute_pct}%)
+  - Services extérieurs  = ${truth.chaine_comptable.services_exterieurs.toLocaleString('fr-FR')} FCFA
+  ═ VALEUR AJOUTÉE       = ${truth.chaine_comptable.valeur_ajoutee.toLocaleString('fr-FR')} FCFA
+  - Charges personnel    = ${truth.charges_personnel.toLocaleString('fr-FR')} FCFA
+  - Impôts & taxes       = ${truth.chaine_comptable.impots_taxes.toLocaleString('fr-FR')} FCFA
+  ═ EBE (EBITDA)         = ${truth.chaine_comptable.ebe.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
+  - Amortissements       = ${truth.chaine_comptable.dotations_amortissements.toLocaleString('fr-FR')} FCFA
+  ═ RÉSULTAT EXPLOIT.    = ${truth.chaine_comptable.resultat_exploitation.toLocaleString('fr-FR')} FCFA
+  - Charges financières  = ${truth.chaine_comptable.charges_financieres.toLocaleString('fr-FR')} FCFA
+  ═ RÉSULTAT NET         = ${truth.chaine_comptable.resultat_net.toLocaleString('fr-FR')} FCFA
+
+UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE POSTE, pas au résultat final.
+══════ FIN CHAÎNE SYSCOHADA ══════
 `;
     }
 

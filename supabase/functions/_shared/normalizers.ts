@@ -934,6 +934,47 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
+  // ── SECTOR GUARDRAILS — clamp AI projections to realistic bounds ──
+  try {
+    const { getSectorGuardrails } = await import("./financial-knowledge.ts");
+    const sectorKey = (country || "").toLowerCase().replace(/[\s\-\/]/g, "_");
+    // We need the enterprise sector, not country — use data.company or fallback
+    const guardrails = getSectorGuardrails(inputsData?.informations_generales?.secteur || "services_b2b");
+
+    for (let i = 1; i < PROJ_KEYS.length; i++) {
+      const prev = data.revenue[PROJ_KEYS[i - 1]];
+      const curr = data.revenue[PROJ_KEYS[i]];
+      if (prev > 0 && curr > 0) {
+        const growth = (curr / prev - 1) * 100;
+        if (growth > guardrails.croissance_max_annuelle) {
+          console.warn(`[guardrail] Croissance ${PROJ_KEYS[i]} = ${growth.toFixed(0)}% > max ${guardrails.croissance_max_annuelle}% — capping`);
+          data.revenue[PROJ_KEYS[i]] = Math.round(prev * (1 + guardrails.croissance_max_annuelle / 100));
+          // Recalculate derived series proportionally
+          const ratio = data.revenue[PROJ_KEYS[i]] / curr;
+          data.gross_profit[PROJ_KEYS[i]] = Math.round(data.gross_profit[PROJ_KEYS[i]] * ratio);
+          data.cogs[PROJ_KEYS[i]] = data.revenue[PROJ_KEYS[i]] - data.gross_profit[PROJ_KEYS[i]];
+          data.ebitda[PROJ_KEYS[i]] = Math.round(data.ebitda[PROJ_KEYS[i]] * ratio);
+          data.net_profit[PROJ_KEYS[i]] = Math.round(data.net_profit[PROJ_KEYS[i]] * ratio);
+          data.cashflow[PROJ_KEYS[i]] = Math.round(data.cashflow[PROJ_KEYS[i]] * ratio);
+        }
+      }
+    }
+
+    // Check gross margin bounds for projection years (only warn if data is AI-estimated, not from financial statements)
+    for (const yk of PROJ_KEYS) {
+      const rev = data.revenue[yk];
+      const gp = data.gross_profit[yk];
+      if (rev > 0 && gp > 0) {
+        const mbPct = (gp / rev) * 100;
+        if (mbPct < guardrails.marge_brute_min || mbPct > guardrails.marge_brute_max) {
+          console.warn(`[guardrail] Marge brute ${yk} = ${mbPct.toFixed(1)}% hors bornes secteur [${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%]`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[enforceFramework] Guardrails check failed (non-blocking):", e);
+  }
+
   // If no cashflow line from Framework, derive cashflow = EBITDA × (1 - taux_IS/100)
   if (!cfLine && data.net_profit && data.cashflow) {
     const { is: tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
