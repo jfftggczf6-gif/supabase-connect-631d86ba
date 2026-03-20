@@ -60,6 +60,21 @@ export default function DashboardOverview({ enterprise, deliverables, modules, g
     }));
   }, [preScreening]);
 
+  // Reconstruction confidence from inputs_data deliverable
+  const reconstructionConfidence = useMemo(() => {
+    const inputsDeliv = deliverables.find(d => d.type === 'inputs_data');
+    if (!inputsDeliv?.data || typeof inputsDeliv.data !== 'object') return null;
+    const data = inputsDeliv.data as Record<string, any>;
+    const score = data.score_confiance;
+    if (typeof score !== 'number') return null;
+    return {
+      score,
+      mode: (enterprise as any).operating_mode as string | null,
+      hypotheses: data.reconstruction_report?.hypotheses as string[] | undefined,
+      missingData: data.reconstruction_report?.donnees_manquantes as string[] | undefined,
+    };
+  }, [deliverables, enterprise]);
+
   const maturityLabel = globalScore >= 80 ? 'Excellent' : globalScore >= 60 ? 'Très bien' : globalScore >= 40 ? 'Moyen' : globalScore > 0 ? 'À améliorer' : '—';
   const scoreColor = globalScore >= 60 ? 'text-emerald-600' : globalScore >= 40 ? 'text-amber-600' : 'text-muted-foreground';
 
