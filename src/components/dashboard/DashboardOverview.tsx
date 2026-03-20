@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ArrowRight, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowRight, TrendingUp, Wand2 } from 'lucide-react';
 import { PHASES, type Enterprise, type Deliverable, type EnterpriseModule } from '@/lib/dashboard-config';
 import ActivityTimeline from './ActivityTimeline';
 
@@ -60,6 +60,21 @@ export default function DashboardOverview({ enterprise, deliverables, modules, g
     }));
   }, [preScreening]);
 
+  // Reconstruction confidence from inputs_data deliverable
+  const reconstructionConfidence = useMemo(() => {
+    const inputsDeliv = deliverables.find(d => d.type === 'inputs_data');
+    if (!inputsDeliv?.data || typeof inputsDeliv.data !== 'object') return null;
+    const data = inputsDeliv.data as Record<string, any>;
+    const score = data.score_confiance;
+    if (typeof score !== 'number') return null;
+    return {
+      score,
+      mode: (enterprise as any).operating_mode as string | null,
+      hypotheses: data.reconstruction_report?.hypotheses as string[] | undefined,
+      missingData: data.reconstruction_report?.donnees_manquantes as string[] | undefined,
+    };
+  }, [deliverables, enterprise]);
+
   const maturityLabel = globalScore >= 80 ? 'Excellent' : globalScore >= 60 ? 'Très bien' : globalScore >= 40 ? 'Moyen' : globalScore > 0 ? 'À améliorer' : '—';
   const scoreColor = globalScore >= 60 ? 'text-emerald-600' : globalScore >= 40 ? 'text-amber-600' : 'text-muted-foreground';
 
@@ -100,6 +115,33 @@ export default function DashboardOverview({ enterprise, deliverables, modules, g
           </Badge>
         </div>
       </div>
+
+      {/* Reconstruction confidence indicator */}
+      {reconstructionConfidence && (
+        <Card className={`border ${reconstructionConfidence.score >= 70 ? 'border-emerald-200 bg-emerald-50/50' : reconstructionConfidence.score >= 40 ? 'border-amber-200 bg-amber-50/50' : 'border-red-200 bg-red-50/50'}`}>
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-3">
+              <Wand2 className={`h-5 w-5 ${reconstructionConfidence.score >= 70 ? 'text-emerald-600' : reconstructionConfidence.score >= 40 ? 'text-amber-600' : 'text-red-600'}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">Confiance IA : {reconstructionConfidence.score}%</span>
+                  {reconstructionConfidence.mode && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {reconstructionConfidence.mode === 'due_diligence' ? 'Due Diligence' : 'Reconstruction'}
+                    </Badge>
+                  )}
+                </div>
+                {reconstructionConfidence.missingData && reconstructionConfidence.missingData.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    Manque : {reconstructionConfidence.missingData.slice(0, 3).join(', ')}
+                    {reconstructionConfidence.missingData.length > 3 && ` (+${reconstructionConfidence.missingData.length - 3})`}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Phase progress */}
       <Card>

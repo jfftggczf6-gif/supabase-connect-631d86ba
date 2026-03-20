@@ -9,7 +9,7 @@ import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile, buildDocumentContent, buildParsingReport, type ParsedDocument, type ParsingReport } from '@/lib/document-parser';
 import {
   Wand2, X, FileText, Loader2, CheckCircle2,
-  AlertTriangle, RotateCcw
+  AlertTriangle, RotateCcw, RefreshCw
 } from 'lucide-react';
 
 const ACCEPTED_EXTENSIONS = '.csv,.txt,.md,.xlsx,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.webp,.pptx,.ppt';
@@ -45,6 +45,8 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   const [result, setResult] = useState<ReconstructionResult | null>(null);
   const [parsedDocs, setParsedDocs] = useState<ParsedDocument[]>([]);
   const [, setParsingSummary] = useState<ParsingReport | null>(null);
+  const [preScreeningFailed, setPreScreeningFailed] = useState(false);
+  const [retryingPreScreening, setRetryingPreScreening] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -178,21 +180,30 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       // === STEP 5: Auto-launch pre-screening ===
       setProgressLabel('Analyse du dossier en cours…');
       setProgress(90);
+      setPreScreeningFailed(false);
       try {
+        const preScreenAbort = new AbortController();
+        const preScreenTimeout = setTimeout(() => preScreenAbort.abort(), 180000);
         const preScreenResp = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ enterprise_id: enterpriseId }),
+            signal: preScreenAbort.signal,
           }
         );
+        clearTimeout(preScreenTimeout);
         if (preScreenResp.ok) {
           const preScreenData = await preScreenResp.json();
           onPreScreeningDone?.(preScreenData.data);
+        } else {
+          console.warn('Pre-screening returned error status:', preScreenResp.status);
+          setPreScreeningFailed(true);
         }
       } catch (e) {
         console.warn('Pre-screening failed (non-blocking):', e);
+        setPreScreeningFailed(true);
       }
 
       setProgress(100);
@@ -212,12 +223,43 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     }
   };
 
+  const handleRetryPreScreening = async () => {
+    setRetryingPreScreening(true);
+    try {
+      const token = await getValidAccessToken(session, navigate);
+      const abortCtrl = new AbortController();
+      const timeout = setTimeout(() => abortCtrl.abort(), 180000);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterpriseId }),
+          signal: abortCtrl.signal,
+        }
+      );
+      clearTimeout(timeout);
+      if (resp.ok) {
+        setPreScreeningFailed(false);
+        toast.success('Pre-screening généré !');
+        onPreScreeningDone?.(null);
+      } else {
+        toast.error('Le pre-screening a échoué. Réessayez plus tard.');
+      }
+    } catch (err: any) {
+      toast.error(err.name === 'AbortError' ? 'Timeout — réessayez plus tard.' : 'Erreur réseau.');
+    } finally {
+      setRetryingPreScreening(false);
+    }
+  };
+
   const handleUseData = async () => {
     toast.success('Données intégrées au pipeline !');
     setResult(null);
     setFiles([]);
     setParsedDocs([]);
     setParsingSummary(null);
+    setPreScreeningFailed(false);
     onComplete();
   };
 
@@ -227,6 +269,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setProgress(0);
     setParsedDocs([]);
     setParsingSummary(null);
+    setPreScreeningFailed(false);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -288,6 +331,25 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
                 {report.donnees_manquantes.map((d, i) => (
                   <Badge key={i} variant="outline" className="text-xs">{d}</Badge>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {preScreeningFailed && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-amber-800">Le pre-screening n'a pas pu être lancé (timeout réseau).</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs"
+                  onClick={handleRetryPreScreening}
+                  disabled={retryingPreScreening}
+                >
+                  {retryingPreScreening ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Relancer le pre-screening
+                </Button>
               </div>
             </div>
           )}
