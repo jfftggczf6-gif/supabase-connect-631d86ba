@@ -8,6 +8,26 @@ import { toast } from 'sonner';
 import { generateMemoHtml } from '@/lib/memo-html-generator';
 import { supabase } from '@/integrations/supabase/client';
 
+const SLIDE_TITLES = [
+  'Page de Garde',
+  'Table des Matières',
+  'Résumé Exécutif',
+  'Présentation de l\'Entreprise',
+  'Analyse de Marché',
+  'Modèle Économique',
+  'Analyse Financière',
+  'Projections Financières',
+  'Valorisation',
+  'Besoins de Financement',
+  'Équipe & Gouvernance',
+  'ESG & Impact',
+  'Analyse des Risques',
+  'Thèse d\'Investissement',
+  'Structure Proposée',
+  'Recommandation Finale',
+  'Annexes',
+];
+
 interface Props {
   data: Record<string, any>;
   onRegenerate?: () => void;
