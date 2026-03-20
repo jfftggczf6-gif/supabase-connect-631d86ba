@@ -6,8 +6,8 @@
  * ║  Pipeline :                                                          ║
  * ║    1. Reçoit les données entrepreneur (POST JSON)                   ║
  * ║    2. Appelle Claude API → JSON financier structuré                 ║
- * ║    3. Télécharge le template .xlsm depuis Supabase Storage          ║
- * ║    4. Injecte les valeurs cellule par cellule via manipulation ZIP  ║
+ * ║    3. Expand condensed data + scale to targets                      ║
+ * ║    4. Envoie au serveur Python pour remplir le template Excel       ║
  * ║    5. Upload le fichier rempli dans Supabase Storage                ║
  * ║    6. Retourne l'URL de téléchargement                              ║
  * ╚══════════════════════════════════════════════════════════════════════╝
@@ -17,13 +17,14 @@
  *   ANTHROPIC_API_KEY
  *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
+ *   PARSER_URL
+ *   PARSER_API_KEY
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { type CellWrite, injectIntoXlsm, excelDateSerial, sanitize } from "../_shared/zip-utils.ts";
-import { expandCondensedData, validateAndFillVolumes, scaleToFrameworkTargets, scaleCOGSToFramework, normalizeRangeData, alignOpexToPlanOvo, alignStaffToTarget, alignTotalOpexToFramework, verifyExcelRevenue, getTotalVolume, reconcileWithPlanOvo } from "../_shared/ovo-data-expander.ts";
+import { sanitize } from "../_shared/zip-utils.ts";
+import { expandCondensedData, validateAndFillVolumes, scaleToFrameworkTargets, scaleCOGSToFramework, normalizeRangeData, alignOpexToPlanOvo, alignStaffToTarget, alignTotalOpexToFramework, reconcileWithPlanOvo } from "../_shared/ovo-data-expander.ts";
 import { getFiscalParamsForPrompt } from "../_shared/helpers_v5.ts";
-// enforceFrameworkConstraints removed — alignments handled by dedicated functions
 
 // ─────────────────────────────────────────────────────────────────────
 // TYPES
@@ -50,7 +51,6 @@ interface EntrepreneurData {
   diagnostic_data?: Record<string, unknown>;
 }
 
-// CellWrite type imported from ../shared/zip-utils.ts
 // ─────────────────────────────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────────────────────────────
@@ -58,51 +58,6 @@ interface EntrepreneurData {
 const TEMPLATE_BUCKET = "ovo-templates";
 const TEMPLATE_FILE   = "251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY.xlsm";
 const OUTPUT_BUCKET   = "ovo-outputs";
-
-const COL: Record<string, number> = {
-  A:1,  B:2,  C:3,  D:4,  E:5,  F:6,  G:7,  H:8,  I:9,  J:10,
-  K:11, L:12, M:13, N:14, O:15, P:16, Q:17, R:18, S:19, T:20,
-  U:21, V:22, W:23, X:24, Y:25, Z:26,
-  AA:27, AB:28, AC:29, AD:30, AE:31, AF:32, AG:33, AH:34,
-  AI:35, AJ:36, AK:37, AL:38, AM:39, AN:40, AO:41, AP:42,
-  AQ:43, AR:44, AS:45,
-};
-
-/** Ligne header RevenueData par slot produit */
-const PRODUCT_HEADER: Record<number, number> = {
-   1:8,   2:50,  3:92,  4:134, 5:176,
-   6:218, 7:260, 8:302, 9:344, 10:386,
-  11:428,12:470,13:512,14:554,15:596,
-  16:638,17:680,18:722,19:764,20:806,
-};
-
-/** Ligne header RevenueData par slot service */
-const SERVICE_HEADER: Record<number, number> = {
-   1:848,  2:890,  3:932,  4:974,  5:1016,
-   6:1058, 7:1100, 8:1142, 9:1184, 10:1226,
-};
-
-/** yearLabel → index 0-7 pour les lignes VOLUME */
-const YEAR_IDX: Record<string, number> = {
-  "YEAR-2":0, "YEAR-1":1, "CURRENT YEAR":2,
-  "YEAR2":3, "YEAR3":4, "YEAR4":5, "YEAR5":6, "YEAR6":7,
-};
-
-/** Mapping yearLabel → colonne FinanceData (O-X) */
-const YEAR_FIN_COL: Record<string, string> = {
-  "YEAR-2":"O", "YEAR-1":"P", "H1":"Q", "H2":"R",
-  "CURRENT YEAR":"S", "YEAR2":"T", "YEAR3":"U",
-  "YEAR4":"V", "YEAR5":"W", "YEAR6":"X",
-};
-
-// Mapping feuille nom → fichier XML dans le ZIP
-const SHEET_FILES: Record<string, string> = {
-  "ReadMe":     "xl/worksheets/sheet1.xml",
-  "Instructions":"xl/worksheets/sheet2.xml",
-  "InputsData": "xl/worksheets/sheet3.xml",
-  "RevenueData":"xl/worksheets/sheet4.xml",
-  "FinanceData":"xl/worksheets/sheet7.xml",
-};
 
 // ─────────────────────────────────────────────────────────────────────
 // HANDLER PRINCIPAL
@@ -196,7 +151,6 @@ Deno.serve(async (req: Request) => {
         business_model: bmcData?.canvas?.modele_revenus?.[0] || "Vente directe",
         products,
         services,
-        // C6: use base_year frozen at enterprise creation, not current date
         current_year: ent.base_year || new Date(ent.created_at || Date.now()).getFullYear(),
         employees: ent.employees_count || 1,
         existing_revenue: inputsData?.compte_resultat?.chiffre_affaires ? Number(inputsData.compte_resultat.chiffre_affaires) : 0,
@@ -231,7 +185,7 @@ Deno.serve(async (req: Request) => {
           enterprise_id: enterpriseId,
           type: "plan_ovo_excel",
           ai_generated: true,
-          file_url: null, // Clear old file URL to avoid stale downloads
+          file_url: null,
           data: { status: "processing", request_id: requestId, started_at: new Date().toISOString(), phase: "init", attempt: 0 },
         },
         { onConflict: "enterprise_id,type" }
@@ -253,38 +207,19 @@ Deno.serve(async (req: Request) => {
       throw new Error("L'IA n'a généré aucun produit ni service. Veuillez vérifier que les données BMC/inputs contiennent des informations sur vos activités.");
     }
 
-    // ── Expand condensed AI output to full per_year format ────────────
+    // ── Étape 2 : Expand condensed AI output to full per_year format ──
     console.log("[generate-ovo-plan] Expanding condensed AI data...");
     expandCondensedData(financialJson);
-
-    // Bug #4: Normalize range data (shift r3/r2 → r1 if only one range used)
     normalizeRangeData(financialJson);
-
-    // Post-expansion validation: fill any remaining zero-volume gaps
     validateAndFillVolumes(financialJson);
-
-    // Scale volumes to align Excel revenues with Framework/plan_ovo targets
     scaleToFrameworkTargets(financialJson, data.framework_data, data.plan_ovo_data, data.inputs_data, data.sector);
-
-    // Scale product COGS to match Framework gross margin (aligns Excel margin with Plan OVO viewer)
     scaleCOGSToFramework(financialJson, data.framework_data);
-
-    // Align staff costs with plan_ovo staff_salaries
     alignStaffToTarget(financialJson, data.plan_ovo_data);
-
-    // Fix #4: Align OPEX sub-categories with plan_ovo aggregates (with mapping table)
     alignOpexToPlanOvo(financialJson, data.plan_ovo_data);
-
-    // Align total OPEX with Framework-implied OPEX (Marge Brute - EBITDA)
     alignTotalOpexToFramework(financialJson, data.framework_data);
-
-    // ── Final reconciliation: force Excel totals to match plan_ovo exactly ──
     reconcileWithPlanOvo(financialJson, data.plan_ovo_data);
 
-    // [Removed] enforceFrameworkConstraints block — all alignments handled above
-    // plus final reconciliation ensures Excel ↔ Plan OVO ↔ Framework consistency.
-
-    // Bug #7: Sort products/services by slot for consistent ordering
+    // Sort products/services by slot for consistent ordering
     if (Array.isArray(financialJson.products)) {
       financialJson.products.sort((a: any, b: any) => (a.slot || 0) - (b.slot || 0));
     }
@@ -292,13 +227,12 @@ Deno.serve(async (req: Request) => {
       financialJson.services.sort((a: any, b: any) => (a.slot || 0) - (b.slot || 0));
     }
 
-    // ── Étape 2 : Télécharger le template ─────────────────────────────
-    console.log("[generate-ovo-plan] Downloading template...");
+    // ── Étape 3 : Générer l'Excel via le serveur Python ───────────────
+    console.log("[generate-ovo-plan] Downloading template for Python server...");
 
     let templateBlob: Blob | null = null;
     let dlError: any = null;
 
-    // Bug #6: Try primary template, then fallback path
     ({ data: templateBlob, error: dlError } = await supabase.storage
       .from(TEMPLATE_BUCKET)
       .download(TEMPLATE_FILE));
@@ -311,36 +245,6 @@ Deno.serve(async (req: Request) => {
         .download(fallbackName));
     }
 
-    // Auto-upload from Supabase public templates bucket if not found
-    if (dlError || !templateBlob) {
-      console.warn(`[generate-ovo-plan] Template not in storage, attempting auto-upload from public templates bucket...`);
-      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-      if (supabaseUrl) {
-        const publicUrl = `${supabaseUrl}/storage/v1/object/public/templates/${TEMPLATE_FILE}`;
-        console.log(`[generate-ovo-plan] Fetching template from: ${publicUrl}`);
-        const fetchResp = await fetch(publicUrl);
-        if (fetchResp.ok) {
-          const fetchedBuffer = await fetchResp.arrayBuffer();
-          // Validate it's actually a ZIP before uploading
-          if (fetchedBuffer.byteLength > 100) {
-            const magic = new DataView(fetchedBuffer).getUint32(0, true);
-            if (magic === 0x04034b50) {
-              console.log(`[generate-ovo-plan] Fetched ${fetchedBuffer.byteLength} bytes, uploading to storage...`);
-              await supabase.storage.from(TEMPLATE_BUCKET).upload(TEMPLATE_FILE, fetchedBuffer, {
-                contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
-                upsert: true,
-              });
-              ({ data: templateBlob, error: dlError } = await supabase.storage
-                .from(TEMPLATE_BUCKET)
-                .download(TEMPLATE_FILE));
-            } else {
-              console.error(`[generate-ovo-plan] Fetched file is not a valid ZIP (magic: 0x${magic.toString(16)})`);
-            }
-          }
-        }
-      }
-    }
-
     if (dlError || !templateBlob) {
       throw new Error(`Template download failed: ${dlError?.message}. Veuillez uploader le template '${TEMPLATE_FILE}' dans le bucket '${TEMPLATE_BUCKET}'.`);
     }
@@ -348,76 +252,54 @@ Deno.serve(async (req: Request) => {
     const templateBuffer = await templateBlob.arrayBuffer();
     console.log(`[generate-ovo-plan] Template size: ${templateBuffer.byteLength} bytes`);
 
-    // Validate that it's actually a ZIP file (XLSM = ZIP)
-    if (templateBuffer.byteLength < 100) {
-      throw new Error(`Template file is too small (${templateBuffer.byteLength} bytes) — likely not a valid XLSM file.`);
+    // Encode template as base64
+    const templateBytes = new Uint8Array(templateBuffer);
+    let templateBase64 = "";
+    const CHUNK = 32768;
+    for (let i = 0; i < templateBytes.length; i += CHUNK) {
+      templateBase64 += String.fromCharCode(...templateBytes.subarray(i, i + CHUNK));
     }
-    const headerView = new DataView(templateBuffer);
-    const zipMagic = headerView.getUint32(0, true);
-    if (zipMagic !== 0x04034b50) {
-      const preview = new TextDecoder().decode(new Uint8Array(templateBuffer, 0, Math.min(200, templateBuffer.byteLength)));
-      throw new Error(`Template is not a valid ZIP/XLSM file (magic: 0x${zipMagic.toString(16)}). Content preview: ${preview.slice(0, 100)}`);
-    }
+    templateBase64 = btoa(templateBase64);
 
-    // ── Étape 3 : Construire la liste des cellules à écrire ────────────
-    console.log("[generate-ovo-plan] Building cell writes...");
-    const cellWrites = buildCellWrites(financialJson);
-    console.log(`[generate-ovo-plan] ${cellWrites.length} cells to write`);
+    // Call Python server
+    const PARSER_URL = Deno.env.get("PARSER_URL") || "";
+    const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
 
-    // Fix #5: Post-build revenue verification
-    const { verified, gaps } = verifyExcelRevenue(financialJson, data.framework_data);
-    if (!verified) {
-      console.warn(`[generate-ovo-plan] Revenue verification FAILED — gaps: ${JSON.stringify(gaps)}`);
-      // If critical gaps (>10%), trigger corrective re-scaling
-      const criticalGaps = Object.values(gaps).filter(g => g.ecart > 10);
-      if (criticalGaps.length > 0) {
-        console.log("[generate-ovo-plan] Critical gaps detected, re-scaling and rebuilding cells...");
-        scaleToFrameworkTargets(financialJson, data.framework_data, undefined, data.inputs_data, data.sector);
-        const correctedWrites = buildCellWrites(financialJson);
-        const { verified: v2 } = verifyExcelRevenue(financialJson, data.framework_data);
-        if (v2) {
-          console.log("[generate-ovo-plan] Corrective re-scaling successful");
-          cellWrites.length = 0;
-          cellWrites.push(...correctedWrites);
-        } else {
-          console.warn("[generate-ovo-plan] Corrective re-scaling still has gaps — proceeding with best effort");
-        }
-      }
-    } else {
-      console.log("[generate-ovo-plan] Revenue verification PASSED ✓");
+    if (!PARSER_URL) {
+      throw new Error("PARSER_URL not configured. Please set the PARSER_URL secret.");
     }
 
-    // Post-build OPEX verification log
-    if (data.framework_data?.projection_5ans?.lignes) {
-      const fwL = data.framework_data.projection_5ans.lignes;
-      const findL = (...pats: string[]) => fwL.find((l: any) => pats.some(p => (l.poste || l.libelle || '').toLowerCase().includes(p)));
-      const mbL = findL('marge brute', 'gross margin');
-      const ebL = findL('ebitda', 'ebe', 'excédent brut');
-      if (mbL && ebL) {
-        const fwM: Record<string, string> = { "YEAR2": "an1", "YEAR3": "an2", "YEAR4": "an3", "YEAR5": "an4", "YEAR6": "an5" };
-        for (const [yl, fk] of Object.entries(fwM)) {
-          const mb = Number(mbL[fk] || 0);
-          const eb = Number(ebL[fk] || 0);
-          if (mb > 0) {
-            const fwOpex = mb - eb;
-            console.log(`[generate-ovo-plan] OPEX check ${yl}: Framework-implied OPEX = ${fwOpex} (MB=${mb} - EBITDA=${eb})`);
-          }
-        }
-      }
-    }
-    // ── Étape 4 : Injecter les valeurs dans le ZIP ─────────────────────
-    console.log("[generate-ovo-plan] Injecting values into Excel...");
-    const filledBuffer = await injectIntoXlsm(templateBuffer, cellWrites, SHEET_FILES);
+    console.log(`[generate-ovo-plan] Calling Python server at ${PARSER_URL}/generate-ovo-excel...`);
+    const excelResp = await fetch(`${PARSER_URL}/generate-ovo-excel`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PARSER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(180_000), // 3 min timeout
+      body: JSON.stringify({
+        data: financialJson,
+        template_base64: templateBase64,
+      }),
+    });
 
-    // ── Étape 5 : Upload vers Supabase Storage ─────────────────────────
+    if (!excelResp.ok) {
+      const errText = await excelResp.text();
+      throw new Error(`Python Excel generation failed: ${excelResp.status} ${errText}`);
+    }
+
+    console.log("[generate-ovo-plan] Python server returned Excel successfully");
+
+    // ── Étape 4 : Upload le fichier Excel dans Supabase Storage ───────
+    const excelBlob = await excelResp.blob();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
     const rnd = Math.random().toString(36).substring(2, 8);
     const outputFileName = `PlanFinancier_${sanitize(data.company)}_OVO_${timestamp}_${rnd}.xlsm`;
 
-    console.log(`[generate-ovo-plan] Uploading ${outputFileName}...`);
+    console.log(`[generate-ovo-plan] Uploading ${outputFileName} (${excelBlob.size} bytes)...`);
     const { error: uploadError } = await supabase.storage
       .from(OUTPUT_BUCKET)
-      .upload(outputFileName, filledBuffer, {
+      .upload(outputFileName, excelBlob, {
         contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
         upsert: false,
         cacheControl: "no-store",
@@ -427,7 +309,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: urlData } = await supabase.storage
       .from(OUTPUT_BUCKET)
-      .createSignedUrl(outputFileName, 86400); // 24 heures
+      .createSignedUrl(outputFileName, 86400);
 
     const downloadUrl = urlData?.signedUrl || null;
 
@@ -459,14 +341,12 @@ Deno.serve(async (req: Request) => {
         success: true,
         file_name: outputFileName,
         download_url: downloadUrl,
-        cells_written: cellWrites.length,
         financial_summary: extractSummary(financialJson),
       }),
       { headers: { ...corsHeaders(), "Content-Type": "application/json" } }
     );
 
     } catch (innerErr) {
-      // ── Track status in deliverables (failed) ─────────────────────────
       if (enterpriseId) {
         try {
           await supabase.from("deliverables").upsert(
@@ -480,7 +360,7 @@ Deno.serve(async (req: Request) => {
           );
         } catch (_) { /* best-effort */ }
       }
-      throw innerErr; // re-throw to outer catch
+      throw innerErr;
     }
 
   } catch (err) {
@@ -500,11 +380,9 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
   const systemPrompt = buildSystemPrompt(data.country);
   const userPrompt  = buildUserPrompt(data);
 
-  // Budget-aware retry: Deno edge functions have ~400s wall time.
-  // We track elapsed time and only retry if enough budget remains.
   const FUNCTION_START = Date.now();
-  const MAX_WALL_MS = 380_000; // conservative 380s (leave 20s buffer)
-  const AI_TIMEOUT_MS = 180_000; // 180s per attempt (3 min)
+  const MAX_WALL_MS = 380_000;
+  const AI_TIMEOUT_MS = 180_000;
   const MAX_ATTEMPTS = 2;
 
   let lastError: Error | null = null;
@@ -522,13 +400,12 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
     const elapsed = Date.now() - FUNCTION_START;
     const remaining = MAX_WALL_MS - elapsed;
 
-    // Don't start an attempt if we can't finish it
     if (remaining < 60_000) {
       console.warn(`[Claude] Only ${Math.round(remaining/1000)}s remaining, skipping attempt ${attempt}`);
       break;
     }
 
-    const timeout = Math.min(AI_TIMEOUT_MS, remaining - 10_000); // leave 10s for post-processing
+    const timeout = Math.min(AI_TIMEOUT_MS, remaining - 10_000);
     console.log(`[Claude] Attempt ${attempt}/${MAX_ATTEMPTS} — timeout: ${Math.round(timeout/1000)}s, wall remaining: ${Math.round(remaining/1000)}s`);
 
     await updatePhase("calling_ai", attempt);
@@ -617,7 +494,6 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
 // CONSTRUCTION DU PROMPT SYSTÈME
 // ─────────────────────────────────────────────────────────────────────
 
-// getFiscalParamsForPrompt imported at top of file
 function buildSystemPrompt(country: string): string {
   const fp = getFiscalParamsForPrompt(country);
   const isRegimeInfo = fp.seuil_pme !== 'N/A'
@@ -664,26 +540,16 @@ SORTIE OBLIGATOIRE :
 // SANITIZE STALE PREV PLAN DATA
 // ─────────────────────────────────────────────────────────────────────
 
-/**
- * Check if a year-series object has valid future projections (YEAR2..YEAR6).
- * Returns false if 3+ future years are zero/missing → stale data.
- */
 function isSeriesValid(series: Record<string, any> | undefined): boolean {
   if (!series || typeof series !== 'object') return false;
   const futureKeys = ['year2', 'year3', 'year4', 'year5', 'year6'];
   const zeroCount = futureKeys.filter(k => !series[k] || Number(series[k]) === 0).length;
-  return zeroCount < 3; // valid if at least 3 out of 5 future years have non-zero values
+  return zeroCount < 3;
 }
 
-/**
- * Sanitize previous plan data: remove "NE PAS MODIFIER" constraint blocks
- * when their values are stale (zeros in future years).
- * Returns a cleaned copy of prevPlan with only trustworthy data.
- */
 function sanitizePrevPlan(prevPlan: Record<string, any>): Record<string, any> {
   const clean = { ...prevPlan };
   
-  // Remove stale revenue/cogs/ebitda/cashflow series
   for (const key of ['revenue', 'cogs', 'gross_profit', 'ebitda', 'net_profit', 'cashflow']) {
     if (clean[key] && !isSeriesValid(clean[key])) {
       console.warn(`[sanitize] Removing stale ${key} from prev_plan (future years are zeros)`);
@@ -691,7 +557,6 @@ function sanitizePrevPlan(prevPlan: Record<string, any>): Record<string, any> {
     }
   }
   
-  // Remove stale opex sub-series
   if (clean.opex && typeof clean.opex === 'object') {
     const opex = { ...clean.opex };
     let allStale = true;
@@ -716,23 +581,20 @@ function sanitizePrevPlan(prevPlan: Record<string, any>): Record<string, any> {
 function buildUserPrompt(data: EntrepreneurData): string {
   const cy = data.current_year || new Date().getFullYear();
 
-  // ── Build enriched context blocks ──
   const hasProducts = (data.products || []).length > 0;
   const hasServices = (data.services || []).length > 0;
   const deducedProducts = (data.products || []).filter(p => p.deduit_du_bmc);
   const deducedServices = (data.services || []).filter(s => s.deduit_du_bmc);
 
-  // ── Extract structured revenue data from framework/plan_ovo ──
   const fw = (data.framework_data || {}) as Record<string, any>;
   const rawPrevPlan = (data.plan_ovo_data || {}) as Record<string, any>;
-  const prevPlan = sanitizePrevPlan(rawPrevPlan); // ← sanitize stale data
+  const prevPlan = sanitizePrevPlan(rawPrevPlan);
   const inp = (data.inputs_data || {}) as Record<string, any>;
   const cr = inp.compte_resultat || {};
   const bmc = (data.bmc_data || {}) as Record<string, any>;
   const sic = (data.sic_data || {}) as Record<string, any>;
   const diag = (data.diagnostic_data || {}) as Record<string, any>;
 
-  // ── REVENUS PAR PRODUIT (structured from analyse_marge) ──
   const margeActivites = fw.analyse_marge?.activites || [];
   const totalCA = cr.chiffre_affaires || cr.ca || inp.revenue || data.existing_revenue || 0;
   const bmcFlux = bmc.canvas?.flux_revenus || {};
@@ -742,7 +604,6 @@ function buildUserPrompt(data: EntrepreneurData): string {
   const bmcModelePricing = bmcFlux.modele_pricing || bmcFlux.modele || '';
   const bmcProduitPrincipal = bmcFlux.produit_principal || bmcFlux.produit || '';
 
-  // ── BMC detailed revenue streams ──
   let bmcRevenueBlock = "";
   if (bmcFlux && Object.keys(bmcFlux).length > 0) {
     const parts = [];
@@ -758,7 +619,6 @@ function buildUserPrompt(data: EntrepreneurData): string {
     }
   }
 
-  // ── Inputs financiers détaillés ──
   let inputsDetailBlock = "";
   if (cr && Object.keys(cr).length > 0) {
     const lines = [];
@@ -774,7 +634,6 @@ function buildUserPrompt(data: EntrepreneurData): string {
     }
   }
 
-  // ── Coûts variables/fixes détaillés from Inputs ──
   let inputsCoutsBlock = "";
   if (inp.couts_variables && Array.isArray(inp.couts_variables) && inp.couts_variables.length > 0) {
     inputsCoutsBlock += `\nCOÛTS VARIABLES DÉTAILLÉS (source documents — utiliser pour COGS et charges variables) :\n${inp.couts_variables.map((c: any) => `  - ${c.poste}: ${(c.montant_annuel || c.montant_mensuel * 12 || 0).toLocaleString('fr-FR')} FCFA/an`).join('\n')}`;
@@ -783,13 +642,11 @@ function buildUserPrompt(data: EntrepreneurData): string {
     inputsCoutsBlock += `\nCOÛTS FIXES DÉTAILLÉS (source documents — utiliser pour OPEX) :\n${inp.couts_fixes.map((c: any) => `  - ${c.poste}: ${(c.montant_annuel || c.montant_mensuel * 12 || 0).toLocaleString('fr-FR')} FCFA/an`).join('\n')}`;
   }
 
-  // ── Équipe détaillée from Inputs ──
   let inputsEquipeBlock = "";
   if (inp.equipe && Array.isArray(inp.equipe) && inp.equipe.length > 0) {
     inputsEquipeBlock = `\nÉQUIPE DÉTAILLÉE (source documents — utiliser pour STAFF) :\n${inp.equipe.map((e: any) => `  - ${e.poste}: ${e.nombre} pers., salaire ${(e.salaire_mensuel || 0).toLocaleString('fr-FR')} FCFA/mois, charges sociales ${e.charges_sociales_pct || 0}%`).join('\n')}`;
   }
 
-  // ── BFR from Inputs ──
   let inputsBfrBlock = "";
   if (inp.bfr && typeof inp.bfr === 'object') {
     const b = inp.bfr;
@@ -803,13 +660,11 @@ function buildUserPrompt(data: EntrepreneurData): string {
     }
   }
 
-  // ── Investissements from Inputs ──
   let inputsCapexBlock = "";
   if (inp.investissements && Array.isArray(inp.investissements) && inp.investissements.length > 0) {
     inputsCapexBlock = `\nINVESTISSEMENTS RÉELS (source documents — utiliser pour CAPEX) :\n${inp.investissements.map((inv: any) => `  - ${inv.nature}: ${(inv.montant || 0).toLocaleString('fr-FR')} FCFA, année ${inv.annee_achat || 'N/A'}, amort. ${inv.duree_amortissement_ans || 'N/A'} ans`).join('\n')}`;
   }
 
-  // ── Financement from Inputs ──
   let inputsFinBlock = "";
   if (inp.financement && typeof inp.financement === 'object') {
     const fin = inp.financement;
@@ -826,7 +681,6 @@ function buildUserPrompt(data: EntrepreneurData): string {
     }
   }
 
-  // ── Hypothèses de croissance from Inputs ──
   let inputsHypBlock = "";
   if (inp.hypotheses_croissance && typeof inp.hypotheses_croissance === 'object') {
     const hc = inp.hypotheses_croissance;
@@ -842,7 +696,6 @@ function buildUserPrompt(data: EntrepreneurData): string {
     }
   }
 
-  // Bilan résumé from inputs
   const bilan = inp.bilan || inp.balance_sheet || {};
   let bilanBlock = "";
   if (bilan && Object.keys(bilan).length > 0) {
@@ -878,7 +731,6 @@ ${margeActivites.map((a: any, i: number) => {
   ⚠️ La SOMME des CA par produit DOIT correspondre au revenue total par année.`;
   }
 
-  // ── REVENUS HISTORIQUES (from previous plan_ovo) ──
   let historicalRevenueBlock = "";
   if (prevPlan.revenue && typeof prevPlan.revenue === 'object') {
     const rev = prevPlan.revenue;
@@ -895,7 +747,6 @@ REVENUS HISTORIQUES ET PROJETÉS (NE PAS MODIFIER — données du plan financier
   ⚠️ Ces revenus sont des CONTRAINTES ABSOLUES. Le total revenue par année dans ton JSON DOIT correspondre.`;
   }
 
-  // ── OPEX HISTORIQUES (from previous plan_ovo) ──
   let opexBlock = "";
   if (prevPlan.opex && typeof prevPlan.opex === 'object') {
     const opex = prevPlan.opex;
@@ -923,7 +774,6 @@ ${lines.join("\n")}`;
     }
   }
 
-  // ── CAPEX from previous plan ──
   let capexBlock = "";
   if (Array.isArray(prevPlan.capex) && prevPlan.capex.length > 0) {
     capexBlock = `
@@ -931,7 +781,6 @@ CAPEX (du plan financier intermédiaire — à reprendre) :
 ${prevPlan.capex.map((c: any) => `  - ${c.label || c.type}: ${(c.acquisition_value || 0).toLocaleString('fr-FR')} FCFA, acquis en ${c.acquisition_year}, amort. ${((c.amortisation_rate_pct || c.amortisation_rate || 0.2) * 100).toFixed(0)}%/an`).join("\n")}`;
   }
 
-  // ── STAFF from previous plan ──
   let staffBlock = "";
   if (Array.isArray(prevPlan.staff) && prevPlan.staff.length > 0) {
     staffBlock = `
@@ -939,7 +788,6 @@ EFFECTIFS (du plan financier intermédiaire — à reprendre) :
 ${prevPlan.staff.map((s: any) => `  - ${s.label || s.category}: département ${s.department || 'N/A'}, cotisations ${((s.social_security_rate || 0.1645) * 100).toFixed(1)}%`).join("\n")}`;
   }
 
-  // ── LOANS from previous plan ──
   let loansBlock = "";
   if (prevPlan.loans && typeof prevPlan.loans === 'object') {
     const l = prevPlan.loans;
@@ -950,7 +798,6 @@ PRÊTS (du plan financier intermédiaire) :
   - Banque: ${(l.bank?.amount || 0).toLocaleString('fr-FR')} FCFA à ${((l.bank?.rate || 0.20) * 100)}% sur ${l.bank?.term_years || 2} ans`;
   }
 
-  // ── COGS from previous plan ──
   let cogsBlock = "";
   if (prevPlan.cogs && typeof prevPlan.cogs === 'object') {
     const cogs = prevPlan.cogs;
@@ -959,7 +806,6 @@ COGS / COÛT DES VENTES (NE PAS MODIFIER) :
   YEAR-2: ${(cogs.year_minus_2 || 0).toLocaleString('fr-FR')} → YEAR-1: ${(cogs.year_minus_1 || 0).toLocaleString('fr-FR')} → CY: ${(cogs.current_year || 0).toLocaleString('fr-FR')} → Y2: ${(cogs.year2 || 0).toLocaleString('fr-FR')} → Y3: ${(cogs.year3 || 0).toLocaleString('fr-FR')} → Y4: ${(cogs.year4 || 0).toLocaleString('fr-FR')} → Y5: ${(cogs.year5 || 0).toLocaleString('fr-FR')} → Y6: ${(cogs.year6 || 0).toLocaleString('fr-FR')} FCFA`;
   }
 
-  // ── Framework projections (structured) ──
   let projectionBlock = "";
   if (fw.projection_5ans?.lignes && Array.isArray(fw.projection_5ans.lignes)) {
     projectionBlock = `
@@ -967,7 +813,6 @@ PROJECTIONS 5 ANS (Framework — contraintes de cohérence) :
 ${fw.projection_5ans.lignes.map((l: any) => `  ${l.libelle || l.label}: An1=${l.an1}, An2=${l.an2}, An3=${l.an3}, An4=${l.an4}, An5=${l.an5}`).join("\n")}`;
   }
 
-  // ── Framework KPIs ──
   let kpisBlock = "";
   if (fw.kpis) {
     kpisBlock = `
@@ -980,7 +825,6 @@ KPIs FRAMEWORK :
   - DSCR: ${fw.tresorerie_bfr?.dscr || 'N/A'}`;
   }
 
-  // ── Investment metrics from previous plan ──
   let investmentBlock = "";
   if (prevPlan.investment_metrics) {
     const im = prevPlan.investment_metrics;
@@ -993,14 +837,12 @@ MÉTRIQUES D'INVESTISSEMENT (à recalculer de manière cohérente) :
   - Payback: ${im.payback_years || 'N/A'} ans`;
   }
 
-  // ── SIC block (compacted to save tokens) ──
   let sicBlock = "";
   if (sic && sic.odd_alignment) {
     const oddList = Array.isArray(sic.odd_alignment) ? sic.odd_alignment.map((o: any) => typeof o === 'string' ? o : o.odd || o.name || '').join(', ') : String(sic.odd_alignment);
     sicBlock = `\nIMPACT SOCIAL: ODD alignés: ${oddList}`;
   }
 
-  // ── Diagnostic block (compacted — only score + key metrics) ──
   let diagnosticBlock = "";
   if (diag && Object.keys(diag).length > 0) {
     const score = diag.score || 'N/A';
@@ -1009,7 +851,6 @@ MÉTRIQUES D'INVESTISSEMENT (à recalculer de manière cohérente) :
     diagnosticBlock = `\nDIAGNOSTIC: Score=${score}/100, Maturité=${niveau}. ${synthese}`;
   }
 
-  // Format products/services lists with financial data
   const productsList = hasProducts
     ? (data.products || []).map((p, i) => {
         const margeMatch = margeActivites.find((a: any) => 
@@ -1025,7 +866,6 @@ MÉTRIQUES D'INVESTISSEMENT (à recalculer de manière cohérente) :
     ? (data.services || []).map((s, i) => `  ${i+1}. ${s.name} — ${s.description}${s.price ? ` — Prix: ${s.price} FCFA` : ""}${s.deduit_du_bmc ? " [DÉDUIT DU BMC]" : ""}`).join("\n")
     : "  Aucun service fourni explicitement.";
 
-  // ── Smart product instructions ──
   const productInstructions = hasProducts
     ? `1. Utilise les ${data.products.length} produits fournis${deducedProducts.length > 0 ? ` (dont ${deducedProducts.length} déduits du BMC — enrichis-les avec des noms commerciaux et prix réalistes)` : ""}`
     : `1. DÉDUIS au moins 1 produit depuis les données ci-dessus — ne laisse JAMAIS les produits vides`;
@@ -1179,443 +1019,14 @@ JSON SCHEMA CONDENSÉ ATTENDU :
 }`;
 }
 
-// Data expansion functions moved to ../_shared/ovo-data-expander.ts
-
-
 // ─────────────────────────────────────────────────────────────────────
-// ÉTAPE 3 : CONSTRUIRE LA LISTE DES CELLULES À ÉCRIRE
+// HELPERS
 // ─────────────────────────────────────────────────────────────────────
-
-// deno-lint-ignore no-explicit-any
-function buildCellWrites(json: Record<string, any>): CellWrite[] {
-  const writes: CellWrite[] = [];
-
-  // Helper pour ajouter une cellule
-  function w(sheet: string, row: number, col: string, value: string | number | null, type: CellWrite["type"] = "number", forceWrite = false) {
-    if (value === null || value === undefined) return;
-    writes.push({ sheet, row, col: COL[col], value, type, forceWrite });
-  }
-
-  // Helper pour écrire 10 valeurs dans les colonnes O→X
-  // Col S = CURRENT YEAR = formule auto dans FinanceData (ex: Q+R, Q201+R201)
-  // Elle est calculée automatiquement par Excel → NE JAMAIS écrire S directement
-  function wFinance(sheet: string, row: number, values: number[], skipCols: string[] = []) {
-    const cols = ["O","P","Q","R","S","T","U","V","W","X"];
-    const skip = new Set(["S", ...skipCols]);
-    cols.forEach((col, i) => {
-      if (!skip.has(col)) {
-        w(sheet, row, col, values[i] ?? 0, "number");
-      }
-    });
-  }
-
-  // ── ReadMe ──────────────────────────────────────────────────────────
-  w("ReadMe", 3, "L", "French", "string");
-
-  // ── InputsData Section 1 : Paramètres entreprise ───────────────────
-  w("InputsData", 5,  "J", json.company,          "string");
-  w("InputsData", 6,  "J", json.country,           "string");
-  w("InputsData", 8,  "J", json.currency || "XOF", "string");
-  w("InputsData", 9,  "J", json.exchange_rate_eur || 655.957, "number");
-  w("InputsData", 10, "J", excelDateSerial(new Date()), "number"); // Date aujourd'hui
-  w("InputsData", 12, "J", json.vat_rate || 0.18,        "number");
-  w("InputsData", 14, "J", json.inflation_rate || 0.03,  "number");
-  w("InputsData", 17, "J", json.tax_regime_1 || 0.04,    "number");
-  w("InputsData", 18, "J", json.tax_regime_2 || 0.30,    "number");
-
-  // ── InputsData Section 2 : Années ──────────────────────────────────
-  const yrs = json.years || {};
-  w("InputsData", 24, "J", yrs.year_minus_2, "number");
-  w("InputsData", 25, "J", yrs.year_minus_1, "number");
-  w("InputsData", 26, "J", yrs.current_year, "number");
-  w("InputsData", 27, "J", yrs.current_year, "number"); // H1
-  w("InputsData", 28, "J", yrs.current_year, "number"); // H2
-  w("InputsData", 29, "J", yrs.year2, "number");
-  w("InputsData", 30, "J", yrs.year3, "number");
-  w("InputsData", 31, "J", yrs.year4, "number");
-  w("InputsData", 32, "J", yrs.year5, "number");
-  w("InputsData", 33, "J", yrs.year6, "number");
-
-  // ── InputsData Section 3 : Gammes ──────────────────────────────────
-  (json.ranges || []).forEach((r: { slot: number; name: string; description?: string }) => {
-    const row = 69 + r.slot; // slot 1=row70, 2=row71, 3=row72
-    w("InputsData", row, "H", r.name,            "string");
-    w("InputsData", row, "J", r.description || r.name, "string");
-  });
-
-  // ── InputsData Section 3 : Canaux ──────────────────────────────────
-  (json.channels || []).forEach((c: { slot: number; name: string; description?: string }) => {
-    const row = 74 + c.slot; // slot 1=row75, 2=row76
-    w("InputsData", row, "H", c.name,                 "string");
-    w("InputsData", row, "J", c.description || c.name, "string");
-  });
-
-  // ── InputsData Section 3 : Produits (rows 36-55) ───────────────────
-  const products = json.products || [];
-  for (let i = 0; i < 20; i++) {
-    const row = 36 + i;
-    const p = products[i];
-    if (p && p.active) {
-      w("InputsData", row, "H", p.name,            "string");
-      w("InputsData", row, "I", 1,                 "number");
-      w("InputsData", row, "J", p.description || p.name, "string");
-    } else {
-      w("InputsData", row, "H", "-", "string");
-      w("InputsData", row, "I", 0,   "number");
-    }
-  }
-
-  // ── InputsData Section 3 : Services (rows 58-67) ───────────────────
-  const services = json.services || [];
-  for (let i = 0; i < 10; i++) {
-    const row = 58 + i;
-    const s = services[i];
-    if (s && s.active) {
-      w("InputsData", row, "H", s.name,                 "string");
-      w("InputsData", row, "I", 1,                      "number");
-      w("InputsData", row, "J", s.description || s.name, "string");
-    } else {
-      w("InputsData", row, "H", "-", "string");
-      w("InputsData", row, "I", 0,   "number");
-    }
-  }
-
-  // ── InputsData Section 4 : Matrice produits × gammes/canaux ─────────
-  products.forEach((p: { slot: number; range_flags?: number[]; channel_flags?: number[] }, i: number) => {
-    if (i >= 20) return;
-    const row = 79 + i;
-    const rf = p.range_flags   || [1, 0, 0];
-    const cf = p.channel_flags || [0, 1];
-    w("InputsData", row, "F", rf[0], "number");
-    w("InputsData", row, "G", rf[1], "number");
-    w("InputsData", row, "H", rf[2], "number");
-    w("InputsData", row, "I", cf[0], "number");
-    w("InputsData", row, "J", cf[1], "number");
-  });
-
-  services.forEach((s: { slot: number; range_flags?: number[]; channel_flags?: number[] }, i: number) => {
-    if (i >= 10) return;
-    const row = 101 + i;
-    const rf = s.range_flags   || [1, 0, 0];
-    const cf = s.channel_flags || [0, 1];
-    w("InputsData", row, "F", rf[0], "number");
-    w("InputsData", row, "G", rf[1], "number");
-    w("InputsData", row, "H", rf[2], "number");
-    w("InputsData", row, "I", cf[0], "number");
-    w("InputsData", row, "J", cf[1], "number");
-  });
-
-  // ── InputsData Section 5 : Staff (rows 113-122) ─────────────────────
-  const staffCats = json.staff || [];
-  const STAFF_ROWS = [113,114,115,116,117,118,119,120,121,122];
-  staffCats.forEach((cat: { category_id: string; occupational_category: string; department: string; social_security_rate: number }, i: number) => {
-    if (i >= 10) return;
-    const row = STAFF_ROWS[i];
-    w("InputsData", row, "H", cat.occupational_category, "string");
-    w("InputsData", row, "I", cat.department,             "string");
-    w("InputsData", row, "J", cat.social_security_rate || 0.1645, "number");
-  });
-
-  // ── InputsData Section 6 : Prêts (paramètres) ──────────────────────
-  const fin = json.financing || {};
-  if (fin.ovo_schedule) {
-    w("InputsData", 125, "I", 0.07,                              "number"); // taux OVO
-    w("InputsData", 125, "J", fin.ovo_schedule.duration_years || 5, "number");
-  }
-  if (fin.family_schedule) {
-    w("InputsData", 126, "I", 0.10,                                 "number");
-    w("InputsData", 126, "J", fin.family_schedule.duration_years || 3, "number");
-  }
-  if (fin.bank_schedule) {
-    w("InputsData", 127, "I", 0.20,                               "number");
-    w("InputsData", 127, "J", fin.bank_schedule.duration_years || 2, "number");
-  }
-
-  // ── RevenueData : Volumes produits ──────────────────────────────────
-  products.forEach((p: { slot: number; active: boolean; per_year?: Array<Record<string, number>> }, idx: number) => {
-    const slot = idx + 1;
-    const headerRow = PRODUCT_HEADER[slot];
-    if (!headerRow) return;
-
-    const perYear = p.per_year || [];
-    const yearLabels = ["YEAR-2","YEAR-1","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
-
-    yearLabels.forEach((yearLabel, yIdx) => {
-      const yr = perYear.find((y: Record<string, unknown>) => y.year === yearLabel) || {};
-      const row = headerRow + 1 + yIdx;
-
-      if (!p.active) {
-        // Produit inactif : tout à 0 (forceWrite to overwrite any formulas)
-        ["L","M","N","P","Q","R","S","T","U","W","X","Y","Z","AA","AB","AE","AF","AG","AH"]
-          .forEach(col => w("RevenueData", row, col, 0, "number", true));
-        return;
-      }
-
-      // Prix unitaire par gamme
-      w("RevenueData", row, "L", yr.unit_price_r1 || 0, "number", true);
-      w("RevenueData", row, "M", yr.unit_price_r2 || 0, "number", true);
-      w("RevenueData", row, "N", yr.unit_price_r3 || 0, "number", true);
-      // Mix volume par gamme (somme = 1.0)
-      w("RevenueData", row, "P", yr.mix_r1 ?? 1.0, "number", true);
-      w("RevenueData", row, "Q", yr.mix_r2 || 0,   "number", true);
-      w("RevenueData", row, "R", yr.mix_r3 || 0,   "number", true);
-      // COGS unitaire
-      w("RevenueData", row, "S", yr.cogs_r1 || 0,  "number", true);
-      w("RevenueData", row, "T", yr.cogs_r2 || 0,  "number", true);
-      w("RevenueData", row, "U", yr.cogs_r3 || 0,  "number", true);
-      // Mix canal
-      w("RevenueData", row, "W", yr.mix_r1_ch1 ?? 0, "number", true);
-      w("RevenueData", row, "X", yr.mix_r2_ch1 || 0, "number", true);
-      w("RevenueData", row, "Y", yr.mix_r3_ch1 || 0, "number", true);
-      w("RevenueData", row, "Z", yr.mix_r1_ch2 ?? 1.0, "number", true);
-      w("RevenueData", row, "AA", yr.mix_r2_ch2 || 0, "number", true);
-      w("RevenueData", row, "AB", yr.mix_r3_ch2 || 0, "number", true);
-      // Volumes trimestriels (Q1-Q4)
-      w("RevenueData", row, "AE", Math.round(yr.volume_q1 || yr.volume_h1 || 0), "number", true);
-      w("RevenueData", row, "AF", Math.round(yr.volume_q2 || yr.volume_h2 || 0), "number", true);
-      w("RevenueData", row, "AG", Math.round(yr.volume_q3 || 0), "number", true);
-      w("RevenueData", row, "AH", Math.round(yr.volume_q4 || 0), "number", true);
-    });
-  });
-
-  // ── RevenueData : Volumes services ──────────────────────────────────
-  services.forEach((s: { slot: number; active: boolean; per_year?: Array<Record<string, number>> }, idx: number) => {
-    const slot = idx + 1;
-    const headerRow = SERVICE_HEADER[slot];
-    if (!headerRow) return;
-
-    const perYear = s.per_year || [];
-    const yearLabels = ["YEAR-2","YEAR-1","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
-
-    yearLabels.forEach((yearLabel, yIdx) => {
-      const yr = perYear.find((y: Record<string, unknown>) => y.year === yearLabel) || {};
-      const row = headerRow + 1 + yIdx;
-
-      if (!s.active) {
-        ["L","M","N","P","Q","R","S","T","U","W","X","Y","Z","AA","AB","AE","AF","AG","AH"]
-          .forEach(col => w("RevenueData", row, col, 0, "number", true));
-        return;
-      }
-
-      w("RevenueData", row, "L", yr.unit_price_r1 || 0, "number", true);
-      w("RevenueData", row, "M", yr.unit_price_r2 || 0, "number", true);
-      w("RevenueData", row, "N", yr.unit_price_r3 || 0, "number", true);
-      w("RevenueData", row, "P", yr.mix_r1 ?? 1.0, "number", true);
-      w("RevenueData", row, "Q", yr.mix_r2 || 0,   "number", true);
-      w("RevenueData", row, "R", yr.mix_r3 || 0,   "number", true);
-      w("RevenueData", row, "S", yr.cogs_r1 || 0,  "number", true);
-      w("RevenueData", row, "T", yr.cogs_r2 || 0,  "number", true);
-      w("RevenueData", row, "U", yr.cogs_r3 || 0,  "number", true);
-      w("RevenueData", row, "W", yr.mix_r1_ch1 ?? 0, "number", true);
-      w("RevenueData", row, "X", yr.mix_r2_ch1 || 0, "number", true);
-      w("RevenueData", row, "Y", yr.mix_r3_ch1 || 0, "number", true);
-      w("RevenueData", row, "Z", yr.mix_r1_ch2 ?? 1.0, "number", true);
-      w("RevenueData", row, "AA", yr.mix_r2_ch2 || 0, "number", true);
-      w("RevenueData", row, "AB", yr.mix_r3_ch2 || 0, "number", true);
-      w("RevenueData", row, "AE", Math.round(yr.volume_q1 || yr.volume_h1 || 0), "number", true);
-      w("RevenueData", row, "AF", Math.round(yr.volume_q2 || yr.volume_h2 || 0), "number", true);
-      w("RevenueData", row, "AG", Math.round(yr.volume_q3 || 0), "number", true);
-      w("RevenueData", row, "AH", Math.round(yr.volume_q4 || 0), "number", true);
-    });
-  });
-
-  // ── FinanceData : Staff ──────────────────────────────────────────────
-  const STAFF_FIN_ROWS: Record<string, { eft: number; salary: number; allowances: number }> = {
-    STAFF_CAT01: { eft:213, salary:214, allowances:215 },
-    STAFF_CAT02: { eft:220, salary:221, allowances:222 },
-    STAFF_CAT03: { eft:227, salary:228, allowances:229 },
-    STAFF_CAT04: { eft:234, salary:235, allowances:236 },
-    STAFF_CAT05: { eft:241, salary:242, allowances:243 },
-    STAFF_CAT06: { eft:248, salary:249, allowances:250 },
-    STAFF_CAT07: { eft:255, salary:256, allowances:257 },
-    STAFF_CAT08: { eft:262, salary:263, allowances:264 },
-    STAFF_CAT09: { eft:269, salary:270, allowances:271 },
-    STAFF_CAT10: { eft:276, salary:277, allowances:278 },
-  };
-
-  staffCats.forEach((cat: { category_id: string; per_year: Array<{ year: string; headcount: number; gross_monthly_salary_per_person: number; annual_allowances_per_person: number }> }) => {
-    const rows = STAFF_FIN_ROWS[cat.category_id];
-    if (!rows) return;
-    const perYear = cat.per_year || [];
-    const periods = ["YEAR-2","YEAR-1","H1","H2","CURRENT YEAR","YEAR2","YEAR3","YEAR4","YEAR5","YEAR6"];
-    const finCols  = ["O","P","Q","R","S","T","U","V","W","X"];
-
-    periods.forEach((period, i) => {
-      // Match: "CURRENT YEAR" couvre les 3 periodes H1/H2/CY
-      const yr = perYear.find(y =>
-        y.year === period ||
-        (period === "H1" && y.year === "CURRENT YEAR H1") ||
-        (period === "H2" && y.year === "CURRENT YEAR H2") ||
-        (["H1","H2","CURRENT YEAR"].includes(period) && y.year === "CURRENT YEAR")
-      ) || { headcount:0, gross_monthly_salary_per_person:0, annual_allowances_per_person:0 };
-
-      // Skip col S pour TOUTES les lignes staff (headcount, salary, allowances)
-      // S = formule (Q+R)/2 dans le template → auto-calculé depuis H1(Q) + H2(R)
-      if (finCols[i] !== "S") {
-        w("FinanceData", rows.eft,        finCols[i], Math.round(yr.headcount || 0),                        "number");
-        w("FinanceData", rows.salary,     finCols[i], yr.gross_monthly_salary_per_person || 0,              "number");
-        w("FinanceData", rows.allowances, finCols[i], yr.annual_allowances_per_person    || 0,              "number");
-      }
-    });
-  });
-
-  // ── FinanceData : OPEX Marketing ────────────────────────────────────
-  const opex = json.opex || {};
-  const mkt = opex.marketing || {};
-  const MARKETING_ROWS: Record<string, number> = {
-    research:201, purchase_studies:202, receptions:203, documentation:204, advertising:205
-  };
-  Object.entries(MARKETING_ROWS).forEach(([key, row]) => {
-    wFinance("FinanceData", row, (mkt[key] || new Array(10).fill(0)));
-  });
-
-  // ── FinanceData : OPEX Taxes on Staff ───────────────────────────────
-  const tax = opex.taxes_on_staff || {};
-  wFinance("FinanceData", 283, tax.salaries_tax   || new Array(10).fill(0));
-  wFinance("FinanceData", 284, tax.apprenticeship || new Array(10).fill(0));
-  wFinance("FinanceData", 285, tax.training        || new Array(10).fill(0));
-  wFinance("FinanceData", 286, tax.other           || new Array(10).fill(0));
-
-  // ── FinanceData : OPEX Office ────────────────────────────────────────
-  const off = opex.office || {};
-  const OFFICE_ROWS: Record<string, number> = {
-    rent:294, internet:295, telecom:296, supplies:297,
-    fuel:300, water:301, electricity:302, cleaning:303
-  };
-  Object.entries(OFFICE_ROWS).forEach(([key, row]) => {
-    wFinance("FinanceData", row, (off[key] || new Array(10).fill(0)));
-  });
-
-  // ── FinanceData : OPEX Other ─────────────────────────────────────────
-  const oth = opex.other || {};
-  wFinance("FinanceData", 311, oth.health    || new Array(10).fill(0));
-  wFinance("FinanceData", 312, oth.directors || new Array(10).fill(0));
-  wFinance("FinanceData", 313, oth.donations || new Array(10).fill(0));
-
-  // ── FinanceData : Travel ─────────────────────────────────────────────
-  const trv = opex.travel || {};
-  wFinance("FinanceData", 322, trv.nb_travellers || new Array(10).fill(0));
-  wFinance("FinanceData", 323, trv.avg_cost      || new Array(10).fill(0));
-
-  // ── FinanceData : Insurance ──────────────────────────────────────────
-  const ins = opex.insurance || {};
-  wFinance("FinanceData", 326, ins.building || new Array(10).fill(0));
-  wFinance("FinanceData", 327, ins.company  || new Array(10).fill(0));
-
-  // ── FinanceData : Maintenance ────────────────────────────────────────
-  const mnt = opex.maintenance || {};
-  wFinance("FinanceData", 335, mnt.movable || new Array(10).fill(0));
-  wFinance("FinanceData", 337, mnt.other   || new Array(10).fill(0));
-
-  // ── FinanceData : Third Parties ──────────────────────────────────────
-  const trd = opex.third_parties || {};
-  const THIRD_ROWS: Record<string, number> = {
-    legal:345, accounting:352, transport:348, commissions:350, delivery:349
-  };
-  Object.entries(THIRD_ROWS).forEach(([key, row]) => {
-    wFinance("FinanceData", row, (trd[key] || new Array(10).fill(0)));
-  });
-
-  // ── FinanceData : CAPEX ──────────────────────────────────────────────
-  const capexItems = json.capex || [];
-  const OE_START = 408;
-  const OA_START = 462;
-  let oeCount = 0, oaCount = 0;
-
-  capexItems.forEach((c: { type: string; label?: string; acquisition_year: number; acquisition_value: number; amortisation_rate: number }) => {
-    let row: number;
-    if (c.type === "OFFICE_EQUIPMENT" && oeCount < 40) {
-      row = OE_START + oeCount++;
-    } else if (c.type === "OTHER_ASSETS" && oaCount < 20) {
-      row = OA_START + oaCount++;
-    } else return;
-
-    w("FinanceData", row, "J", c.label || "",        "string");
-    w("FinanceData", row, "K", c.acquisition_year,   "number");
-    w("FinanceData", row, "L", c.acquisition_value,  "number");
-    w("FinanceData", row, "M", c.amortisation_rate,  "number");
-  });
-
-  // ── FinanceData : Working Capital ────────────────────────────────────
-  const wc = json.working_capital || {};
-  wFinance("FinanceData", 693, wc.stock_days      || [0,0,45,45,45,45,60,60,60,60]);
-  wFinance("FinanceData", 697, wc.receivable_days || [0,0,15,15,15,15,15,15,15,15]);
-  wFinance("FinanceData", 701, wc.payable_days    || [0,0,30,30,30,30,30,30,30,30]);
-
-  // ── FinanceData : Cash initial ───────────────────────────────────────
-  // ⚠ Seulement col P (col O = None dans le template)
-  w("FinanceData", 749, "P", json.opening_cash_year_minus_1 || 0, "number");
-
-  // ── FinanceData : Bank charges ───────────────────────────────────────
-  // ⚠ Skip colonnes Q et R (None dans le template)
-  const bcRates = json.bank_charges_rate || new Array(10).fill(0.01);
-  wFinance("FinanceData", 729, bcRates, ["Q","R"]);
-
-  // ── FinanceData : Sources de financement ────────────────────────────
-  const FINANCE_COLS_6 = ["S","T","U","V","W","X"]; // cols S-X = périodes 4-9
-
-  // Montants prêts (cols S-X uniquement, O/P = None)
-  if (fin.loan_ovo_by_period) {
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 785, col, fin.loan_ovo_by_period[i+4] || 0, "number");
-    });
-  }
-  if (fin.loan_family_by_period) {
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 786, col, fin.loan_family_by_period[i+4] || 0, "number");
-    });
-  }
-  if (fin.loan_bank_by_period) {
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 787, col, fin.loan_bank_by_period[i+4] || 0, "number");
-    });
-  }
-  // Apports actionnaires existants (cols O-X tous éditables)
-  if (fin.existing_shareholders_capital) {
-    wFinance("FinanceData", 788, fin.existing_shareholders_capital);
-  }
-  // Apports nouveaux actionnaires (cols S-X)
-  if (fin.new_shareholders_capital) {
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 789, col, fin.new_shareholders_capital[i+4] || 0, "number");
-    });
-  }
-
-  // Calendrier remboursement OVO
-  if (fin.ovo_schedule) {
-    w("FinanceData", 793, "J", fin.ovo_schedule.duration_years || 5, "number");
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 793, col, fin.ovo_schedule.by_period?.[i] ?? 0, "number");
-      w("FinanceData", 797, col, fin.ovo_schedule.interest_rate?.[i] ?? 0.07, "number");
-    });
-  }
-  // Famille/amis
-  if (fin.family_schedule) {
-    w("FinanceData", 802, "J", fin.family_schedule.duration_years || 3, "number");
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 802, col, fin.family_schedule.by_period?.[i] ?? 0, "number");
-      w("FinanceData", 806, col, fin.family_schedule.interest_rate?.[i] ?? 0.10, "number");
-    });
-  }
-  // Banque locale
-  if (fin.bank_schedule) {
-    w("FinanceData", 811, "J", fin.bank_schedule.duration_years || 2, "number");
-    FINANCE_COLS_6.forEach((col, i) => {
-      w("FinanceData", 811, col, fin.bank_schedule.by_period?.[i] ?? 0, "number");
-      w("FinanceData", 815, col, fin.bank_schedule.interest_rate?.[i] ?? 0.20, "number");
-    });
-  }
-
-  return writes;
-}
-
-// ZIP/XML injection, utilities, and CRC32 are now in ../_shared/zip-utils.ts
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// deno-lint-ignore no-explicit-any
 function extractSummary(json: Record<string, any>) {
   return {
     company:        json.company,
