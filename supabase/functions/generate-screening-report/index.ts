@@ -272,7 +272,7 @@ DATE CRÉATION : ${ent.creation_date || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}
 
 ══════ DOCUMENTS UPLOADÉS ══════
-${ctx.documentContent || "(Aucun document uploadé)"}
+${getDocumentContentForAgent(ent, "screening", 80_000) || "(Aucun document uploadé)"}
 
 ══════ LIVRABLES EXISTANTS ══════
 ${delivSummary.length > 0 ? delivSummary.join("\n\n") : "(Aucun livrable généré)"}
