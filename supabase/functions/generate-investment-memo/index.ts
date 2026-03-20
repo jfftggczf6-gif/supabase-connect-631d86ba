@@ -1,12 +1,13 @@
-// v4 — restore corsHeaders 2026-03-19
+// v5 — 2-pass checkpoint + Sonnet model 2026-03-20
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
   jsonResponse, errorResponse,
 } from "../_shared/helpers_v5.ts";
 import { getFinancialKnowledgePrompt, getValuationBenchmarksPrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const OPUS_MODEL = "claude-opus-4-20250514";
+const SONNET_MODEL = "claude-sonnet-4-20250514";
 
 const MEMO_SYSTEM_PROMPT = `Tu es un analyste senior en Private Equity / Impact Investing avec 15+ ans d'expérience en Afrique subsaharienne.
 Tu rédiges des Investment Memorandums professionnels pour des comités d'investissement de fonds (BAD, IFC, Proparco, I&P, Partech Africa, BII).
@@ -141,14 +142,49 @@ const MEMO_SCHEMA_PART2 = `{
   }
 }`;
 
+/** Update the enterprise_modules row for investment_memo with checkpoint data */
+async function updateMemoModuleState(
+  enterpriseId: string,
+  moduleData: Record<string, any>,
+  progress: number,
+  status: string,
+) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const svc = createClient(supabaseUrl, serviceKey);
+  await svc.from("enterprise_modules").update({
+    data: moduleData,
+    progress,
+    status: status === "completed" ? "completed" : status === "not_started" ? "not_started" : "in_progress",
+  }).eq("enterprise_id", enterpriseId).eq("module", "investment_memo");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    console.log("[generate-investment-memo] v3 loaded");
+    console.log("[generate-investment-memo] v5 loaded — 2-pass checkpoint");
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+    const requestId = crypto.randomUUID();
+    const startedAt = new Date().toISOString();
 
+    // Check for existing checkpoint in enterprise_modules
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const svc = createClient(supabaseUrl, serviceKey);
+    const { data: moduleRow } = await svc.from("enterprise_modules")
+      .select("data, status")
+      .eq("enterprise_id", ctx.enterprise_id)
+      .eq("module", "investment_memo")
+      .single();
+
+    const moduleData = moduleRow?.data as Record<string, any> | null;
+    const hasCheckpoint = moduleData?.phase === "part1_completed" && moduleData?.part1;
+
+    let part1: any = null;
+
+    // ═══════ Fetch deliverables & build context (needed for both passes) ═══════
     const { data: existingDeliverables } = await ctx.supabase
       .from("deliverables")
       .select("type, data")
@@ -206,28 +242,26 @@ ${donorCriteria}
 
 ${ragContext}`;
 
-    // PASS 1: Sections 1-7
-    const prompt1 = `${contextBlock}
+    if (hasCheckpoint) {
+      // ═══════ CAS A: Resume from checkpoint — run Pass 2 only ═══════
+      console.log("Investment Memo — Resuming from checkpoint, running Pass 2/2...");
+      part1 = moduleData!.part1;
 
-══════ INSTRUCTIONS — PASSE 1/2 ══════
-Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
-La section valorisation doit CITER les résultats de l'agent Valuation, pas recalculer.
-Chaque section narrative doit faire au minimum 200 mots.
+      await updateMemoModuleState(ctx.enterprise_id, {
+        ...moduleData,
+        phase: "part2",
+        request_id: requestId,
+        started_at: startedAt,
+        last_update_at: new Date().toISOString(),
+      }, 60, "in_progress");
 
-Réponds en JSON selon ce schéma :
-${MEMO_SCHEMA_PART1}`;
+      const part1Summary = JSON.stringify({
+        recommandation: part1.resume_executif?.recommandation_preliminaire,
+        score: part1.resume_executif?.score_ir,
+        valorisation: part1.valorisation?.fourchette_valorisation,
+      });
 
-    console.log("Investment Memo — Pass 1/2...");
-    const part1 = await callAI(MEMO_SYSTEM_PROMPT, prompt1, 16384, OPUS_MODEL, 0.3);
-
-    // PASS 2: Sections 8-15
-    const part1Summary = JSON.stringify({
-      recommandation: part1.resume_executif?.recommandation_preliminaire,
-      score: part1.resume_executif?.score_ir,
-      valorisation: part1.valorisation?.fourchette_valorisation,
-    });
-
-    const prompt2 = `${contextBlock}
+      const prompt2 = `${contextBlock}
 
 ══════ RÉSUMÉ PASSE 1 ══════
 ${part1Summary}
@@ -240,16 +274,75 @@ Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-    console.log("Investment Memo — Pass 2/2...");
-    const part2 = await callAI(MEMO_SYSTEM_PROMPT, prompt2, 16384, OPUS_MODEL, 0.3);
+      const part2 = await callAI(MEMO_SYSTEM_PROMPT, prompt2, 16384, SONNET_MODEL, 0.3);
 
-    // Merge both passes
-    const mergedMemo = { ...part1, ...part2 };
-    mergedMemo.score = part1.resume_executif?.score_ir || 0;
+      const mergedMemo = { ...part1, ...part2 };
+      mergedMemo.score = part1.resume_executif?.score_ir || 0;
 
-    await saveDeliverable(ctx.supabase, ctx.enterprise_id, "investment_memo", mergedMemo, "investment_memo");
+      await saveDeliverable(ctx.supabase, ctx.enterprise_id, "investment_memo", mergedMemo, "investment_memo");
 
-    return jsonResponse({ success: true, data: mergedMemo, score: mergedMemo.score || 0 });
+      await updateMemoModuleState(ctx.enterprise_id, {
+        phase: "completed",
+        completed_at: new Date().toISOString(),
+      }, 100, "completed");
+
+      return jsonResponse({ success: true, data: mergedMemo, score: mergedMemo.score || 0 });
+
+    } else {
+      // ═══════ CAS B: First call — run Pass 1, checkpoint, return 202 ═══════
+      console.log("Investment Memo — Pass 1/2...");
+
+      await updateMemoModuleState(ctx.enterprise_id, {
+        phase: "part1",
+        request_id: requestId,
+        started_at: startedAt,
+      }, 10, "in_progress");
+
+      const prompt1 = `${contextBlock}
+
+══════ INSTRUCTIONS — PASSE 1/2 ══════
+Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
+La section valorisation doit CITER les résultats de l'agent Valuation, pas recalculer.
+Chaque section narrative doit faire au minimum 200 mots.
+
+Réponds en JSON selon ce schéma :
+${MEMO_SCHEMA_PART1}`;
+
+      try {
+        part1 = await callAI(MEMO_SYSTEM_PROMPT, prompt1, 16384, SONNET_MODEL, 0.3);
+      } catch (e: any) {
+        await updateMemoModuleState(ctx.enterprise_id, {
+          phase: "failed",
+          error: e.message || "Pass 1 failed",
+          failed_at: new Date().toISOString(),
+        }, 0, "not_started");
+        throw e;
+      }
+
+      const score = part1.resume_executif?.score_ir || 0;
+
+      // Save checkpoint
+      await updateMemoModuleState(ctx.enterprise_id, {
+        phase: "part1_completed",
+        part1,
+        score,
+        part1_completed_at: new Date().toISOString(),
+        request_id: requestId,
+      }, 50, "in_progress");
+
+      console.log("Investment Memo — Pass 1 completed, checkpoint saved. Returning 202.");
+      return new Response(JSON.stringify({
+        success: true,
+        processing: true,
+        phase: "part1_completed",
+        score,
+        request_id: requestId,
+      }), {
+        status: 202,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
   } catch (e: any) {
     console.error("generate-investment-memo error:", e);
     return errorResponse(e.message || "Erreur", e.status || 500);

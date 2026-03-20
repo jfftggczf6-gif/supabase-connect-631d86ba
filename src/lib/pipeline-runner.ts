@@ -194,7 +194,31 @@ export async function runPipelineFromClient(
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        const result = await response.json();
+        let result = await response.json();
+
+        // Investment memo 2-pass: if pass 1 returned processing, auto-chain pass 2
+        if (result.processing === true && step.fn === 'generate-investment-memo') {
+          console.log('[pipeline] Investment Memo pass 1 done, chaining pass 2…');
+          await new Promise(r => setTimeout(r, 1000));
+          const token2 = await getFreshToken();
+          const controller2 = new AbortController();
+          const timeoutId2 = setTimeout(() => controller2.abort(), 360000);
+          const response2 = await fetch(`${supabaseUrl}/functions/v1/${step.fn}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
+            body: JSON.stringify({ enterprise_id: enterpriseId }),
+            signal: controller2.signal,
+          });
+          clearTimeout(timeoutId2);
+          if (response2.ok) {
+            result = await response2.json();
+          } else {
+            const err2 = await response2.json().catch(() => ({ error: 'Pass 2 failed' }));
+            results.push({ step: step.name, success: false, error: err2.error });
+            continue;
+          }
+        }
+
         results.push({ step: step.name, success: true, score: result.score });
         completedCount++;
         onStepComplete?.();

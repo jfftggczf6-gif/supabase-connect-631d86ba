@@ -342,27 +342,42 @@ export default function EntrepreneurDashboard({
   const handleGenerateModule = async (moduleCode: string) => {
     if (!enterprise) return;
     setGeneratingModule(moduleCode);
-    try {
-      const token = await getValidAccessToken(authSession, navigate);
-      const functionName = MODULE_FN_MAP[moduleCode] || `generate-${moduleCode}`;
-      
-      // Longer timeout for business_plan (two sequential AI calls)
-      const timeoutMs = moduleCode === 'business_plan' ? 300000 : 120000;
+
+    const runSingleAttempt = async (functionName: string, token: string, entId: string, timeoutMs: number) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ enterprise_id: enterprise.id }),
+          body: JSON.stringify({ enterprise_id: entId }),
           signal: controller.signal,
         }
       );
       clearTimeout(timeoutId);
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
-      const result = await response.json();
+      return await response.json();
+    };
+
+    try {
+      const token = await getValidAccessToken(authSession, navigate);
+      const functionName = MODULE_FN_MAP[moduleCode] || `generate-${moduleCode}`;
+
+      // Timeouts: 6 min per pass for investment_memo, 5 min for business_plan, 2 min default
+      const timeoutMs = moduleCode === 'investment_memo' ? 360000
+        : moduleCode === 'business_plan' ? 300000
+        : 120000;
+
+      let result = await runSingleAttempt(functionName, token, enterprise.id, timeoutMs);
+
+      // Investment memo 2-pass: if pass 1 returned processing, auto-chain pass 2
+      if (result.processing === true && moduleCode === 'investment_memo') {
+        toast.info('Mémo d\'investissement — passe 1 terminée, finalisation en cours…');
+        const freshToken = await getValidAccessToken(authSession, navigate);
+        result = await runSingleAttempt(functionName, freshToken, enterprise.id, timeoutMs);
+      }
+
       toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score}/100`);
       setSelectedModule(moduleCode);
       await fetchData();
