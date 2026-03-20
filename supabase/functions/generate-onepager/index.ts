@@ -88,6 +88,25 @@ serve(async (req) => {
     const valuationData = getDelivData("valuation");
     const oddData = getDelivData("odd_analysis");
 
+    // Financial Truth Anchor
+    const { getFinancialTruth } = await import("../_shared/normalizers.ts");
+    const truth = getFinancialTruth(inputsData);
+    let tractionBlock = "";
+    if (truth) {
+      tractionBlock = `
+══════ TRACTION — CHIFFRES VÉRIFIÉS (ÉTATS FINANCIERS) ══════
+⚠ UTILISER CES CHIFFRES EXACTEMENT DANS LA SECTION TRACTION
+
+CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2.toLocaleString('fr-FR')} FCFA
+CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
+CA N (${truth.annee_n}) = ${truth.ca_n.toLocaleString('fr-FR')} FCFA
+Trésorerie = ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} FCFA
+Marge brute = ${truth.marge_brute_pct}%
+══════ FIN TRACTION ══════
+`;
+    }
+
     const delivSummary: string[] = [];
     if (bmcData) delivSummary.push(`BMC:\n${JSON.stringify(bmcData).substring(0, 3000)}`);
     if (sicData) delivSummary.push(`SIC:\n${JSON.stringify(sicData).substring(0, 2000)}`);
@@ -105,6 +124,8 @@ FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DATE CRÉATION : ${ent.creation_date || "Non spécifié"}
 DESCRIPTION : ${ent.description || ""}
 CONTACT : ${ent.contact_name || ""} — ${ent.contact_email || ""} — ${ent.contact_phone || ""}
+
+${tractionBlock}
 
 ══════ LIVRABLES ══════
 ${delivSummary.join("\n\n")}
