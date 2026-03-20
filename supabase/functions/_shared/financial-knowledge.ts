@@ -524,6 +524,45 @@ const VALUATION_BENCHMARKS = `
 `;
 
 // ─────────────────────────────────────────────────────────────────
+// SECTION 9 — SECTOR GUARDRAILS (bornes anti-hallucination)
+// ─────────────────────────────────────────────────────────────────
+
+export interface SectorGuardrail {
+  marge_brute_min: number; marge_brute_max: number;
+  marge_ebitda_min: number; marge_ebitda_max: number;
+  ratio_personnel_ca_min: number; ratio_personnel_ca_max: number;
+  croissance_max_annuelle: number;
+}
+
+export const SECTOR_GUARDRAILS: Record<string, SectorGuardrail> = {
+  agro_industrie:          { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 5, marge_ebitda_max: 30, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 35, croissance_max_annuelle: 40 },
+  aviculture:              { marge_brute_min: 20, marge_brute_max: 50, marge_ebitda_min: 5, marge_ebitda_max: 25, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 30, croissance_max_annuelle: 35 },
+  agriculture:             { marge_brute_min: 20, marge_brute_max: 50, marge_ebitda_min: 5, marge_ebitda_max: 25, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 35, croissance_max_annuelle: 35 },
+  agriculture_rente:       { marge_brute_min: 25, marge_brute_max: 50, marge_ebitda_min: 10, marge_ebitda_max: 35, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 30, croissance_max_annuelle: 25 },
+  commerce_detail:         { marge_brute_min: 10, marge_brute_max: 30, marge_ebitda_min: 2, marge_ebitda_max: 15, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 30 },
+  commerce_alimentaire:    { marge_brute_min: 10, marge_brute_max: 30, marge_ebitda_min: 2, marge_ebitda_max: 12, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 25 },
+  restauration:            { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 5, marge_ebitda_max: 20, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 45, croissance_max_annuelle: 25 },
+  services_b2b:            { marge_brute_min: 40, marge_brute_max: 75, marge_ebitda_min: 10, marge_ebitda_max: 40, ratio_personnel_ca_min: 25, ratio_personnel_ca_max: 60, croissance_max_annuelle: 50 },
+  tic:                     { marge_brute_min: 50, marge_brute_max: 85, marge_ebitda_min: 15, marge_ebitda_max: 50, ratio_personnel_ca_min: 30, ratio_personnel_ca_max: 65, croissance_max_annuelle: 60 },
+  services_it:             { marge_brute_min: 40, marge_brute_max: 80, marge_ebitda_min: 10, marge_ebitda_max: 40, ratio_personnel_ca_min: 25, ratio_personnel_ca_max: 60, croissance_max_annuelle: 50 },
+  imprimerie:              { marge_brute_min: 25, marge_brute_max: 50, marge_ebitda_min: 8, marge_ebitda_max: 22, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 40, croissance_max_annuelle: 25 },
+  energie:                 { marge_brute_min: 35, marge_brute_max: 65, marge_ebitda_min: 15, marge_ebitda_max: 40, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 25, croissance_max_annuelle: 45 },
+  sante:                   { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 10, marge_ebitda_max: 30, ratio_personnel_ca_min: 20, ratio_personnel_ca_max: 50, croissance_max_annuelle: 30 },
+  btp:                     { marge_brute_min: 15, marge_brute_max: 40, marge_ebitda_min: 3, marge_ebitda_max: 15, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 30 },
+  industrie_manufacturiere:{ marge_brute_min: 20, marge_brute_max: 45, marge_ebitda_min: 5, marge_ebitda_max: 20, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 25 },
+  transport_logistique:    { marge_brute_min: 15, marge_brute_max: 40, marge_ebitda_min: 5, marge_ebitda_max: 18, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 25 },
+  education_formation:     { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 10, marge_ebitda_max: 30, ratio_personnel_ca_min: 30, ratio_personnel_ca_max: 60, croissance_max_annuelle: 25 },
+  immobilier:              { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 15, marge_ebitda_max: 40, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 25 },
+  textile_mode:            { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 8, marge_ebitda_max: 25, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 40, croissance_max_annuelle: 30 },
+  mines_extraction:        { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 15, marge_ebitda_max: 45, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 25, croissance_max_annuelle: 20 },
+};
+
+export function getSectorGuardrails(sector: string): SectorGuardrail {
+  const key = sector.toLowerCase().replace(/[\s\-\/]/g, "_");
+  return SECTOR_GUARDRAILS[key] || SECTOR_GUARDRAILS['services_b2b'];
+}
+
+// ─────────────────────────────────────────────────────────────────
 // EXPORTS PUBLICS
 // ─────────────────────────────────────────────────────────────────
 

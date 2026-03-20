@@ -284,6 +284,14 @@ RÈGLES PRODUITS/SERVICES :
 - Si le cout_unitaire n'est pas explicite, ESTIME-le à partir de la marge brute sectorielle du pays/secteur (ex: BTP marge 20-35% donc coût = 65-80% du prix). Indique source: "estimé_sectoriel".
 - Si le prix_unitaire n'apparaît PAS dans les documents, mets 0 et ajoute-le à donnees_manquantes. N'invente JAMAIS un prix.
 - Si aucun produit/service n'est identifiable, retourne un tableau vide [].
+- Ajoute un champ "ca_estime" pour chaque produit = prix_unitaire × volume_annuel. Si volume inconnu, estime depuis la part du CA total.
+- Ajoute un champ "part_ca_pct" pour chaque produit = part estimée du CA total.
+- Ajoute un champ "justification" expliquant l'origine du prix et du volume.
+
+RÈGLE ABSOLUE DE COHÉRENCE CA :
+La SOMME des ca_estime de TOUS les produits/services DOIT être ÉGALE au chiffre_affaires du compte_resultat (tolérance ±2%).
+Si tu identifies 3 produits dont la somme = 450M mais le CA total est 460M, ajoute un produit "Autres revenus" de 10M pour combler l'écart.
+Si tu ne peux pas ventiler, crée UN SEUL produit avec ca_estime = CA total et source: "non_ventilé".
 
 RÈGLES ÉQUIPE :
 - Extrais CHAQUE poste avec son effectif et son salaire mensuel si disponible.

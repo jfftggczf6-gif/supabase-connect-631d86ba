@@ -1,7 +1,7 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParamsForPrompt, getDocumentContentForAgent } from "../_shared/helpers_v5.ts";
-import { getFinancialTruth } from "../_shared/normalizers.ts";
+import { getFinancialTruth, validateCrossDeliverables } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { normalizePlanOvo, enforceFrameworkConstraints } from "../_shared/normalizers.ts";
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
@@ -233,9 +233,23 @@ CA ANNÉE N (${truth.annee_n}) = ${truth.ca_n} FCFA → current_year
 CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1} FCFA → year_minus_1
 CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2} FCFA → year_minus_2
 Marge brute = ${truth.marge_brute} FCFA (${truth.marge_brute_pct}%)
-EBITDA = ${truth.ebitda} FCFA (${truth.ebitda_pct}%)
+EBITDA (EBE) = ${truth.ebitda} FCFA (${truth.ebitda_pct}%)
 Résultat net = ${truth.resultat_net} FCFA
 ══════ FIN DONNÉES VÉRIFIÉES ══════
+
+══════ CHAÎNE SYSCOHADA DÉTERMINISTE ══════
+  CA                     = ${truth.ca_n} FCFA
+  - Achats consommés     = ${truth.chaine_comptable.achats_consommes} FCFA
+  ═ MARGE BRUTE          = ${truth.chaine_comptable.marge_brute} FCFA (${truth.marge_brute_pct}%)
+  - Services extérieurs  = ${truth.chaine_comptable.services_exterieurs} FCFA
+  ═ VALEUR AJOUTÉE       = ${truth.chaine_comptable.valeur_ajoutee} FCFA
+  - Charges personnel    = ${truth.charges_personnel} FCFA
+  - Impôts & taxes       = ${truth.chaine_comptable.impots_taxes} FCFA
+  ═ EBE (EBITDA)         = ${truth.chaine_comptable.ebe} FCFA (${truth.ebitda_pct}%)
+  - Amortissements       = ${truth.chaine_comptable.dotations_amortissements} FCFA
+  ═ RÉSULTAT NET         = ${truth.chaine_comptable.resultat_net} FCFA
+UTILISE CETTE CHAÎNE pour le current_year. Projette chaque poste séparément.
+══════ FIN CHAÎNE ══════
 `;
     }
 
@@ -256,6 +270,17 @@ Résultat net = ${truth.resultat_net} FCFA
     data = validateAndEnrich(data, country, ent.sector);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "plan_ovo", data, "plan_ovo");
+
+    // Cross-deliverable validation
+    const crossValidation = validateCrossDeliverables(
+      inputsRaw, frameworkData, data, null, null
+    );
+    if (crossValidation.errors.length > 0) {
+      console.warn("[plan_ovo] Cross-validation errors:", crossValidation.errors);
+      data._cross_validation = crossValidation;
+      // Re-save with validation report attached
+      await saveDeliverable(ctx.supabase, ctx.enterprise_id, "plan_ovo", data, "plan_ovo");
+    }
 
     return jsonResponse({ success: true, data, score: data.score });
   } catch (e: any) {

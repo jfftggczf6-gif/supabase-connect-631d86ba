@@ -3,6 +3,7 @@
  * Handles key variations from different AI model outputs
  */
 import { getFiscalParams } from "./helpers_v5.ts";
+import { getSectorGuardrails } from "./financial-knowledge.ts";
 
 // ===== FINANCIAL TRUTH ANCHOR =====
 /**
@@ -72,21 +73,45 @@ export function getFinancialTruth(inputsData: any): {
   );
   const annee_n = detectedYear || toNumber(inputsData.annee_courante || inputsData.annee_n, 0) || new Date().getFullYear();
 
+  // ── Chaîne SYSCOHADA déterministe (AUCUNE estimation IA) ──
+  const achats_consommes = toNumber(cr.achats_matieres || cr.achats_consommes || cr.cout_ventes || cr.cogs, 0);
+  const services_exterieurs = toNumber(cr.charges_externes || cr.services_exterieurs, 0);
+  const impots_taxes = toNumber(cr.impots_taxes, 0);
+  const dotations_amortissements = toNumber(cr.dotations_amortissements || cr.amortissements, 0);
+  const charges_financieres = toNumber(cr.charges_financieres, 0);
+  const resultat_exploitation = toNumber(cr.resultat_exploitation, 0);
+
+  const chaine_comptable = {
+    ca: ca_n,
+    achats_consommes,
+    marge_brute: ca_n - achats_consommes,
+    valeur_ajoutee: (ca_n - achats_consommes) - services_exterieurs,
+    ebe: (ca_n - achats_consommes) - services_exterieurs - charges_personnel - impots_taxes,
+    resultat_exploitation: resultat_exploitation || ((ca_n - achats_consommes) - services_exterieurs - charges_personnel - impots_taxes - dotations_amortissements),
+    resultat_financier: -charges_financieres,
+    resultat_net: toNumber(cr.resultat_net, 0),
+    dotations_amortissements,
+    charges_financieres,
+    impots_taxes,
+    services_exterieurs,
+  };
+
   return {
     ca_n,
     ca_n_minus_1,
     ca_n_minus_2,
-    marge_brute,
-    marge_brute_pct: ca_n > 0 ? Math.round(marge_brute / ca_n * 1000) / 10 : 0,
-    ebitda,
-    ebitda_pct: ca_n > 0 ? Math.round(ebitda / ca_n * 1000) / 10 : 0,
-    resultat_net,
+    marge_brute: chaine_comptable.marge_brute,
+    marge_brute_pct: ca_n > 0 ? Math.round(chaine_comptable.marge_brute / ca_n * 1000) / 10 : 0,
+    ebitda: chaine_comptable.ebe,
+    ebitda_pct: ca_n > 0 ? Math.round(chaine_comptable.ebe / ca_n * 1000) / 10 : 0,
+    resultat_net: chaine_comptable.resultat_net,
     tresorerie_nette,
     endettement: dettes_financieres,
     capitaux_propres,
     total_actif,
     charges_personnel,
     annee_n,
+    chaine_comptable,
   };
 }
 
@@ -910,6 +935,44 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
     }
   }
 
+  // ── SECTOR GUARDRAILS — clamp AI projections to realistic bounds ──
+  try {
+    const guardrails = getSectorGuardrails(inputsData?.informations_generales?.secteur || "services_b2b");
+
+    for (let i = 1; i < PROJ_KEYS.length; i++) {
+      const prev = data.revenue[PROJ_KEYS[i - 1]];
+      const curr = data.revenue[PROJ_KEYS[i]];
+      if (prev > 0 && curr > 0) {
+        const growth = (curr / prev - 1) * 100;
+        if (growth > guardrails.croissance_max_annuelle) {
+          console.warn(`[guardrail] Croissance ${PROJ_KEYS[i]} = ${growth.toFixed(0)}% > max ${guardrails.croissance_max_annuelle}% — capping`);
+          data.revenue[PROJ_KEYS[i]] = Math.round(prev * (1 + guardrails.croissance_max_annuelle / 100));
+          // Recalculate derived series proportionally
+          const ratio = data.revenue[PROJ_KEYS[i]] / curr;
+          data.gross_profit[PROJ_KEYS[i]] = Math.round(data.gross_profit[PROJ_KEYS[i]] * ratio);
+          data.cogs[PROJ_KEYS[i]] = data.revenue[PROJ_KEYS[i]] - data.gross_profit[PROJ_KEYS[i]];
+          data.ebitda[PROJ_KEYS[i]] = Math.round(data.ebitda[PROJ_KEYS[i]] * ratio);
+          data.net_profit[PROJ_KEYS[i]] = Math.round(data.net_profit[PROJ_KEYS[i]] * ratio);
+          data.cashflow[PROJ_KEYS[i]] = Math.round(data.cashflow[PROJ_KEYS[i]] * ratio);
+        }
+      }
+    }
+
+    // Check gross margin bounds for projection years (only warn if data is AI-estimated, not from financial statements)
+    for (const yk of PROJ_KEYS) {
+      const rev = data.revenue[yk];
+      const gp = data.gross_profit[yk];
+      if (rev > 0 && gp > 0) {
+        const mbPct = (gp / rev) * 100;
+        if (mbPct < guardrails.marge_brute_min || mbPct > guardrails.marge_brute_max) {
+          console.warn(`[guardrail] Marge brute ${yk} = ${mbPct.toFixed(1)}% hors bornes secteur [${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%]`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[enforceFramework] Guardrails check failed (non-blocking):", e);
+  }
+
   // If no cashflow line from Framework, derive cashflow = EBITDA × (1 - taux_IS/100)
   if (!cfLine && data.net_profit && data.cashflow) {
     const { is: tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
@@ -1552,4 +1615,99 @@ export function normalizeByType(type: string, data: any): any {
 
   const normalizer = normalizers[type];
   return normalizer ? normalizer(data) : data;
+}
+
+// ===== CROSS-DELIVERABLE VALIDATOR =====
+/**
+ * Validates financial coherence across ALL deliverables.
+ * Called AFTER each deliverable generation to detect inter-agent inconsistencies.
+ */
+export function validateCrossDeliverables(
+  inputsData: any,
+  frameworkData: any,
+  planOvoData: any,
+  preScreeningData: any,
+  onePagerData: any,
+): { valid: boolean; errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const truth = getFinancialTruth(inputsData);
+  if (!truth) return { valid: true, errors: [], warnings: ["Pas d'inputs data — validation impossible"] };
+
+  // 1. CA cohérent entre tous les livrables
+  const checkCA = (label: string, value: any) => {
+    const v = toNumber(value, 0);
+    if (v > 0 && Math.abs(v - truth.ca_n) / truth.ca_n > 0.05) {
+      errors.push(`${label} CA (${v}) dévie de >5% du CA réel (${truth.ca_n})`);
+    }
+  };
+  checkCA("Framework", frameworkData?.kpis?.ca_annee_n);
+  checkCA("Plan OVO", planOvoData?.revenue?.current_year);
+  checkCA("Pre-screening", preScreeningData?.sante_financiere?.ca_estime);
+
+  // Parse onePager CA from traction
+  if (onePagerData?.traction?.ca_y0) {
+    const opCAStr = String(onePagerData.traction.ca_y0).replace(/[^\d]/g, '');
+    const opCA = parseFloat(opCAStr);
+    if (opCA > 0 && Math.abs(opCA - truth.ca_n) / truth.ca_n > 0.10) {
+      warnings.push(`One-Pager CA (${opCA}) dévie de >10% du CA réel (${truth.ca_n})`);
+    }
+  }
+
+  // 2. Trésorerie cohérente
+  const psTreso = toNumber(preScreeningData?.sante_financiere?.tresorerie_nette, 0);
+  const fwTreso = toNumber(frameworkData?.tresorerie_bfr?.tresorerie_nette, 0);
+  if (psTreso > 0 && fwTreso > 0 && Math.abs(psTreso - fwTreso) / Math.max(psTreso, fwTreso) > 0.15) {
+    warnings.push(`Trésorerie pre-screening (${psTreso}) vs framework (${fwTreso}) — écart >15%`);
+  }
+
+  // 3. Chaîne comptable vérifiable dans le Framework
+  if (frameworkData?.projection_5ans?.lignes && Array.isArray(frameworkData.projection_5ans.lignes)) {
+    const lignes = frameworkData.projection_5ans.lignes;
+    const findLine = (...patterns: string[]) => lignes.find((l: any) => {
+      const lb = (l.poste || l.libelle || '').toLowerCase();
+      return patterns.some(p => lb.includes(p)) && !lb.includes('%');
+    });
+    const caLine = findLine('ca total', 'revenue', 'chiffre');
+    const mbLine = findLine('marge brute', 'gross');
+    const ebitdaLine = findLine('ebitda');
+    const rnLine = findLine('résultat net', 'resultat net');
+
+    for (const yr of ['an1', 'an2', 'an3', 'an4', 'an5']) {
+      const ca = toNumber(caLine?.[yr], 0);
+      const mb = toNumber(mbLine?.[yr], 0);
+      const ebitda = toNumber(ebitdaLine?.[yr], 0);
+      const rn = toNumber(rnLine?.[yr], 0);
+      if (ca > 0) {
+        if (mb > ca) errors.push(`Framework ${yr}: Marge Brute (${mb}) > CA (${ca})`);
+        if (ebitda > mb) errors.push(`Framework ${yr}: EBITDA (${ebitda}) > Marge Brute (${mb})`);
+        if (rn > ebitda) warnings.push(`Framework ${yr}: Résultat Net (${rn}) > EBITDA (${ebitda})`);
+      }
+    }
+  }
+
+  // 4. Plan OVO chaîne P&L
+  if (planOvoData?.revenue) {
+    const YEAR_KEYS = ['current_year', 'year2', 'year3', 'year4', 'year5', 'year6'];
+    for (const yk of YEAR_KEYS) {
+      const rev = toNumber(planOvoData.revenue[yk], 0);
+      const gp = toNumber(planOvoData.gross_profit?.[yk], 0);
+      const ebitda = toNumber(planOvoData.ebitda?.[yk], 0);
+      const rn = toNumber(planOvoData.net_profit?.[yk], 0);
+      if (rev > 0) {
+        if (gp > rev) errors.push(`Plan OVO ${yk}: gross_profit (${gp}) > revenue (${rev})`);
+        if (ebitda > gp) errors.push(`Plan OVO ${yk}: ebitda (${ebitda}) > gross_profit (${gp})`);
+        if (rn > ebitda) warnings.push(`Plan OVO ${yk}: net_profit (${rn}) > ebitda (${ebitda})`);
+      }
+    }
+  }
+
+  // 5. Historique cohérent entre Plan OVO et Inputs
+  if (planOvoData?.revenue?.year_minus_1 && truth.ca_n_minus_1 > 0) {
+    if (Math.abs(planOvoData.revenue.year_minus_1 - truth.ca_n_minus_1) / truth.ca_n_minus_1 > 0.10) {
+      errors.push(`Plan OVO CA N-1 (${planOvoData.revenue.year_minus_1}) ≠ historique réel (${truth.ca_n_minus_1})`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
 }
