@@ -221,8 +221,9 @@ serve(async (req) => {
     // RAG: enrichir avec benchmarks et fiscal
     const ragContext = await buildRAGContext(ctx.supabase, country, ent.sector || "", ["benchmarks", "fiscal", "bailleurs"], "plan_ovo");
 
+    const agentDocs = getDocumentContentForAgent(ent, "plan_ovo", 80_000);
     const rawData = await callAI(buildSystemPrompt(country, ent.sector || ""), buildUserPrompt(
-      ent.name, ent.sector || "", country, ctx.documentContent, allData, ctx.baseYear
+      ent.name, ent.sector || "", country, agentDocs, allData, ctx.baseYear
     ) + ragContext);
     
     // Normalize: fix years, ensure consistency, fill gaps

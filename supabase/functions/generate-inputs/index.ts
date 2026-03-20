@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, getDocumentContentForAgent } from "../_shared/helpers_v5.ts";
 import { normalizeInputs } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { getExtractionKnowledgePrompt } from "../_shared/financial-knowledge.ts";

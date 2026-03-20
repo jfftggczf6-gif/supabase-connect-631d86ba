@@ -108,7 +108,7 @@ DIAGNOSTIC : ${JSON.stringify(diag).substring(0, 500)}
 
 PLAN OVO : ${plan ? JSON.stringify(plan).substring(0, 800) : "Non disponible"}
 
-${ctx.documentContent ? `DOCUMENTS:\n${ctx.documentContent.substring(0, 2000)}` : ""}`;
+${ctx._agentDocs ? `DOCUMENTS:\n${ctx._agentDocs.substring(0, 2000)}` : ""}`;
 }
 
 function buildPromptPart1(ctx: any): string {
