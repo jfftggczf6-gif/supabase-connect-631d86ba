@@ -360,6 +360,26 @@ export default function EntrepreneurDashboard({
       return await response.json();
     };
 
+    // Poll enterprise_modules for memo checkpoint
+    const pollMemoCheckpoint = async (entId: string, maxWaitMs = 120000): Promise<string> => {
+      const interval = 5000;
+      const maxAttempts = Math.ceil(maxWaitMs / interval);
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, interval));
+        const { data } = await supabase
+          .from('enterprise_modules')
+          .select('data, status, progress')
+          .eq('enterprise_id', entId)
+          .eq('module', 'investment_memo')
+          .single();
+        const phase = (data?.data as any)?.phase;
+        if (phase === 'part1_completed') return 'checkpoint_ready';
+        if (phase === 'completed') return 'fully_done';
+        if (phase === 'failed') return 'failed';
+      }
+      return 'timeout';
+    };
+
     try {
       const token = await getValidAccessToken(authSession, navigate);
       const functionName = MODULE_FN_MAP[moduleCode] || `generate-${moduleCode}`;
@@ -369,7 +389,30 @@ export default function EntrepreneurDashboard({
         : moduleCode === 'business_plan' ? 300000
         : 120000;
 
-      let result = await runSingleAttempt(functionName, token, enterprise.id, timeoutMs);
+      let result: any;
+      try {
+        result = await runSingleAttempt(functionName, token, enterprise.id, timeoutMs);
+      } catch (fetchErr: any) {
+        // For investment_memo, if network fails (Load failed / AbortError), poll for checkpoint
+        if (moduleCode === 'investment_memo' && (fetchErr.name === 'AbortError' || fetchErr.message?.includes('Load failed') || fetchErr.message?.includes('Failed to fetch'))) {
+          toast.info('Connexion interrompue — vérification du traitement en cours…');
+          const pollResult = await pollMemoCheckpoint(enterprise.id, 120000);
+          if (pollResult === 'checkpoint_ready') {
+            toast.info('Passe 1 terminée ! Lancement de la finalisation…');
+            const freshToken = await getValidAccessToken(authSession, navigate);
+            result = await runSingleAttempt(functionName, freshToken, enterprise.id, timeoutMs);
+          } else if (pollResult === 'fully_done') {
+            toast.success('Mémo d\'investissement déjà finalisé !');
+            setSelectedModule(moduleCode);
+            await fetchData();
+            return;
+          } else {
+            throw new Error('La génération du mémo a échoué. Réessayez.');
+          }
+        } else {
+          throw fetchErr;
+        }
+      }
 
       // Investment memo 2-pass: if pass 1 returned processing, auto-chain pass 2
       if (result.processing === true && moduleCode === 'investment_memo') {
@@ -378,7 +421,7 @@ export default function EntrepreneurDashboard({
         result = await runSingleAttempt(functionName, freshToken, enterprise.id, timeoutMs);
       }
 
-      toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score}/100`);
+      toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score ?? 0}/100`);
       setSelectedModule(moduleCode);
       await fetchData();
     } catch (err: any) {

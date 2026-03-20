@@ -327,16 +327,23 @@ ${MEMO_SCHEMA_PART1}`;
 
       const score = part1.resume_executif?.score_ir || 0;
 
-      // Save checkpoint
-      await updateMemoModuleState(ctx.enterprise_id, {
-        phase: "part1_completed",
-        part1,
-        score,
-        part1_completed_at: new Date().toISOString(),
-        request_id: requestId,
-      }, 50, "in_progress");
+      // Save checkpoint IMMEDIATELY after AI call — before HTTP return
+      // This is critical: the HTTP connection may already be dead at this point
+      console.log("Investment Memo — Pass 1 AI done, saving checkpoint NOW...");
+      try {
+        await updateMemoModuleState(ctx.enterprise_id, {
+          phase: "part1_completed",
+          part1,
+          score,
+          part1_completed_at: new Date().toISOString(),
+          request_id: requestId,
+        }, 50, "in_progress");
+        console.log("Investment Memo — Checkpoint saved successfully.");
+      } catch (checkpointErr: any) {
+        console.error("Investment Memo — CRITICAL: checkpoint save failed:", checkpointErr.message);
+      }
 
-      console.log("Investment Memo — Pass 1 completed, checkpoint saved. Returning 202.");
+      console.log("Investment Memo — Returning 202 (client may have disconnected, frontend will poll).");
       return new Response(JSON.stringify({
         success: true,
         processing: true,
