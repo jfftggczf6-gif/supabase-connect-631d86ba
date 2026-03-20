@@ -145,8 +145,8 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     return c;
   };
 
-  // Enterprise info from data (if available)
-  const entInfo = data._enterprise_info || {};
+  // Enterprise info: prefer passed enterprise prop, fallback to data
+  const entInfo = ent || data._enterprise_info || {};
 
   return (
     <div className="space-y-6">

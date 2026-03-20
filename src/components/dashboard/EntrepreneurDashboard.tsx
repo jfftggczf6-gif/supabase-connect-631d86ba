@@ -1114,6 +1114,7 @@ export default function EntrepreneurDashboard() {
               <div className="p-6">
                 <PreScreeningViewer
                   data={selectedDeliv.data as Record<string, any>}
+                  enterprise={enterprise}
                   onRegenerate={async (programmeId?: string | null) => {
                     if (!enterprise) return;
                     try {
