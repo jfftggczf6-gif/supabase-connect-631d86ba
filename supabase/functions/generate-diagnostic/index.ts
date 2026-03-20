@@ -312,10 +312,35 @@ serve(async (req) => {
     const validationRules = getValidationRulesPrompt();
     const sectorBenchmarks = getSectorKnowledgePrompt(secteur);
 
+    // Financial Truth Anchor
+    const inputsRaw = rawLivrables.inputs;
+    const truth = getFinancialTruth(inputsRaw);
+    let truthBlock = "";
+    if (truth) {
+      truthBlock = `
+
+══════ DONNÉES FINANCIÈRES RÉELLES (ÉTATS FINANCIERS) ══════
+⚠ CES CHIFFRES SONT LA VÉRITÉ — base ton diagnostic financier sur ces données
+CA N (${truth.annee_n}) : ${truth.ca_n.toLocaleString('fr-FR')} FCFA
+CA N-1 : ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
+CA N-2 : ${truth.ca_n_minus_2.toLocaleString('fr-FR')} FCFA
+Marge brute : ${truth.marge_brute.toLocaleString('fr-FR')} FCFA (${truth.marge_brute_pct}%)
+EBITDA : ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
+Résultat net : ${truth.resultat_net.toLocaleString('fr-FR')} FCFA
+Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+Charges personnel : ${truth.charges_personnel.toLocaleString('fr-FR')} FCFA
+Endettement : ${truth.endettement.toLocaleString('fr-FR')} FCFA
+
+Utilise ces chiffres comme référence pour ton diagnostic financier. Compare aux benchmarks sectoriels.
+══════ FIN DONNÉES ══════
+`;
+    }
+
     const agentDocs = getDocumentContentForAgent(ent, "diagnostic", 80_000);
     const rawData = await callAI(
       SYSTEM_PROMPT,
       buildUserPrompt(ent.name, secteur, pays, agentDocs, livrables, kbContext)
+        + truthBlock
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
         + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}`
         + ragContext
