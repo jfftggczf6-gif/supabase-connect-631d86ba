@@ -227,6 +227,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       setProgressLabel('Terminé !');
       setResult(resultData);
       await fetchExistingFiles();
+      toast.success(confidence >= 70
         ? 'Données solides — mode Due Diligence activé !'
         : 'Reconstruction terminée — ajoutez plus de documents pour améliorer la qualité.');
 
