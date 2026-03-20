@@ -418,63 +418,8 @@ export default function CoachDashboard() {
     }
   };
 
-  // ─── Generate Mirror (Vue Miroir) ─────────────────────────────────────────
+  // (handleGenerateMirror removed — mirror view now delegates to EntrepreneurDashboard)
 
-  const handleGenerateMirror = async (enterpriseId: string) => {
-    if (!user) return;
-    setGeneratingMirror(true);
-    const entUploads = uploadsMap[enterpriseId] || [];
-    if (entUploads.length === 0) {
-      toast.error('Uploadez des documents dans la sidebar avant de générer');
-      setGeneratingMirror(false);
-      return;
-    }
-
-    setGenerationProgress({ current: 0, total: PIPELINE.length, name: 'Lancement…' });
-
-    let token: string;
-    try { token = await getValidAccessToken(authSession); } catch { toast.error('Non authentifié'); setGeneratingMirror(false); return; }
-
-    try {
-      const pipelineResult = await runPipelineFromClient(enterpriseId, token, {
-        onProgress: setGenerationProgress,
-        onStepComplete: () => fetchData(),
-      });
-
-      if (pipelineResult.executedCount > 0) {
-        // Mark as mirror + shared
-        await supabase.from('deliverables')
-          .update({ generated_by: 'coach_mirror', visibility: 'shared', coach_id: user.id, shared_at: new Date().toISOString() })
-          .eq('enterprise_id', enterpriseId)
-          .in('type', PIPELINE.map(s => s.type));
-
-        const skippedMsg = pipelineResult.skippedCount > 0 ? `, ${pipelineResult.skippedCount} déjà à jour` : '';
-        toast.success(`${pipelineResult.executedCount} livrable(s) recalculé(s)${skippedMsg} — visibles par l'entrepreneur`);
-      } else if (pipelineResult.skippedCount > 0) {
-        toast.info(`Tous les livrables sont déjà à jour.`);
-      }
-
-      if (pipelineResult.creditError) {
-        toast.error("Crédits IA insuffisants.");
-      }
-
-      await fetchData();
-
-      // Auto-trigger OVO Excel
-      if (pipelineResult.completedCount > 0) {
-        try {
-          toast.info('Génération automatique du Plan Financier Excel...');
-          await handleGenerateOvoPlanCoach(enterpriseId);
-        } catch {}
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
-    } finally {
-      setGeneratingMirror(false);
-      setGenerationProgress(null);
-      await fetchData();
-    }
-  };
 
   // ─── Share / Unshare ──────────────────────────────────────────────────────
 
