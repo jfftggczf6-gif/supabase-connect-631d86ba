@@ -3,6 +3,7 @@
  * Handles key variations from different AI model outputs
  */
 import { getFiscalParams } from "./helpers_v5.ts";
+import { getSectorGuardrails } from "./financial-knowledge.ts";
 
 // ===== FINANCIAL TRUTH ANCHOR =====
 /**
