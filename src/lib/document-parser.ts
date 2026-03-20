@@ -140,7 +140,7 @@ export async function parseFile(file: File): Promise<ParsedDocument> {
  * Sorts by category priority (financial docs first) then by quality.
  */
 export function buildDocumentContent(docs: ParsedDocument[]): string {
-  const MAX_TOTAL = 150_000;
+  const MAX_TOTAL = 300_000;
 
   const categoryOrder: string[] = [
     'etats_financiers',

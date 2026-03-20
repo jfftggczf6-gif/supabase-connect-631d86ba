@@ -175,6 +175,75 @@ export async function verifyAndGetContext(req: Request) {
   return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap, baseYear };
 }
 
+/**
+ * Réordonne le document_content selon les priorités de l'agent.
+ * Chaque agent a des catégories de documents prioritaires différentes.
+ * Le parsing report (stocké en JSONB) contient la catégorie de chaque fichier.
+ */
+export function getDocumentContentForAgent(
+  enterprise: any,
+  agentType: string,
+  maxChars: number = 100_000
+): string {
+  const fullContent = enterprise.document_content || "";
+  const report = enterprise.document_parsing_report;
+
+  // Si pas de rapport de parsing, retourner le contenu tel quel (cappé)
+  if (!report?.files || !Array.isArray(report.files)) {
+    return fullContent.substring(0, maxChars);
+  }
+
+  // Priorités par agent — les catégories les plus utiles en premier
+  const AGENT_PRIORITIES: Record<string, string[]> = {
+    reconstruct: ['etats_financiers', 'releve_bancaire', 'budget_previsionnel', 'facture', 'business_plan', 'rapport_activite', 'document_legal'],
+    inputs: ['etats_financiers', 'releve_bancaire', 'budget_previsionnel', 'facture', 'business_plan'],
+    bmc: ['business_plan', 'rapport_activite', 'autre', 'budget_previsionnel', 'facture', 'etats_financiers'],
+    sic: ['rapport_activite', 'business_plan', 'autre', 'document_legal'],
+    framework: ['etats_financiers', 'releve_bancaire', 'budget_previsionnel', 'facture', 'business_plan'],
+    plan_ovo: ['budget_previsionnel', 'etats_financiers', 'business_plan', 'releve_bancaire'],
+    business_plan: ['business_plan', 'rapport_activite', 'etats_financiers', 'budget_previsionnel', 'facture', 'document_legal'],
+    odd: ['rapport_activite', 'business_plan', 'autre', 'document_legal'],
+    diagnostic: ['etats_financiers', 'business_plan', 'rapport_activite', 'budget_previsionnel', 'releve_bancaire'],
+    valuation: ['etats_financiers', 'budget_previsionnel', 'releve_bancaire', 'business_plan'],
+    onepager: ['business_plan', 'etats_financiers', 'rapport_activite', 'budget_previsionnel'],
+    investment_memo: ['etats_financiers', 'business_plan', 'rapport_activite', 'budget_previsionnel', 'document_legal', 'releve_bancaire'],
+    screening: ['etats_financiers', 'releve_bancaire', 'document_legal', 'business_plan', 'budget_previsionnel'],
+    pre_screening: ['etats_financiers', 'releve_bancaire', 'business_plan', 'budget_previsionnel', 'document_legal', 'facture'],
+  };
+
+  const priorities = AGENT_PRIORITIES[agentType] || AGENT_PRIORITIES['reconstruct'];
+
+  // Trier les fichiers du rapport selon les priorités de l'agent
+  const sortedFiles = [...report.files].sort((a: any, b: any) => {
+    const idxA = priorities.indexOf(a.category || 'autre');
+    const idxB = priorities.indexOf(b.category || 'autre');
+    const posA = idxA === -1 ? 999 : idxA;
+    const posB = idxB === -1 ? 999 : idxB;
+    return posA - posB;
+  });
+
+  // Reconstruire le contenu dans le nouvel ordre
+  let reordered = '';
+  for (const file of sortedFiles) {
+    if (reordered.length >= maxChars) break;
+
+    const marker = `══════ ${file.fileName}`;
+    const startIdx = fullContent.indexOf(marker);
+    if (startIdx === -1) continue;
+
+    const nextMarker = fullContent.indexOf('\n══════ ', startIdx + marker.length);
+    const endIdx = nextMarker === -1 ? fullContent.length : nextMarker;
+
+    const section = fullContent.substring(startIdx, endIdx);
+    const remaining = maxChars - reordered.length;
+    if (remaining <= 0) break;
+
+    reordered += '\n' + section.substring(0, remaining);
+  }
+
+  return reordered.trim() || fullContent.substring(0, maxChars);
+}
+
 export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514", temperature = 0) {
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
