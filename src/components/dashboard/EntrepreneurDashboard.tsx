@@ -886,6 +886,11 @@ export default function EntrepreneurDashboard({
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* ===== TOP HEADER ===== */}
       <header className="flex-none h-14 border-b border-border bg-card flex items-center px-6 z-50">
+        {showBackButton && onBack && (
+          <Button variant="ghost" size="sm" onClick={onBack} className="mr-2">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Retour liste
+          </Button>
+        )}
         <span className="font-display font-bold text-lg tracking-tight">ESONO</span>
         <span className="mx-3 text-muted-foreground">·</span>
         <span className="text-sm font-medium text-foreground">{enterprise.name}</span>
@@ -897,9 +902,11 @@ export default function EntrepreneurDashboard({
           <span className="text-sm text-foreground">
             {profile?.full_name} · <span className="text-muted-foreground">{profile?.email}</span>
           </span>
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4" /> Déconnexion
-          </Button>
+          {!coachMode && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" /> Déconnexion
+            </Button>
+          )}
         </div>
       </header>
 
