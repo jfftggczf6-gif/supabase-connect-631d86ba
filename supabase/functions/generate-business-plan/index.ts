@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent } from "../_shared/helpers_v5.ts";
 import { syncBusinessPlanWithPlanOvo } from "../_shared/normalizers.ts";
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "npm:docx@8";
