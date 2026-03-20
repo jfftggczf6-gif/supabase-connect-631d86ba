@@ -1114,13 +1114,15 @@ export default function EntrepreneurDashboard() {
               <div className="p-6">
                 <PreScreeningViewer
                   data={selectedDeliv.data as Record<string, any>}
-                  onRegenerate={async () => {
+                  onRegenerate={async (programmeId?: string | null) => {
                     if (!enterprise) return;
                     try {
                       const token = await getValidAccessToken(authSession, navigate);
+                      const body: any = { enterprise_id: enterprise.id };
+                      if (programmeId) body.programme_criteria_id = programmeId;
                       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ enterprise_id: enterprise.id }),
+                        body: JSON.stringify(body),
                       });
                       if (!resp.ok) throw new Error('Erreur');
                       toast.success('Pre-screening regénéré !');
