@@ -6,6 +6,7 @@ import DeliverableViewer from './DeliverableViewer';
 import BmcViewer from './BmcViewer';
 import SicViewer from './SicViewer';
 import BusinessPlanPreview from './BusinessPlanPreview';
+import EntrepreneurDashboard from './EntrepreneurDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
