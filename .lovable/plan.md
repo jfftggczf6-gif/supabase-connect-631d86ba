@@ -1,30 +1,58 @@
 
 
-## Plan : Bouton éphémère "Générer Mémo d'Investissement"
+## Diagnostic : Pourquoi le Mémo d'Investissement a échoué
 
-### Changement unique — `src/components/dashboard/EntrepreneurDashboard.tsx`
+### Ce qui s'est passé
 
-Après le bloc `odd` (ligne 1316) et avant le commentaire `{/* Viewers */}` (ligne 1318), ajouter un bloc conditionnel pour `investment_memo` quand aucun livrable n'existe :
+1. **Pass 1 a réussi** — les logs confirment : "Pass 1 completed, checkpoint saved. Returning 202."
+2. **Mais le checkpoint n'a PAS été sauvegardé** — la table `enterprise_modules` est **vide** pour cette entreprise (aucune ligne, pas seulement pour investment_memo).
+3. **Cause racine** : la fonction `updateMemoModuleState` fait un `UPDATE` sur une ligne qui n'existe pas. Un UPDATE sur 0 lignes = opération silencieuse sans erreur, sans insertion.
+4. **Conséquence en cascade** : la connexion HTTP s'est fermée avant que le 202 n'arrive au client → le frontend n'a jamais reçu la réponse → pas de chaînage automatique de la Pass 2.
 
-```tsx
-{selectedModule === 'investment_memo' && !getDeliverable('investment_memo') && (
-  <div className="flex flex-col items-center justify-center h-64 text-center px-6">
-    <Briefcase className="h-16 w-16 text-muted-foreground/20 mb-4" />
-    <h3 className="font-semibold text-lg mb-2">Mémo d'Investissement</h3>
-    <p className="text-sm text-muted-foreground/70 max-w-sm mb-6">
-      Génération en 2 passes (~6 min chacune).
-    </p>
-    <button
-      onClick={() => handleGenerateModule('investment_memo')}
-      disabled={generating}
-      className="flex items-center gap-2 px-6 py-3 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
-    >
-      {generatingModule === 'investment_memo' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-      Générer le Mémo d'Investissement
-    </button>
-  </div>
-)}
+### Correction — `supabase/functions/generate-investment-memo/index.ts`
+
+Remplacer `UPDATE` par un **UPSERT** dans `updateMemoModuleState` :
+
+```typescript
+async function updateMemoModuleState(
+  enterpriseId: string,
+  moduleData: Record<string, any>,
+  progress: number,
+  status: string,
+) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const svc = createClient(supabaseUrl, serviceKey);
+  
+  const mappedStatus = status === "completed" ? "completed" 
+    : status === "not_started" ? "not_started" : "in_progress";
+
+  await svc.from("enterprise_modules").upsert({
+    enterprise_id: enterpriseId,
+    module: "investment_memo",
+    data: moduleData,
+    progress,
+    status: mappedStatus,
+  }, { onConflict: "enterprise_id,module" });
+}
 ```
 
-C'est un seul bloc de ~15 lignes ajouté à la ligne 1317. Aucun autre fichier modifié. Le bouton disparaît naturellement une fois le livrable généré (car `getDeliverable('investment_memo')` retournera le résultat).
+### Pré-requis DB
+
+Il faut ajouter une contrainte UNIQUE sur `(enterprise_id, module)` dans `enterprise_modules` pour que le `onConflict` fonctionne :
+
+```sql
+ALTER TABLE public.enterprise_modules 
+ADD CONSTRAINT enterprise_modules_enterprise_module_unique 
+UNIQUE (enterprise_id, module);
+```
+
+### Résumé des changements
+
+| Fichier | Modification |
+|---|---|
+| Migration SQL | Ajouter contrainte UNIQUE `(enterprise_id, module)` |
+| `generate-investment-memo/index.ts` | `update()` → `upsert()` avec `onConflict` |
+
+Après ce fix, relancer la génération du mémo fonctionnera : le checkpoint sera sauvé, le 202 retourné, et le frontend chaînera automatiquement la Pass 2.
 
