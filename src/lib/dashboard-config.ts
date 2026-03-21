@@ -47,7 +47,7 @@ export const MODULE_CONFIG_COACH = [
 ];
 
 export const DELIVERABLE_CONFIG = [
-  { type: 'pre_screening',   label: 'Pre-screening / Triage',                     formats: ['html', 'json'], icon: '🔍' },
+  { type: 'pre_screening',   label: 'Diagnostic initial',                         formats: ['html', 'json'], icon: '🔍' },
   { type: 'bmc_analysis',    label: 'Business Model Canvas',                     formats: ['html', 'json'], icon: '📊' },
   { type: 'sic_analysis',    label: 'Social Impact Canvas',                      formats: ['html', 'json'], icon: '🌍' },
   { type: 'framework_data',  label: 'Plan Financier Intermédiaire',              formats: ['html', 'xlsx'], icon: '📈' },
