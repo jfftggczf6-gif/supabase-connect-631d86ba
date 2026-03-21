@@ -512,9 +512,7 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
                 </button>
               ))}
               <div className="pt-4 space-y-2">
-                <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleCopySummary}><Copy className="h-3 w-3 mr-1" /> Copier résumé</Button>
                 <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleDownloadHtml}><Download className="h-3 w-3 mr-1" /> HTML (A4)</Button>
-                <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleDownloadJson}><Download className="h-3 w-3 mr-1" /> JSON</Button>
                 {onRegenerate && <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onRegenerate}>Regénérer</Button>}
               </div>
             </div>
