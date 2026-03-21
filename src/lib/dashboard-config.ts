@@ -51,7 +51,7 @@ export const DELIVERABLE_CONFIG = [
   { type: 'bmc_analysis',    label: 'Business Model Canvas',                     formats: ['html', 'json'], icon: '📊' },
   { type: 'sic_analysis',    label: 'Social Impact Canvas',                      formats: ['html', 'json'], icon: '🌍' },
   { type: 'framework_data',  label: 'Plan Financier Intermédiaire',              formats: ['html', 'xlsx'], icon: '📈' },
-  { type: 'diagnostic_data', label: 'Diagnostic Expert',                         formats: ['html', 'json'], icon: '🩺' },
+  { type: 'diagnostic_data', label: 'Bilan de progression',                      formats: ['html', 'json'], icon: '🩺' },
   { type: 'plan_ovo',        label: 'Plan Financier Final',                      formats: ['html', 'xlsx'], icon: '📋' },
   { type: 'business_plan',   label: 'Business Plan',                             formats: ['html', 'json', 'docx'], icon: '📄' },
   { type: 'odd_analysis',    label: 'ODD (17 Objectifs de Développement Durable)', formats: ['html', 'json', 'xlsx'], icon: '🌍' },
