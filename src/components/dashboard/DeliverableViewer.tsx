@@ -524,8 +524,189 @@ export function InputsViewer({ data }: { data: any }) {
 
 // ===== FRAMEWORK VIEWER (now in separate file: FrameworkViewer.tsx) =====
 
-// ===== DIAGNOSTIC VIEWER (nouveau format complet) =====
+// ===== BILAN DE PROGRESSION VIEWER (6 zones) =====
 function DiagnosticViewer({ data }: { data: any }) {
+  // Support both old format and new "Bilan de progression" format
+  const isNewFormat = !!(data.verdict_readiness || data.problemes || data.points_forts);
+
+  // Compatibilité ancien format
+  if (!isNewFormat) {
+    return <LegacyDiagnosticViewer data={data} />;
+  }
+
+  const verdict = data.verdict_readiness || {};
+  const progression = data.progression || {};
+  const problemes = data.problemes || [];
+  const questions = data.questions_entrepreneur || [];
+  const pointsForts = data.points_forts || [];
+  const benchmarks = data.benchmarks || {};
+  const verdictFinal = data.verdict_final || {};
+
+  const verdictColor = (score: number) =>
+    score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+
+  return (
+    <div className="space-y-4">
+      {/* ═══ ZONE 1 — Où en est-on ? ═══ */}
+      <Card className="bg-secondary">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${verdictColor(verdict.score || 0)}`}>
+              {verdict.score || '—'}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base font-semibold">{data.metadata?.nom_entreprise}</span>
+                {verdict.label && <Badge>{verdict.label}</Badge>}
+                <Badge className={verdict.pret_pour_bailleur ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>
+                  {verdict.pret_pour_bailleur ? 'Dossier prêt' : 'Pas encore prêt'}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{verdict.resume}</p>
+            </div>
+          </div>
+
+          {progression.score_initial != null && (
+            <div className="mt-4 pt-4 border-t space-y-1">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">{progression.score_initial}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="text-sm font-semibold">{progression.score_actuel}</span>
+                {progression.score_actuel != null && progression.score_initial != null && (
+                  <Badge className={(progression.score_actuel - progression.score_initial) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>
+                    {(progression.score_actuel - progression.score_initial) > 0 ? '+' : ''}{progression.score_actuel - progression.score_initial} pts
+                  </Badge>
+                )}
+              </div>
+              {progression.bloquants_leves?.map((b: string, i: number) => (
+                <p key={i} className="text-xs text-emerald-700 flex items-center gap-1.5"><CheckCircle className="h-3 w-3" />{b}</p>
+              ))}
+              {progression.bloquants_restants?.map((b: string, i: number) => (
+                <p key={i} className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle className="h-3 w-3" />{b}</p>
+              ))}
+              {progression.commentaire && (
+                <p className="text-xs text-muted-foreground italic">{progression.commentaire}</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ═══ ZONE 2 — Ce qui va coincer ═══ */}
+      {problemes.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui va coincer</h3>
+          {problemes.map((p: any, i: number) => (
+            <div key={i} className="p-3 rounded-r-lg bg-secondary border"
+              style={{ borderLeft: `4px solid ${p.urgence === 'bloquant' ? '#A32D2D' : p.urgence === 'important' ? '#BA7517' : '#185FA5'}` }}>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={`text-[9px] ${
+                  p.urgence === 'bloquant' ? 'bg-red-50 text-red-700 border-red-200' :
+                  p.urgence === 'important' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                  'bg-blue-50 text-blue-700 border-blue-200'
+                }`}>{p.urgence}</Badge>
+                <span className="text-xs font-medium">{p.titre}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{p.constat}</p>
+              <p className="text-xs text-blue-800 mt-2">→ {p.piste}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ ZONE 3 — Questions pour l'entrepreneur ═══ */}
+      {questions.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50/20">
+          <CardContent className="py-4">
+            <h4 className="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-3">Questions pour le prochain RDV</h4>
+            <div className="space-y-2">
+              {questions.map((q: string, i: number) => (
+                <div key={i} className="flex gap-2 p-2.5 bg-white rounded-lg border border-blue-100">
+                  <span className="text-xs font-bold text-blue-600 mt-0.5">{i + 1}.</span>
+                  <p className="text-xs text-blue-900 leading-relaxed">{q}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ═══ ZONE 4 — Ce qui est solide ═══ */}
+      {pointsForts.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui est solide</h3>
+          {pointsForts.map((pf: any, i: number) => (
+            <div key={i} className="p-3 rounded-r-lg bg-secondary border" style={{ borderLeft: '4px solid #639922' }}>
+              <p className="text-xs font-medium">{pf.titre}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{pf.constat}</p>
+              <p className="text-xs text-emerald-700 mt-2 font-medium">Argument bailleur : {pf.argument_bailleur}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ ZONE 5 — Benchmarks sectoriels ═══ */}
+      {Object.keys(benchmarks).length > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <h4 className="text-xs font-bold text-primary mb-3">📊 Benchmarks sectoriels</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead><tr className="border-b border-border">
+                  <th className="text-left py-1.5 font-semibold">Indicateur</th>
+                  <th className="text-right py-1.5 font-semibold">Entreprise</th>
+                  <th className="text-right py-1.5 font-semibold">Secteur</th>
+                  <th className="py-1.5 font-semibold">Verdict</th>
+                </tr></thead>
+                <tbody>
+                  {Object.entries(benchmarks).map(([key, bench]: [string, any]) => (
+                    <tr key={key} className="border-b border-border/30">
+                      <td className="py-1.5 font-medium capitalize">{key.replace(/_/g, ' ')}</td>
+                      <td className="text-right">{bench.entreprise != null ? `${bench.entreprise}%` : '—'}</td>
+                      <td className="text-right text-muted-foreground">{bench.secteur_min}–{bench.secteur_max}%</td>
+                      <td className="pl-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          bench.verdict === 'au_dessus' ? 'bg-green-100 text-green-700' :
+                          bench.verdict === 'dans_norme' ? 'bg-blue-100 text-blue-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>{bench.verdict?.replace(/_/g, ' ') || '—'}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ═══ ZONE 6 — Verdict final + prochaines étapes ═══ */}
+      {(verdictFinal.synthese || verdictFinal.prochaines_etapes?.length > 0) && (
+        <Card className="bg-secondary">
+          <CardContent className="py-4">
+            <h4 className="text-xs font-bold text-primary mb-2">Verdict final</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">{verdictFinal.synthese}</p>
+            {verdictFinal.delai_estime && (
+              <Badge className="mt-3" variant="outline">
+                {verdictFinal.delai_estime}
+              </Badge>
+            )}
+            {verdictFinal.prochaines_etapes?.length > 0 && (
+              <div className="mt-4 pt-3 border-t space-y-1">
+                {verdictFinal.prochaines_etapes.map((e: string, i: number) => (
+                  <p key={i} className="text-xs text-muted-foreground">{e}</p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ===== LEGACY DIAGNOSTIC VIEWER (ancien format) =====
+function LegacyDiagnosticViewer({ data }: { data: any }) {
   const [activeTab, setActiveTab] = useState('resume');
 
   const score = data.score_global || data.score || 0;
@@ -542,7 +723,6 @@ function DiagnosticViewer({ data }: { data: any }) {
   const synthese = data.synthese_globale || {};
   const pointsAttention = data.points_attention_prioritaires || [];
 
-  // Compatibilité ancien format (swot + diagnostic_par_dimension)
   const isOldFormat = !!(data.swot || data.diagnostic_par_dimension) && !data.scores_dimensions?.coherence?.analyse_detaillee;
 
   const scoreColor = (s: number) =>
@@ -559,12 +739,11 @@ function DiagnosticViewer({ data }: { data: any }) {
     q === 'moyen' ? 'bg-yellow-100 text-yellow-700' :
     'bg-orange-100 text-orange-700';
 
-  // === ANCIEN FORMAT (rétrocompatibilité) ===
   if (isOldFormat) {
     const dimensions = data.diagnostic_par_dimension || {};
     return (
       <div className="space-y-4">
-        <ScoreHeader title="Diagnostic Expert" score={score} subtitle={data.synthese_executive} badge={data.niveau_maturite} />
+        <ScoreHeader title="Bilan de progression" score={score} subtitle={data.synthese_executive} badge={data.niveau_maturite} />
         {Object.keys(dimensions).length > 0 && (
           <Card><CardContent className="py-4">
             <h4 className="text-xs font-bold text-primary mb-3">📊 Scores par dimension</h4>
@@ -610,7 +789,6 @@ function DiagnosticViewer({ data }: { data: any }) {
     );
   }
 
-  // === NOUVEAU FORMAT COMPLET ===
   const tabs = [
     { key: 'resume',      label: 'Résumé',         emoji: '📋' },
     { key: 'dimensions',  label: 'Dimensions',      emoji: '📊' },
@@ -621,25 +799,23 @@ function DiagnosticViewer({ data }: { data: any }) {
 
   return (
     <div className="space-y-4">
-      {/* Banner alerte données incomplètes */}
       {!data.metadata?.donnees_completes && (
         <div className="flex items-start gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50">
           <AlertCircle className="h-4 w-4 text-blue-500 flex-none mt-0.5" />
           <div>
             <p className="text-xs font-semibold text-blue-800">Diagnostic partiel</p>
             <p className="text-xs text-blue-600 mt-0.5">
-              {data.message_incomplet || "Pour un diagnostic complet, complétez les modules manquants. Nous avons analysé les livrables disponibles."}
+              {data.message_incomplet || "Pour un diagnostic complet, complétez les modules manquants."}
             </p>
           </div>
         </div>
       )}
 
-      {/* Header */}
       <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
         <CardContent className="py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Diagnostic Global Expert</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Bilan de progression</p>
               <h2 className="text-xl font-display font-bold">{data.metadata?.nom_entreprise || 'Votre entreprise'}</h2>
               <p className="text-sm opacity-75 mt-1 leading-relaxed">
                 {data.resume_executif
@@ -664,7 +840,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         </CardContent>
       </Card>
 
-      {/* Points d'attention prioritaires */}
       {pointsAttention.length > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="py-3 px-4">
@@ -681,7 +856,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         </Card>
       )}
 
-      {/* Tabs */}
       <div className="flex gap-0.5 overflow-x-auto border-b border-border">
         {tabs.map(tab => (
           <button
@@ -698,7 +872,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         ))}
       </div>
 
-      {/* ── TAB : RÉSUMÉ ── */}
       {activeTab === 'resume' && (
         <div className="space-y-4">
           <Card><CardContent className="py-4">
@@ -784,7 +957,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         </div>
       )}
 
-      {/* ── TAB : DIMENSIONS ── */}
       {activeTab === 'dimensions' && (
         <div className="space-y-3">
           {Object.entries(scoresDims).map(([key, dim]: [string, any]) => (
@@ -925,7 +1097,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         </div>
       )}
 
-      {/* ── TAB : LIVRABLES ── */}
       {activeTab === 'livrables' && (
         <div className="space-y-3">
           {Object.entries(avisLivrables).length === 0 && (
@@ -1004,7 +1175,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         </div>
       )}
 
-      {/* ── TAB : RECOMMANDATIONS ── */}
       {activeTab === 'recommandations' && (
         <div className="space-y-3">
           {recommandations.length === 0 && (
@@ -1065,7 +1235,6 @@ function DiagnosticViewer({ data }: { data: any }) {
         </div>
       )}
 
-      {/* ── TAB : SYNTHÈSE ── */}
       {activeTab === 'synthese' && (
         <div className="space-y-4">
           <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
