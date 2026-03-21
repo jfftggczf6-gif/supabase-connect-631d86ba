@@ -11,16 +11,32 @@ interface DeliverableViewerProps {
   moduleCode: string;
   data: any;
   allDeliverables?: any[];
+  onRegenerate?: () => void;
 }
 
-export default function DeliverableViewer({ moduleCode, data, allDeliverables }: DeliverableViewerProps) {
+export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate }: DeliverableViewerProps) {
   if (!data || typeof data !== 'object') return null;
 
+  const regenerateButton = onRegenerate ? (
+    <div className="flex justify-end mb-3">
+      <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
+        Regénérer
+      </button>
+    </div>
+  ) : null;
+
+  const wrapWithRegenerate = (viewer: React.ReactNode) => (
+    <>
+      {regenerateButton}
+      {viewer}
+    </>
+  );
+
   switch (moduleCode) {
-    case 'sic': return <SicViewer data={data} />;
-    case 'inputs': return <InputsViewer data={data} />;
-    case 'framework': return <FrameworkViewerComponent data={data} />;
-    case 'diagnostic': return <DiagnosticViewer data={data} />;
+    case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
+    case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} />);
+    case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} />);
+    case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} />);
     case 'plan_ovo': {
       const frameworkDel = allDeliverables?.find((d: any) => d.type === 'framework_data');
       const planOvoDel = allDeliverables?.find((d: any) => d.type === 'plan_ovo');
@@ -28,11 +44,11 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables }:
         frameworkUpdatedAt: frameworkDel.updated_at,
         planOvoUpdatedAt: planOvoDel.updated_at,
       } : undefined;
-      return <PlanOvoViewerComponent data={data} staleness={staleness} />;
+      return wrapWithRegenerate(<PlanOvoViewerComponent data={data} staleness={staleness} />);
     }
-    case 'business_plan': return <BusinessPlanViewer data={data} />;
-    case 'odd': return <OddViewerComponent data={data} />;
-    default: return <GenericJsonViewer data={data} />;
+    case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
+    case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} />);
+    default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
   }
 }
 
