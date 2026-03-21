@@ -73,20 +73,7 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
   const score = data.score || data.resume_executif?.score_ir || 0;
   const scoreBg = score >= 70 ? 'bg-emerald-100 text-emerald-700' : score >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
 
-  const handleCopySummary = () => {
-    const summary = data.resume_executif?.synthese || '';
-    navigator.clipboard.writeText(summary);
-    toast.success('Résumé copié !');
-  };
-
-  const handleDownloadJson = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `InvestmentMemo_${data.page_de_garde?.titre || 'memo'}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  // Removed handleCopySummary and handleDownloadJson — only HTML and PPTX remain
 
   const handleDownloadPptx = async () => {
     setGeneratingPptx(true);
