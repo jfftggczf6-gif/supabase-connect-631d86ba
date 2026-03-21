@@ -178,7 +178,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         throw new Error('Impossible de sauvegarder le contenu documentaire: ' + updateErr.message);
       }
 
-      console.log('Document content cached:', documentContent.length, 'chars from', docs.length, 'files');
+      console.log('Document content cached:', finalContent.length, 'chars from', docs.length, 'files');
 
       // === STEP 4: Reconstruction (reads cache — fast) ===
       setProgressLabel('Reconstruction IA en cours…');
