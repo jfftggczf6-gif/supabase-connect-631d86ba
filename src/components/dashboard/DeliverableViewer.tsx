@@ -642,14 +642,14 @@ function DiagnosticViewer({ data }: { data: any }) {
 
       {/* ═══ ZONE 3 — Questions pour l'entrepreneur ═══ */}
       {questions.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50/20">
+        <Card className="border-border bg-card shadow-sm">
           <CardContent className="py-4">
-            <h4 className="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-3">Questions pour le prochain RDV</h4>
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Questions pour le prochain RDV</h4>
             <div className="space-y-2">
               {questions.map((q: string, i: number) => (
-                <div key={i} className="flex gap-2 p-2.5 bg-white rounded-lg border border-blue-100">
-                  <span className="text-xs font-bold text-blue-600 mt-0.5">{i + 1}.</span>
-                  <p className="text-xs text-blue-900 leading-relaxed">{q}</p>
+                <div key={i} className="flex gap-2 p-2.5 bg-card rounded-lg border shadow-sm">
+                  <span className="text-xs font-bold text-primary mt-0.5">{i + 1}.</span>
+                  <p className="text-xs text-foreground leading-relaxed">{q}</p>
                 </div>
               ))}
             </div>
