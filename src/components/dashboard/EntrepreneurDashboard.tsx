@@ -1067,7 +1067,7 @@ export default function EntrepreneurDashboard({
               {selectedModule === 'pre_screening' && (
                 <>
                   <FileSearch className="h-5 w-5 text-muted-foreground" />
-                  <h1 className="font-display font-semibold text-base">Pre-screening / Triage</h1>
+                  <h1 className="font-display font-semibold text-base">Diagnostic initial</h1>
                 </>
               )}
               {selectedModule === 'dataroom' && (
