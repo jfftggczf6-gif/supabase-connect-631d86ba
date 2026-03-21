@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, errorResponse, jsonResponse,
   verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  getFiscalParams, getDocumentContentForAgent
+  getFiscalParams, getDocumentContentForAgent, getCoachingContext
 } from "../_shared/helpers_v5.ts";
 import { normalizeDiagnostic, getFinancialTruth } from "../_shared/normalizers.ts";
 import { getValidationRulesPrompt, getSectorKnowledgePrompt } from "../_shared/financial-knowledge.ts";
