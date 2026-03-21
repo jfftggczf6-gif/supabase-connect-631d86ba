@@ -662,10 +662,10 @@ function DiagnosticViewer({ data }: { data: any }) {
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui est solide</h3>
           {pointsForts.map((pf: any, i: number) => (
-            <div key={i} className="p-3 rounded-r-lg bg-background border" style={{ borderLeft: '4px solid #639922' }}>
-              <p className="text-xs font-medium">{pf.titre}</p>
+            <div key={i} className="p-3 rounded-r-lg bg-card border border-l-4 border-l-success shadow-sm">
+              <p className="text-xs font-medium text-foreground">{pf.titre}</p>
               <p className="text-xs text-foreground mt-1 leading-relaxed">{pf.constat}</p>
-              <p className="text-xs text-emerald-700 mt-2 font-medium">Argument bailleur : {pf.argument_bailleur}</p>
+              <p className="text-xs text-success mt-2 font-medium">Argument bailleur : {pf.argument_bailleur}</p>
             </div>
           ))}
         </div>
