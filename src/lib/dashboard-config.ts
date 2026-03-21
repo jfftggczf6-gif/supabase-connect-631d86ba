@@ -130,7 +130,7 @@ export const PHASES: PhaseConfig[] = [
     shortLabel: 'Triage',
     color: 'rose',
     modules: [
-      { code: 'pre_screening', label: 'Pre-screening', icon: FileSearch, special: 'pre_screening' },
+      { code: 'pre_screening', label: 'Diagnostic initial', icon: FileSearch, special: 'pre_screening' },
     ],
   },
   {
