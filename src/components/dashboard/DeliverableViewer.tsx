@@ -45,7 +45,7 @@ function SicViewer({ data }: { data: any }) {
       {data.probleme_social && (
         <Card><CardContent className="py-4">
           <h4 className="text-xs font-bold text-primary mb-1">🎯 Problème social adressé</h4>
-          <p className="text-sm text-muted-foreground">{data.probleme_social}</p>
+          <p className="text-sm text-foreground">{data.probleme_social}</p>
         </CardContent></Card>
       )}
 
