@@ -1217,9 +1217,9 @@ export default function EntrepreneurDashboard({
                         body: JSON.stringify(body),
                       });
                       if (!resp.ok) throw new Error('Erreur');
-                      toast.success('Pre-screening regénéré !');
+                      toast.success('Diagnostic initial regénéré !');
                       await fetchData();
-                    } catch { toast.error('Erreur de pre-screening'); }
+                    } catch { toast.error('Erreur de diagnostic initial'); }
                   }}
                   onLaunchPipeline={() => handleGenerate()}
                 />
