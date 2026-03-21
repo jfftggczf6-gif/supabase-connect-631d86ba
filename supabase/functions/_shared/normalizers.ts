@@ -1288,16 +1288,25 @@ export function normalizeScreeningReport(raw: any): any {
   if (!raw) return raw;
   const d = { ...raw };
 
-  d.screening_score = toNumber(pick(d, 'screening_score', 'score_global', 'score', 'score_screening'), 0);
+  const decisionBlock = d.decision && typeof d.decision === 'object' ? d.decision : null;
+
+  d.screening_score = toNumber(
+    pick(d, 'screening_score', 'score_global', 'score', 'score_screening') ?? decisionBlock?.niveau_conviction,
+    0,
+  );
   d.score = d.screening_score;
 
-  d.verdict = pick(d, 'verdict', 'decision', 'eligibility') || 'INSUFFISANT';
-  d.verdict = d.verdict.toUpperCase().replace(/É/g, 'E');
+  const rawVerdict = pick(d, 'verdict', 'eligibility') || decisionBlock?.verdict || (typeof d.decision === 'string' ? d.decision : null) || 'INSUFFISANT';
+  const normalizedVerdict = typeof rawVerdict === 'string'
+    ? rawVerdict.toUpperCase().replace(/É/g, 'E').replace(/\s+/g, '_')
+    : 'INSUFFISANT';
+
+  d.verdict = normalizedVerdict === 'HORS_CIBLE' ? 'NON_ELIGIBLE' : normalizedVerdict;
   if (!['ELIGIBLE', 'CONDITIONNEL', 'NON_ELIGIBLE', 'INSUFFISANT'].includes(d.verdict)) {
     d.verdict = d.screening_score >= 70 ? 'ELIGIBLE' : d.screening_score >= 40 ? 'CONDITIONNEL' : 'NON_ELIGIBLE';
   }
 
-  d.verdict_summary = pick(d, 'verdict_summary', 'summary', 'resume', 'résumé') || '';
+  d.verdict_summary = pick(d, 'verdict_summary', 'summary', 'resume', 'résumé') || decisionBlock?.justification || '';
 
   const rawScreenAnomalies = pick(d, 'anomalies', 'anomalies_detectees', 'issues', 'red_flags');
   d.anomalies = (Array.isArray(rawScreenAnomalies) ? rawScreenAnomalies : []).map((a: any) => {
