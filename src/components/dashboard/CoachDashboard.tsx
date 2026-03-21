@@ -1306,7 +1306,7 @@ export default function CoachDashboard() {
                 <div className="col-span-3 flex items-center justify-end gap-1.5">
                   <Button
                     variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1"
-                    onClick={() => { setSelectedEnt(ent); setView('detail'); setDetailTab('parcours'); }}
+                    onClick={() => { setSelectedEnt(ent); setView('detail'); setDetailTab('mirror'); }}
                   >
                     <Eye className="h-3 w-3" /> Voir
                   </Button>
