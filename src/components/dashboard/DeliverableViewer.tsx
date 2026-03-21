@@ -682,10 +682,10 @@ function DiagnosticViewer({ data }: { data: any }) {
 
       {/* ═══ ZONE 6 — Verdict final + prochaines étapes ═══ */}
       {(verdictFinal.synthese || verdictFinal.prochaines_etapes?.length > 0) && (
-        <Card className="bg-secondary">
+        <Card className="bg-background border">
           <CardContent className="py-4">
             <h4 className="text-xs font-bold text-primary mb-2">Verdict final</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">{verdictFinal.synthese}</p>
+            <p className="text-xs text-foreground leading-relaxed">{verdictFinal.synthese}</p>
             {verdictFinal.delai_estime && (
               <Badge className="mt-3" variant="outline">
                 {verdictFinal.delai_estime}
