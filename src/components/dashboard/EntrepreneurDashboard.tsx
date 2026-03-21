@@ -937,7 +937,7 @@ export default function EntrepreneurDashboard({
       setSelectedModule('screening');
       await fetchData();
     } catch (err: any) {
-      toast.error(err.message || 'Erreur de screening');
+      toast.error(err.message || 'Erreur de décision programme');
     } finally {
       setGeneratingScreening(false);
     }

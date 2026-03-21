@@ -1,220 +1,116 @@
-// v3 — force redeploy 2026-03-19
-// v4 — restore corsHeaders 2026-03-19
+// v5 — Décision programme 2026-03-21
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
   jsonResponse, errorResponse, getDocumentContentForAgent,
 } from "../_shared/helpers_v5.ts";
-import { normalizeScreeningReport } from "../_shared/normalizers.ts";
+import { normalizeScreeningReport, getFinancialTruth } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { getSectorKnowledgePrompt, getDonorCriteriaPrompt, getValidationRulesPrompt } from "../_shared/financial-knowledge.ts";
 
-const SYSTEM_PROMPT = `Tu es un analyste financier senior spécialisé dans le screening de PME africaines pour des programmes de financement (DFI, fonds d'impact, incubateurs, banques).
+const SYSTEM_PROMPT = `Tu es un chargé de programme senior dans une ONG/DFI avec 15 ans d'expérience en Afrique de l'Ouest. Tu évalues si une entreprise est éligible à un programme d'accompagnement et/ou de financement.
 
-TON RÔLE :
-1. Détecter les INCOHÉRENCES FINANCIÈRES dans les documents et données fournis
-2. Évaluer la QUALITÉ DOCUMENTAIRE du dossier
-3. Produire un VERDICT de screening rapide pour un bailleur
-4. Comparer le dossier aux CRITÈRES DU PROGRAMME si fournis
-5. Évaluer le PROFIL DE RISQUE complet de l'entreprise
-6. Proposer un PLAN D'ACTION PRIORITAIRE avec actions concrètes
-7. Recommander un PATHWAY DE FINANCEMENT adapté
+Tu as accès à TOUS les livrables du pipeline (BMC, SIC, Framework, Plan OVO, Business Plan, ODD, Valorisation, Diagnostic). Tu produis une DÉCISION PROGRAMME structurée.
 
-TYPES D'INCOHÉRENCES À DÉTECTER :
-- Bilan déséquilibré (Total Actif ≠ Total Passif, écart > 2%)
-- CA déclaré vs relevés bancaires (écart > 20% = red flag)
-- Charges personnel à 0 avec effectif > 0 déclaré
-- Marges irréalistes pour le secteur (marge brute > 80% en commerce par ex.)
-- Résultat net positif mais trésorerie négative sans explication
-- Créances clients > 50% du CA (risque d'impayés)
-- Ratio d'endettement > 80% sans plan de remboursement
-- Incohérence entre dates des documents et exercice déclaré
-- CA en croissance mais effectif en baisse (contradictoire)
-- Chiffres ronds suspects (tout en millions exacts = probable estimation)
-- Documents datés de périodes différentes présentés comme un même exercice
+TON APPROCHE :
+- Tu donnes une décision claire et justifiée
+- Tu évalues l'alignement avec les critères du programme (si fournis)
+- Tu estimes l'impact attendu et sa mesurabilité
+- Tu recommandes un montant et un type de financement adaptés
+- Tu listes les conditions concrètes
+- Tu identifies les risques pour le programme (pas pour l'entreprise — pour le PROGRAMME)
 
-CROSS-VALIDATION ENTRE DOCUMENTS :
-- Comparer le CA du bilan/CdR avec la somme des factures uploadées
-- Comparer les charges personnel avec les bulletins de paie si présents
-- Comparer la trésorerie du bilan avec le solde du dernier relevé bancaire
-- Vérifier que le RCCM correspond au nom de l'entreprise et au pays
-
-CLASSIFICATION DES ANOMALIES :
-- 🔴 BLOQUANT : incohérence qui invalide le dossier (fraude possible, données contradictoires majeures)
-- 🟡 ATTENTION : anomalie à vérifier mais pas bloquante (estimation probable, données partielles)
-- 🟢 NOTE : observation mineure, information contextuelle
-
-PROFIL DE RISQUE À ÉVALUER :
-- Risque opérationnel : dépendance à un fournisseur, un client, une personne clé, une infrastructure
-- Risque financier : tension de trésorerie, surendettement, absence de fonds de roulement, BFR excessif
-- Risque de marché : concentration sectorielle, concurrence, barrières à l'entrée, saisonnalité non provisionnée
-- Risque juridique : conformité RCCM, statuts, licences sectorielles, contrats de travail
-- Risque de gouvernance : absence de PV d'AG, confusion patrimoine personnel/professionnel, pas de comptabilité séparée
-- Risque pays : instabilité politique, inflation, risque de change, problèmes sécuritaires régionaux
-
-RECOMMANDATIONS PRIORITAIRES :
-- Classer par priorité (1 = urgent/bloquant, 5 = amélioration)
-- Chaque recommandation doit être ACTIONNABLE (pas "améliorer la gouvernance" mais "rédiger un PV d'AG annuel et le faire signer par tous les associés")
-- Estimer l'impact sur le score si l'action est réalisée
-- Indiquer si c'est l'entrepreneur ou le coach qui doit agir
-
-PATHWAY DE FINANCEMENT :
-- Recommander le type de financement adapté au stade actuel de l'entreprise
-- Lister les bailleurs potentiels concrets (pas des catégories génériques)
-- Estimer le montant éligible en fourchette
-- Lister les conditions préalables (ex: "obtenir un bilan certifié N-1")
-- Donner une timeline réaliste pour atteindre le niveau requis
-
-RÉSUMÉ EXÉCUTIF :
-- Le résumé doit être écrit comme si un analyste présentait le dossier à son directeur
-- Inclure les chiffres clés (CA, marge, score)
-- Identifier clairement les 3-5 forces ET les 3-5 faiblesses
-- Le decision_rationale explique la logique du verdict
-
-BENCHMARK :
-- Pour CHAQUE ratio financier, comparer avec le benchmark du secteur
-- Indiquer si la valeur est conforme, optimiste (au-dessus du benchmark), en alerte (en dessous), ou critique (très en dessous)
-- Si pas de données pour un ratio, indiquer "Non évaluable" plutôt que 0
-
-DÉTAIL DES CROSS-VALIDATIONS :
-- Pour chaque vérification (CA, bilan, charges, trésorerie, dates), rédiger 1-2 phrases expliquant le calcul et la conclusion
-- Citer les documents sources utilisés pour la comparaison
+TON & LANGAGE :
+- Formel mais accessible
+- Chaque affirmation est chiffrée et sourcée
+- La décision est tranchée — pas de "peut-être"
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
-const SCREENING_SCHEMA = `{
-  "screening_score": <0-100>,
-  "verdict": "ELIGIBLE | CONDITIONNEL | NON_ELIGIBLE | INSUFFISANT",
-  "verdict_summary": "string — 3-5 phrases résumant le verdict de manière détaillée et argumentée",
-
-  "resume_executif": {
-    "synthese": "string — paragraphe de 5-8 lignes résumant l'ensemble du dossier comme un analyste le ferait pour son supérieur",
-    "points_forts": ["string — 3-5 forces principales identifiées"],
-    "points_faibles": ["string — 3-5 faiblesses principales identifiées"],
-    "decision_rationale": "string — 2-3 phrases expliquant pourquoi ce verdict et pas un autre"
+const DECISION_SCHEMA = `{
+  "metadata": {
+    "nom_entreprise": "string",
+    "pays": "string",
+    "secteur": "string",
+    "date_generation": "string",
+    "programme": "string — nom du programme si connu, sinon 'Programme générique'"
   },
 
-  "anomalies": [
+  "decision": {
+    "verdict": "ÉLIGIBLE | CONDITIONNEL | HORS CIBLE",
+    "justification": "string — 3-5 phrases. Pourquoi cette décision. Factuel et chiffré.",
+    "niveau_conviction": <number 0-100>
+  },
+
+  "matching_criteres": {
+    "score_matching": <number 0-100>,
+    "criteres": [
+      {
+        "critere": "string — nom du critère",
+        "statut": "ok | ko | partiel",
+        "detail": "string — justification courte"
+      }
+    ]
+  },
+
+  "impact_attendu": {
+    "emplois_directs": "string — nombre actuel et projeté",
+    "emplois_indirects": "string — estimation",
+    "beneficiaires": "string — qui bénéficie et combien",
+    "odd_alignes": [
+      {
+        "odd": "string — ex: ODD 2 — Faim zéro",
+        "contribution": "string — contribution concrète et mesurable"
+      }
+    ],
+    "indicateurs_suivi": [
+      {
+        "indicateur": "string — ex: Nombre d'emplois créés",
+        "baseline": "string — valeur actuelle",
+        "cible": "string — valeur visée",
+        "horizon": "string — à 12 mois, 24 mois..."
+      }
+    ]
+  },
+
+  "dimensionnement": {
+    "montant_recommande": "string — montant ou fourchette en FCFA",
+    "type_financement": "string — prêt | subvention | mixte (prêt + subvention) | garantie",
+    "justification_montant": "string — 2-3 phrases expliquant comment le montant est calculé",
+    "utilisation_fonds": [
+      "string — poste de dépense. Ex: 'Équipement production : 15M FCFA'"
+    ],
+    "duree": "string — 12 mois, 24 mois...",
+    "jalons": [
+      {
+        "mois": <number>,
+        "jalon": "string — ce qui doit être atteint",
+        "indicateur": "string — comment on mesure"
+      }
+    ]
+  },
+
+  "conditions": [
     {
-      "severity": "bloquant | attention | note",
-      "category": "finance | documents | coherence | completude | gouvernance | legal",
-      "title": "string — titre court",
-      "detail": "string — explication détaillée avec chiffres précis",
-      "impact": "string — conséquence concrète de cette anomalie pour un investisseur",
-      "source_documents": ["string"],
-      "recommendation": "string — action corrective précise",
-      "effort": "facile | moyen | difficile"
+      "condition": "string — ce qui doit être fait",
+      "moment": "avant_financement | pendant | a_la_fin",
+      "responsable": "entrepreneur | coach | bailleur",
+      "detail": "string — précision si nécessaire"
     }
   ],
 
-  "cross_validation": {
-    "ca_coherent": true|false,
-    "ca_declared": <number ou null>,
-    "ca_from_documents": <number ou null>,
-    "ca_ecart_pct": <number ou null>,
-    "ca_detail": "string — explication du calcul et de la comparaison",
-    "bilan_equilibre": true|false,
-    "bilan_ecart": <number ou null>,
-    "bilan_detail": "string",
-    "charges_personnel_coherent": true|false,
-    "charges_personnel_detail": "string — masse salariale vs effectifs vs SMIG",
-    "tresorerie_coherent": true|false,
-    "tresorerie_detail": "string — comparaison bilan vs relevés bancaires",
-    "dates_coherentes": true|false,
-    "dates_detail": "string — cohérence des exercices entre documents",
-    "notes": ["string"]
-  },
-
-  "document_quality": {
-    "total_documents": <number>,
-    "documents_exploitables": <number>,
-    "documents_illisibles": <number>,
-    "couverture": {
-      "legal": { "present": true|false, "documents": ["string — docs trouvés"], "manquants": ["string — docs attendus mais absents"] },
-      "finance": { "present": true|false, "documents": ["string"], "manquants": ["string"] },
-      "commercial": { "present": true|false, "documents": ["string"], "manquants": ["string"] },
-      "rh": { "present": true|false, "documents": ["string"], "manquants": ["string"] },
-      "esg": { "present": true|false, "documents": ["string"], "manquants": ["string"] }
-    },
-    "documents_manquants_critiques": ["string"],
-    "anciennete_documents": "string",
-    "niveau_preuve_global": "N0 Declaratif | N1 Faible | N2 Intermediaire | N3 Solide",
-    "note_qualite": "string — 2-3 phrases évaluant la qualité documentaire globale"
-  },
-
-  "financial_health": {
-    "compte_resultat_resume": {
-      "chiffre_affaires": <number ou null>,
-      "marge_brute": <number ou null>,
-      "ebitda": <number ou null>,
-      "resultat_net": <number ou null>,
-      "source": "string — d'où viennent ces chiffres (documents, reconstruction, déclaration)"
-    },
-    "marge_brute_pct": <number ou null>,
-    "marge_nette_pct": <number ou null>,
-    "ratio_endettement_pct": <number ou null>,
-    "ratio_liquidite": <number ou null>,
-    "bfr_jours": <number ou null>,
-    "dscr": <number ou null>,
-    "tresorerie_nette": <number ou null>,
-    "benchmark_comparison": [
-      {
-        "indicateur": "string — ex: Marge brute",
-        "valeur_entreprise": "string — ex: 45%",
-        "benchmark_secteur": "string — ex: 30-50% (Agriculture)",
-        "verdict": "conforme | optimiste | alerte | critique"
-      }
-    ],
-    "health_label": "Saine | Fragile | Critique | Non evaluable",
-    "health_detail": "string — paragraphe détaillant la santé financière avec chiffres"
-  },
-
-  "profil_risque": {
-    "score_risque": <0-100 — 0=très risqué, 100=très sûr>,
-    "risques_identifies": [
-      {
-        "type": "operationnel | financier | marche | legal | gouvernance | pays",
-        "description": "string",
-        "probabilite": "faible | moyenne | elevee",
-        "impact": "faible | moyen | fort",
-        "mitigation": "string — mesure d'atténuation suggérée"
-      }
-    ],
-    "concentration_client": "string — % CA du top client si connu, sinon 'Non évalué'",
-    "dependance_fournisseur": "string — risque de dépendance identifié ou 'Non évalué'",
-    "risque_pays": "string — contexte politique/économique/sécuritaire du pays"
-  },
-
-  "recommandations_prioritaires": [
+  "risques_programme": [
     {
-      "priorite": 1|2|3|4|5,
-      "action": "string — action concrète et précise",
-      "responsable": "entrepreneur | coach | les deux",
-      "delai": "string — ex: 2 semaines, 1 mois, 3 mois",
-      "impact_score": "string — ex: +10 à +15 points sur le score si réalisé"
+      "risque": "string — risque pour le programme (pas pour l'entreprise)",
+      "probabilite": "faible | moyenne | élevée",
+      "impact": "string — conséquence pour le programme",
+      "mitigation": "string — comment réduire le risque"
     }
-  ],
-
-  "pathway_financement": {
-    "type_recommande": "string — type de financement recommandé",
-    "bailleurs_potentiels": ["string — noms de bailleurs avec ticket range"],
-    "montant_eligible_estime": "string — fourchette en FCFA ou EUR",
-    "conditions_prealables": ["string — ce qui doit être résolu avant de postuler"],
-    "timeline_estimee": "string — ex: 3-6 mois pour atteindre le niveau requis"
-  },
-
-  "programme_match": null | {
-    "programme_name": "string",
-    "match_score": <0-100>,
-    "criteres_ok": [{ "critere": "string", "detail": "string — comment c'est satisfait" }],
-    "criteres_ko": [{ "critere": "string", "detail": "string — pourquoi pas satisfait", "comment_corriger": "string" }],
-    "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string — ce qu'il reste à faire" }],
-    "recommandation": "string — verdict détaillé"
-  }
+  ]
 }`;
 
 serve(async (req) => {
-  console.log("[generate-screening-report] v3 loaded");
+  console.log("[generate-screening-report] v5 — decision programme");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -245,23 +141,44 @@ serve(async (req) => {
     const frameworkData = getDelivData("framework_data");
     const planOvoData = getDelivData("plan_ovo");
     const diagnosticData = getDelivData("diagnostic_data");
+    const oddData = getDelivData("odd_analysis");
+    const valuationData = getDelivData("valuation");
+    const preScreeningData = getDelivData("pre_screening");
 
     const ragContext = await buildRAGContext(
-      ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "screening_report"
+      ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur", "bailleurs"], "screening_report"
     );
 
-    // Build deliverables summary for context
+    // Financial Truth Anchor
+    const truth = getFinancialTruth(inputsData);
+    let truthBlock = "";
+    if (truth) {
+      truthBlock = `
+══════ DONNÉES FINANCIÈRES RÉELLES ══════
+CA N (${truth.annee_n}) : ${truth.ca_n.toLocaleString('fr-FR')} FCFA
+CA N-1 : ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
+Marge brute : ${truth.marge_brute_pct}%
+EBITDA : ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
+Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+══════ FIN ══════
+`;
+    }
+
+    // Build deliverables summary
     const delivSummary = [];
-    if (inputsData) delivSummary.push(`DONNÉES FINANCIÈRES (inputs_data):\n${JSON.stringify(inputsData).substring(0, 5000)}`);
+    if (inputsData) delivSummary.push(`DONNÉES FINANCIÈRES:\n${JSON.stringify(inputsData).substring(0, 5000)}`);
     if (bmcData) delivSummary.push(`BMC:\n${JSON.stringify(bmcData).substring(0, 2000)}`);
     if (sicData) delivSummary.push(`SIC:\n${JSON.stringify(sicData).substring(0, 2000)}`);
     if (frameworkData) delivSummary.push(`FRAMEWORK FINANCIER:\n${JSON.stringify(frameworkData).substring(0, 3000)}`);
     if (planOvoData) delivSummary.push(`PLAN OVO:\n${JSON.stringify(planOvoData).substring(0, 3000)}`);
-    if (diagnosticData) delivSummary.push(`DIAGNOSTIC:\n${JSON.stringify(diagnosticData).substring(0, 2000)}`);
+    if (diagnosticData) delivSummary.push(`BILAN DE PROGRESSION:\n${JSON.stringify(diagnosticData).substring(0, 2000)}`);
+    if (oddData) delivSummary.push(`ODD:\n${JSON.stringify(oddData).substring(0, 2000)}`);
+    if (valuationData) delivSummary.push(`VALORISATION:\n${JSON.stringify(valuationData).substring(0, 2000)}`);
+    if (preScreeningData) delivSummary.push(`DIAGNOSTIC INITIAL:\n${JSON.stringify(preScreeningData).substring(0, 2000)}`);
 
     const programmeSection = programmeCriteria
-      ? `\n══════ CRITÈRES DU PROGRAMME ══════\n${JSON.stringify(programmeCriteria, null, 2)}\nCompare le dossier à ces critères et remplis la section programme_match.`
-      : `\nAucun critère programme fourni — laisse programme_match à null.`;
+      ? `\n══════ CRITÈRES DU PROGRAMME ══════\n${JSON.stringify(programmeCriteria, null, 2)}\nÉvalue chaque critère du programme et remplis matching_criteres.`
+      : `\nAucun critère programme fourni — utilise des critères génériques : secteur, pays, CA minimum, impact social, gouvernance, viabilité financière, dossier complet.`;
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
@@ -270,6 +187,8 @@ EFFECTIFS DÉCLARÉS : ${ent.employees_count || "Non spécifié"}
 FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DATE CRÉATION : ${ent.creation_date || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}
+
+${truthBlock}
 
 ══════ DOCUMENTS UPLOADÉS ══════
 ${getDocumentContentForAgent(ent, "screening", 250_000) || "(Aucun document uploadé)"}
@@ -290,15 +209,24 @@ ${ragContext}
 ${programmeSection}
 
 ══════ INSTRUCTIONS ══════
-Analyse TOUT le dossier ci-dessus. Détecte les incohérences, évalue la qualité documentaire, produis un verdict de screening.
-Cross-valide les données entre les différentes sources (documents vs livrables vs déclarations).
-Le screening_score reflète la fiabilité globale du dossier pour un bailleur.
-Évalue le profil de risque complet. Propose des recommandations prioritaires actionnables.
-Recommande un pathway de financement adapté au stade de l'entreprise.
-Rédige un résumé exécutif détaillé comme un analyste le ferait pour son directeur.
+Produis une DÉCISION PROGRAMME pour cette entreprise.
+
+RÈGLES :
+
+1. DÉCISION : tranchée. ÉLIGIBLE = on finance. CONDITIONNEL = on finance SI les conditions sont remplies. HORS CIBLE = on ne finance pas. Pas de "peut-être".
+
+2. MATCHING CRITÈRES : si des critères de programme sont fournis, évaluer chaque critère. Sinon, utiliser des critères génériques : secteur, pays, CA minimum, impact social, gouvernance, viabilité financière, dossier complet.
+
+3. IMPACT : chiffrer tout. Pas "création d'emplois" mais "de 89 à 120 emplois directs en 24 mois". Les indicateurs de suivi doivent être SMART (spécifiques, mesurables, avec baseline et cible).
+
+4. DIMENSIONNEMENT : le montant doit être justifié par les besoins identifiés dans les livrables (CAPEX du Plan OVO, besoin de financement du Framework). Le type de financement dépend du profil : subvention si early-stage, prêt si entreprise mature, mixte si entre les deux.
+
+5. CONDITIONS : classer par moment (avant/pendant/fin). Chaque condition a un responsable.
+
+6. RISQUES PROGRAMME : ce sont les risques pour le BAILLEUR, pas pour l'entreprise.
 
 Réponds en JSON selon ce schéma :
-${SCREENING_SCHEMA}`;
+${DECISION_SCHEMA}`;
 
     const rawData = await callAI(SYSTEM_PROMPT, prompt, 32768);
     const normalizedData = normalizeScreeningReport(rawData);
@@ -307,14 +235,15 @@ ${SCREENING_SCHEMA}`;
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "screening_report", validatedData, "diagnostic");
 
     // Update enterprise score_ir
-    if (normalizedData.screening_score) {
+    const score = normalizedData.decision?.niveau_conviction || normalizedData.screening_score || 0;
+    if (score) {
       await ctx.supabase.from("enterprises").update({
-        score_ir: normalizedData.screening_score,
+        score_ir: score,
         last_activity: new Date().toISOString(),
       }).eq("id", ctx.enterprise_id);
     }
 
-    return jsonResponse({ success: true, data: normalizedData, score: normalizedData.screening_score || 0 });
+    return jsonResponse({ success: true, data: normalizedData, score });
   } catch (e: any) {
     console.error("generate-screening-report error:", e);
     return errorResponse(e.message || "Erreur", e.status || 500);
