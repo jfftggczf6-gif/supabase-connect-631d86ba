@@ -1375,7 +1375,7 @@ function BusinessPlanViewer({ data }: { data: any }) {
 
 
 // ===== GENERIC FALLBACK =====
-function GenericJsonViewer({ data }: { data: any }) {
+function GenericJsonViewer({ data: _data }: { data: any }) {
   return (
     <Card><CardContent className="py-4">
       <p className="text-sm text-muted-foreground italic">Données disponibles — aucun viewer spécifique pour ce module.</p>
