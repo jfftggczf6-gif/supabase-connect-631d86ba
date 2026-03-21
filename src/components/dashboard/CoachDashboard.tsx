@@ -67,7 +67,7 @@ function getPhaseLabel(phase: string) {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type View = 'list' | 'detail' | 'screening';
-type DetailTab = 'parcours' | 'mirror' | 'livrables';
+type DetailTab = 'mirror' | 'coaching' | 'parcours' | 'livrables';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
