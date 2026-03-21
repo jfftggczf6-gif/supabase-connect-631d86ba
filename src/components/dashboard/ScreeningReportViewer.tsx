@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, CheckCircle2, XCircle, AlertCircle, Target, TrendingUp, Banknote, Shield, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ScreeningReportViewerProps {
@@ -15,7 +15,7 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
   const handleDownloadHtml = () => {
     const content = document.getElementById('screening-viewer-content')?.innerHTML || '';
     const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Décision Programme</title>
-    <style>@page{size:A4;margin:16mm}body{font-family:"Segoe UI",sans-serif;font-size:10pt;color:#1E293B;max-width:190mm;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:6px;text-align:left;font-size:9pt}</style>
+    <style>@page{size:A4;margin:16mm}body{font-family:"Segoe UI",sans-serif;font-size:10pt;color:#1E293B;max-width:190mm;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:6px;text-align:left;font-size:9pt}h2{font-size:14pt;border-bottom:2px solid #1e3a5f;padding-bottom:4px;margin-top:20px}h3{font-size:11pt;margin-top:16px}.card{border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:8px 0}.verdict-box{padding:20px;border-radius:12px;margin:16px 0}</style>
     </head><body>${content}</body></html>`;
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -35,9 +35,26 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
   const dimensionnement = data.dimensionnement || {};
   const conditions = data.conditions || [];
   const risques = data.risques_programme || [];
+  const metadata = data.metadata || {};
+
+  const verdictColor = decision.verdict === 'ÉLIGIBLE'
+    ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30'
+    : decision.verdict === 'CONDITIONNEL'
+    ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30'
+    : 'border-red-400 bg-red-50 dark:bg-red-950/30';
+
+  const verdictIcon = decision.verdict === 'ÉLIGIBLE'
+    ? <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+    : decision.verdict === 'CONDITIONNEL'
+    ? <AlertCircle className="h-8 w-8 text-amber-600" />
+    : <XCircle className="h-8 w-8 text-red-600" />;
+
+  const convictionColor = (decision.niveau_conviction || 0) >= 70
+    ? 'text-emerald-600' : (decision.niveau_conviction || 0) >= 40
+    ? 'text-amber-600' : 'text-red-600';
 
   return (
-    <div className="space-y-4" id="screening-viewer-content">
+    <div className="space-y-5" id="screening-viewer-content">
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
@@ -51,25 +68,21 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
       </div>
 
       {/* ═══ ZONE 1 — La décision ═══ */}
-      <Card className={`border-2 ${
-        decision.verdict === 'ÉLIGIBLE' ? 'border-emerald-300 bg-emerald-50/30' :
-        decision.verdict === 'CONDITIONNEL' ? 'border-amber-300 bg-amber-50/30' :
-        'border-red-300 bg-red-50/30'
-      }`}>
+      <Card className={`border-2 ${verdictColor}`}>
         <CardContent className="py-5">
           <div className="flex items-center gap-4">
-            <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white ${
-              decision.verdict === 'ÉLIGIBLE' ? 'bg-emerald-500' :
-              decision.verdict === 'CONDITIONNEL' ? 'bg-amber-500' : 'bg-red-500'
-            }`}>
-              {decision.verdict === 'ÉLIGIBLE' ? '✓' : decision.verdict === 'CONDITIONNEL' ? '?' : '✗'}
+            <div className="flex-shrink-0">{verdictIcon}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg font-display font-bold">{decision.verdict}</span>
+                {metadata.programme && metadata.programme !== 'Programme générique' && (
+                  <Badge variant="outline" className="text-[10px]">{metadata.programme}</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{decision.justification}</p>
             </div>
-            <div className="flex-1">
-              <p className="text-lg font-semibold">{decision.verdict}</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{decision.justification}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold">{decision.niveau_conviction}%</p>
+            <div className="text-right flex-shrink-0">
+              <p className={`text-3xl font-display font-bold ${convictionColor}`}>{decision.niveau_conviction}%</p>
               <p className="text-[10px] text-muted-foreground">conviction</p>
             </div>
           </div>
@@ -80,20 +93,33 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
       {matching.criteres?.length > 0 && (
         <Card>
           <CardContent className="py-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold">Critères programme</h4>
-              <Badge>{matching.score_matching}% compatible</Badge>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-display font-semibold">Critères programme</h4>
+              </div>
+              <Badge className="bg-primary text-primary-foreground">{matching.score_matching}% compatible</Badge>
             </div>
-            <div className="space-y-1.5">
-              {matching.criteres.map((c: any, i: number) => (
-                <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-secondary border text-xs">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    c.statut === 'ok' ? 'bg-emerald-500' : c.statut === 'ko' ? 'bg-red-500' : 'bg-amber-500'
-                  }`} />
-                  <span className="font-medium flex-1">{c.critere}</span>
-                  <span className="text-muted-foreground">{c.detail}</span>
-                </div>
-              ))}
+            <div className="space-y-2">
+              {matching.criteres.map((c: any, i: number) => {
+                const statusIcon = c.statut === 'ok'
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  : c.statut === 'ko'
+                  ? <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                  : <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />;
+                const rowBg = c.statut === 'ok'
+                  ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30'
+                  : c.statut === 'ko'
+                  ? 'bg-red-50/50 border-red-100 dark:bg-red-950/20 dark:border-red-900/30'
+                  : 'bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30';
+                return (
+                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${rowBg}`}>
+                    {statusIcon}
+                    <span className="font-medium text-sm flex-1">{c.critere}</span>
+                    <span className="text-xs text-muted-foreground text-right max-w-[50%]">{c.detail}</span>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -103,29 +129,32 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
       {(impact.emplois_directs || impact.odd_alignes?.length > 0) && (
         <Card>
           <CardContent className="py-4 space-y-4">
-            <h4 className="text-sm font-semibold">Impact attendu</h4>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-display font-semibold">Impact attendu</h4>
+            </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-secondary text-center">
-                <p className="text-base font-semibold">{impact.emplois_directs || '—'}</p>
-                <p className="text-[10px] text-muted-foreground">Emplois directs</p>
-              </div>
-              <div className="p-3 rounded-lg bg-secondary text-center">
-                <p className="text-base font-semibold">{impact.emplois_indirects || '—'}</p>
-                <p className="text-[10px] text-muted-foreground">Emplois indirects</p>
-              </div>
-              <div className="p-3 rounded-lg bg-secondary text-center">
-                <p className="text-base font-semibold">{impact.beneficiaires || '—'}</p>
-                <p className="text-[10px] text-muted-foreground">Bénéficiaires</p>
-              </div>
+              {[
+                { value: impact.emplois_directs, label: 'Emplois directs' },
+                { value: impact.emplois_indirects, label: 'Emplois indirects' },
+                { value: impact.beneficiaires, label: 'Bénéficiaires' },
+              ].map((item, i) => (
+                <div key={i} className="p-3 rounded-lg bg-card border text-center">
+                  <p className="text-sm font-semibold leading-snug">{item.value || '—'}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{item.label}</p>
+                </div>
+              ))}
             </div>
 
             {impact.odd_alignes?.length > 0 && (
               <div className="space-y-1.5">
                 {impact.odd_alignes.map((odd: any, i: number) => (
-                  <div key={i} className="flex gap-2 p-2 rounded-lg bg-secondary border text-xs">
-                    <span className="font-medium text-emerald-700">{odd.odd}</span>
-                    <span className="text-muted-foreground">{odd.contribution}</span>
+                  <div key={i} className="flex gap-3 p-2.5 rounded-lg border bg-card text-sm">
+                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 border-0 text-[11px] font-medium whitespace-nowrap flex-shrink-0">
+                      {odd.odd}
+                    </Badge>
+                    <span className="text-muted-foreground text-xs leading-relaxed">{odd.contribution}</span>
                   </div>
                 ))}
               </div>
@@ -133,16 +162,18 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
 
             {impact.indicateurs_suivi?.length > 0 && (
               <div>
-                <h5 className="text-xs font-semibold mb-2">Indicateurs de suivi</h5>
-                {impact.indicateurs_suivi.map((ind: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg border text-xs mb-1">
-                    <span className="flex-1 font-medium">{ind.indicateur}</span>
-                    <span className="text-muted-foreground">{ind.baseline}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="font-medium text-emerald-700">{ind.cible}</span>
-                    <Badge variant="outline" className="text-[9px]">{ind.horizon}</Badge>
-                  </div>
-                ))}
+                <h5 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Indicateurs de suivi</h5>
+                <div className="space-y-1.5">
+                  {impact.indicateurs_suivi.map((ind: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border bg-card text-sm">
+                      <span className="flex-1 font-medium text-xs">{ind.indicateur}</span>
+                      <span className="text-xs text-muted-foreground">{ind.baseline}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{ind.cible}</span>
+                      <Badge variant="outline" className="text-[9px] ml-1">{ind.horizon}</Badge>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -152,45 +183,52 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
       {/* ═══ ZONE 4 — Dimensionnement ═══ */}
       {dimensionnement.montant_recommande && (
         <Card>
-          <CardContent className="py-4 space-y-3">
-            <h4 className="text-sm font-semibold">Dimensionnement du financement</h4>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-secondary">
-                <p className="text-[10px] text-muted-foreground">Montant recommandé</p>
-                <p className="text-base font-semibold">{dimensionnement.montant_recommande}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-secondary">
-                <p className="text-[10px] text-muted-foreground">Type</p>
-                <p className="text-base font-semibold">{dimensionnement.type_financement}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-secondary">
-                <p className="text-[10px] text-muted-foreground">Durée</p>
-                <p className="text-base font-semibold">{dimensionnement.duree}</p>
-              </div>
+          <CardContent className="py-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Banknote className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-display font-semibold">Dimensionnement du financement</h4>
             </div>
 
-            <p className="text-xs text-muted-foreground">{dimensionnement.justification_montant}</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Montant recommandé', value: dimensionnement.montant_recommande },
+                { label: 'Type', value: dimensionnement.type_financement },
+                { label: 'Durée', value: dimensionnement.duree },
+              ].map((item, i) => (
+                <div key={i} className="p-3 rounded-lg border bg-primary/5 dark:bg-primary/10">
+                  <p className="text-[10px] text-muted-foreground mb-1">{item.label}</p>
+                  <p className="text-sm font-bold">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">{dimensionnement.justification_montant}</p>
 
             {dimensionnement.utilisation_fonds?.length > 0 && (
               <div>
-                <h5 className="text-xs font-semibold mb-2">Utilisation des fonds</h5>
-                {dimensionnement.utilisation_fonds.map((u: string, i: number) => (
-                  <p key={i} className="text-xs text-muted-foreground mb-1">• {u}</p>
-                ))}
+                <h5 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Utilisation des fonds</h5>
+                <div className="space-y-1">
+                  {dimensionnement.utilisation_fonds.map((u: string, i: number) => (
+                    <p key={i} className="text-xs text-foreground flex items-start gap-2">
+                      <span className="text-primary mt-0.5">•</span> {u}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
 
             {dimensionnement.jalons?.length > 0 && (
               <div>
-                <h5 className="text-xs font-semibold mb-2">Jalons</h5>
-                {dimensionnement.jalons.map((j: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg border text-xs mb-1">
-                    <Badge variant="outline" className="text-[9px]">Mois {j.mois}</Badge>
-                    <span className="flex-1">{j.jalon}</span>
-                    <span className="text-muted-foreground">{j.indicateur}</span>
-                  </div>
-                ))}
+                <h5 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Jalons</h5>
+                <div className="space-y-1.5">
+                  {dimensionnement.jalons.map((j: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border bg-card text-xs">
+                      <Badge variant="outline" className="text-[9px] flex-shrink-0">Mois {j.mois}</Badge>
+                      <span className="flex-1 font-medium">{j.jalon}</span>
+                      <span className="text-muted-foreground">{j.indicateur}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -201,23 +239,35 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
       {conditions.length > 0 && (
         <Card>
           <CardContent className="py-4">
-            <h4 className="text-sm font-semibold mb-3">Conditions</h4>
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-display font-semibold">Conditions</h4>
+            </div>
             {['avant_financement', 'pendant', 'a_la_fin'].map(moment => {
               const items = conditions.filter((c: any) => c.moment === moment);
               if (!items.length) return null;
               const label = moment === 'avant_financement' ? 'Avant le financement' : moment === 'pendant' ? 'Pendant le programme' : 'En fin de programme';
               return (
-                <div key={moment} className="mb-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{label}</p>
-                  {items.map((c: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-secondary border mb-1 text-xs">
-                      <Badge variant="outline" className="text-[9px] flex-shrink-0 mt-0.5">{c.responsable}</Badge>
-                      <div>
-                        <p className="font-medium">{c.condition}</p>
-                        {c.detail && <p className="text-muted-foreground mt-0.5">{c.detail}</p>}
-                      </div>
-                    </div>
-                  ))}
+                <div key={moment} className="mb-4 last:mb-0">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">{label}</p>
+                  <div className="space-y-1.5">
+                    {items.map((c: any, i: number) => {
+                      const badgeColor = c.responsable === 'entrepreneur'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : c.responsable === 'coach'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                        : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+                      return (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                          <Badge className={`${badgeColor} border-0 text-[10px] flex-shrink-0 mt-0.5`}>{c.responsable}</Badge>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{c.condition}</p>
+                            {c.detail && <p className="text-xs text-muted-foreground mt-0.5">{c.detail}</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -229,21 +279,31 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
       {risques.length > 0 && (
         <Card>
           <CardContent className="py-4">
-            <h4 className="text-sm font-semibold mb-3">Risques pour le programme</h4>
-            {risques.map((r: any, i: number) => (
-              <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-secondary border mb-1.5">
-                <Badge variant="outline" className={`text-[9px] flex-shrink-0 mt-0.5 ${
-                  r.probabilite === 'élevée' ? 'bg-red-50 text-red-700 border-red-200' :
-                  r.probabilite === 'moyenne' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  'bg-blue-50 text-blue-700 border-blue-200'
-                }`}>{r.probabilite}</Badge>
-                <div className="flex-1 text-xs">
-                  <p className="font-medium">{r.risque}</p>
-                  <p className="text-muted-foreground mt-1">{r.impact}</p>
-                  <p className="text-blue-700 mt-1">→ {r.mitigation}</p>
-                </div>
-              </div>
-            ))}
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-display font-semibold">Risques pour le programme</h4>
+            </div>
+            <div className="space-y-2">
+              {risques.map((r: any, i: number) => {
+                const probColor = r.probabilite === 'élevée'
+                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                  : r.probabilite === 'moyenne'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                  : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+                return (
+                  <div key={i} className="p-3 rounded-lg border bg-card">
+                    <div className="flex items-start gap-3">
+                      <Badge className={`${probColor} border-0 text-[10px] flex-shrink-0 mt-0.5`}>{r.probabilite}</Badge>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{r.risque}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{r.impact}</p>
+                        <p className="text-xs text-primary mt-1 font-medium">→ {r.mitigation}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -325,7 +385,6 @@ function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml }: {
         )}
       </Card>
 
-      {/* Programme match from old format */}
       {data.programme_match && (
         <Card className="p-5">
           <h3 className="font-display font-semibold text-base mb-3">Matching programme : {data.programme_match.programme_name}</h3>
@@ -358,7 +417,6 @@ function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml }: {
           )}
         </Card>
       )}
-
     </div>
   );
 }
