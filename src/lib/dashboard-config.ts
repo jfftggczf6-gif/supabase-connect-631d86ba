@@ -20,7 +20,7 @@ export interface UploadedFile {
 }
 
 export const MODULE_CONFIG = [
-  { code: 'diagnostic' as ModuleCode, title: 'Diagnostic Expert Global', shortTitle: 'Diagnostic Expert Global', icon: Stethoscope, color: 'bg-orange-100 text-orange-600', step: 1 },
+  { code: 'diagnostic' as ModuleCode, title: 'Bilan de progression', shortTitle: 'Bilan de progression', icon: Stethoscope, color: 'bg-orange-100 text-orange-600', step: 1 },
   { code: 'bmc' as ModuleCode,        title: 'Business Model Canvas',    shortTitle: 'Business Model Canvas',    icon: LayoutGrid,  color: 'bg-emerald-100 text-emerald-600', step: 2 },
   { code: 'sic' as ModuleCode,        title: 'Social Impact Canvas',     shortTitle: 'Social Impact Canvas',     icon: Globe,       color: 'bg-teal-100 text-teal-600',    step: 3 },
   { code: 'framework' as ModuleCode,  title: 'Plan Financier Intermédiaire', shortTitle: 'Plan Financier Intermédiaire', icon: BarChart3, color: 'bg-purple-100 text-purple-600', step: 4 },
