@@ -1,4 +1,4 @@
-// v4 — restore corsHeaders 2026-03-19
+// v5 — format I&P one-pager 2026-03-21
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
@@ -6,62 +6,79 @@ import {
 } from "../_shared/helpers_v5.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 
-const SYSTEM_PROMPT = `Tu es un expert en deal sourcing et communication investisseur pour PME africaines.
-Tu rédiges des One-Pagers (teasers investisseur) d'une page, concis, percutants et professionnels.
+const SYSTEM_PROMPT = `Tu es un analyste deal sourcing senior spécialisé en investissement d'impact en Afrique francophone.
 
-Le one-pager doit être un document de deal sourcing que l'on envoie à un investisseur pour susciter l'intérêt.
-Il doit être factuel, chiffré, et donner envie d'en savoir plus.
+Tu rédiges un One-Pager au format I&P (Investisseurs & Partenaires). C'est un document de 1 page qui synthétise une entreprise pour susciter l'intérêt d'un investisseur ou d'un bailleur.
+
+FORMAT :
+Le one-pager suit EXACTEMENT la structure du template I&P :
+1. Titre : "I&P Company One-Pager – [Nom]"
+2. Aperçu du projet (3-5 phrases)
+3. Tableau à 5 sections :
+   - Présentation de l'entreprise (infos factuelles)
+   - Équipe et gouvernance
+   - Traction et finances (CHIFFRES RÉELS, pas inventés)
+   - Potentiel du marché
+   - Impact
+4. Critères I&P : documentation disponible par catégorie
+
+RÈGLES :
+- Chaque champ de la section "traction_finances" DOIT utiliser les chiffres exacts des états financiers
+- Le CA doit être le CA réel du dernier exercice (pas une estimation)
+- La croissance doit montrer l'historique 3 ans réel
+- Concis : chaque champ est 1-3 phrases max
+- Factuel et chiffré : pas de superlatifs ("leader du marché") sans preuve
+- Le potentiel marché et l'impact sont des paragraphes narratifs
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
 const ONEPAGER_SCHEMA = `{
-  "score": <0-100>,
-  "entreprise": {
+  "titre": "string — 'I&P Company One-Pager – [Nom entreprise]'",
+  "apercu_projet": "string — 3-5 phrases décrivant les activités de l'entreprise, son positionnement et sa proposition de valeur",
+
+  "presentation_entreprise": {
     "nom": "string",
     "secteur": "string",
-    "pays": "string",
-    "ville": "string",
+    "localisation": "string — ville, pays",
+    "site_web": "string ou 'Non disponible'",
+    "annee_creation": "string",
     "forme_juridique": "string",
-    "date_creation": "string",
-    "effectifs": "string"
+    "financement_recherche": "string — montant et type (ex: '150-200M FCFA — prêt à taux préférentiel')",
+    "objectif": "string — à quoi sert le financement"
   },
-  "proposition_valeur": "string — 2-3 phrases percutantes",
-  "probleme_solution": {
-    "probleme": "string — le problème marché adressé",
-    "solution": "string — comment l'entreprise le résout"
+
+  "equipe_gouvernance": {
+    "fondateur": "string — nom + parcours en 1 phrase",
+    "dirige_par_femmes": "string — Oui / Non / Partiellement",
+    "competences": "string — compétences clés de l'équipe dirigeante",
+    "taille_equipe": "string — nombre de personnes + répartition si pertinent",
+    "gouvernance": "string — description de la gouvernance (CA, comité, etc.)",
+    "formelle": "string — Oui / Non / En cours — détail"
   },
-  "marche": {
-    "tam": "string — Total Addressable Market",
-    "sam": "string — Serviceable Addressable Market",
-    "description": "string — positionnement"
+
+  "traction_finances": {
+    "ventes": "string — description du modèle de vente et de la traction commerciale",
+    "ca_annee_derniere": "string — CA exact avec l'année (ex: '460 329 721 FCFA (2024)')",
+    "acces_financement": "string — financements obtenus jusqu'ici",
+    "croissance": "string — taux de croissance et historique (ex: '462M (2022) → 759M (2023) → 460M (2024)')",
+    "economie_unitaire": "string — marge brute, marge unitaire, avantage coût",
+    "rentabilite": "string — EBITDA, marge nette, résultat net",
+    "plan_croissance": "string — hypothèses de croissance et plan à 3-5 ans"
   },
-  "traction": {
-    "ca_y_2": "string — CA N-2 avec devise",
-    "ca_y_1": "string — CA N-1",
-    "ca_y0": "string — CA dernier exercice",
-    "croissance": "string — CAGR ou %",
-    "clients_cles": "string"
+
+  "potentiel_marche": "string — 1 paragraphe décrivant la taille du marché, la dynamique, la concurrence et le positionnement",
+
+  "impact": "string — 1 paragraphe décrivant l'impact social (emplois, sécurité alimentaire, inclusion, ODD alignés)",
+
+  "criteres_ip": {
+    "generalites": "string — documentation générale disponible (statuts, K-bis, organigramme...)",
+    "financier": "string — documentation financière disponible (états financiers, business plan, projections...)",
+    "juridique": "string — documentation juridique disponible (statuts, PV AG, contrats...)",
+    "impact_doc": "string — documentation impact disponible (théorie du changement, indicateurs, ODD...)",
+    "rh": "string — documentation RH disponible (organigramme, contrats, masse salariale...)"
   },
-  "kpis_financiers": {
-    "marge_brute": "string",
-    "ebitda": "string",
-    "resultat_net": "string",
-    "tresorerie": "string"
-  },
-  "impact_odd": ["string — 2-3 ODD principaux avec description courte"],
-  "equipe": "string — fondateur/dirigeant + expérience clé",
-  "besoin_financement": {
-    "montant": "string — ex: 200-500M FCFA",
-    "utilisation": "string — à quoi servira le financement",
-    "type": "string — equity, dette, mixte"
-  },
-  "valorisation_indicative": "string — fourchette si disponible",
-  "points_forts": ["string — 3-5 points forts clés"],
-  "contact": {
-    "nom": "string",
-    "email": "string",
-    "telephone": "string"
-  }
+
+  "score": "<number 0-100>"
 }`;
 
 serve(async (req) => {
@@ -95,8 +112,7 @@ serve(async (req) => {
     if (truth) {
       tractionBlock = `
 ══════ TRACTION — CHIFFRES VÉRIFIÉS (ÉTATS FINANCIERS) ══════
-⚠ UTILISER CES CHIFFRES EXACTEMENT DANS LA SECTION TRACTION
-
+⚠ UTILISER CES CHIFFRES EXACTEMENT DANS LA SECTION traction_finances
 CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2.toLocaleString('fr-FR')} FCFA
 CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
 CA N (${truth.annee_n}) = ${truth.ca_n.toLocaleString('fr-FR')} FCFA
@@ -134,9 +150,9 @@ ${delivSummary.join("\n\n")}
 ${getDonorCriteriaPrompt()}
 
 ══════ INSTRUCTIONS ══════
-Rédige un one-pager investisseur percutant et professionnel. Chaque section doit être concise (1-3 phrases max).
-Les chiffres doivent être réels (tirés des livrables), pas inventés.
-Si la valorisation est disponible, l'inclure.
+Rédige un one-pager au format I&P. Chaque section doit être concise (1-3 phrases max).
+Les chiffres de la section traction_finances doivent être les chiffres réels des états financiers.
+La section criteres_ip doit lister les documents OVO disponibles pour chaque catégorie.
 
 Réponds en JSON selon ce schéma :
 ${ONEPAGER_SCHEMA}`;
