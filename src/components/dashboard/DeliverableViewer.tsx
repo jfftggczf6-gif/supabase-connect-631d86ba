@@ -548,7 +548,7 @@ function DiagnosticViewer({ data }: { data: any }) {
   return (
     <div className="space-y-4">
       {/* ═══ ZONE 1 — Où en est-on ? ═══ */}
-      <Card className="bg-secondary">
+      <Card className="bg-background border">
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${verdictColor(verdict.score || 0)}`}>
