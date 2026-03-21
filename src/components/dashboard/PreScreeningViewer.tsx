@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react';
-import ConfidenceIndicator from './ConfidenceIndicator';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  AlertTriangle, CheckCircle2, XCircle, Info, FileSearch, Heart, Shield, Copy,
-  Download, Target, TrendingUp, Banknote, RefreshCw, ChevronDown, ChevronUp,
-  Wand2, Rocket, Zap, Building2, Globe, Users, Calendar, Scale, Briefcase,
-  Factory, Gavel, BarChart3, Clock, MessageSquare
+  AlertTriangle, CheckCircle2, XCircle, Copy, Download, RefreshCw,
+  MessageSquare, FileText, Clock, AlertCircle, BookOpen, Target,
+  TrendingUp, Banknote, BarChart3, Building2, Users, Gavel, Briefcase, Factory
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,9 +19,8 @@ interface PreScreeningViewerProps {
   onLaunchPipeline?: () => void;
 }
 
-export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline }: PreScreeningViewerProps) {
-  const [anomalyFilter, setAnomalyFilter] = useState<string>('all');
-  const [expandedCV, setExpandedCV] = useState<Record<string, boolean>>({});
+export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline }: PreScreeningViewerProps) {
+  const [activeScope, setActiveScope] = useState('all');
   const [programmes, setProgrammes] = useState<any[]>([]);
   const [selectedProgrammeId, setSelectedProgrammeId] = useState<string | null>(null);
 
@@ -35,63 +31,43 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       .then(({ data: d }) => setProgrammes(d || []));
   }, []);
 
+  // ─── Data extraction ───
   const score = data.pre_screening_score ?? data.score ?? 0;
   const classification = data.classification || 'COMPLETER_DABORD';
   const classLabel = data.classification_label || classification;
   const classDetail = data.classification_detail || '';
   const resumeExecutif = data.resume_executif || null;
-  const qualiteDossier = data.qualite_dossier || {};
-  const anomalies = (data.anomalies || []).map((a: any) => {
-    if (typeof a === 'string') {
-      try { return JSON.parse(a); } catch { return { title: a, severity: 'note', detail: '' }; }
-    }
-    return a;
-  });
-  const crossValidation = data.cross_validation || {};
+  const kpis = data.kpis_bandeau || data.sante_financiere || {};
+  const contexte = data.contexte_entreprise || null;
+  const guideCoach = data.guide_coach || null;
+  const constatsByScope = data.constats_par_scope || {};
   const santeFinanciere = data.sante_financiere || {};
-  const potentiel = data.potentiel_et_reconstructibilite || null;
-  const profilRisque = data.profil_risque || null;
-  const planAction = data.plan_action || [];
-  const pathway = data.pathway_financement || null;
-  const recommandationPipeline = data.recommandation_pipeline || null;
+  const comparaisonSectorielle = data.analyse_narrative?.comparaison_sectorielle || null;
+  const scenarios = data.analyse_narrative?.scenarios_prospectifs || null;
   const programmeMatch = data.programme_match || null;
+  const verdictAnalyste = data.analyse_narrative?.verdict_analyste || null;
+  const entInfo = ent || data._enterprise_info || {};
 
-  // New enriched sections
-  const analyseNarrative = data.analyse_narrative || null;
-  const analyseTendance = analyseNarrative?.analyse_tendance || null;
-  const analyseCommerciale = analyseNarrative?.analyse_commerciale || null;
-  const analyseOperationnelle = analyseNarrative?.analyse_operationnelle || null;
-  const analyseEquipe = analyseNarrative?.analyse_equipe || null;
-  const analyseLegale = analyseNarrative?.analyse_legale || null;
-  const comparaisonSectorielle = analyseNarrative?.comparaison_sectorielle || null;
-  const scenariosProspectifs = analyseNarrative?.scenarios_prospectifs || null;
-  const scoringGranulaire = analyseNarrative?.scoring_granulaire || null;
-  const timelineEvenements = analyseNarrative?.timeline_evenements || [];
-  const verdictAnalyste = analyseNarrative?.verdict_analyste || null;
-
-  const classConfig: Record<string, { color: string; bg: string; border: string; ring: string; icon: any }> = {
-    AVANCER_DIRECTEMENT: { color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', ring: 'ring-emerald-500', icon: CheckCircle2 },
-    ACCOMPAGNER: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', ring: 'ring-amber-500', icon: Wand2 },
-    COMPLETER_DABORD: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300', ring: 'ring-orange-500', icon: AlertTriangle },
-    REJETER: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', ring: 'ring-red-500', icon: XCircle },
+  // ─── Classification config ───
+  const classConfig: Record<string, { color: string; bg: string; border: string; icon: any }> = {
+    AVANCER_DIRECTEMENT: { color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', icon: CheckCircle2 },
+    ACCOMPAGNER: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', icon: Target },
+    COMPLETER_DABORD: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300', icon: AlertTriangle },
+    REJETER: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: XCircle },
   };
   const cc = classConfig[classification] || classConfig.COMPLETER_DABORD;
-  const ClassIcon = cc.icon;
-  const scoreColor = score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-600';
-  const scoreBg = score >= 70 ? 'bg-emerald-100 ring-emerald-400' : score >= 40 ? 'bg-amber-100 ring-amber-400' : 'bg-red-100 ring-red-400';
+  const scoreBgClass = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
 
-  const bloquants = anomalies.filter((a: any) => a.severity === 'bloquant');
-  const attentions = anomalies.filter((a: any) => a.severity === 'attention');
-  const notes = anomalies.filter((a: any) => a.severity === 'note');
-  const filteredAnomalies = anomalyFilter === 'all'
-    ? [...bloquants, ...attentions, ...notes]
-    : anomalies.filter((a: any) => a.severity === anomalyFilter);
-
-  const blockingActions = planAction.filter((a: any) => a.bloquant_pipeline);
+  const formatAmount = (v: number | null | undefined) => {
+    if (v == null) return '—';
+    if (Math.abs(v) >= 1_000_000) return (v / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+    if (Math.abs(v) >= 1_000) return (v / 1_000).toFixed(0) + 'K';
+    return new Intl.NumberFormat('fr-FR').format(v);
+  };
 
   const handleCopySummary = () => {
     const exec = resumeExecutif?.synthese || classDetail;
-    const text = `Pre-screening ${classification} (${score}/100)\n${exec}\n\nAnomalies: ${bloquants.length} bloquantes, ${attentions.length} attentions, ${notes.length} notes`;
+    const text = `Diagnostic initial ${classification} (${score}/100)\n${exec}`;
     navigator.clipboard.writeText(text);
     toast.success('Résumé copié !');
   };
@@ -101,30 +77,44 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pre_screening_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `diagnostic_initial_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('JSON téléchargé');
   };
 
-  const severityIcon = (s: string) => {
-    if (s === 'bloquant') return <XCircle className="h-4 w-4 text-red-500 flex-none" />;
-    if (s === 'attention') return <AlertTriangle className="h-4 w-4 text-amber-500 flex-none" />;
-    return <Info className="h-4 w-4 text-muted-foreground flex-none" />;
+  // ─── Constats helpers ───
+  const scopes = [
+    { key: 'all', label: 'Tout', icon: BarChart3 },
+    { key: 'financier', label: 'Financier', icon: Banknote },
+    { key: 'commercial', label: 'Commercial', icon: Briefcase },
+    { key: 'operationnel', label: 'Opérationnel', icon: Factory },
+    { key: 'equipe_rh', label: 'Équipe & RH', icon: Users },
+    { key: 'legal_conformite', label: 'Légal & conformité', icon: Gavel },
+  ];
+
+  const allConstats = Object.entries(constatsByScope).flatMap(
+    ([scope, items]) => (Array.isArray(items) ? items : []).map((item: any) => ({ ...item, scope }))
+  );
+  const filteredConstats = activeScope === 'all'
+    ? allConstats
+    : allConstats.filter(c => c.scope === activeScope);
+
+  const severityOrder = { urgent: 0, attention: 1, positif: 2 };
+  const sortedConstats = [...filteredConstats].sort(
+    (a, b) => (severityOrder[a.severite as keyof typeof severityOrder] ?? 1) - (severityOrder[b.severite as keyof typeof severityOrder] ?? 1)
+  );
+
+  const severityConfig: Record<string, { border: string; bg: string; text: string; icon: any }> = {
+    urgent: { border: 'border-l-red-500', bg: 'bg-red-50/50', text: 'text-red-700', icon: XCircle },
+    attention: { border: 'border-l-amber-500', bg: 'bg-amber-50/50', text: 'text-amber-700', icon: AlertTriangle },
+    positif: { border: 'border-l-emerald-500', bg: 'bg-emerald-50/50', text: 'text-emerald-700', icon: CheckCircle2 },
   };
 
-  const responsableBadge = (r: string) => {
-    if (r === 'entrepreneur') return <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">Entrepreneur</Badge>;
-    if (r === 'coach') return <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">Coach</Badge>;
-    if (r === 'ia') return <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">IA</Badge>;
-    return null;
-  };
-
-  const effortBadge = (e: string) => {
-    if (e === 'facile') return <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Facile</Badge>;
-    if (e === 'moyen') return <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">Moyen</Badge>;
-    if (e === 'difficile') return <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">Difficile</Badge>;
-    return null;
+  const urgenceBadge = (u: string) => {
+    if (u === 'bloquant') return <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300">Bloquant</Badge>;
+    if (u === 'important') return <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-300">Important</Badge>;
+    return <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-300">Utile</Badge>;
   };
 
   const benchmarkVerdictColor = (v: string) => {
@@ -135,71 +125,83 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     return 'text-muted-foreground bg-muted';
   };
 
-  const riskColor = (prob: string, impact: string) => {
-    const high = ['elevee', 'élevée', 'fort'];
-    const p = high.includes(prob) ? 2 : prob === 'moyenne' ? 1 : 0;
-    const i = high.includes(impact) ? 2 : impact === 'moyen' ? 1 : 0;
-    const level = p + i;
-    if (level >= 3) return 'bg-red-50 border-red-200';
-    if (level >= 2) return 'bg-amber-50 border-amber-200';
-    return 'bg-muted/50 border-border';
-  };
-
-  const formatAmount = (v: number | null | undefined) => {
-    if (v == null) return '—';
-    return new Intl.NumberFormat('fr-FR').format(v);
-  };
-
-  const toggleCV = (key: string) => setExpandedCV(prev => ({ ...prev, [key]: !prev[key] }));
-
-  const normCouverture = (key: string) => {
-    const c = qualiteDossier.couverture?.[key];
-    if (!c) return null;
-    if (typeof c === 'boolean') return { couvert: c, documents_trouves: [], manquants_critiques: [] };
-    return c;
-  };
-
-  const entInfo = ent || data._enterprise_info || {};
-
-  const positionColor = (pos: string) => {
-    if (pos === 'top') return 'text-emerald-700 bg-emerald-50';
-    if (pos === 'above_median') return 'text-emerald-600 bg-emerald-50/50';
-    if (pos === 'median') return 'text-muted-foreground bg-muted/50';
-    if (pos === 'below_median') return 'text-amber-700 bg-amber-50';
-    if (pos === 'bottom') return 'text-red-700 bg-red-50';
-    return 'text-muted-foreground bg-muted/50';
-  };
-
-  const dimensionColor = (score: number) => {
-    if (score >= 70) return 'bg-emerald-500';
-    if (score >= 40) return 'bg-amber-500';
-    return 'bg-red-500';
-  };
-
   return (
     <div className="space-y-6">
 
-      {/* ═══ 1. HEADER — Score + Classification + Actions ═══ */}
-      <Card className={`p-6 ${cc.bg} border-2 ${cc.border}`}>
-        <div className="flex items-start gap-5">
-          <div className={`w-20 h-20 rounded-full flex items-center justify-center ring-4 ${scoreBg} flex-none`}>
-            <span className={`text-3xl font-bold font-display ${scoreColor}`}>{score}</span>
+      {/* ══════════ ZONE 1 — Bandeau verdict ══════════ */}
+      <Card className={`p-5 ${cc.bg} border-2 ${cc.border}`}>
+        <div className="flex items-center gap-4">
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${scoreBgClass} flex-none`}>
+            {score}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <ClassIcon className={`h-5 w-5 ${cc.color}`} />
-              <Badge className={`${cc.bg} ${cc.color} border ${cc.border} text-sm font-semibold px-3 py-1`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base font-semibold">{entInfo.name || '—'}</span>
+              <Badge className={`${cc.bg} ${cc.color} border ${cc.border} text-xs font-semibold px-2 py-0.5`}>
                 {classLabel}
               </Badge>
             </div>
-            <p className="text-sm leading-relaxed">{classDetail}</p>
-            {resumeExecutif?.synthese && (
-              <p className="text-sm text-muted-foreground mt-2 leading-relaxed whitespace-pre-line">{resumeExecutif.synthese}</p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {entInfo.sector || '—'} — {entInfo.country || '—'} — {entInfo.legal_form || '—'} — {entInfo.employees_count || '—'} personnes
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/30">
+        {/* KPIs strip */}
+        {(kpis.ca_n || kpis.ca_estime) && (
+          <div className="grid grid-cols-4 border rounded-lg overflow-hidden mt-4 bg-white/80">
+            <div className="p-3 text-center border-r">
+              <p className="text-base font-semibold">{formatAmount(kpis.ca_n || kpis.ca_estime)}</p>
+              <p className="text-[10px] text-muted-foreground">CA {kpis.annee_n || 'N'}</p>
+              {kpis.ca_growth_pct != null && (
+                <Badge variant="outline" className={`text-[10px] mt-1 ${kpis.ca_growth_pct < 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                  {kpis.ca_growth_pct > 0 ? '+' : ''}{kpis.ca_growth_pct}% vs N-1
+                </Badge>
+              )}
+            </div>
+            <div className="p-3 text-center border-r">
+              <p className="text-base font-semibold">{kpis.marge_brute_pct != null ? kpis.marge_brute_pct + '%' : (santeFinanciere.marge_brute_pct != null ? santeFinanciere.marge_brute_pct + '%' : '—')}</p>
+              <p className="text-[10px] text-muted-foreground">Marge brute</p>
+              {kpis.marge_brute_benchmark && (
+                <Badge variant="outline" className="text-[10px] mt-1 bg-emerald-50 text-emerald-700 border-emerald-200">{kpis.marge_brute_benchmark}</Badge>
+              )}
+            </div>
+            <div className="p-3 text-center border-r">
+              <p className="text-base font-semibold">{formatAmount(kpis.ebitda)}</p>
+              <p className="text-[10px] text-muted-foreground">EBITDA</p>
+            </div>
+            <div className="p-3 text-center">
+              <p className="text-base font-semibold">{formatAmount(kpis.tresorerie_nette ?? santeFinanciere.tresorerie_nette)}</p>
+              <p className="text-[10px] text-muted-foreground">Trésorerie nette</p>
+            </div>
+          </div>
+        )}
+
+        {/* Context line */}
+        {(kpis.ca_nm2 || kpis.resultat_net != null || kpis.nb_activites) && (
+          <div className="grid grid-cols-3 border rounded-lg overflow-hidden mt-2 bg-white/60 text-center text-xs">
+            <div className="p-2 border-r">
+              <p className="font-medium">{formatAmount(kpis.ca_nm2)} → {formatAmount(kpis.ca_nm1)} → {formatAmount(kpis.ca_n || kpis.ca_estime)}</p>
+              <p className="text-muted-foreground">Historique CA 3 ans</p>
+            </div>
+            <div className="p-2 border-r">
+              <p className="font-medium">{formatAmount(kpis.resultat_net)}</p>
+              <p className="text-muted-foreground">Résultat net{kpis.resultat_net_pct != null ? ` (${kpis.resultat_net_pct}%)` : ''}</p>
+            </div>
+            <div className="p-2">
+              <p className="font-medium">{kpis.nb_activites || '—'} activités</p>
+              <p className="text-muted-foreground">{kpis.liste_activites || ''}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Summary line */}
+        {resumeExecutif?.synthese && (
+          <p className="text-xs text-muted-foreground mt-3 p-3 bg-white/60 rounded-lg leading-relaxed">{resumeExecutif.synthese}</p>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-border/30">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopySummary}>
             <Copy className="h-3.5 w-3.5" /> Copier
           </Button>
@@ -210,7 +212,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
           {onRegenerate && (
             <div className="flex items-center gap-2">
               <Select value={selectedProgrammeId || 'none'} onValueChange={(v) => setSelectedProgrammeId(v === 'none' ? null : v)}>
-                <SelectTrigger className="w-[240px] h-8 text-xs">
+                <SelectTrigger className="w-[220px] h-8 text-xs">
                   <SelectValue placeholder="Critères programme (optionnel)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -228,1100 +230,382 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </div>
       </Card>
 
-      {/* ═══ 2. SCORING GRANULAIRE ═══ */}
-      {scoringGranulaire?.dimensions?.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Scoring multi-dimensionnel</CardTitle>
-              {scoringGranulaire.score_global_calcule != null && (
-                <Badge variant="outline" className="ml-auto text-xs">{scoringGranulaire.score_global_calcule}/100</Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {scoringGranulaire.dimensions.map((dim: any, i: number) => (
-              <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium">{dim.dimension} <span className="text-muted-foreground">({dim.poids}%)</span></span>
-                  <span className="text-xs font-bold">{dim.score}/100</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className={`h-2 rounded-full ${dimensionColor(dim.score)}`} style={{ width: `${dim.score}%` }} />
-                </div>
-                {dim.justification && <p className="text-[10px] text-muted-foreground mt-0.5">{dim.justification}</p>}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 3. Fiche Entreprise + Qualité Dossier ═══ */}
-      <div className="grid md:grid-cols-2 gap-4 items-start">
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Fiche entreprise</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {[
-              { icon: Building2, label: 'Nom', value: entInfo.name },
-              { icon: Building2, label: 'Secteur', value: entInfo.sector },
-              { icon: Globe, label: 'Pays', value: entInfo.country },
-              { icon: Users, label: 'Effectifs', value: entInfo.employees_count },
-              { icon: Scale, label: 'Forme juridique', value: entInfo.legal_form },
-              { icon: Calendar, label: 'Création', value: entInfo.creation_date },
-              { icon: TrendingUp, label: 'CA estimé', value: santeFinanciere.ca_estime ? formatAmount(santeFinanciere.ca_estime) + ' FCFA' : null },
-              { icon: TrendingUp, label: 'Marge brute', value: santeFinanciere.marge_brute_pct != null ? santeFinanciere.marge_brute_pct + ' %' : null },
-              { icon: TrendingUp, label: 'Marge nette', value: santeFinanciere.marge_nette_pct != null ? santeFinanciere.marge_nette_pct + ' %' : null },
-              { icon: Scale, label: 'Endettement', value: santeFinanciere.ratio_endettement_pct != null ? santeFinanciere.ratio_endettement_pct + ' %' : null },
-              { icon: TrendingUp, label: 'Trésorerie nette', value: santeFinanciere.tresorerie_nette != null ? formatAmount(santeFinanciere.tresorerie_nette) + ' FCFA' : null },
-              { icon: AlertTriangle, label: 'Santé', value: santeFinanciere.health_label },
-            ].filter(r => r.value).map(row => (
-              <div key={row.label} className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground flex items-center gap-1.5">
-                  <row.icon className="h-3.5 w-3.5" /> {row.label}
-                </span>
-                <span className="font-medium">{row.value}</span>
-              </div>
-            ))}
-            {entInfo.description && (
-              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border leading-relaxed line-clamp-4">{entInfo.description}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <FileSearch className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Qualité du dossier</CardTitle>
-              {qualiteDossier.score_qualite != null && (
-                <Badge variant="outline" className="text-xs ml-auto">{qualiteDossier.score_qualite}/100</Badge>
-              )}
-            </div>
-            {qualiteDossier.niveau_preuve && (
-              <Badge variant="outline" className="text-[10px] w-fit">{qualiteDossier.niveau_preuve}</Badge>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Docs exploitables</span>
-              <Progress value={qualiteDossier.total_documents > 0 ? (qualiteDossier.documents_exploitables / qualiteDossier.total_documents) * 100 : 0} className="h-2 flex-1" />
-              <span className="text-xs font-semibold">{qualiteDossier.documents_exploitables || 0}/{qualiteDossier.total_documents || 0}</span>
-            </div>
-            {qualiteDossier.couverture && (
-              <div className="grid grid-cols-2 gap-2">
-                {['finance', 'legal', 'commercial', 'rh'].map(key => {
-                  const c = normCouverture(key);
-                  if (!c) return null;
-                  return (
-                    <div key={key} className={`rounded-lg border p-2.5 ${c.couvert ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                      <p className="text-xs font-semibold mb-1">{c.couvert ? '✅' : '❌'} {key.charAt(0).toUpperCase() + key.slice(1)}</p>
-                      {c.documents_trouves?.length > 0 && (
-                        <div className="text-[10px] text-emerald-700">{c.documents_trouves.map((d: string, i: number) => <p key={i}>• {d}</p>)}</div>
-                      )}
-                      {c.manquants_critiques?.length > 0 && (
-                        <div className="text-[10px] text-red-600 mt-0.5">{c.manquants_critiques.map((d: string, i: number) => <p key={i} className="line-through opacity-70">• {d}</p>)}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {qualiteDossier.note_qualite && <p className="text-xs text-muted-foreground mt-3">{qualiteDossier.note_qualite}</p>}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ═══ 4. Forces & Faiblesses ═══ */}
-      {resumeExecutif && (resumeExecutif.points_forts?.length > 0 || resumeExecutif.points_faibles?.length > 0) && (
-        <Card>
+      {/* ══════════ ZONE 2 — Guide d'accompagnement ══════════ */}
+      {guideCoach && (
+        <Card className="border-2 border-blue-200 bg-blue-50/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Scale className="h-4 w-4 text-primary" /> Forces & Faiblesses
+              <BookOpen className="h-4 w-4 text-blue-600" /> Guide d'accompagnement du coach
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              {resumeExecutif.points_forts?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Forces</p>
-                  <div className="space-y-1.5">
-                    {resumeExecutif.points_forts.map((p: string, i: number) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-md px-3 py-2 border border-emerald-100">
-                        <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 flex-none" /><span>{p}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {resumeExecutif.points_faibles?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide">Faiblesses</p>
-                  <div className="space-y-1.5">
-                    {resumeExecutif.points_faibles.map((p: string, i: number) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-red-700 bg-red-50 rounded-md px-3 py-2 border border-red-100">
-                        <XCircle className="h-3.5 w-3.5 mt-0.5 flex-none" /><span>{p}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            {resumeExecutif.potentiel_estime && (
-              <p className="text-xs italic text-muted-foreground mt-4 pt-3 border-t border-border">{resumeExecutif.potentiel_estime}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          <CardContent className="space-y-5">
 
-      {/* ═══ 5. ANALYSE NARRATIVE — Histoire + Tendances ═══ */}
-      {analyseNarrative?.histoire_entreprise && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Analyse narrative
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Histoire de l'entreprise</h4>
-              <p className="text-sm leading-relaxed whitespace-pre-line">{analyseNarrative.histoire_entreprise}</p>
-            </div>
-            {analyseTendance && Object.values(analyseTendance).some((v: any) => v) && (
-              <div className="grid md:grid-cols-2 gap-3 pt-3 border-t border-border">
-                {[
-                  { key: 'tendance_ca', label: 'Tendance CA', icon: TrendingUp },
-                  { key: 'tendance_rentabilite', label: 'Rentabilité', icon: BarChart3 },
-                  { key: 'tendance_tresorerie', label: 'Trésorerie', icon: Banknote },
-                  { key: 'tendance_endettement', label: 'Endettement', icon: Scale },
-                ].map(t => {
-                  const val = analyseTendance[t.key];
-                  if (!val) return null;
-                  return (
-                    <div key={t.key} className="p-3 rounded-lg bg-muted/30 border border-border">
-                      <h5 className="text-xs font-medium mb-1 flex items-center gap-1.5">
-                        <t.icon className="h-3 w-3 text-primary" /> {t.label}
-                      </h5>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{val}</p>
+            {/* 2.1 Questions à poser */}
+            {guideCoach.questions_entrepreneur?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" /> Questions à poser à l'entrepreneur
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.questions_entrepreneur.map((q: string, i: number) => (
+                    <div key={i} className="p-2.5 rounded-md bg-white border border-blue-100 text-xs leading-relaxed">
+                      <span className="font-semibold text-blue-700 mr-1.5">{i + 1}.</span> {q}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2.2 Documents à demander */}
+            {guideCoach.documents_a_demander?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Documents à demander
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.documents_a_demander.map((d: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-white border border-blue-100">
+                      {urgenceBadge(d.urgence)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium">{d.document}</p>
+                        <p className="text-[10px] text-muted-foreground">{d.raison}</p>
+                        {d.impact && <p className="text-[10px] text-blue-600 mt-0.5">Impact : {d.impact}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2.3 Actions cette semaine */}
+            {guideCoach.actions_coach_semaine?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Actions cette semaine
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.actions_coach_semaine.map((a: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-white border border-blue-100 text-xs">
+                      <span className="font-bold text-blue-700 mt-0.5">{a.priorite || i + 1}.</span>
+                      <div className="flex-1">
+                        <p className="font-medium">{a.action}</p>
+                        <p className="text-[10px] text-muted-foreground">{a.objectif}</p>
+                      </div>
+                      {a.duree_estimee && (
+                        <Badge variant="outline" className="text-[10px] flex-none">{a.duree_estimee}</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2.4 Points bloquants */}
+            {guideCoach.points_bloquants_pipeline?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" /> Points bloquants
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.points_bloquants_pipeline.map((p: any, i: number) => (
+                    <div key={i} className="p-3 rounded-md bg-red-50 border border-red-200 border-l-4 border-l-red-500 text-xs">
+                      <p className="font-medium text-red-800">{p.blocage}</p>
+                      <p className="text-red-600 mt-0.5">Conséquence : {p.consequence}</p>
+                      <p className="text-emerald-700 mt-0.5">Résolution : {p.resolution}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2.5 Axes d'accompagnement */}
+            {guideCoach.axes_coaching?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" /> Axes d'accompagnement (3-6 mois)
+                </h4>
+                <div className="grid md:grid-cols-2 gap-2">
+                  {guideCoach.axes_coaching.map((axe: any, i: number) => (
+                    <div key={i} className="p-3 rounded-md bg-white border border-blue-100">
+                      <p className="text-xs font-semibold text-blue-800 mb-1">{axe.axe}</p>
+                      <p className="text-[10px] text-muted-foreground mb-1">{axe.diagnostic_rapide}</p>
+                      <p className="text-[10px] text-blue-700 font-medium">Objectif : {axe.objectif_accompagnement}</p>
+                      {axe.premieres_actions?.length > 0 && (
+                        <div className="mt-1.5">
+                          {axe.premieres_actions.map((a: string, j: number) => (
+                            <p key={j} className="text-[10px] text-muted-foreground">→ {a}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2.6 Alertes */}
+            {guideCoach.alertes_coach?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-amber-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Alertes
+                </h4>
+                <div className="space-y-1">
+                  {guideCoach.alertes_coach.map((a: string, i: number) => (
+                    <p key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+                      <span className="text-amber-500 mt-0.5">●</span> {a}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* ═══ 6. ANALYSE COMMERCIALE ═══ */}
-      {analyseCommerciale && (analyseCommerciale.modele_revenus || analyseCommerciale.produits_services_identifies?.length > 0) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Analyse commerciale</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {analyseCommerciale.produits_services_identifies?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Produits & services identifiés</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {analyseCommerciale.produits_services_identifies.map((p: string, i: number) => (
-                    <div key={i} className="text-xs p-2 bg-muted/30 rounded border border-border">{p}</div>
-                  ))}
-                </div>
+      {/* ══════════ ZONE 3 — Comprendre l'entreprise ══════════ */}
+      {contexte && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary" /> Comprendre l'entreprise
+          </h3>
+          <div className="space-y-3">
+            {contexte.histoire && (
+              <div className="p-4 rounded-lg bg-secondary border">
+                <h4 className="text-xs font-semibold mb-2">L'histoire</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{contexte.histoire}</p>
               </div>
             )}
-            {analyseCommerciale.modele_revenus && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Modèle de revenus</h4>
-                <p className="text-sm text-muted-foreground">{analyseCommerciale.modele_revenus}</p>
+            {contexte.marche && (
+              <div className="p-4 rounded-lg bg-secondary border">
+                <h4 className="text-xs font-semibold mb-2">Le marché</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{contexte.marche}</p>
               </div>
             )}
-            {analyseCommerciale.clients_identifies?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Clients identifiés</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {analyseCommerciale.clients_identifies.map((c: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-[10px]">{c}</Badge>
-                  ))}
-                </div>
+            {contexte.activite && (
+              <div className="p-4 rounded-lg bg-secondary border">
+                <h4 className="text-xs font-semibold mb-2">L'activité</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{contexte.activite}</p>
               </div>
             )}
-            {analyseCommerciale.avantages_concurrentiels?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Avantages concurrentiels</h4>
-                {analyseCommerciale.avantages_concurrentiels.map((a: string, i: number) => (
-                  <p key={i} className="text-xs text-emerald-600 mb-0.5">✓ {a}</p>
-                ))}
-              </div>
-            )}
-            {analyseCommerciale.risques_commerciaux?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Risques commerciaux</h4>
-                {analyseCommerciale.risques_commerciaux.map((r: string, i: number) => (
-                  <p key={i} className="text-xs text-red-600 mb-0.5">⚠ {r}</p>
-                ))}
-              </div>
-            )}
-            {analyseCommerciale.donnees_manquantes_commerciales?.length > 0 && (
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <h4 className="text-xs font-medium text-amber-700 mb-1">Données commerciales manquantes</h4>
-                {analyseCommerciale.donnees_manquantes_commerciales.map((d: string, i: number) => (
-                  <p key={i} className="text-xs text-amber-600">• {d}</p>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 7. ANALYSE OPÉRATIONNELLE ═══ */}
-      {analyseOperationnelle && (analyseOperationnelle.chaine_valeur || analyseOperationnelle.processus_cles?.length > 0) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Factory className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Analyse opérationnelle</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {analyseOperationnelle.chaine_valeur && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Chaîne de valeur</h4>
-                <p className="text-sm text-muted-foreground">{analyseOperationnelle.chaine_valeur}</p>
-              </div>
-            )}
-            {analyseOperationnelle.capacite_production && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Capacité de production</h4>
-                <p className="text-xs text-muted-foreground">{analyseOperationnelle.capacite_production}</p>
-              </div>
-            )}
-            {analyseOperationnelle.fournisseurs_cles?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Fournisseurs clés</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {analyseOperationnelle.fournisseurs_cles.map((f: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-[10px]">{f}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            {analyseOperationnelle.risques_operationnels?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Risques opérationnels</h4>
-                {analyseOperationnelle.risques_operationnels.map((r: string, i: number) => (
-                  <p key={i} className="text-xs text-red-600 mb-0.5">⚠ {r}</p>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 8. ANALYSE ÉQUIPE & RH ═══ */}
-      {analyseEquipe && (analyseEquipe.dirigeant || analyseEquipe.effectifs_estimes || analyseEquipe.competences_cles?.length > 0) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Équipe & RH</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {analyseEquipe.dirigeant && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Dirigeant</h4>
-                <p className="text-sm">{analyseEquipe.dirigeant}</p>
-              </div>
-            )}
-            {analyseEquipe.effectifs_estimes && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Effectifs estimés</h4>
-                <p className="text-xs text-muted-foreground">{analyseEquipe.effectifs_estimes}</p>
-              </div>
-            )}
-            {analyseEquipe.masse_salariale_analyse && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Masse salariale</h4>
-                <p className="text-xs text-muted-foreground">{analyseEquipe.masse_salariale_analyse}</p>
-              </div>
-            )}
-            <div className="grid md:grid-cols-2 gap-3">
-              {analyseEquipe.competences_cles?.length > 0 && (
-                <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200">
-                  <h5 className="text-xs font-medium text-emerald-700 mb-1">Compétences clés</h5>
-                  {analyseEquipe.competences_cles.map((c: string, i: number) => (
-                    <p key={i} className="text-xs text-emerald-600">✓ {c}</p>
-                  ))}
-                </div>
-              )}
-              {analyseEquipe.gaps_critiques?.length > 0 && (
-                <div className="p-3 rounded-lg bg-red-50/50 border border-red-200">
-                  <h5 className="text-xs font-medium text-red-700 mb-1">Gaps critiques</h5>
-                  {analyseEquipe.gaps_critiques.map((g: string, i: number) => (
-                    <p key={i} className="text-xs text-red-600">✗ {g}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-            {analyseEquipe.donnees_manquantes_rh?.length > 0 && (
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <h4 className="text-xs font-medium text-amber-700 mb-1">Données RH manquantes</h4>
-                {analyseEquipe.donnees_manquantes_rh.map((d: string, i: number) => (
-                  <p key={i} className="text-xs text-amber-600">• {d}</p>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 9. ANALYSE LÉGALE ═══ */}
-      {analyseLegale && (analyseLegale.forme_juridique || analyseLegale.documents_legaux_presents?.length > 0) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Gavel className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Analyse légale & conformité</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid md:grid-cols-2 gap-3">
-              {analyseLegale.forme_juridique && (
-                <div><span className="text-xs text-muted-foreground">Forme juridique :</span> <span className="text-xs font-medium">{analyseLegale.forme_juridique}</span></div>
-              )}
-              {analyseLegale.immatriculation && (
-                <div><span className="text-xs text-muted-foreground">Immatriculation :</span> <span className="text-xs font-medium">{analyseLegale.immatriculation}</span></div>
-              )}
-            </div>
-            {analyseLegale.conformite_fiscale && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Conformité fiscale</h4>
-                <p className="text-xs text-muted-foreground">{analyseLegale.conformite_fiscale}</p>
-              </div>
-            )}
-            {analyseLegale.conformite_sociale && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Conformité sociale</h4>
-                <p className="text-xs text-muted-foreground">{analyseLegale.conformite_sociale}</p>
-              </div>
-            )}
-            <div className="grid md:grid-cols-2 gap-3">
-              {analyseLegale.documents_legaux_presents?.length > 0 && (
-                <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200">
-                  <h5 className="text-xs font-medium text-emerald-700 mb-1">Documents présents</h5>
-                  {analyseLegale.documents_legaux_presents.map((d: string, i: number) => (
-                    <p key={i} className="text-xs text-emerald-600">✓ {d}</p>
-                  ))}
-                </div>
-              )}
-              {analyseLegale.documents_legaux_manquants?.length > 0 && (
-                <div className="p-3 rounded-lg bg-red-50/50 border border-red-200">
-                  <h5 className="text-xs font-medium text-red-700 mb-1">Documents manquants</h5>
-                  {analyseLegale.documents_legaux_manquants.map((d: string, i: number) => (
-                    <p key={i} className="text-xs text-red-600">✗ {d}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-            {analyseLegale.risques_juridiques?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Risques juridiques</h4>
-                {analyseLegale.risques_juridiques.map((r: string, i: number) => (
-                  <p key={i} className="text-xs text-red-600">⚠ {r}</p>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 10. COMPARAISON SECTORIELLE ═══ */}
-      {comparaisonSectorielle && (comparaisonSectorielle.positionnement_global || comparaisonSectorielle.benchmark_detail?.length > 0) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Comparaison sectorielle</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {comparaisonSectorielle.positionnement_global && (
-              <p className="text-sm text-muted-foreground leading-relaxed">{comparaisonSectorielle.positionnement_global}</p>
-            )}
-            {comparaisonSectorielle.benchmark_detail?.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Indicateur</TableHead>
-                    <TableHead className="text-xs">Entreprise</TableHead>
-                    <TableHead className="text-xs">Médiane</TableHead>
-                    <TableHead className="text-xs">Top 25%</TableHead>
-                    <TableHead className="text-xs">Position</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {comparaisonSectorielle.benchmark_detail.map((b: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs font-medium">{b.indicateur}</TableCell>
-                      <TableCell className="text-xs">{b.valeur_entreprise}</TableCell>
-                      <TableCell className="text-xs">{b.mediane_secteur}</TableCell>
-                      <TableCell className="text-xs">{b.top_quartile}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-[10px] ${positionColor(b.position)}`}>{b.position}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            <div className="grid md:grid-cols-2 gap-3">
-              {comparaisonSectorielle.avantages_vs_pairs?.length > 0 && (
-                <div>
-                  <h5 className="text-xs font-medium text-emerald-700 mb-1">Avantages vs pairs</h5>
-                  {comparaisonSectorielle.avantages_vs_pairs.map((a: string, i: number) => (
-                    <p key={i} className="text-xs text-emerald-600">↑ {a}</p>
-                  ))}
-                </div>
-              )}
-              {comparaisonSectorielle.handicaps_vs_pairs?.length > 0 && (
-                <div>
-                  <h5 className="text-xs font-medium text-red-700 mb-1">Handicaps vs pairs</h5>
-                  {comparaisonSectorielle.handicaps_vs_pairs.map((h: string, i: number) => (
-                    <p key={i} className="text-xs text-red-600">↓ {h}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 11. Anomalies & Red Flags ═══ */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <CardTitle className="text-sm">Anomalies & Red flags</CardTitle>
-            {bloquants.length > 0 && <Badge variant="destructive" className="text-[10px]">{bloquants.length} bloquante{bloquants.length > 1 ? 's' : ''}</Badge>}
-            {attentions.length > 0 && <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-[10px]">{attentions.length} attention{attentions.length > 1 ? 's' : ''}</Badge>}
-            {notes.length > 0 && <Badge variant="outline" className="text-[10px]">{notes.length} note{notes.length > 1 ? 's' : ''}</Badge>}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-1.5 mb-4">
-            {['all', 'bloquant', 'attention', 'note'].map(f => (
-              <Button key={f} variant={anomalyFilter === f ? 'default' : 'outline'} size="sm" className="text-xs h-7 px-2.5"
-                onClick={() => setAnomalyFilter(f)}>
-                {f === 'all' ? 'Tout' : f.charAt(0).toUpperCase() + f.slice(1)}
-              </Button>
-            ))}
+        </div>
+      )}
+
+      {/* ══════════ ZONE 4 — Constats par scope ══════════ */}
+      {allConstats.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Constats
+          </h3>
+
+          {/* Filter bar */}
+          <div className="flex gap-1.5 flex-wrap sticky top-0 z-10 bg-background py-2">
+            {scopes.map(s => {
+              const count = s.key === 'all' ? allConstats.length : (constatsByScope[s.key] || []).length;
+              if (s.key !== 'all' && count === 0) return null;
+              return (
+                <button key={s.key} onClick={() => setActiveScope(s.key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+                    activeScope === s.key ? 'border-blue-400 text-blue-800 bg-blue-50' : 'border-border text-muted-foreground hover:bg-muted/50'
+                  }`}>
+                  {s.label}
+                  <span className={`text-[10px] px-1.5 rounded-full ${
+                    activeScope === s.key ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
+                  }`}>{count}</span>
+                </button>
+              );
+            })}
           </div>
-          {filteredAnomalies.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-4">Aucune anomalie {anomalyFilter !== 'all' ? 'de ce type' : 'détectée'}</p>
-          ) : (
-            <div className="space-y-2">
-              {filteredAnomalies.map((a: any, i: number) => (
-                <div key={i} className={`p-3 rounded-lg border-l-4 ${
-                  a.severity === 'bloquant' ? 'bg-red-50 border-l-red-500 border border-red-200' :
-                  a.severity === 'attention' ? 'bg-amber-50 border-l-amber-500 border border-amber-200' :
-                  'bg-slate-50 border-l-slate-300 border border-slate-200'
-                }`}>
-                  <div className="flex items-start gap-3">
-                    {severityIcon(a.severity)}
+
+          {/* Constats cards */}
+          <div className="space-y-2 mt-2">
+            {sortedConstats.map((c, i) => {
+              const sc = severityConfig[c.severite] || severityConfig.attention;
+              const SevIcon = sc.icon;
+              const scopeLabel = scopes.find(s => s.key === c.scope)?.label || c.scope;
+              return (
+                <div key={i} className={`p-3 rounded-lg border border-l-4 ${sc.border} ${sc.bg}`}>
+                  <div className="flex items-start gap-2">
+                    <SevIcon className={`h-4 w-4 ${sc.text} flex-none mt-0.5`} />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-sm font-semibold">{a.title}</span>
-                        <Badge variant="outline" className="text-[10px]">{a.category}</Badge>
-                        {a.effort && effortBadge(a.effort)}
-                        {a.responsable && responsableBadge(a.responsable)}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold">{c.titre}</span>
+                        {activeScope === 'all' && (
+                          <Badge variant="outline" className="text-[10px]">{scopeLabel}</Badge>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{a.detail}</p>
-                      {a.impact_investisseur && (
-                        <p className={`text-xs mt-1 font-medium ${a.severity === 'bloquant' ? 'text-red-600' : 'text-amber-600'}`}>
-                          ⚠️ Impact : {a.impact_investisseur}
-                        </p>
-                      )}
-                      {a.recommendation && (
-                        <p className="text-xs mt-2 text-primary font-medium">💡 {a.recommendation}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{c.constat}</p>
+                      {c.piste && (
+                        <p className="text-[10px] mt-1.5 font-medium text-blue-700">→ {c.piste}</p>
                       )}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-      {/* ═══ 12. Cross-validation + Santé financière ═══ */}
-      <div className="grid md:grid-cols-2 gap-4 items-start">
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <FileSearch className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Cross-validation</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {[
-              { key: 'ca', label: `CA cohérent${crossValidation.ca_ecart_pct != null ? ` (écart ${crossValidation.ca_ecart_pct}%)` : ''}`, ok: crossValidation.ca_coherent, detail: crossValidation.ca_detail },
-              { key: 'bilan', label: 'Bilan équilibré', ok: crossValidation.bilan_equilibre, detail: crossValidation.bilan_detail },
-              { key: 'charges', label: 'Charges vs effectifs', ok: crossValidation.charges_vs_effectifs, detail: crossValidation.charges_vs_effectifs_detail },
-              { key: 'tresorerie', label: 'Trésorerie cohérente', ok: crossValidation.tresorerie_coherent, detail: crossValidation.tresorerie_detail },
-              { key: 'dates', label: 'Dates cohérentes', ok: crossValidation.dates_coherentes, detail: crossValidation.dates_detail },
-            ].map(item => (
-              <div key={item.key} className="border-b border-border last:border-0">
-                <div className="flex items-center gap-2 py-2.5 cursor-pointer" onClick={() => item.detail && toggleCV(item.key)}>
-                  {item.ok === true ? <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-none" /> :
-                    item.ok === false ? <XCircle className="h-4 w-4 text-red-500 flex-none" /> :
-                    <Info className="h-4 w-4 text-muted-foreground flex-none" />}
-                  <span className="text-sm flex-1">{item.label}</span>
-                  {item.detail && (expandedCV[item.key] ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />)}
-                </div>
-                {item.detail && expandedCV[item.key] && (
-                  <p className="text-xs text-muted-foreground pb-2 pl-6">{item.detail}</p>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Heart className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Santé financière</CardTitle>
-              {santeFinanciere.health_label && (
-                <Badge variant="outline" className={`text-[10px] ml-auto ${
-                  santeFinanciere.health_label === 'Saine' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                  santeFinanciere.health_label === 'Fragile' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  santeFinanciere.health_label === 'Critique' ? 'bg-red-50 text-red-700 border-red-200' :
-                  'bg-muted text-muted-foreground'
-                }`}>{santeFinanciere.health_label}</Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {santeFinanciere.benchmark_comparison?.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Indicateur</TableHead>
-                    <TableHead className="text-xs">Entreprise</TableHead>
-                    <TableHead className="text-xs">Benchmark</TableHead>
-                    <TableHead className="text-xs">Verdict</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {santeFinanciere.benchmark_comparison.map((b: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs font-medium">{b.indicateur}</TableCell>
-                      <TableCell className="text-xs">{b.valeur_entreprise}</TableCell>
-                      <TableCell className="text-xs">{b.benchmark_secteur}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-[10px] ${benchmarkVerdictColor(b.verdict)}`}>{b.verdict}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="space-y-2">
-                {[
-                  { label: 'CA estimé', value: santeFinanciere.ca_estime, suffix: '', field: 'ca_estime' },
-                  { label: 'Marge brute', value: santeFinanciere.marge_brute_pct, suffix: '%', field: 'marge_brute' },
-                  { label: 'Marge nette', value: santeFinanciere.marge_nette_pct, suffix: '%', field: '' },
-                  { label: 'Endettement', value: santeFinanciere.ratio_endettement_pct, suffix: '%', field: '' },
-                  { label: 'Trésorerie nette', value: santeFinanciere.tresorerie_nette, suffix: '', field: '' },
-                ].map(kpi => (
-                  <div key={kpi.label} className="flex items-center justify-between py-1">
-                    <span className="text-xs text-muted-foreground">{kpi.label}</span>
-                    <span className="text-sm font-semibold">
-                      {kpi.value != null ? `${kpi.suffix === '' ? formatAmount(kpi.value) : kpi.value + kpi.suffix}` : '—'}
-                      {kpi.field && <ConfidenceIndicator field={kpi.field} confidence={data._confidence} />}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {santeFinanciere.health_detail && (
-              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">{santeFinanciere.health_detail}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ═══ 13. SCÉNARIOS PROSPECTIFS ═══ */}
-      {scenariosProspectifs && (scenariosProspectifs.scenario_base || scenariosProspectifs.scenario_pessimiste || scenariosProspectifs.scenario_optimiste) && (
+      {/* ══════════ ZONE 5 — Repères sectoriels + Scénarios ══════════ */}
+      {(comparaisonSectorielle?.benchmark_detail?.length > 0 || santeFinanciere.benchmark_comparison?.length > 0) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Scénarios prospectifs
+              <TrendingUp className="h-4 w-4 text-primary" /> Repères sectoriels
             </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-3">
-              {(['pessimiste', 'base', 'optimiste'] as const).map(type => {
-                const s = scenariosProspectifs?.[`scenario_${type}`];
-                if (!s) return null;
-                const colors = {
-                  pessimiste: { bg: 'bg-red-50', border: 'border-red-200', title: 'text-red-700', text: 'text-red-600' },
-                  base: { bg: 'bg-slate-50', border: 'border-slate-200', title: 'text-slate-700', text: 'text-slate-600' },
-                  optimiste: { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', text: 'text-emerald-600' },
-                }[type];
-                return (
-                  <div key={type} className={`p-3 rounded-lg border ${colors.bg} ${colors.border}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className={`text-xs font-medium ${colors.title} capitalize`}>{type}</h5>
-                      {s.probabilite && <Badge variant="outline" className="text-[9px]">{s.probabilite}</Badge>}
-                    </div>
-                    <p className={`text-xs ${colors.text} mb-2`}>{s.description}</p>
-                    {s.ca_estime && <p className={`text-xs font-medium ${colors.title}`}>CA : {s.ca_estime}</p>}
-                    {(s.facteurs_declencheurs || s.hypotheses)?.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-border/30">
-                        {(s.facteurs_declencheurs || s.hypotheses).map((f: string, i: number) => (
-                          <p key={i} className={`text-[10px] ${colors.text}`}>• {f}</p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {scenariosProspectifs.facteurs_cles_succes?.length > 0 && (
-              <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border">
-                <p className="text-xs font-medium mb-1">Facteurs clés de succès</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {scenariosProspectifs.facteurs_cles_succes.map((f: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-[10px]">{f}</Badge>
-                  ))}
-                </div>
-              </div>
+            {comparaisonSectorielle?.positionnement_global && (
+              <p className="text-xs text-muted-foreground mt-1">{comparaisonSectorielle.positionnement_global}</p>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 14. Potentiel & Reconstructibilité IA ═══ */}
-      {potentiel && (
-        <Card className="border-teal-200 bg-teal-50/30">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Wand2 className="h-4 w-4 text-teal-600" />
-              <CardTitle className="text-sm text-teal-800">Potentiel & Reconstructibilité IA</CardTitle>
-            </div>
           </CardHeader>
           <CardContent>
-            {potentiel.fiabilite_pipeline_estimee != null && (
-              <div className="mb-4 p-3 rounded-lg bg-teal-100/50 border border-teal-200">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-teal-700">Fiabilité pipeline</span>
-                  <Progress value={potentiel.fiabilite_pipeline_estimee} className="h-2 flex-1 max-w-xs" />
-                  <span className="text-sm font-bold text-teal-800">{potentiel.fiabilite_pipeline_estimee}%</span>
-                </div>
-                {potentiel.fiabilite_detail && <p className="text-xs text-teal-600 mt-1">{potentiel.fiabilite_detail}</p>}
-              </div>
-            )}
-            <div className="grid md:grid-cols-3 gap-4 mb-4">
-              {potentiel.donnees_fiables?.length > 0 && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
-                  <p className="text-xs font-semibold text-emerald-700 mb-2">✅ Données fiables</p>
-                  {potentiel.donnees_fiables.map((d: string, i: number) => (
-                    <p key={i} className="text-xs text-emerald-600 mb-0.5">• {d}</p>
-                  ))}
-                </div>
-              )}
-              {potentiel.donnees_estimables_ia?.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                  <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1"><Wand2 className="h-3 w-3" /> Estimable par l'IA</p>
-                  {potentiel.donnees_estimables_ia.map((d: string, i: number) => (
-                    <p key={i} className="text-xs text-amber-600 mb-0.5">• {d}</p>
-                  ))}
-                </div>
-              )}
-              {potentiel.donnees_non_reconstituables?.length > 0 && (
-                <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
-                  <p className="text-xs font-semibold text-red-700 mb-2">❌ Non reconstituable</p>
-                  {potentiel.donnees_non_reconstituables.map((d: string, i: number) => (
-                    <p key={i} className="text-xs text-red-600 mb-0.5">• {d}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              {potentiel.signaux_positifs?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-emerald-700 mb-1">📈 Signaux positifs</p>
-                  {potentiel.signaux_positifs.map((s: string, i: number) => (
-                    <p key={i} className="text-xs text-emerald-600">• {s}</p>
-                  ))}
-                </div>
-              )}
-              {potentiel.signaux_negatifs?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-red-700 mb-1">📉 Signaux négatifs</p>
-                  {potentiel.signaux_negatifs.map((s: string, i: number) => (
-                    <p key={i} className="text-xs text-red-600">• {s}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 15. Profil de risque ═══ */}
-      {profilRisque && profilRisque.risques?.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Profil de risque</CardTitle>
-              {profilRisque.score_risque != null && (
-                <Badge variant="outline" className="text-xs ml-auto">Sûreté : {profilRisque.score_risque}/100</Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-3">
-              {profilRisque.risques.map((r: any, i: number) => (
-                <div key={i} className={`rounded-lg border p-3 ${riskColor(r.probabilite, r.impact)}`}>
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <Badge variant="outline" className="text-[10px] font-semibold">{r.type}</Badge>
-                    <Badge variant="outline" className="text-[10px]">P: {r.probabilite}</Badge>
-                    <Badge variant="outline" className="text-[10px]">I: {r.impact}</Badge>
-                  </div>
-                  <p className="text-xs mb-1">{r.description}</p>
-                  {r.mitigation && <p className="text-xs text-primary italic">🛡️ {r.mitigation}</p>}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 16. TIMELINE ÉVÉNEMENTS ═══ */}
-      {timelineEvenements.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Chronologie des événements</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="relative pl-6 space-y-3">
-              <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-border" />
-              {timelineEvenements.map((evt: any, i: number) => {
-                const impactColor = evt.impact === 'positif' ? 'bg-emerald-500' : evt.impact === 'negatif' ? 'bg-red-500' : 'bg-muted-foreground';
-                return (
-                  <div key={i} className="relative">
-                    <div className={`absolute -left-4 top-1.5 w-3 h-3 rounded-full ${impactColor} border-2 border-background`} />
-                    <div className="flex items-start gap-2">
-                      <Badge variant="outline" className="text-[10px] flex-none">{evt.date}</Badge>
-                      <div>
-                        <p className="text-xs">{evt.evenement}</p>
-                        {evt.source && <p className="text-[10px] text-muted-foreground italic">Source : {evt.source}</p>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 17. Plan d'action prioritaire ═══ */}
-      {planAction.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Plan d'action prioritaire</CardTitle>
-              {blockingActions.length > 0 && (
-                <Badge variant="destructive" className="text-[10px]">{blockingActions.length} bloquante{blockingActions.length > 1 ? 's' : ''} pipeline</Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {planAction.sort((a: any, b: any) => (a.priorite || 5) - (b.priorite || 5)).map((r: any, i: number) => (
-                <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border-l-4 ${
-                  r.priorite <= 1 ? 'border-l-red-500 bg-red-50/50 border border-red-200' :
-                  r.priorite <= 2 ? 'border-l-orange-500 bg-orange-50/50 border border-orange-200' :
-                  r.priorite <= 3 ? 'border-l-blue-500 bg-blue-50/50 border border-blue-200' :
-                  'border-l-slate-300 bg-slate-50 border border-slate-200'
-                }`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-none ${
-                    r.priorite <= 2 ? 'bg-red-100 text-red-700' : r.priorite <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'
-                  }`}>P{r.priorite}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-sm font-medium">{r.action}</p>
-                      {r.bloquant_pipeline && <Zap className="h-3 w-3 text-red-500" />}
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-1.5">
-                      {r.responsable && responsableBadge(r.responsable)}
-                      {r.effort && effortBadge(r.effort)}
-                      {r.delai && <Badge variant="outline" className="text-[10px]">⏱️ {r.delai}</Badge>}
-                      {r.impact_score && <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">📈 {r.impact_score}</Badge>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ 18. VERDICT DE L'ANALYSTE ═══ */}
-      {verdictAnalyste && verdictAnalyste.synthese_pour_comite && (
-        <Card className="border-2 border-primary/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Verdict de l'analyste</CardTitle>
-              {verdictAnalyste.niveau_conviction && (
-                <Badge variant={verdictAnalyste.niveau_conviction === 'fort' ? 'default' : verdictAnalyste.niveau_conviction === 'modere' ? 'secondary' : 'destructive'}>
-                  Conviction : {verdictAnalyste.niveau_conviction}
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm leading-relaxed whitespace-pre-line">{verdictAnalyste.synthese_pour_comite}</p>
-
-            <div className="grid md:grid-cols-3 gap-3">
-              {verdictAnalyste.deal_breakers?.length > 0 && (
-                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                  <h5 className="text-xs font-medium text-red-700 mb-2">Deal breakers</h5>
-                  {verdictAnalyste.deal_breakers.map((d: string, i: number) => (
-                    <p key={i} className="text-xs text-red-600 mb-1">• {d}</p>
-                  ))}
-                </div>
-              )}
-              {verdictAnalyste.conditions_sine_qua_non?.length > 0 && (
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <h5 className="text-xs font-medium text-amber-700 mb-2">Conditions sine qua non</h5>
-                  {verdictAnalyste.conditions_sine_qua_non.map((c: string, i: number) => (
-                    <p key={i} className="text-xs text-amber-600 mb-1">• {c}</p>
-                  ))}
-                </div>
-              )}
-              {verdictAnalyste.quick_wins?.length > 0 && (
-                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <h5 className="text-xs font-medium text-emerald-700 mb-2">Quick wins</h5>
-                  {verdictAnalyste.quick_wins.map((q: string, i: number) => (
-                    <p key={i} className="text-xs text-emerald-600 mb-1">• {q}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {verdictAnalyste.questions_ouvertes?.length > 0 && (
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <h5 className="text-xs font-medium text-blue-700 mb-2">Questions pour le dirigeant</h5>
-                {verdictAnalyste.questions_ouvertes.map((q: string, i: number) => (
-                  <p key={i} className="text-xs text-blue-600 mb-1">{i+1}. {q}</p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Indicateur</TableHead>
+                  <TableHead className="text-xs">Entreprise</TableHead>
+                  <TableHead className="text-xs">Secteur</TableHead>
+                  <TableHead className="text-xs">Position</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(comparaisonSectorielle?.benchmark_detail || santeFinanciere.benchmark_comparison || []).map((b: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs font-medium">{b.indicateur}</TableCell>
+                    <TableCell className="text-xs">{b.valeur_entreprise}</TableCell>
+                    <TableCell className="text-xs">{b.mediane_secteur || b.benchmark_secteur || '—'}</TableCell>
+                    <TableCell>
+                      <Badge className={`text-[10px] ${benchmarkVerdictColor(b.position || b.verdict || '')}`}>
+                        {b.position || b.verdict || '—'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            )}
-
-            {verdictAnalyste.prochaines_etapes_recommandees?.length > 0 && (
-              <div className="p-3 bg-muted/30 rounded-lg border border-border">
-                <h5 className="text-xs font-medium mb-2">Prochaines étapes recommandées</h5>
-                {verdictAnalyste.prochaines_etapes_recommandees.map((e: string, i: number) => (
-                  <div key={i} className="flex items-center gap-2 mb-1.5">
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center font-medium">{i+1}</span>
-                    <p className="text-xs">{e}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
 
-      {/* ═══ 19. Pipeline recommendation + Pathway financement ═══ */}
-      <div className="grid md:grid-cols-2 gap-4 items-start">
-        {recommandationPipeline && (
-          <Card className={`border ${recommandationPipeline.lancer_pipeline ? 'border-emerald-300 bg-emerald-50/30' : 'border-amber-300 bg-amber-50/30'}`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Rocket className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm">
-                  {recommandationPipeline.lancer_pipeline ? 'Dossier prêt' : 'Pipeline non recommandé'}
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs mb-3">{recommandationPipeline.raison}</p>
-              {recommandationPipeline.avertissement && (
-                <div className="p-2 rounded bg-amber-100 border border-amber-200 mb-3">
-                  <p className="text-[10px] text-amber-700">⚠️ {recommandationPipeline.avertissement}</p>
-                </div>
-              )}
-              {recommandationPipeline.modules_pertinents?.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[10px] font-semibold mb-1">Modules pertinents :</p>
-                  <div className="flex flex-wrap gap-1">
-                    {recommandationPipeline.modules_pertinents.map((m: string, i: number) => (
-                      <Badge key={i} variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">{m}</Badge>
-                    ))}
+      {scenarios && (
+        <div className="grid md:grid-cols-3 gap-3">
+          {[
+            { key: 'scenario_pessimiste', label: 'Pessimiste', color: 'border-red-200 bg-red-50/30' },
+            { key: 'scenario_base', label: 'Réaliste', color: 'border-amber-200 bg-amber-50/30' },
+            { key: 'scenario_optimiste', label: 'Optimiste', color: 'border-emerald-200 bg-emerald-50/30' },
+          ].map(s => {
+            const sc = scenarios[s.key];
+            if (!sc) return null;
+            return (
+              <Card key={s.key} className={`${s.color}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xs font-semibold">{s.label}</h4>
+                    {sc.probabilite && <Badge variant="outline" className="text-[10px]">{sc.probabilite}</Badge>}
                   </div>
-                </div>
-              )}
-              {recommandationPipeline.modules_inutiles?.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[10px] font-semibold mb-1">Insuffisamment alimentés :</p>
-                  <div className="flex flex-wrap gap-1">
-                    {recommandationPipeline.modules_inutiles.map((m: string, i: number) => (
-                      <Badge key={i} variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">{m}</Badge>
-                    ))}
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-2">{sc.description}</p>
+                  <div className="flex gap-3 text-xs">
+                    {sc.ca_estime && <div><span className="text-muted-foreground">CA An3 :</span> <span className="font-medium">{sc.ca_estime}</span></div>}
+                    {sc.ebitda_estime && <div><span className="text-muted-foreground">EBITDA :</span> <span className="font-medium">{sc.ebitda_estime}</span></div>}
                   </div>
-                </div>
-              )}
-              {onLaunchPipeline && (
-                <div className="pt-2">
-                  {recommandationPipeline.lancer_pipeline ? (
-                    <Button onClick={onLaunchPipeline} size="sm" className="gap-2 w-full">
-                      <Rocket className="h-4 w-4" /> Lancer le pipeline
-                    </Button>
-                  ) : (
-                    <Button variant="outline" onClick={onLaunchPipeline} size="sm" className="gap-2 w-full opacity-70">
-                      <Rocket className="h-4 w-4" /> Lancer quand même
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-        {pathway && (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Banknote className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm">Pathway de financement</CardTitle>
-              </div>
-              {pathway.type_recommande && (
-                <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 w-fit">{pathway.type_recommande}</Badge>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                {pathway.montant_eligible_estime && (
-                  <div className="p-2.5 rounded-lg bg-muted/50 border border-border">
-                    <p className="text-[10px] text-muted-foreground">Montant éligible</p>
-                    <p className="text-sm font-semibold">{pathway.montant_eligible_estime}</p>
-                  </div>
-                )}
-                {pathway.timeline_estimee && (
-                  <div className="p-2.5 rounded-lg bg-muted/50 border border-border">
-                    <p className="text-[10px] text-muted-foreground">Timeline</p>
-                    <p className="text-sm font-semibold">{pathway.timeline_estimee}</p>
-                  </div>
-                )}
-              </div>
-              {pathway.bailleurs_potentiels?.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[10px] font-semibold mb-1">Bailleurs potentiels</p>
-                  <div className="flex flex-wrap gap-1">
-                    {pathway.bailleurs_potentiels.map((b: string, i: number) => (
-                      <Badge key={i} variant="outline" className="text-[10px]">{b}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {pathway.conditions_prealables?.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold mb-1">Conditions préalables</p>
-                  {pathway.conditions_prealables.map((c: string, i: number) => (
-                    <p key={i} className="text-[10px] text-muted-foreground">☐ {c}</p>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* ═══ 20. Matching Programme ═══ */}
+      {/* ══════════ ZONE 6 — Matching programme ══════════ */}
       {programmeMatch && (
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Matching Programme</CardTitle>
-              <Badge variant={programmeMatch.match_score >= 70 ? 'default' : 'destructive'} className="text-xs">
-                {programmeMatch.match_score}/100
-              </Badge>
+              <CardTitle className="text-sm">Matching programme</CardTitle>
+              {programmeMatch.match_score != null && (
+                <Badge variant="outline" className="ml-auto text-xs">{programmeMatch.match_score}/100</Badge>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">{programmeMatch.programme_name}</p>
+            {programmeMatch.programme_name && (
+              <p className="text-xs text-muted-foreground">{programmeMatch.programme_name}</p>
+            )}
           </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              {programmeMatch.criteres_ok?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Critères remplis</h4>
-                  {programmeMatch.criteres_ok.map((c: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 mb-2 text-xs">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 flex-none" />
-                      <div>
-                        <span className="font-medium">{typeof c === 'string' ? c : c.critere}</span>
-                        {typeof c === 'object' && c.detail && <p className="text-muted-foreground">{c.detail}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {programmeMatch.criteres_ko?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide">Critères non remplis</h4>
-                  {programmeMatch.criteres_ko.map((c: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 mb-2 text-xs">
-                      <XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 flex-none" />
-                      <div>
-                        <span className="font-medium">{typeof c === 'string' ? c : c.critere}</span>
-                        {typeof c === 'object' && c.detail && <p className="text-muted-foreground">{c.detail}</p>}
-                        {typeof c === 'object' && c.comment_corriger && <p className="text-blue-600 mt-1">💡 {c.comment_corriger}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {programmeMatch.criteres_partiels?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-amber-700 mb-2 uppercase tracking-wide">Critères partiels</h4>
-                  {programmeMatch.criteres_partiels.map((c: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 mb-2 text-xs">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-none" />
-                      <div>
-                        <span className="font-medium">{c.critere}</span>
-                        {c.detail && <p className="text-muted-foreground">{c.detail}</p>}
-                        {c.manque && <p className="text-amber-600 mt-1">⚠️ Manque : {c.manque}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          <CardContent className="space-y-3">
+            {programmeMatch.criteres_ok?.length > 0 && (
+              <div className="space-y-1">
+                {programmeMatch.criteres_ok.map((c: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="text-emerald-500 mt-0.5">●</span>
+                    <span><strong>{c.critere}</strong> — {c.detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {programmeMatch.criteres_ko?.length > 0 && (
+              <div className="space-y-1">
+                {programmeMatch.criteres_ko.map((c: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="text-red-500 mt-0.5">●</span>
+                    <span><strong>{c.critere}</strong> — {c.detail}{c.comment_corriger ? ` → ${c.comment_corriger}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {programmeMatch.criteres_partiels?.length > 0 && (
+              <div className="space-y-1">
+                {programmeMatch.criteres_partiels.map((c: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="text-amber-500 mt-0.5">●</span>
+                    <span><strong>{c.critere}</strong> — {c.detail}{c.manque ? ` (manque : ${c.manque})` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {programmeMatch.recommandation && (
-              <p className="text-sm mt-4 pt-3 border-t border-border font-medium">{programmeMatch.recommandation}</p>
+              <p className="text-xs text-muted-foreground pt-2 border-t border-border">{programmeMatch.recommandation}</p>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* ══════════ ZONE 7 — Verdict final ══════════ */}
+      {(verdictAnalyste?.synthese_pour_comite || classDetail) && (
+        <Card className="bg-muted/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Verdict</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm leading-relaxed whitespace-pre-line">
+              {verdictAnalyste?.synthese_pour_comite || classDetail}
+            </p>
+            {verdictAnalyste?.deal_breakers?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-red-700 mb-1">Deal breakers</p>
+                {verdictAnalyste.deal_breakers.map((d: string, i: number) => (
+                  <p key={i} className="text-xs text-red-600">• {d}</p>
+                ))}
+              </div>
+            )}
+            {verdictAnalyste?.conditions_sine_qua_non?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-amber-700 mb-1">Conditions sine qua non</p>
+                {verdictAnalyste.conditions_sine_qua_non.map((c: string, i: number) => (
+                  <p key={i} className="text-xs text-amber-600">• {c}</p>
+                ))}
+              </div>
+            )}
+            {verdictAnalyste?.quick_wins?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-emerald-700 mb-1">Quick wins</p>
+                {verdictAnalyste.quick_wins.map((q: string, i: number) => (
+                  <p key={i} className="text-xs text-emerald-600">• {q}</p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
     </div>
   );
 }

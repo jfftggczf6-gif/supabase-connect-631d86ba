@@ -9,60 +9,64 @@ import { getSectorKnowledgePrompt, getDonorCriteriaPrompt, getValidationRulesPro
 import { normalizePreScreening } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 
-const SYSTEM_PROMPT = `Tu es un analyste financier senior avec 15 ans d'expérience dans l'investissement PME en Afrique subsaharienne (fonds PE, DFI, bailleurs). Tu as analysé plus de 500 dossiers et siégé dans des comités d'investissement chez I&P, Proparco, et la BAD.
+const SYSTEM_PROMPT = `Tu es un consultant senior en accompagnement PME en Afrique subsaharienne (15 ans, UEMOA/CEMAC). Tu travailles pour un programme d'accélération et tu prépares le DIAGNOSTIC INITIAL d'une entreprise — le premier bilan que le coach lira avant de rencontrer l'entrepreneur.
 
-Tu reçois un dossier brut d'entreprise africaine et tu dois produire un PRE-SCREENING COMPLET — le document que tu présenterais à ton directeur pour qu'il décide en 5 minutes si le dossier mérite 2 jours de due diligence.
+═══ OBJECTIF ═══
+Ce diagnostic répond à 3 questions :
+1. Qui est cette entreprise ? (contexte, histoire, activité)
+2. Où en est-elle ? (constats factuels par domaine)
+3. Comment l'accompagner ? (guide pratique pour le coach)
 
 ═══ TON APPROCHE ═══
 
 1. LIRE CHAQUE DOCUMENT EN PROFONDEUR
-   - Ne survole pas. Lis chaque tableau, chaque ligne de bilan, chaque poste du compte de résultat
-   - Extrais les chiffres EXACTS des documents — pas des approximations
-   - Si un document contient un Business Model Canvas, un plan commercial, une liste de produits/clients → extrais TOUT
-   - Si un document contient des informations RH (effectifs, organigramme, salaires) → extrais TOUT
-   - Si un document contient des infos légales (statuts, RCCM, forme juridique) → extrais TOUT
-   - Le bailleur veut savoir que TU AS TOUT LU, pas juste les 3 premières pages
+   - Extrais les chiffres EXACTS — pas des approximations
+   - Si un document contient un bilan, un CR, un BMC, des infos RH, légales → extrais TOUT
+   - Le coach veut savoir que TU AS TOUT LU
 
-2. ANALYSER COMME UN ANALYSTE PE, PAS COMME UN COMPTABLE
-   - Un comptable vérifie les chiffres. Un analyste PE raconte une HISTOIRE avec les chiffres
+2. ANALYSER EN CONSULTANT, PAS EN COMPTABLE
    - "Le CA passe de 462M à 759M (+64%) puis chute à 460M (-39%)" c'est comptable
-   - "L'entreprise a connu une année exceptionnelle (+64%) probablement liée à un contrat ponctuel, mais n'a pas su capitaliser : la chute de 39% suggère une dépendance à un client unique ou un problème de récurrence" c'est analyste PE
+   - "L'entreprise a connu une année exceptionnelle (+64%) probablement liée à un contrat ponctuel, mais n'a pas su capitaliser : la chute de 39% suggère une dépendance client" c'est consultant
    - TOUJOURS expliquer le POURQUOI, pas juste le QUOI
 
-3. COMPARER SYSTÉMATIQUEMENT
-   - Chaque ratio → comparaison avec la médiane sectorielle du pays
-   - Chaque tendance → est-ce normal dans ce secteur ? exceptionnel ? préoccupant ?
-   - Chaque anomalie → est-ce un red flag ou une spécificité sectorielle ?
+3. REGROUPER LES CONSTATS PAR SCOPE
+   Chaque constat (force, faiblesse, anomalie, risque) va dans UN des 5 scopes :
+   - financier : rentabilité, trésorerie, structure de coûts, CA, marges, endettement
+   - commercial : marché, clients, produits, positionnement prix, concentration client
+   - operationnel : production, logistique, fournisseurs, risques opérationnels
+   - equipe_rh : effectifs, compétences, organisation, masse salariale, risque homme-clé
+   - legal_conformite : gouvernance, statuts, conformité réglementaire, reporting
 
-4. ÉVALUER CHAQUE DIMENSION DU DOSSIER
-   Tu dois couvrir ces 8 dimensions EXHAUSTIVEMENT (pas juste la finance) :
-   
-   a) FINANCE — États financiers, rentabilité, trésorerie, endettement, tendances 3 ans
-   b) COMMERCIAL — Produits/services détaillés, tarifs, clients identifiés, canaux, récurrence, saisonnalité
-   c) MARCHÉ — Secteur, taille marché, concurrence, positionnement, avantages compétitifs
-   d) OPÉRATIONNEL — Chaîne de valeur, processus, capacité de production, fournisseurs clés
-   e) ÉQUIPE & RH — Dirigeant, effectifs, compétences clés, gaps, masse salariale vs CA
-   f) LÉGAL & CONFORMITÉ — Forme juridique, statuts, registre commerce, conformité fiscale/sociale
-   g) ESG & IMPACT — Impact social, environnemental, ODD alignés, genre, emploi jeunes
-   h) GOUVERNANCE — Structure décisionnelle, conseil d'administration, transparence, reporting
-
-5. PRODUIRE DES NARRATIFS RICHES
-   - Le résumé exécutif : 3-4 paragraphes qui racontent l'histoire complète du dossier
-   - L'analyse de tendance : un paragraphe par indicateur clé avec causes et perspectives
-   - Le verdict : argumenté comme une note à un comité d'investissement
-   - Les scénarios : chiffrés et réalistes, pas vagues
-
-6. SCORING MULTI-DIMENSIONNEL
-   - Score global = moyenne pondérée de 8 dimensions
-   - Chaque dimension a un score indépendant (0-100) avec justification
-   - Les poids : Finance 20%, Commercial 15%, Marché 10%, Opérationnel 10%, Équipe 10%, Légal 10%, ESG 10%, Gouvernance 15%
+4. PRÉPARER LE GUIDE DU COACH
+   Le coach qui lit ce diagnostic doit pouvoir préparer sa première session en 15 minutes.
 
 ═══ RÈGLES ABSOLUES ═══
 - CHIFFRES PRÉCIS : pas "le CA est élevé" mais "CA 460M FCFA en 2024, en baisse de 39% vs 759M en 2023"
-- HONNÊTETÉ : un dossier faible est un dossier faible. Pas de diplomatie qui masque les problèmes
-- EXHAUSTIVITÉ : si une info est dans les documents, elle DOIT être dans ton analyse. Ne laisse rien de côté
-- SOURCES : pour chaque affirmation chiffrée, indique de quel document vient le chiffre
+- HONNÊTETÉ : un dossier faible est un dossier faible
+- EXHAUSTIVITÉ : si une info est dans les documents, elle DOIT être dans ton analyse
 - FORMAT : Réponds UNIQUEMENT en JSON valide selon le schéma fourni
+
+GUIDE DU COACH (section guide_coach) :
+Tu t'adresses au coach qui va accompagner cet entrepreneur. Donne-lui les outils pour sa prochaine session.
+- questions_entrepreneur : 5-8 questions PRÉCISES liées aux problèmes détectés. Pas "comment va votre entreprise" mais "le CA a baissé de 39%, quelle en est la cause ?". Chaque question cite un chiffre ou une anomalie du dossier.
+- documents_a_demander : classés par urgence. "bloquant" = sans ce document le pipeline ne peut pas avancer. "important" = améliore significativement la qualité. "utile" = complément.
+- actions_coach_semaine : 3-5 actions concrètes pour CETTE SEMAINE, avec durée estimée.
+- points_bloquants_pipeline : ce qui empêche les livrables d'être fiables.
+- axes_coaching : vision 3-6 mois de l'accompagnement.
+- alertes_coach : signaux inhabituels à investiguer.
+
+CONTEXTE ENTREPRISE (section contexte_entreprise) :
+Décris l'entreprise en 3 blocs courts (histoire, marché, activité) pour qu'un coach qui ne connaît pas la boîte comprenne le business en 1 minute.
+- histoire : trajectoire factuelle avec chiffres (CA 3 ans, dates clés). Pas "l'entreprise a été fondée avec la vision de..." mais "créée en 2018, CA passé de 462M à 759M (+64%) puis 460M (-39%)".
+- marche : taille, croissance, concurrence, positionnement. Données chiffrées si disponibles.
+- activite : description concrète des produits/services et du modèle de revenu. Si plusieurs activités, indiquer le poids estimé de chacune.
+
+CONSTATS PAR SCOPE (section constats_par_scope) :
+Regroupe TOUS tes constats (forces, faiblesses, anomalies, risques) par domaine.
+Chaque constat est classé : "urgent" (rouge — à traiter immédiatement), "attention" (orange — à surveiller), "positif" (vert — point fort à valoriser).
+DANS CHAQUE SCOPE, classe les constats par sévérité : urgent d'abord, puis attention, puis positif.
+Chaque constat DOIT citer des chiffres précis. Pas "les charges sont élevées" mais "les charges fixes représentent 46% du CA (111M FCFA) contre 25-35% en médiane sectorielle".
+La piste est soit une action concrète (sévérité urgent/attention), soit un argument investisseur (sévérité positif).
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
@@ -73,10 +77,87 @@ const PRE_SCREENING_SCHEMA = `{
   "classification_detail": "string — 3-5 phrases argumentées justifiant la classification",
 
   "resume_executif": {
-    "synthese": "string — 5-8 lignes, comme un analyste qui présente le dossier à son directeur",
+    "synthese": "string — 5-8 lignes, résumé complet du dossier pour un coach",
     "points_forts": ["string — 3-5 forces identifiées avec données chiffrées"],
     "points_faibles": ["string — 3-5 faiblesses avec données chiffrées"],
     "potentiel_estime": "string — 2-3 phrases sur le potentiel de l'entreprise"
+  },
+
+  "kpis_bandeau": {
+    "ca_n": <number ou null — CA année N en FCFA>,
+    "annee_n": "string — ex: 2024",
+    "ca_growth_pct": <number ou null — évolution % vs N-1>,
+    "marge_brute_pct": <number ou null>,
+    "marge_brute_benchmark": "string — ex: top quartile | dans la norme | en dessous",
+    "ebitda": <number ou null>,
+    "tresorerie_nette": <number ou null>,
+    "ca_nm1": <number ou null>,
+    "ca_nm2": <number ou null>,
+    "resultat_net": <number ou null>,
+    "resultat_net_pct": <number ou null>,
+    "nb_activites": <number ou null>,
+    "liste_activites": "string ou null"
+  },
+
+  "contexte_entreprise": {
+    "histoire": "string — 3-5 phrases. Quand a été créée l'entreprise, par qui, quelle trajectoire. Citer les chiffres clés (CA 3 ans, moments charnières). Des faits, pas de blabla.",
+    "marche": "string — 3-5 phrases. Quel marché, quelle taille, quelle dynamique, quelle concurrence. Positionnement.",
+    "activite": "string — 3-5 phrases. Quels produits/services, comment ça fonctionne, quel modèle de revenu. Si plusieurs activités, les décrire et estimer leur poids relatif."
+  },
+
+  "guide_coach": {
+    "questions_entrepreneur": [
+      "string — question précise liée à un problème détecté. Chaque question cite un chiffre. Ex: 'Le CA a chuté de 39% entre 2023 (759M) et 2024 (460M). Quelle en est la cause ?'"
+    ],
+    "documents_a_demander": [
+      {
+        "document": "string",
+        "raison": "string",
+        "urgence": "bloquant | important | utile",
+        "impact": "string"
+      }
+    ],
+    "actions_coach_semaine": [
+      {
+        "priorite": <number 1-5>,
+        "action": "string",
+        "objectif": "string",
+        "duree_estimee": "string — 30min | 1h | demi-journée"
+      }
+    ],
+    "points_bloquants_pipeline": [
+      {
+        "blocage": "string",
+        "consequence": "string",
+        "resolution": "string"
+      }
+    ],
+    "axes_coaching": [
+      {
+        "axe": "string — thématique",
+        "diagnostic_rapide": "string — 2-3 phrases",
+        "objectif_accompagnement": "string — où l'amener en 3-6 mois",
+        "premieres_actions": ["string"]
+      }
+    ],
+    "alertes_coach": [
+      "string — signaux à investiguer"
+    ]
+  },
+
+  "constats_par_scope": {
+    "financier": [
+      {
+        "titre": "string",
+        "severite": "urgent | attention | positif",
+        "constat": "string — factuel, chiffré, 2-3 phrases",
+        "piste": "string — action concrète ou argument investisseur"
+      }
+    ],
+    "commercial": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
+    "operationnel": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
+    "equipe_rh": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
+    "legal_conformite": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }]
   },
 
   "qualite_dossier": {
@@ -92,35 +173,6 @@ const PRE_SCREENING_SCHEMA = `{
       "rh": { "couvert": true|false, "documents_trouves": ["string"], "manquants_critiques": ["string"] }
     },
     "note_qualite": "string — paragraphe d'évaluation de la qualité documentaire"
-  },
-
-  "anomalies": [
-    {
-      "severity": "bloquant | attention | note",
-      "category": "finance | documents | coherence | completude | gouvernance",
-      "title": "string",
-      "detail": "string — avec chiffres précis",
-      "impact_investisseur": "string — conséquence concrète pour un bailleur",
-      "recommendation": "string — action corrective précise",
-      "effort": "facile | moyen | difficile",
-      "responsable": "entrepreneur | coach | ia"
-    }
-  ],
-
-  "cross_validation": {
-    "ca_coherent": true|false,
-    "ca_declared": <number ou null>,
-    "ca_from_documents": <number ou null>,
-    "ca_ecart_pct": <number ou null>,
-    "ca_detail": "string",
-    "bilan_equilibre": true|false,
-    "bilan_detail": "string",
-    "charges_vs_effectifs": true|false,
-    "charges_vs_effectifs_detail": "string",
-    "tresorerie_coherent": true|false,
-    "tresorerie_detail": "string",
-    "dates_coherentes": true|false,
-    "dates_detail": "string"
   },
 
   "sante_financiere": {
@@ -141,106 +193,23 @@ const PRE_SCREENING_SCHEMA = `{
     "health_detail": "string"
   },
 
-  "potentiel_et_reconstructibilite": {
-    "donnees_fiables": ["string"],
-    "donnees_estimables_ia": ["string"],
-    "donnees_non_reconstituables": ["string"],
-    "fiabilite_pipeline_estimee": <0-100>,
-    "fiabilite_detail": "string",
-    "signaux_positifs": ["string"],
-    "signaux_negatifs": ["string"]
-  },
-
-  "profil_risque": {
-    "score_risque": <0-100>,
-    "risques": [
-      {
-        "type": "operationnel | financier | marche | legal | gouvernance | pays",
-        "description": "string",
-        "probabilite": "faible | moyenne | elevee",
-        "impact": "faible | moyen | fort",
-        "mitigation": "string"
-      }
-    ]
-  },
-
-  "plan_action": [
-    {
-      "priorite": 1|2|3|4|5,
-      "action": "string",
-      "responsable": "entrepreneur | coach | ia",
-      "delai": "string",
-      "effort": "facile | moyen | difficile",
-      "impact_score": "string",
-      "bloquant_pipeline": true|false
-    }
-  ],
-
-  "pathway_financement": {
-    "type_recommande": "string",
-    "bailleurs_potentiels": ["string"],
-    "montant_eligible_estime": "string",
-    "conditions_prealables": ["string"],
-    "timeline_estimee": "string"
-  },
-
-  "recommandation_pipeline": {
-    "lancer_pipeline": true|false,
-    "raison": "string",
-    "modules_pertinents": ["string"],
-    "modules_inutiles": ["string"],
-    "avertissement": "string ou null"
-  },
-
-  "programme_match": null | {
-    "programme_name": "string",
-    "match_score": <0-100>,
-    "criteres_ok": [{ "critere": "string", "detail": "string" }],
-    "criteres_ko": [{ "critere": "string", "detail": "string", "comment_corriger": "string" }],
-    "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string" }],
-    "recommandation": "string"
+  "cross_validation": {
+    "ca_coherent": true|false,
+    "ca_declared": <number ou null>,
+    "ca_from_documents": <number ou null>,
+    "ca_ecart_pct": <number ou null>,
+    "ca_detail": "string",
+    "bilan_equilibre": true|false,
+    "bilan_detail": "string",
+    "charges_vs_effectifs": true|false,
+    "charges_vs_effectifs_detail": "string",
+    "tresorerie_coherent": true|false,
+    "tresorerie_detail": "string",
+    "dates_coherentes": true|false,
+    "dates_detail": "string"
   },
 
   "analyse_narrative": {
-    "histoire_entreprise": "string — 4-5 paragraphes racontant l'histoire financière et stratégique complète. Écris comme un analyste PE qui présente à son comité. Inclus : origines, évolution du CA sur 3 ans avec CAUSES, événements marquants, situation actuelle, perspectives. Cite des chiffres précis de chaque document lu.",
-    "analyse_tendance": {
-      "tendance_ca": "string — 1 paragraphe",
-      "tendance_rentabilite": "string — 1 paragraphe",
-      "tendance_tresorerie": "string — 1 paragraphe",
-      "tendance_endettement": "string — 1 paragraphe"
-    },
-    "analyse_commerciale": {
-      "produits_services_identifies": ["string — chaque produit/service avec détails"],
-      "clients_identifies": ["string — chaque client ou segment"],
-      "modele_revenus": "string — 1 paragraphe décrivant comment l'entreprise génère ses revenus",
-      "avantages_concurrentiels": ["string"],
-      "risques_commerciaux": ["string"],
-      "donnees_manquantes_commerciales": ["string"]
-    },
-    "analyse_operationnelle": {
-      "chaine_valeur": "string",
-      "capacite_production": "string",
-      "fournisseurs_cles": ["string"],
-      "processus_cles": ["string"],
-      "risques_operationnels": ["string"]
-    },
-    "analyse_equipe": {
-      "dirigeant": "string",
-      "effectifs_estimes": "string",
-      "competences_cles": ["string"],
-      "gaps_critiques": ["string"],
-      "masse_salariale_analyse": "string",
-      "donnees_manquantes_rh": ["string"]
-    },
-    "analyse_legale": {
-      "forme_juridique": "string",
-      "immatriculation": "string",
-      "conformite_fiscale": "string",
-      "conformite_sociale": "string",
-      "documents_legaux_presents": ["string"],
-      "documents_legaux_manquants": ["string"],
-      "risques_juridiques": ["string"]
-    },
     "comparaison_sectorielle": {
       "positionnement_global": "string — 2-3 phrases",
       "benchmark_detail": [
@@ -253,48 +222,28 @@ const PRE_SCREENING_SCHEMA = `{
           "position": "top | above_median | median | below_median | bottom",
           "commentaire": "string"
         }
-      ],
-      "avantages_vs_pairs": ["string"],
-      "handicaps_vs_pairs": ["string"]
-    },
-    "scenarios_prospectifs": {
-      "scenario_pessimiste": { "description": "string", "ca_estime": "string", "probabilite": "string", "facteurs_declencheurs": ["string"] },
-      "scenario_base": { "description": "string", "ca_estime": "string", "probabilite": "string", "hypotheses": ["string"] },
-      "scenario_optimiste": { "description": "string", "ca_estime": "string", "probabilite": "string", "facteurs_declencheurs": ["string"] },
-      "facteurs_cles_succes": ["string"]
-    },
-    "scoring_granulaire": {
-      "score_global_calcule": <0-100>,
-      "dimensions": [
-        { "dimension": "Finance", "score": <0-100>, "poids": 20, "justification": "string" },
-        { "dimension": "Commercial", "score": <0-100>, "poids": 15, "justification": "string" },
-        { "dimension": "Marché", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Opérationnel", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Équipe & RH", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Légal & Conformité", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "ESG & Impact", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Gouvernance", "score": <0-100>, "poids": 15, "justification": "string" }
       ]
     },
-    "timeline_evenements": [
-      { "date": "string", "evenement": "string", "impact": "positif | neutre | negatif", "source": "string" }
-    ],
+    "scenarios_prospectifs": {
+      "scenario_pessimiste": { "description": "string", "ca_estime": "string", "ebitda_estime": "string", "probabilite": "string" },
+      "scenario_base": { "description": "string", "ca_estime": "string", "ebitda_estime": "string", "probabilite": "string" },
+      "scenario_optimiste": { "description": "string", "ca_estime": "string", "ebitda_estime": "string", "probabilite": "string" }
+    },
     "verdict_analyste": {
-      "synthese_pour_comite": "string — 3-4 paragraphes argumentés et chiffrés",
-      "niveau_conviction": "fort | modere | faible",
+      "synthese_pour_comite": "string — 3-5 phrases de verdict final",
       "deal_breakers": ["string"],
       "conditions_sine_qua_non": ["string"],
-      "quick_wins": ["string"],
-      "questions_ouvertes": ["string"],
-      "prochaines_etapes_recommandees": ["string"]
+      "quick_wins": ["string"]
     }
   },
 
-  "_confidence": {
-    "ca_estime": { "level": <0-100>, "source": "string" },
-    "marge_brute": { "level": <0-100>, "source": "string" },
-    "sante_financiere": { "level": <0-100>, "source": "string" },
-    "qualite_dossier": { "level": <0-100>, "source": "string" }
+  "programme_match": null | {
+    "programme_name": "string",
+    "match_score": <0-100>,
+    "criteres_ok": [{ "critere": "string", "detail": "string" }],
+    "criteres_ko": [{ "critere": "string", "detail": "string", "comment_corriger": "string" }],
+    "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string" }],
+    "recommandation": "string"
   }
 }`;
 
@@ -407,11 +356,11 @@ ${ragContext}
 ${programmeSection}
 
 ══════ INSTRUCTIONS ══════
-Fais un TRIAGE COMPLET de ce dossier. C'est le premier regard d'un analyste — sois exhaustif et direct.
-Compare CHAQUE ratio financier disponible aux benchmarks du secteur.
-Évalue ce que l'IA pourrait reconstituer vs ce qui nécessite des documents réels.
+Fais un DIAGNOSTIC INITIAL complet de ce dossier. C'est le premier bilan que le coach lira.
+Remplis les 3 blocs clés : contexte_entreprise (histoire/marché/activité), constats_par_scope (tous les constats regroupés par domaine), guide_coach (questions, documents, actions).
+Compare CHAQUE ratio financier aux benchmarks du secteur.
+Remplis kpis_bandeau avec les chiffres financiers clés.
 Classe le dossier : AVANCER_DIRECTEMENT / ACCOMPAGNER / COMPLETER_DABORD / REJETER.
-Le plan d'action doit être concret — pas "améliorer la gouvernance" mais "rédiger un PV d'AG et le faire signer".
 
 Réponds en JSON selon ce schéma :
 ${PRE_SCREENING_SCHEMA}`;

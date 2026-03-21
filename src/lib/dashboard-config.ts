@@ -47,7 +47,7 @@ export const MODULE_CONFIG_COACH = [
 ];
 
 export const DELIVERABLE_CONFIG = [
-  { type: 'pre_screening',   label: 'Pre-screening / Triage',                     formats: ['html', 'json'], icon: '🔍' },
+  { type: 'pre_screening',   label: 'Diagnostic initial',                         formats: ['html', 'json'], icon: '🔍' },
   { type: 'bmc_analysis',    label: 'Business Model Canvas',                     formats: ['html', 'json'], icon: '📊' },
   { type: 'sic_analysis',    label: 'Social Impact Canvas',                      formats: ['html', 'json'], icon: '🌍' },
   { type: 'framework_data',  label: 'Plan Financier Intermédiaire',              formats: ['html', 'xlsx'], icon: '📈' },
@@ -62,7 +62,7 @@ export const DELIVERABLE_CONFIG = [
 
 export const PIPELINE = [
   // Phase 1 — Triage
-  { name: 'Pre-screening',    fn: 'generate-pre-screening',    type: 'pre_screening' as DeliverableType },
+  { name: 'Diagnostic initial', fn: 'generate-pre-screening',  type: 'pre_screening' as DeliverableType },
   // Phase 2 — Analyse
   { name: 'BMC',              fn: 'generate-bmc',              type: 'bmc_analysis' as DeliverableType },
   { name: 'SIC',              fn: 'generate-sic',              type: 'sic_analysis' as DeliverableType },
@@ -130,7 +130,7 @@ export const PHASES: PhaseConfig[] = [
     shortLabel: 'Triage',
     color: 'rose',
     modules: [
-      { code: 'pre_screening', label: 'Pre-screening', icon: FileSearch, special: 'pre_screening' },
+      { code: 'pre_screening', label: 'Diagnostic initial', icon: FileSearch, special: 'pre_screening' },
     ],
   },
   {
