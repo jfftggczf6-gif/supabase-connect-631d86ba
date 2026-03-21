@@ -255,9 +255,10 @@ Indique lesquels sont levés et lesquels persistent.
     const sectorBenchmarks = getSectorKnowledgePrompt(secteur);
 
     const agentDocs = getDocumentContentForAgent(ent, "diagnostic", 80_000);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawData = await callAI(
       SYSTEM_PROMPT,
-      buildUserPrompt(ent.name, secteur, pays, agentDocs, livrables, truthBlock, progressionBlock)
+      buildUserPrompt(ent.name, secteur, pays, agentDocs, livrables, truthBlock, progressionBlock) + coachingContext
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
         + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}`
         + ragContext

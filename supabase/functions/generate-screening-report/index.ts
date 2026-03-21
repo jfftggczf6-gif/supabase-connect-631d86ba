@@ -228,7 +228,8 @@ RÈGLES :
 Réponds en JSON selon ce schéma :
 ${DECISION_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 32768);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt + coachingContext, 32768);
     const normalizedData = normalizeScreeningReport(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 
