@@ -933,7 +933,7 @@ export default function EntrepreneurDashboard({
       );
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
       const result = await response.json();
-      toast.success(`Screening terminé ! Score: ${result.score}/100`);
+      toast.success(`Décision programme terminée ! Score: ${result.score}/100`);
       setSelectedModule('screening');
       await fetchData();
     } catch (err: any) {
