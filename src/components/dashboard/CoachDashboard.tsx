@@ -815,8 +815,9 @@ export default function CoachDashboard() {
         {/* Tabs */}
         <div className="flex border-b border-border mb-6 gap-1">
           {([
-            { key: 'parcours' as DetailTab, label: '📤 Parcours Rapide', desc: 'Espace privé coach' },
-            { key: 'mirror' as DetailTab, label: '👁 Vue Entrepreneur', desc: 'Espace partagé' },
+            { key: 'mirror' as DetailTab, label: '👁 Vue entrepreneur', desc: 'Livrables et diagnostic' },
+            { key: 'coaching' as DetailTab, label: '📝 Coaching', desc: 'Notes et rapports' },
+            { key: 'parcours' as DetailTab, label: '📤 Parcours rapide', desc: 'Upload documents' },
             { key: 'livrables' as DetailTab, label: '📁 Livrables', desc: `${entDelivs.length} générés` },
           ]).map(tab => (
             <button
