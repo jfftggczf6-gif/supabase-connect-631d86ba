@@ -1087,6 +1087,8 @@ export default function EntrepreneurDashboard({
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto">
+            {/* Inputs diff banner */}
+            {enterprise && <InputsDiffBanner enterpriseId={enterprise.id} />}
             {/* Overview / Home */}
             {selectedModule === 'overview' ? (
               <DashboardOverview
