@@ -691,10 +691,10 @@ function DiagnosticViewer({ data }: { data: any }) {
                       <td className="text-right">{bench.entreprise != null ? `${bench.entreprise}%` : '—'}</td>
                       <td className="text-right text-muted-foreground">{bench.secteur_min}–{bench.secteur_max}%</td>
                       <td className="pl-2">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                          bench.verdict === 'au_dessus' ? 'bg-green-100 text-green-700' :
-                          bench.verdict === 'dans_norme' ? 'bg-blue-100 text-blue-700' :
-                          'bg-red-100 text-red-700'
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                          bench.verdict === 'au_dessus' ? 'bg-success/10 text-success border-success/20' :
+                          bench.verdict === 'dans_norme' ? 'bg-info/10 text-info border-info/20' :
+                          'bg-destructive/10 text-destructive border-destructive/20'
                         }`}>{bench.verdict?.replace(/_/g, ' ') || '—'}</span>
                       </td>
                     </tr>
