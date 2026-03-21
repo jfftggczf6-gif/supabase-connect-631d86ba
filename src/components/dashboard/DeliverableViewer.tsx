@@ -607,7 +607,7 @@ function DiagnosticViewer({ data }: { data: any }) {
                 }`}>{p.urgence}</Badge>
                 <span className="text-xs font-medium">{p.titre}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{p.constat}</p>
+              <p className="text-xs text-foreground mt-2 leading-relaxed">{p.constat}</p>
               <p className="text-xs text-blue-800 mt-2">→ {p.piste}</p>
             </div>
           ))}
