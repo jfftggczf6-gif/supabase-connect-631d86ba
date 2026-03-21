@@ -144,6 +144,11 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">CA</span><span className="font-semibold">{fmt(multiples.ca_dernier_exercice, devise)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Multiple retenu</span><span className="font-semibold">{multiples.multiple_ca_retenu || '—'}×</span></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Valeur</span><span className="font-bold text-amber-600">{fmt(multiples.valeur_par_ca, devise)}</span></div>
+            {multiples.fourchette_ca && (
+              <p className="text-[10px] text-muted-foreground">
+                Fourchette sectorielle : {multiples.fourchette_ca[0]}×–{multiples.fourchette_ca[1]}×
+              </p>
+            )}
             {multiples.comparables_references && multiples.comparables_references.length > 0 && (
               <div className="pt-2 border-t">
                 <p className="text-xs font-semibold mb-1">Comparables</p>
