@@ -756,17 +756,7 @@ export default function CoachDashboard() {
       return <DeliverableViewer moduleCode={selectedModule} data={deliv.data} allDeliverables={entDelivs} />;
     };
 
-    // ═══ FULL-SCREEN MIRROR VIEW — delegates to EntrepreneurDashboard ═══
-    if (detailTab === 'mirror') {
-      return (
-        <EntrepreneurDashboard
-          enterpriseId={ent.id}
-          showBackButton={true}
-          onBack={() => { setView('list'); setSelectedEnt(null); }}
-          coachMode={true}
-        />
-      );
-    }
+    // Mirror view is now integrated under tabs below (no early return)
 
     // ═══ NON-MIRROR DETAIL VIEW (Parcours + Livrables) ═══
     return (
