@@ -252,11 +252,10 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
 }
 
 // ===== LEGACY VIEWER (ancien format) =====
-function LegacyScreeningViewer({ data, onRegenerate, handleCopy, handleDownload }: {
+function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml }: {
   data: Record<string, any>;
   onRegenerate?: () => void;
-  handleCopy: () => void;
-  handleDownload: () => void;
+  handleDownloadHtml: () => void;
 }) {
   const score = data.screening_score ?? 0;
   const verdict = data.verdict || 'INSUFFISANT';
@@ -273,13 +272,10 @@ function LegacyScreeningViewer({ data, onRegenerate, handleCopy, handleDownload 
   const scoreColor = score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-600';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="screening-viewer-content">
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopy}>
-          <Copy className="h-3.5 w-3.5" /> Copier
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
-          <Download className="h-3.5 w-3.5" /> JSON
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
+          <Download className="h-3.5 w-3.5" /> HTML (A4)
         </Button>
         {onRegenerate && (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={onRegenerate}>
