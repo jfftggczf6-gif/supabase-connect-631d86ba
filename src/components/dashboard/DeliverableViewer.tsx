@@ -597,7 +597,7 @@ function DiagnosticViewer({ data }: { data: any }) {
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui va coincer</h3>
           {problemes.map((p: any, i: number) => (
-            <div key={i} className="p-3 rounded-r-lg bg-secondary border"
+            <div key={i} className="p-3 rounded-r-lg bg-background border"
               style={{ borderLeft: `4px solid ${p.urgence === 'bloquant' ? '#A32D2D' : p.urgence === 'important' ? '#BA7517' : '#185FA5'}` }}>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className={`text-[9px] ${
