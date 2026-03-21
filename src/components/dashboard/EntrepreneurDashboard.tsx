@@ -933,11 +933,11 @@ export default function EntrepreneurDashboard({
       );
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
       const result = await response.json();
-      toast.success(`Screening terminé ! Score: ${result.score}/100`);
+      toast.success(`Décision programme terminée ! Score: ${result.score}/100`);
       setSelectedModule('screening');
       await fetchData();
     } catch (err: any) {
-      toast.error(err.message || 'Erreur de screening');
+      toast.error(err.message || 'Erreur de décision programme');
     } finally {
       setGeneratingScreening(false);
     }
@@ -1061,7 +1061,7 @@ export default function EntrepreneurDashboard({
               {selectedModule === 'screening' && (
                 <>
                   <Search className="h-5 w-5 text-muted-foreground" />
-                  <h1 className="font-display font-semibold text-base">Diagnostic & Screening</h1>
+                  <h1 className="font-display font-semibold text-base">Décision programme</h1>
                 </>
               )}
               {selectedModule === 'pre_screening' && (
