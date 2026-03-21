@@ -562,7 +562,7 @@ function DiagnosticViewer({ data }: { data: any }) {
                   {verdict.pret_pour_bailleur ? 'Dossier prêt' : 'Pas encore prêt'}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{verdict.resume}</p>
+              <p className="text-xs text-foreground mt-1">{verdict.resume}</p>
             </div>
           </div>
 
