@@ -67,12 +67,9 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
     setMode('processing');
     setAnalyzing(true);
 
-    try {
-      let content = text;
+    let content = text;
 
-      // If file, upload and get content (parse via vision)
-      if (file) {
-        const token = await getValidAccessToken(authSession);
+    // If file, upload to coaching-files bucket
         const formData = new FormData();
         formData.append('file', file);
 
