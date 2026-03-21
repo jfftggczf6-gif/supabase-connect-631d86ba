@@ -315,6 +315,49 @@ RÈGLES HYPOTHÈSES DE CROISSANCE :
 - Si le document contient des objectifs de CA sur 5 ans, extrais-les.
 - Si des taux de croissance, marges cibles, ou paramètres d'inflation sont spécifiés, extrais-les.`;
 
+/* ───── Diff computation ───── */
+
+function summarizeValue(v: any): string {
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "number") return v.toLocaleString("fr-FR");
+  if (typeof v === "string") return v.length > 50 ? v.substring(0, 50) + "…" : v;
+  if (Array.isArray(v)) return `[${v.length} éléments]`;
+  return JSON.stringify(v).substring(0, 60);
+}
+
+function computeInputsDiff(oldInputs: any, newInputs: any): any {
+  const diff = { added: [] as string[], modified: [] as string[], removed: [] as string[], unchanged_count: 0 };
+
+  const compare = (oldObj: any, newObj: any, path: string) => {
+    if (!oldObj && newObj) { diff.added.push(path); return; }
+    if (oldObj && !newObj) { diff.removed.push(path); return; }
+    if (typeof oldObj !== typeof newObj) { diff.modified.push(`${path}: ${summarizeValue(oldObj)} → ${summarizeValue(newObj)}`); return; }
+
+    if (typeof oldObj === "object" && oldObj !== null && !Array.isArray(oldObj)) {
+      const allKeys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
+      for (const key of allKeys) {
+        compare(oldObj[key], newObj[key], path ? `${path}.${key}` : key);
+      }
+    } else if (JSON.stringify(oldObj) !== JSON.stringify(newObj)) {
+      if (typeof oldObj === "number" && typeof newObj === "number") {
+        const pctChange = oldObj !== 0 ? Math.round(((newObj - oldObj) / oldObj) * 100) : 100;
+        diff.modified.push(`${path}: ${oldObj.toLocaleString("fr-FR")} → ${newObj.toLocaleString("fr-FR")} (${pctChange > 0 ? "+" : ""}${pctChange}%)`);
+      } else {
+        diff.modified.push(`${path}: ${summarizeValue(oldObj)} → ${summarizeValue(newObj)}`);
+      }
+    } else {
+      diff.unchanged_count++;
+    }
+  };
+
+  const sections = ["compte_resultat", "bilan", "historique_3ans", "produits_services", "equipe", "couts_variables", "couts_fixes", "investissements", "financement", "bfr", "effectifs", "kpis"];
+  for (const section of sections) {
+    compare(oldInputs?.[section], newInputs?.[section], section);
+  }
+
+  return diff;
+}
+
 /* ───── Main handler ───── */
 
 serve(async (req) => {
@@ -324,6 +367,17 @@ serve(async (req) => {
     const ent = ctx.enterprise;
     const bmcData = ctx.deliverableMap["bmc_analysis"] || {};
     const fiscalParams = getFiscalParams(ent.country || "Côte d'Ivoire");
+
+    // ── Load existing inputs for merge ──
+    const { data: existingInputsDeliv } = await ctx.supabase
+      .from("deliverables")
+      .select("data, updated_at")
+      .eq("enterprise_id", ctx.enterprise_id)
+      .eq("type", "inputs_data")
+      .maybeSingle();
+
+    const existingInputs = existingInputsDeliv?.data as Record<string, any> | null;
+    const hasExistingInputs = existingInputs && (existingInputs as any).score > 0;
 
     // ── Guard: detect if actual financial documents exist ──
     const { data: coachUploads } = await ctx.supabase
@@ -356,17 +410,62 @@ serve(async (req) => {
       console.warn("[inputs] RAG context failed, continuing without:", e);
     }
 
+    // ── Build merge instruction if existing inputs exist ──
+    let mergeInstruction = "";
+    if (hasExistingInputs) {
+      mergeInstruction = `
+══════ INPUTS EXISTANTS (extraction précédente) ══════
+${JSON.stringify(existingInputs, null, 1).substring(0, 15000)}
+══════ FIN INPUTS EXISTANTS ══════
+
+RÈGLE DE FUSION :
+- Les nouveaux documents COMPLÈTENT les inputs existants, ils ne les REMPLACENT PAS
+- Si un champ est rempli dans les inputs existants ET dans les nouveaux documents :
+  → PRENDRE LA VALEUR DES NOUVEAUX DOCUMENTS (plus récents)
+- Si un champ est rempli dans les inputs existants MAIS PAS dans les nouveaux documents :
+  → GARDER LA VALEUR EXISTANTE
+- Si un champ est NOUVEAU (pas dans les inputs existants) :
+  → L'AJOUTER
+
+EXEMPLES :
+- Inputs existants ont CA = 460M, nouveaux documents confirment CA = 460M → garder 460M
+- Inputs existants ont effectifs = 0, nouveau document (organigramme) montre 89 personnes → mettre 89
+- Inputs existants n'ont pas de ca_par_produit, nouveau document le détaille → l'ajouter
+- Inputs existants ont un bilan, nouveau document a un bilan plus récent → prendre le nouveau
+`;
+    }
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData, fiscalParams.devise
-    ) + ragContext + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`;
+    ) + mergeInstruction + ragContext + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`;
 
     const rawData = await callAI(buildSystemPrompt(fiscalParams.devise), enrichedPrompt, 16384);
     const normalized = normalizeInputs(rawData);
     const data = validateAndEnrich(normalized, ent.country, ent.sector);
 
+    // ── Compute diff and save to inputs_history ──
+    const diff = hasExistingInputs ? computeInputsDiff(existingInputs, data) : null;
+
+    // Get names of recently added documents (from parsing report)
+    const parsingReport = ent.document_parsing_report as any;
+    const newDocumentNames = parsingReport?.files?.map((f: any) => f.fileName) || [];
+
+    try {
+      await ctx.supabase.from("inputs_history").insert({
+        enterprise_id: ctx.enterprise_id,
+        data: data,
+        score: data.score || 0,
+        trigger: hasExistingInputs ? "new_documents" : "initial",
+        documents_added: newDocumentNames,
+        diff: diff,
+      });
+    } catch (histErr) {
+      console.warn("[inputs] Failed to save inputs_history:", histErr);
+    }
+
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "inputs_data", data, "inputs");
 
-    return jsonResponse({ success: true, data, score: data.score });
+    return jsonResponse({ success: true, data, score: data.score, diff });
   } catch (e: any) {
     console.error("generate-inputs error:", e);
     return errorResponse(e.message || "Erreur inconnue", e.status || 500);

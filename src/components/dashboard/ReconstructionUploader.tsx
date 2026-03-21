@@ -143,16 +143,32 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         console.log(`[parser] ${files[i].name}: ${parsed.quality} — ${parsed.summary}`);
       }
 
-      // === STEP 3: Build and cache document content ===
+      // === STEP 3: Build and cache document content (ADDITIVE — append, don't replace) ===
       setProgressLabel('Compilation du dossier…');
       setProgress(78);
 
-      const documentContent = buildDocumentContent(docs);
-      const parsingReport = buildParsingReport(docs, documentContent.length);
+      const newContent = buildDocumentContent(docs);
+      const parsingReport = buildParsingReport(docs, newContent.length);
       setParsingSummary(parsingReport);
 
+      // Load existing document_content and APPEND new content
+      const { data: existingEnt } = await supabase.from('enterprises')
+        .select('document_content')
+        .eq('id', enterpriseId)
+        .single();
+
+      const existingContent = (existingEnt?.document_content as string) || '';
+      const separator = `\n\n══════ DOCUMENTS AJOUTÉS LE ${new Date().toLocaleDateString('fr-FR')} ══════\n`;
+      const mergedContent = existingContent + separator + newContent;
+
+      // Truncate if too long (keep the most recent 300K chars)
+      const MAX_CONTENT = 300_000;
+      const finalContent = mergedContent.length > MAX_CONTENT
+        ? mergedContent.slice(mergedContent.length - MAX_CONTENT)
+        : mergedContent;
+
       const { error: updateErr } = await supabase.from('enterprises').update({
-        document_content: documentContent,
+        document_content: finalContent,
         document_content_updated_at: new Date().toISOString(),
         document_files_count: docs.filter(d => d.quality !== 'failed').length,
         document_parsing_report: parsingReport,
