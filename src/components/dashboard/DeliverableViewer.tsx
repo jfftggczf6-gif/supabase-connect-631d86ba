@@ -559,7 +559,7 @@ function DiagnosticViewer({ data }: { data: any }) {
   const verdictFinal = data.verdict_final || {};
 
   const verdictColor = (score: number) =>
-    score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+    score >= 70 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-destructive';
 
   return (
     <div className="space-y-4">

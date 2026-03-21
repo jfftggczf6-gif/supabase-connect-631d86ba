@@ -50,13 +50,13 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
   // ─── Classification config ───
   const classConfig: Record<string, { color: string; bg: string; border: string; icon: any }> = {
-    AVANCER_DIRECTEMENT: { color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', icon: CheckCircle2 },
-    ACCOMPAGNER: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', icon: Target },
-    COMPLETER_DABORD: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300', icon: AlertTriangle },
-    REJETER: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: XCircle },
+    AVANCER_DIRECTEMENT: { color: 'text-success', bg: 'bg-card', border: 'border-success/30', icon: CheckCircle2 },
+    ACCOMPAGNER: { color: 'text-foreground', bg: 'bg-card', border: 'border-warning/30', icon: Target },
+    COMPLETER_DABORD: { color: 'text-foreground', bg: 'bg-card', border: 'border-warning/30', icon: AlertTriangle },
+    REJETER: { color: 'text-destructive', bg: 'bg-card', border: 'border-destructive/30', icon: XCircle },
   };
   const cc = classConfig[classification] || classConfig.COMPLETER_DABORD;
-  const scoreBgClass = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+  const scoreBgClass = score >= 70 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-destructive';
 
   const formatAmount = (v: number | null | undefined) => {
     if (v == null) return '—';
