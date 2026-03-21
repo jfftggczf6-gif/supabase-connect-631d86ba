@@ -79,7 +79,7 @@ export const PIPELINE = [
   { name: 'One-Pager',        fn: 'generate-onepager',         type: 'onepager' as DeliverableType },
   { name: 'Investment Memo',  fn: 'generate-investment-memo',  type: 'investment_memo' as DeliverableType },
   // Phase 4 — Décision (screening en dernier)
-  { name: 'Screening',        fn: 'generate-screening-report', type: 'screening_report' as DeliverableType },
+  { name: 'Décision programme', fn: 'generate-screening-report', type: 'screening_report' as DeliverableType },
 ];
 
 export const MODULE_FN_MAP: Record<string, string> = {
