@@ -559,12 +559,12 @@ function DiagnosticViewer({ data }: { data: any }) {
   const verdictFinal = data.verdict_final || {};
 
   const verdictColor = (score: number) =>
-    score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+    score >= 70 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-destructive';
 
   return (
     <div className="space-y-4">
       {/* ═══ ZONE 1 — Où en est-on ? ═══ */}
-      <Card className="bg-background border">
+      <Card className="bg-card border shadow-sm">
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${verdictColor(verdict.score || 0)}`}>
@@ -574,11 +574,11 @@ function DiagnosticViewer({ data }: { data: any }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base font-semibold">{data.metadata?.nom_entreprise}</span>
                 {verdict.label && <Badge>{verdict.label}</Badge>}
-                <Badge className={verdict.pret_pour_bailleur ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>
+                <Badge className={verdict.pret_pour_bailleur ? 'bg-success/10 text-success border-success/20' : 'bg-warning/10 text-foreground border-warning/20'}>
                   {verdict.pret_pour_bailleur ? 'Dossier prêt' : 'Pas encore prêt'}
                 </Badge>
               </div>
-              <p className="text-xs text-foreground mt-1">{verdict.resume}</p>
+              <p className="text-xs text-foreground mt-1 leading-relaxed">{verdict.resume}</p>
             </div>
           </div>
 
@@ -589,19 +589,19 @@ function DiagnosticViewer({ data }: { data: any }) {
                 <span className="text-muted-foreground">→</span>
                 <span className="text-sm font-semibold">{progression.score_actuel}</span>
                 {progression.score_actuel != null && progression.score_initial != null && (
-                  <Badge className={(progression.score_actuel - progression.score_initial) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>
+                  <Badge className={(progression.score_actuel - progression.score_initial) > 0 ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
                     {(progression.score_actuel - progression.score_initial) > 0 ? '+' : ''}{progression.score_actuel - progression.score_initial} pts
                   </Badge>
                 )}
               </div>
               {progression.bloquants_leves?.map((b: string, i: number) => (
-                <p key={i} className="text-xs text-emerald-700 flex items-center gap-1.5"><CheckCircle className="h-3 w-3" />{b}</p>
+                <p key={i} className="text-xs text-success flex items-center gap-1.5"><CheckCircle className="h-3 w-3" />{b}</p>
               ))}
               {progression.bloquants_restants?.map((b: string, i: number) => (
-                <p key={i} className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle className="h-3 w-3" />{b}</p>
+                <p key={i} className="text-xs text-destructive flex items-center gap-1.5"><AlertCircle className="h-3 w-3" />{b}</p>
               ))}
               {progression.commentaire && (
-                <p className="text-xs text-muted-foreground italic">{progression.commentaire}</p>
+                <p className="text-xs text-foreground italic">{progression.commentaire}</p>
               )}
             </div>
           )}
@@ -613,18 +613,28 @@ function DiagnosticViewer({ data }: { data: any }) {
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui va coincer</h3>
           {problemes.map((p: any, i: number) => (
-            <div key={i} className="p-3 rounded-r-lg bg-background border"
-              style={{ borderLeft: `4px solid ${p.urgence === 'bloquant' ? '#A32D2D' : p.urgence === 'important' ? '#BA7517' : '#185FA5'}` }}>
+            <div
+              key={i}
+              className={`p-3 rounded-r-lg bg-card border border-l-4 shadow-sm ${
+                p.urgence === 'bloquant'
+                  ? 'border-l-destructive'
+                  : p.urgence === 'important'
+                  ? 'border-l-warning'
+                  : 'border-l-info'
+              }`}
+            >
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className={`text-[9px] ${
-                  p.urgence === 'bloquant' ? 'bg-red-50 text-red-700 border-red-200' :
-                  p.urgence === 'important' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  'bg-blue-50 text-blue-700 border-blue-200'
+                  p.urgence === 'bloquant'
+                    ? 'bg-destructive/10 text-destructive border-destructive/20'
+                    : p.urgence === 'important'
+                    ? 'bg-warning/10 text-foreground border-warning/20'
+                    : 'bg-info/10 text-info border-info/20'
                 }`}>{p.urgence}</Badge>
-                <span className="text-xs font-medium">{p.titre}</span>
+                <span className="text-xs font-medium text-foreground">{p.titre}</span>
               </div>
               <p className="text-xs text-foreground mt-2 leading-relaxed">{p.constat}</p>
-              <p className="text-xs text-blue-800 mt-2">→ {p.piste}</p>
+              <p className="text-xs text-primary mt-2 font-medium">→ {p.piste}</p>
             </div>
           ))}
         </div>
@@ -632,14 +642,14 @@ function DiagnosticViewer({ data }: { data: any }) {
 
       {/* ═══ ZONE 3 — Questions pour l'entrepreneur ═══ */}
       {questions.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50/20">
+        <Card className="border-border bg-card shadow-sm">
           <CardContent className="py-4">
-            <h4 className="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-3">Questions pour le prochain RDV</h4>
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Questions pour le prochain RDV</h4>
             <div className="space-y-2">
               {questions.map((q: string, i: number) => (
-                <div key={i} className="flex gap-2 p-2.5 bg-white rounded-lg border border-blue-100">
-                  <span className="text-xs font-bold text-blue-600 mt-0.5">{i + 1}.</span>
-                  <p className="text-xs text-blue-900 leading-relaxed">{q}</p>
+                <div key={i} className="flex gap-2 p-2.5 bg-card rounded-lg border shadow-sm">
+                  <span className="text-xs font-bold text-primary mt-0.5">{i + 1}.</span>
+                  <p className="text-xs text-foreground leading-relaxed">{q}</p>
                 </div>
               ))}
             </div>
@@ -652,10 +662,10 @@ function DiagnosticViewer({ data }: { data: any }) {
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui est solide</h3>
           {pointsForts.map((pf: any, i: number) => (
-            <div key={i} className="p-3 rounded-r-lg bg-background border" style={{ borderLeft: '4px solid #639922' }}>
-              <p className="text-xs font-medium">{pf.titre}</p>
+            <div key={i} className="p-3 rounded-r-lg bg-card border border-l-4 border-l-success shadow-sm">
+              <p className="text-xs font-medium text-foreground">{pf.titre}</p>
               <p className="text-xs text-foreground mt-1 leading-relaxed">{pf.constat}</p>
-              <p className="text-xs text-emerald-700 mt-2 font-medium">Argument bailleur : {pf.argument_bailleur}</p>
+              <p className="text-xs text-success mt-2 font-medium">Argument bailleur : {pf.argument_bailleur}</p>
             </div>
           ))}
         </div>
@@ -681,10 +691,10 @@ function DiagnosticViewer({ data }: { data: any }) {
                       <td className="text-right">{bench.entreprise != null ? `${bench.entreprise}%` : '—'}</td>
                       <td className="text-right text-muted-foreground">{bench.secteur_min}–{bench.secteur_max}%</td>
                       <td className="pl-2">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                          bench.verdict === 'au_dessus' ? 'bg-green-100 text-green-700' :
-                          bench.verdict === 'dans_norme' ? 'bg-blue-100 text-blue-700' :
-                          'bg-red-100 text-red-700'
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                          bench.verdict === 'au_dessus' ? 'bg-success/10 text-success border-success/20' :
+                          bench.verdict === 'dans_norme' ? 'bg-info/10 text-info border-info/20' :
+                          'bg-destructive/10 text-destructive border-destructive/20'
                         }`}>{bench.verdict?.replace(/_/g, ' ') || '—'}</span>
                       </td>
                     </tr>
@@ -698,7 +708,7 @@ function DiagnosticViewer({ data }: { data: any }) {
 
       {/* ═══ ZONE 6 — Verdict final + prochaines étapes ═══ */}
       {(verdictFinal.synthese || verdictFinal.prochaines_etapes?.length > 0) && (
-        <Card className="bg-background border">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="py-4">
             <h4 className="text-xs font-bold text-primary mb-2">Verdict final</h4>
             <p className="text-xs text-foreground leading-relaxed">{verdictFinal.synthese}</p>

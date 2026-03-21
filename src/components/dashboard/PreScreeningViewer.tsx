@@ -50,13 +50,13 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
   // ─── Classification config ───
   const classConfig: Record<string, { color: string; bg: string; border: string; icon: any }> = {
-    AVANCER_DIRECTEMENT: { color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', icon: CheckCircle2 },
-    ACCOMPAGNER: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', icon: Target },
-    COMPLETER_DABORD: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300', icon: AlertTriangle },
-    REJETER: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: XCircle },
+    AVANCER_DIRECTEMENT: { color: 'text-success', bg: 'bg-card', border: 'border-success/30', icon: CheckCircle2 },
+    ACCOMPAGNER: { color: 'text-foreground', bg: 'bg-card', border: 'border-warning/30', icon: Target },
+    COMPLETER_DABORD: { color: 'text-foreground', bg: 'bg-card', border: 'border-warning/30', icon: AlertTriangle },
+    REJETER: { color: 'text-destructive', bg: 'bg-card', border: 'border-destructive/30', icon: XCircle },
   };
   const cc = classConfig[classification] || classConfig.COMPLETER_DABORD;
-  const scoreBgClass = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+  const scoreBgClass = score >= 70 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-destructive';
 
   const formatAmount = (v: number | null | undefined) => {
     if (v == null) return '—';
@@ -144,28 +144,28 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
         {/* KPIs strip */}
         {(kpis.ca_n || kpis.ca_estime) && (
-          <div className="grid grid-cols-4 border rounded-lg overflow-hidden mt-4 bg-white/80">
-            <div className="p-3 text-center border-r">
+          <div className="grid grid-cols-4 border rounded-lg overflow-hidden mt-4 bg-card shadow-sm">
+            <div className="p-3 text-center border-r bg-card">
               <p className="text-base font-semibold">{formatAmount(kpis.ca_n || kpis.ca_estime)}</p>
               <p className="text-[10px] text-muted-foreground">CA {kpis.annee_n || 'N'}</p>
               {kpis.ca_growth_pct != null && (
-                <Badge variant="outline" className={`text-[10px] mt-1 ${kpis.ca_growth_pct < 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <Badge variant="outline" className={`text-[10px] mt-1 ${kpis.ca_growth_pct < 0 ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-success/10 text-success border-success/20'}`}>
                   {kpis.ca_growth_pct > 0 ? '+' : ''}{kpis.ca_growth_pct}% vs N-1
                 </Badge>
               )}
             </div>
-            <div className="p-3 text-center border-r">
+            <div className="p-3 text-center border-r bg-card">
               <p className="text-base font-semibold">{kpis.marge_brute_pct != null ? kpis.marge_brute_pct + '%' : (santeFinanciere.marge_brute_pct != null ? santeFinanciere.marge_brute_pct + '%' : '—')}</p>
               <p className="text-[10px] text-muted-foreground">Marge brute</p>
               {kpis.marge_brute_benchmark && (
-                <Badge variant="outline" className="text-[10px] mt-1 bg-emerald-50 text-emerald-700 border-emerald-200">{kpis.marge_brute_benchmark}</Badge>
+                <Badge variant="outline" className="text-[10px] mt-1 bg-success/10 text-success border-success/20">{kpis.marge_brute_benchmark}</Badge>
               )}
             </div>
-            <div className="p-3 text-center border-r">
+            <div className="p-3 text-center border-r bg-card">
               <p className="text-base font-semibold">{formatAmount(kpis.ebitda)}</p>
               <p className="text-[10px] text-muted-foreground">EBITDA</p>
             </div>
-            <div className="p-3 text-center">
+            <div className="p-3 text-center bg-card">
               <p className="text-base font-semibold">{formatAmount(kpis.tresorerie_nette ?? santeFinanciere.tresorerie_nette)}</p>
               <p className="text-[10px] text-muted-foreground">Trésorerie nette</p>
             </div>
@@ -174,17 +174,17 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
         {/* Context line */}
         {(kpis.ca_nm2 || kpis.resultat_net != null || kpis.nb_activites) && (
-          <div className="grid grid-cols-3 border rounded-lg overflow-hidden mt-2 bg-white/60 text-center text-xs">
-            <div className="p-2 border-r">
-              <p className="font-medium">{formatAmount(kpis.ca_nm2)} → {formatAmount(kpis.ca_nm1)} → {formatAmount(kpis.ca_n || kpis.ca_estime)}</p>
+          <div className="grid grid-cols-3 border rounded-lg overflow-hidden mt-2 bg-card text-center text-xs shadow-sm">
+            <div className="p-2 border-r bg-card">
+              <p className="font-medium text-foreground">{formatAmount(kpis.ca_nm2)} → {formatAmount(kpis.ca_nm1)} → {formatAmount(kpis.ca_n || kpis.ca_estime)}</p>
               <p className="text-muted-foreground">Historique CA 3 ans</p>
             </div>
-            <div className="p-2 border-r">
-              <p className="font-medium">{formatAmount(kpis.resultat_net)}</p>
+            <div className="p-2 border-r bg-card">
+              <p className="font-medium text-foreground">{formatAmount(kpis.resultat_net)}</p>
               <p className="text-muted-foreground">Résultat net{kpis.resultat_net_pct != null ? ` (${kpis.resultat_net_pct}%)` : ''}</p>
             </div>
-            <div className="p-2">
-              <p className="font-medium">{kpis.nb_activites || '—'} activités</p>
+            <div className="p-2 bg-card">
+              <p className="font-medium text-foreground">{kpis.nb_activites || '—'} activités</p>
               <p className="text-muted-foreground">{kpis.liste_activites || ''}</p>
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
         {/* Summary line */}
         {resumeExecutif?.synthese && (
-          <p className="text-xs text-muted-foreground mt-3 p-3 bg-white/60 rounded-lg leading-relaxed">{resumeExecutif.synthese}</p>
+          <p className="text-xs text-foreground mt-3 p-3 bg-card rounded-lg leading-relaxed border shadow-sm">{resumeExecutif.synthese}</p>
         )}
 
         {/* Actions */}
@@ -362,21 +362,21 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
           </h3>
           <div className="space-y-3">
             {contexte.histoire && (
-              <div className="p-4 rounded-lg bg-secondary border">
-                <h4 className="text-xs font-semibold mb-2">L'histoire</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">{contexte.histoire}</p>
+              <div className="p-4 rounded-lg bg-card border shadow-sm">
+                <h4 className="text-xs font-semibold mb-2 text-foreground">L'histoire</h4>
+                <p className="text-xs text-foreground leading-relaxed">{contexte.histoire}</p>
               </div>
             )}
             {contexte.marche && (
-              <div className="p-4 rounded-lg bg-secondary border">
-                <h4 className="text-xs font-semibold mb-2">Le marché</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">{contexte.marche}</p>
+              <div className="p-4 rounded-lg bg-card border shadow-sm">
+                <h4 className="text-xs font-semibold mb-2 text-foreground">Le marché</h4>
+                <p className="text-xs text-foreground leading-relaxed">{contexte.marche}</p>
               </div>
             )}
             {contexte.activite && (
-              <div className="p-4 rounded-lg bg-secondary border">
-                <h4 className="text-xs font-semibold mb-2">L'activité</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">{contexte.activite}</p>
+              <div className="p-4 rounded-lg bg-card border shadow-sm">
+                <h4 className="text-xs font-semibold mb-2 text-foreground">L'activité</h4>
+                <p className="text-xs text-foreground leading-relaxed">{contexte.activite}</p>
               </div>
             )}
           </div>
@@ -416,19 +416,19 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
               const SevIcon = sc.icon;
               const scopeLabel = scopes.find(s => s.key === c.scope)?.label || c.scope;
               return (
-                <div key={i} className={`p-3 rounded-lg border border-l-4 ${sc.border} ${sc.bg}`}>
+                <div key={i} className={`p-3 rounded-lg border border-l-4 ${sc.border} ${sc.bg} shadow-sm`}>
                   <div className="flex items-start gap-2">
                     <SevIcon className={`h-4 w-4 ${sc.text} flex-none mt-0.5`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold">{c.titre}</span>
+                        <span className="text-xs font-semibold text-foreground">{c.titre}</span>
                         {activeScope === 'all' && (
                           <Badge variant="outline" className="text-[10px]">{scopeLabel}</Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{c.constat}</p>
+                      <p className="text-xs text-foreground leading-relaxed">{c.constat}</p>
                       {c.piste && (
-                        <p className="text-[10px] mt-1.5 font-medium text-blue-700">→ {c.piste}</p>
+                        <p className="text-[10px] mt-1.5 font-medium text-primary">→ {c.piste}</p>
                       )}
                     </div>
                   </div>
