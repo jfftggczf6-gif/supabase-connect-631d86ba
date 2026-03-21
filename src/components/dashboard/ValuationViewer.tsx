@@ -30,8 +30,21 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
 
   const scoreBg = (data.score || 0) >= 70 ? 'bg-emerald-100 text-emerald-700' : (data.score || 0) >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
 
+  const handleDownloadHtml = () => {
+    const content = document.getElementById('valuation-viewer-content')?.innerHTML || '';
+    const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Valorisation</title>
+    <style>@page{size:A4;margin:16mm}body{font-family:"Segoe UI",sans-serif;font-size:10pt;color:#1E293B;max-width:190mm;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:6px;text-align:left;font-size:9pt}</style>
+    </head><body>${content}</body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `valorisation_${new Date().toISOString().slice(0, 10)}.html`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('HTML téléchargé');
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="valuation-viewer-content">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -41,6 +54,9 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Analyse par 3 méthodes — DCF, Multiples EBITDA, Multiples CA</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
+            <Download className="h-3.5 w-3.5" /> HTML (A4)
+          </Button>
           <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{data.score || 0}/100</Badge>
           {onRegenerate && (
             <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">

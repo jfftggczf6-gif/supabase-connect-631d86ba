@@ -826,6 +826,16 @@ export default function CoachDashboard() {
           ))}
         </div>
 
+        {/* ═══ TAB: MIRROR (Vue entrepreneur) ═══ */}
+        {detailTab === 'mirror' && selectedEnt && (
+          <EntrepreneurDashboard
+            enterpriseId={selectedEnt.id}
+            showBackButton={false}
+            onBack={() => { setView('list'); setSelectedEnt(null); }}
+            coachMode={true}
+          />
+        )}
+
         {/* ═══ TAB: COACHING ═══ */}
         {detailTab === 'coaching' && selectedEnt && (
           <CoachingTab enterpriseId={selectedEnt.id} enterpriseName={selectedEnt.name} />

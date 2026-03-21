@@ -359,14 +359,6 @@ function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml }: {
         </Card>
       )}
 
-      {/* Fallback: raw JSON for anything else */}
-      {!resumeExecutif && !data.programme_match && (
-        <Card className="p-4">
-          <pre className="text-xs whitespace-pre-wrap overflow-auto max-h-[600px] text-muted-foreground">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        </Card>
-      )}
     </div>
   );
 }

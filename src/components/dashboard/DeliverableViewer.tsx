@@ -694,7 +694,7 @@ function DiagnosticViewer({ data }: { data: any }) {
             {verdictFinal.prochaines_etapes?.length > 0 && (
               <div className="mt-4 pt-3 border-t space-y-1">
                 {verdictFinal.prochaines_etapes.map((e: string, i: number) => (
-                  <p key={i} className="text-xs text-muted-foreground">{e}</p>
+                  <p key={i} className="text-xs text-foreground">{e}</p>
                 ))}
               </div>
             )}

@@ -143,9 +143,9 @@ export const PHASES: PhaseConfig[] = [
       { code: 'sic', label: 'Social Impact Canvas', icon: Globe },
       { code: 'framework', label: 'Plan Financier Interm.', icon: BarChart3 },
       { code: 'plan_ovo', label: 'Plan Financier Final', icon: ListChecks },
-      { code: 'diagnostic', label: 'Bilan de progression', icon: Stethoscope },
-      { code: 'odd', label: 'ODD', icon: Target },
       { code: 'business_plan', label: 'Business Plan', icon: FileText },
+      { code: 'odd', label: 'ODD', icon: Target },
+      { code: 'diagnostic', label: 'Bilan de progression', icon: Stethoscope },
     ],
   },
   {

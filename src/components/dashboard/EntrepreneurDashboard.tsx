@@ -1088,8 +1088,8 @@ export default function EntrepreneurDashboard({
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto">
-            {/* Inputs diff banner */}
-            {enterprise && <InputsDiffBanner enterpriseId={enterprise.id} />}
+            {/* Inputs diff banner — only on reconstruction/inputs module */}
+            {enterprise && (selectedModule === 'inputs' || selectedModule === 'reconstruction') && <InputsDiffBanner enterpriseId={enterprise.id} />}
             {/* Overview / Home */}
             {selectedModule === 'overview' ? (
               <DashboardOverview

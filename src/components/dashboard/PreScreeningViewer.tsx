@@ -121,7 +121,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="prescreening-viewer-content">
 
       {/* ══════════ ZONE 1 — Bandeau verdict ══════════ */}
       <Card className={`p-5 ${cc.bg} border-2 ${cc.border}`}>

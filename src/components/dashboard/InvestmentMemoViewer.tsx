@@ -404,25 +404,27 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
       case 'these_investissement':
         return (
           <div className="space-y-4">
-            {(d.these || d.synthese) && <p className="text-sm leading-relaxed">{d.these || d.synthese}</p>}
+            {(d.these || d.synthese || d.resume) && (
+              <p className="text-sm leading-relaxed">{d.these || d.synthese || d.resume}</p>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-lg border-l-4 border-emerald-400 bg-emerald-50/50 p-4">
                 <p className="text-xs font-semibold text-emerald-700 mb-2">✅ Arguments Pour</p>
-                <ul className="space-y-1">{arr(d.arguments_pour).map((a: string, i: number) => (
-                  <li key={i} className="text-sm">{a}</li>
+                <ul className="space-y-1">{arr(d.arguments_pour || d.pour || []).map((a: any, i: number) => (
+                  <li key={i} className="text-sm">{typeof a === 'string' ? a : a.argument || JSON.stringify(a)}</li>
                 ))}</ul>
               </div>
               <div className="rounded-lg border-l-4 border-red-400 bg-red-50/50 p-4">
                 <p className="text-xs font-semibold text-red-700 mb-2">⚠️ Arguments Contre</p>
-                <ul className="space-y-1">{arr(d.arguments_contre).map((a: string, i: number) => (
-                  <li key={i} className="text-sm">{a}</li>
+                <ul className="space-y-1">{arr(d.arguments_contre || d.contre || d.risques || []).map((a: any, i: number) => (
+                  <li key={i} className="text-sm">{typeof a === 'string' ? a : a.argument || JSON.stringify(a)}</li>
                 ))}</ul>
               </div>
             </div>
-            {arr(d.facteurs_cles).length > 0 && (
+            {arr(d.facteurs_cles || d.facteurs_cles_succes || []).length > 0 && (
               <div>
                 <p className="text-xs font-semibold mb-1">Facteurs clés de succès</p>
-                <ul className="space-y-1">{arr(d.facteurs_cles).map((f: string, i: number) => (
+                <ul className="space-y-1">{arr(d.facteurs_cles || d.facteurs_cles_succes).map((f: string, i: number) => (
                   <li key={i} className="text-sm flex items-start gap-2"><Target className="h-3.5 w-3.5 text-primary mt-0.5 flex-none" />{f}</li>
                 ))}</ul>
               </div>
