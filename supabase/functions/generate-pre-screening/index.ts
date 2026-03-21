@@ -77,10 +77,87 @@ const PRE_SCREENING_SCHEMA = `{
   "classification_detail": "string — 3-5 phrases argumentées justifiant la classification",
 
   "resume_executif": {
-    "synthese": "string — 5-8 lignes, comme un analyste qui présente le dossier à son directeur",
+    "synthese": "string — 5-8 lignes, résumé complet du dossier pour un coach",
     "points_forts": ["string — 3-5 forces identifiées avec données chiffrées"],
     "points_faibles": ["string — 3-5 faiblesses avec données chiffrées"],
     "potentiel_estime": "string — 2-3 phrases sur le potentiel de l'entreprise"
+  },
+
+  "kpis_bandeau": {
+    "ca_n": <number ou null — CA année N en FCFA>,
+    "annee_n": "string — ex: 2024",
+    "ca_growth_pct": <number ou null — évolution % vs N-1>,
+    "marge_brute_pct": <number ou null>,
+    "marge_brute_benchmark": "string — ex: top quartile | dans la norme | en dessous",
+    "ebitda": <number ou null>,
+    "tresorerie_nette": <number ou null>,
+    "ca_nm1": <number ou null>,
+    "ca_nm2": <number ou null>,
+    "resultat_net": <number ou null>,
+    "resultat_net_pct": <number ou null>,
+    "nb_activites": <number ou null>,
+    "liste_activites": "string ou null"
+  },
+
+  "contexte_entreprise": {
+    "histoire": "string — 3-5 phrases. Quand a été créée l'entreprise, par qui, quelle trajectoire. Citer les chiffres clés (CA 3 ans, moments charnières). Des faits, pas de blabla.",
+    "marche": "string — 3-5 phrases. Quel marché, quelle taille, quelle dynamique, quelle concurrence. Positionnement.",
+    "activite": "string — 3-5 phrases. Quels produits/services, comment ça fonctionne, quel modèle de revenu. Si plusieurs activités, les décrire et estimer leur poids relatif."
+  },
+
+  "guide_coach": {
+    "questions_entrepreneur": [
+      "string — question précise liée à un problème détecté. Chaque question cite un chiffre. Ex: 'Le CA a chuté de 39% entre 2023 (759M) et 2024 (460M). Quelle en est la cause ?'"
+    ],
+    "documents_a_demander": [
+      {
+        "document": "string",
+        "raison": "string",
+        "urgence": "bloquant | important | utile",
+        "impact": "string"
+      }
+    ],
+    "actions_coach_semaine": [
+      {
+        "priorite": <number 1-5>,
+        "action": "string",
+        "objectif": "string",
+        "duree_estimee": "string — 30min | 1h | demi-journée"
+      }
+    ],
+    "points_bloquants_pipeline": [
+      {
+        "blocage": "string",
+        "consequence": "string",
+        "resolution": "string"
+      }
+    ],
+    "axes_coaching": [
+      {
+        "axe": "string — thématique",
+        "diagnostic_rapide": "string — 2-3 phrases",
+        "objectif_accompagnement": "string — où l'amener en 3-6 mois",
+        "premieres_actions": ["string"]
+      }
+    ],
+    "alertes_coach": [
+      "string — signaux à investiguer"
+    ]
+  },
+
+  "constats_par_scope": {
+    "financier": [
+      {
+        "titre": "string",
+        "severite": "urgent | attention | positif",
+        "constat": "string — factuel, chiffré, 2-3 phrases",
+        "piste": "string — action concrète ou argument investisseur"
+      }
+    ],
+    "commercial": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
+    "operationnel": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
+    "equipe_rh": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
+    "legal_conformite": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }]
   },
 
   "qualite_dossier": {
@@ -96,35 +173,6 @@ const PRE_SCREENING_SCHEMA = `{
       "rh": { "couvert": true|false, "documents_trouves": ["string"], "manquants_critiques": ["string"] }
     },
     "note_qualite": "string — paragraphe d'évaluation de la qualité documentaire"
-  },
-
-  "anomalies": [
-    {
-      "severity": "bloquant | attention | note",
-      "category": "finance | documents | coherence | completude | gouvernance",
-      "title": "string",
-      "detail": "string — avec chiffres précis",
-      "impact_investisseur": "string — conséquence concrète pour un bailleur",
-      "recommendation": "string — action corrective précise",
-      "effort": "facile | moyen | difficile",
-      "responsable": "entrepreneur | coach | ia"
-    }
-  ],
-
-  "cross_validation": {
-    "ca_coherent": true|false,
-    "ca_declared": <number ou null>,
-    "ca_from_documents": <number ou null>,
-    "ca_ecart_pct": <number ou null>,
-    "ca_detail": "string",
-    "bilan_equilibre": true|false,
-    "bilan_detail": "string",
-    "charges_vs_effectifs": true|false,
-    "charges_vs_effectifs_detail": "string",
-    "tresorerie_coherent": true|false,
-    "tresorerie_detail": "string",
-    "dates_coherentes": true|false,
-    "dates_detail": "string"
   },
 
   "sante_financiere": {
@@ -145,106 +193,23 @@ const PRE_SCREENING_SCHEMA = `{
     "health_detail": "string"
   },
 
-  "potentiel_et_reconstructibilite": {
-    "donnees_fiables": ["string"],
-    "donnees_estimables_ia": ["string"],
-    "donnees_non_reconstituables": ["string"],
-    "fiabilite_pipeline_estimee": <0-100>,
-    "fiabilite_detail": "string",
-    "signaux_positifs": ["string"],
-    "signaux_negatifs": ["string"]
-  },
-
-  "profil_risque": {
-    "score_risque": <0-100>,
-    "risques": [
-      {
-        "type": "operationnel | financier | marche | legal | gouvernance | pays",
-        "description": "string",
-        "probabilite": "faible | moyenne | elevee",
-        "impact": "faible | moyen | fort",
-        "mitigation": "string"
-      }
-    ]
-  },
-
-  "plan_action": [
-    {
-      "priorite": 1|2|3|4|5,
-      "action": "string",
-      "responsable": "entrepreneur | coach | ia",
-      "delai": "string",
-      "effort": "facile | moyen | difficile",
-      "impact_score": "string",
-      "bloquant_pipeline": true|false
-    }
-  ],
-
-  "pathway_financement": {
-    "type_recommande": "string",
-    "bailleurs_potentiels": ["string"],
-    "montant_eligible_estime": "string",
-    "conditions_prealables": ["string"],
-    "timeline_estimee": "string"
-  },
-
-  "recommandation_pipeline": {
-    "lancer_pipeline": true|false,
-    "raison": "string",
-    "modules_pertinents": ["string"],
-    "modules_inutiles": ["string"],
-    "avertissement": "string ou null"
-  },
-
-  "programme_match": null | {
-    "programme_name": "string",
-    "match_score": <0-100>,
-    "criteres_ok": [{ "critere": "string", "detail": "string" }],
-    "criteres_ko": [{ "critere": "string", "detail": "string", "comment_corriger": "string" }],
-    "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string" }],
-    "recommandation": "string"
+  "cross_validation": {
+    "ca_coherent": true|false,
+    "ca_declared": <number ou null>,
+    "ca_from_documents": <number ou null>,
+    "ca_ecart_pct": <number ou null>,
+    "ca_detail": "string",
+    "bilan_equilibre": true|false,
+    "bilan_detail": "string",
+    "charges_vs_effectifs": true|false,
+    "charges_vs_effectifs_detail": "string",
+    "tresorerie_coherent": true|false,
+    "tresorerie_detail": "string",
+    "dates_coherentes": true|false,
+    "dates_detail": "string"
   },
 
   "analyse_narrative": {
-    "histoire_entreprise": "string — 4-5 paragraphes racontant l'histoire financière et stratégique complète. Écris comme un analyste PE qui présente à son comité. Inclus : origines, évolution du CA sur 3 ans avec CAUSES, événements marquants, situation actuelle, perspectives. Cite des chiffres précis de chaque document lu.",
-    "analyse_tendance": {
-      "tendance_ca": "string — 1 paragraphe",
-      "tendance_rentabilite": "string — 1 paragraphe",
-      "tendance_tresorerie": "string — 1 paragraphe",
-      "tendance_endettement": "string — 1 paragraphe"
-    },
-    "analyse_commerciale": {
-      "produits_services_identifies": ["string — chaque produit/service avec détails"],
-      "clients_identifies": ["string — chaque client ou segment"],
-      "modele_revenus": "string — 1 paragraphe décrivant comment l'entreprise génère ses revenus",
-      "avantages_concurrentiels": ["string"],
-      "risques_commerciaux": ["string"],
-      "donnees_manquantes_commerciales": ["string"]
-    },
-    "analyse_operationnelle": {
-      "chaine_valeur": "string",
-      "capacite_production": "string",
-      "fournisseurs_cles": ["string"],
-      "processus_cles": ["string"],
-      "risques_operationnels": ["string"]
-    },
-    "analyse_equipe": {
-      "dirigeant": "string",
-      "effectifs_estimes": "string",
-      "competences_cles": ["string"],
-      "gaps_critiques": ["string"],
-      "masse_salariale_analyse": "string",
-      "donnees_manquantes_rh": ["string"]
-    },
-    "analyse_legale": {
-      "forme_juridique": "string",
-      "immatriculation": "string",
-      "conformite_fiscale": "string",
-      "conformite_sociale": "string",
-      "documents_legaux_presents": ["string"],
-      "documents_legaux_manquants": ["string"],
-      "risques_juridiques": ["string"]
-    },
     "comparaison_sectorielle": {
       "positionnement_global": "string — 2-3 phrases",
       "benchmark_detail": [
@@ -257,48 +222,28 @@ const PRE_SCREENING_SCHEMA = `{
           "position": "top | above_median | median | below_median | bottom",
           "commentaire": "string"
         }
-      ],
-      "avantages_vs_pairs": ["string"],
-      "handicaps_vs_pairs": ["string"]
-    },
-    "scenarios_prospectifs": {
-      "scenario_pessimiste": { "description": "string", "ca_estime": "string", "probabilite": "string", "facteurs_declencheurs": ["string"] },
-      "scenario_base": { "description": "string", "ca_estime": "string", "probabilite": "string", "hypotheses": ["string"] },
-      "scenario_optimiste": { "description": "string", "ca_estime": "string", "probabilite": "string", "facteurs_declencheurs": ["string"] },
-      "facteurs_cles_succes": ["string"]
-    },
-    "scoring_granulaire": {
-      "score_global_calcule": <0-100>,
-      "dimensions": [
-        { "dimension": "Finance", "score": <0-100>, "poids": 20, "justification": "string" },
-        { "dimension": "Commercial", "score": <0-100>, "poids": 15, "justification": "string" },
-        { "dimension": "Marché", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Opérationnel", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Équipe & RH", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Légal & Conformité", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "ESG & Impact", "score": <0-100>, "poids": 10, "justification": "string" },
-        { "dimension": "Gouvernance", "score": <0-100>, "poids": 15, "justification": "string" }
       ]
     },
-    "timeline_evenements": [
-      { "date": "string", "evenement": "string", "impact": "positif | neutre | negatif", "source": "string" }
-    ],
+    "scenarios_prospectifs": {
+      "scenario_pessimiste": { "description": "string", "ca_estime": "string", "ebitda_estime": "string", "probabilite": "string" },
+      "scenario_base": { "description": "string", "ca_estime": "string", "ebitda_estime": "string", "probabilite": "string" },
+      "scenario_optimiste": { "description": "string", "ca_estime": "string", "ebitda_estime": "string", "probabilite": "string" }
+    },
     "verdict_analyste": {
-      "synthese_pour_comite": "string — 3-4 paragraphes argumentés et chiffrés",
-      "niveau_conviction": "fort | modere | faible",
+      "synthese_pour_comite": "string — 3-5 phrases de verdict final",
       "deal_breakers": ["string"],
       "conditions_sine_qua_non": ["string"],
-      "quick_wins": ["string"],
-      "questions_ouvertes": ["string"],
-      "prochaines_etapes_recommandees": ["string"]
+      "quick_wins": ["string"]
     }
   },
 
-  "_confidence": {
-    "ca_estime": { "level": <0-100>, "source": "string" },
-    "marge_brute": { "level": <0-100>, "source": "string" },
-    "sante_financiere": { "level": <0-100>, "source": "string" },
-    "qualite_dossier": { "level": <0-100>, "source": "string" }
+  "programme_match": null | {
+    "programme_name": "string",
+    "match_score": <0-100>,
+    "criteres_ok": [{ "critere": "string", "detail": "string" }],
+    "criteres_ko": [{ "critere": "string", "detail": "string", "comment_corriger": "string" }],
+    "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string" }],
+    "recommandation": "string"
   }
 }`;
 
