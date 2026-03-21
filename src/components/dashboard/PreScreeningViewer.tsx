@@ -232,44 +232,25 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
           </CardHeader>
           <CardContent className="space-y-5">
 
-            {/* 2.1 Questions à poser */}
-            {guideCoach.questions_entrepreneur?.length > 0 && (
+            {/* 1. Points bloquants — EN PREMIER */}
+            {guideCoach.points_bloquants_pipeline?.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" /> Questions à poser à l'entrepreneur
+                <h4 className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" /> Points bloquants
                 </h4>
                 <div className="space-y-1.5">
-                  {guideCoach.questions_entrepreneur.map((q: string, i: number) => (
-                    <div key={i} className="p-2.5 rounded-md bg-white border border-blue-100 text-xs leading-relaxed">
-                      <span className="font-semibold text-blue-700 mr-1.5">{i + 1}.</span> {q}
+                  {guideCoach.points_bloquants_pipeline.map((p: any, i: number) => (
+                    <div key={i} className="p-3 rounded-md bg-red-50 border border-red-200 border-l-4 border-l-red-500 text-xs">
+                      <p className="font-medium text-red-800">{p.blocage}</p>
+                      <p className="text-red-600 mt-0.5">Conséquence : {p.consequence}</p>
+                      <p className="text-emerald-700 mt-0.5">Résolution : {p.resolution}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 2.2 Documents à demander */}
-            {guideCoach.documents_a_demander?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Documents à demander
-                </h4>
-                <div className="space-y-1.5">
-                  {guideCoach.documents_a_demander.map((d: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-white border border-blue-100">
-                      {urgenceBadge(d.urgence)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{d.document}</p>
-                        <p className="text-[10px] text-muted-foreground">{d.raison}</p>
-                        {d.impact && <p className="text-[10px] text-blue-600 mt-0.5">Impact : {d.impact}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 2.3 Actions cette semaine */}
+            {/* 2. Actions cette semaine */}
             {guideCoach.actions_coach_semaine?.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
@@ -292,25 +273,44 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
               </div>
             )}
 
-            {/* 2.4 Points bloquants */}
-            {guideCoach.points_bloquants_pipeline?.length > 0 && (
+            {/* 3. Documents à demander */}
+            {guideCoach.documents_a_demander?.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" /> Points bloquants
+                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Documents à demander
                 </h4>
                 <div className="space-y-1.5">
-                  {guideCoach.points_bloquants_pipeline.map((p: any, i: number) => (
-                    <div key={i} className="p-3 rounded-md bg-red-50 border border-red-200 border-l-4 border-l-red-500 text-xs">
-                      <p className="font-medium text-red-800">{p.blocage}</p>
-                      <p className="text-red-600 mt-0.5">Conséquence : {p.consequence}</p>
-                      <p className="text-emerald-700 mt-0.5">Résolution : {p.resolution}</p>
+                  {guideCoach.documents_a_demander.map((d: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-white border border-blue-100">
+                      {urgenceBadge(d.urgence)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium">{d.document}</p>
+                        <p className="text-[10px] text-muted-foreground">{d.raison}</p>
+                        {d.impact && <p className="text-[10px] text-blue-600 mt-0.5">Impact : {d.impact}</p>}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 2.5 Axes d'accompagnement */}
+            {/* 4. Questions à poser */}
+            {guideCoach.questions_entrepreneur?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" /> Questions à poser à l'entrepreneur
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.questions_entrepreneur.map((q: string, i: number) => (
+                    <div key={i} className="p-2.5 rounded-md bg-white border border-blue-100 text-xs leading-relaxed">
+                      <span className="font-semibold text-blue-700 mr-1.5">{i + 1}.</span> {q}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 5. Axes d'accompagnement */}
             {guideCoach.axes_coaching?.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
@@ -335,7 +335,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
               </div>
             )}
 
-            {/* 2.6 Alertes */}
+            {/* 6. Alertes */}
             {guideCoach.alertes_coach?.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-amber-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
