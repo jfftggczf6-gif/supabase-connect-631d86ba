@@ -56,8 +56,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     REJETER: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: XCircle },
   };
   const cc = classConfig[classification] || classConfig.COMPLETER_DABORD;
-  const ClassIcon = cc.icon;
-  const scoreColor = score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-600';
   const scoreBgClass = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
 
   const formatAmount = (v: number | null | undefined) => {
