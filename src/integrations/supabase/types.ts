@@ -102,6 +102,62 @@ export type Database = {
           },
         ]
       }
+      coaching_notes: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          date_rdv: string | null
+          enterprise_id: string
+          file_name: string | null
+          file_path: string | null
+          id: string
+          infos_extraites: Json | null
+          input_type: string
+          raw_content: string | null
+          resume_ia: string | null
+          titre: string | null
+          visible_chef_programme: boolean | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          date_rdv?: string | null
+          enterprise_id: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          infos_extraites?: Json | null
+          input_type?: string
+          raw_content?: string | null
+          resume_ia?: string | null
+          titre?: string | null
+          visible_chef_programme?: boolean | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          date_rdv?: string | null
+          enterprise_id?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          infos_extraites?: Json | null
+          input_type?: string
+          raw_content?: string | null
+          resume_ia?: string | null
+          titre?: string | null
+          visible_chef_programme?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_notes_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_room_documents: {
         Row: {
           category: string
