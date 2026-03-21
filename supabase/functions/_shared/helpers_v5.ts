@@ -705,3 +705,36 @@ export async function buildRAGContext(
     return "";
   }
 }
+
+// ===== COACHING CONTEXT (inject coach notes into AI prompts) =====
+export async function getCoachingContext(supabase: any, enterpriseId: string): Promise<string> {
+  try {
+    const { data: notes } = await supabase
+      .from('coaching_notes')
+      .select('titre, resume_ia, infos_extraites, date_rdv')
+      .eq('enterprise_id', enterpriseId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (!notes?.length) return "";
+
+    const infos = notes.flatMap((n: any) =>
+      (n.infos_extraites || []).filter((i: any) => i.injecter).map((i: any) => `[${i.categorie}] ${i.info}`)
+    );
+    if (!infos.length) return "";
+
+    const rdvs = notes.filter((n: any) => n.resume_ia).slice(0, 3)
+      .map((n: any) => `${n.date_rdv || '?'} : ${n.resume_ia}`);
+
+    return `
+══════ INFORMATIONS DU COACH (terrain, validées) ══════
+${infos.join('\n')}
+${rdvs.length ? `\nDERNIERS RDV :\n${rdvs.join('\n')}` : ''}
+⚠ Ces informations COMPLÈTENT et CORRIGENT les documents. En cas de contradiction, PRIVILÉGIER les infos du coach.
+══════ FIN ══════
+`;
+  } catch (e) {
+    console.warn("getCoachingContext error (non-blocking):", e);
+    return "";
+  }
+}
