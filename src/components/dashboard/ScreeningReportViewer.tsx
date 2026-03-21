@@ -37,14 +37,11 @@ export default function ScreeningReportViewer({ data, onRegenerate }: ScreeningR
   const risques = data.risques_programme || [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="screening-viewer-content">
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopySummary}>
-          <Copy className="h-3.5 w-3.5" /> Copier
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadJSON}>
-          <Download className="h-3.5 w-3.5" /> JSON
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
+          <Download className="h-3.5 w-3.5" /> HTML (A4)
         </Button>
         {onRegenerate && (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={onRegenerate}>
