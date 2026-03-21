@@ -64,7 +64,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
       </header>
 
       {/* Page content */}
-      <main className="container py-8">
+      <main className="w-full px-6 py-8">
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">{title}</h1>
           {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
