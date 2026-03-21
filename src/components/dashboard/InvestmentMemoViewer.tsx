@@ -262,6 +262,7 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
             {renderGenericFields(d, ['commentaire', 'analyse', 'chiffre_affaires', 'ca', 'revenue', 'ca_annee_n', 'kpis', 'marge_brute', 'ebitda', 'resultat_net', 'tresorerie', 'ratio_dette', 'endettement', 'points_forts', 'points_attention', 'projections', 'previsions', 'evolution'])}
           </div>
         );
+      }
 
       case 'analyse_risques':
         return (
