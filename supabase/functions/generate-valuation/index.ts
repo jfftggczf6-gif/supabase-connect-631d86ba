@@ -65,7 +65,10 @@ serve(async (req) => {
       synthese_haute: calcResult.synthese.valeur_haute,
     });
 
-    // 4. Appel IA pour l'analyse qualitative
+    // 4. KB context
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "valuation");
+
+    // 5. Appel IA pour l'analyse qualitative
     const analysisInput = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || 'Non spécifié'}
 PAYS : ${ent.country || "Côte d'Ivoire"}
