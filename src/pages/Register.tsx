@@ -19,9 +19,9 @@ const COUNTRIES = [
 
 export default function Register() {
   const [searchParams] = useSearchParams();
-  const initialRole = (searchParams.get('role') as AppRole) || 'entrepreneur';
+  const initialRole = 'coach' as AppRole;
 
-  const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole);
+  const [selectedRole] = useState<AppRole>(initialRole);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
