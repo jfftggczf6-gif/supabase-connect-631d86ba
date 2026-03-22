@@ -1,7 +1,8 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
 import { normalizeSic } from "../_shared/normalizers.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en Impact Investing et évaluation ESG (Environnement, Social, Gouvernance) spécialisé dans les PME en Afrique de l'Ouest (UEMOA / Côte d'Ivoire).
 
