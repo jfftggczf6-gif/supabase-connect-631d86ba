@@ -95,7 +95,23 @@ export default function EntrepreneurDashboard({
   const finInputRef = useRef<HTMLInputElement>(null);
   const extraInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchData = useCallback(async () => {
+  // Warn if coach tries to close browser during generation
+  useEffect(() => {
+    if (!generating) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Une génération est en cours. Si vous quittez, elle sera interrompue.';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [generating]);
+
+  // Notify parent of generating state changes
+  useEffect(() => {
+    onGeneratingChange?.(generating);
+  }, [generating, onGeneratingChange]);
+
     if (!user) return;
     let ent: Enterprise | null = null;
 

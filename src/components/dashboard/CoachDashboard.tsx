@@ -85,6 +85,7 @@ export default function CoachDashboard() {
   const [showExtractDialog, setShowExtractDialog] = useState(false);
   const [_extractingEntId, _setExtractingEntId] = useState<string | null>(null);
   const [savingExtraction, setSavingExtraction] = useState(false);
+  const [childGenerating, setChildGenerating] = useState(false);
 
   // ─── Data loading ─────────────────────────────────────────────────────────
 
