@@ -45,6 +45,7 @@ interface EntrepreneurDashboardProps {
   showBackButton?: boolean;
   onBack?: () => void;
   coachMode?: boolean;
+  onGeneratingChange?: (generating: boolean) => void;
 }
 
 export default function EntrepreneurDashboard({
@@ -52,6 +53,7 @@ export default function EntrepreneurDashboard({
   showBackButton = false,
   onBack,
   coachMode = false,
+  onGeneratingChange,
 }: EntrepreneurDashboardProps = {}) {
   const { user, profile, session: authSession, signOut } = useAuth();
   const navigate = useNavigate();
@@ -92,6 +94,23 @@ export default function EntrepreneurDashboard({
   const docInputRef = useRef<HTMLInputElement>(null);
   const finInputRef = useRef<HTMLInputElement>(null);
   const extraInputRef = useRef<HTMLInputElement>(null);
+
+  // Warn if coach tries to close browser during generation
+  useEffect(() => {
+    if (!generating) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Une génération est en cours. Si vous quittez, elle sera interrompue.';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [generating]);
+
+  // Notify parent of generating state changes
+  useEffect(() => {
+    onGeneratingChange?.(generating);
+  }, [generating, onGeneratingChange]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
