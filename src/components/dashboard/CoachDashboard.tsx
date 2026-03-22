@@ -215,11 +215,26 @@ export default function CoachDashboard() {
     }
   };
 
-  const extractEnterpriseInfoCoach = async (_enterpriseId: string, _ent: Enterprise | null) => {
-    // kept for future use but simplified
+  const handleConfirmExtraction = async () => {
+    if (!selectedEnt || !extractedInfo) return;
+    setSavingExtraction(true);
+    try {
+      const updates: Record<string, string> = {};
+      if (extractedInfo.name) updates.name = extractedInfo.name;
+      if (extractedInfo.country) updates.country = extractedInfo.country;
+      if (extractedInfo.sector) updates.sector = extractedInfo.sector;
+      const { error } = await supabase.from('enterprises').update(updates).eq('id', selectedEnt.id);
+      if (error) throw error;
+      toast.success('Informations mises à jour !');
+      setShowExtractDialog(false);
+      setExtractedInfo(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSavingExtraction(false);
+    }
   };
-
-  void extractEnterpriseInfoCoach;
 
   // ─── Generate OVO Excel Plan (coach version) ────────────────────────────
   const handleGenerateOvoPlanCoach = async (enterpriseId: string) => {
