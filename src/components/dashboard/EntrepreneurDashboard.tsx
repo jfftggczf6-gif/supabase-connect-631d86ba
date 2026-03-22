@@ -1196,7 +1196,7 @@ export default function EntrepreneurDashboard({
                     session={authSession}
                     navigate={navigate}
                     onComplete={fetchData}
-                    onPreScreeningDone={() => { fetchData(); setSelectedModule('pre_screening'); }}
+                    
                   />
                 </div>
               </div>
