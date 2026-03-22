@@ -161,7 +161,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
   };
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4">
       {/* A — Report buttons */}
       <div className="flex gap-2">
         <Button variant="default" size="sm" onClick={() => setShowReport('suivi')}>
