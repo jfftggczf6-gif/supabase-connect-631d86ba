@@ -239,7 +239,7 @@ export default function CoachDashboard() {
       }
 
       setShowAddModal(false);
-      setAddForm({ name: '', contact_name: '', contact_email: '', contact_phone: '', sector: '', country: "Côte d'Ivoire" });
+      setAddForm({ name: '', contact_email: '' });
       await fetchData();
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'ajout");
