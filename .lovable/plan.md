@@ -1,14 +1,15 @@
 
 
-# Élargir la vue Coaching à pleine largeur
+# Corriger l'état vide de la Vue Entrepreneur en mode Coach
 
-## Problème
-Le composant `CoachingTab` utilise `max-w-2xl` (672px max), ce qui le rend étroit dans le dashboard coach. La zone de contenu devrait occuper toute la largeur disponible.
+## Probleme
+Quand le coach ouvre la "Vue entrepreneur" et que l'entreprise n'est pas trouvee (probleme RLS, latence reseau, etc.), l'ecran "Creer votre entreprise" s'affiche — ce qui n'a aucun sens pour un coach.
 
 ## Changement
 
-**Fichier : `src/components/dashboard/CoachingTab.tsx`**
-- Ligne 135 : Remplacer `className="space-y-4 max-w-2xl"` par `className="space-y-4"` pour supprimer la contrainte de largeur maximale.
+**Fichier : `src/components/dashboard/EntrepreneurDashboard.tsx`**
 
-Un seul changement, une seule ligne.
+Dans le bloc `if (!enterprise)` (ligne 868), ajouter une condition `coachMode` :
+- Si `coachMode === true` : afficher un message d'erreur ("Entreprise introuvable") avec un bouton "Retour" qui appelle `onBack`
+- Si `coachMode === false` : garder le formulaire "Creer votre entreprise" actuel (comportement entrepreneur inchange)
 
