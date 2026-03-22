@@ -123,7 +123,7 @@ export default function DashboardSidebar({
       </button>
 
       {/* Phases */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto min-h-0 py-1">
         {PHASES.map((phase) => {
           const { done, total } = getPhaseProgress(phase);
           
