@@ -227,11 +227,7 @@ export default function CoachDashboard() {
       if (!linked) {
         const { error } = await supabase.from('enterprises').insert({
           name: addForm.name.trim(),
-          sector: addForm.sector || null,
-          country: addForm.country,
-          contact_name: addForm.contact_name || null,
           contact_email: addForm.contact_email || null,
-          contact_phone: addForm.contact_phone || null,
           coach_id: user.id,
           user_id: user.id,
           phase: 'identite',
