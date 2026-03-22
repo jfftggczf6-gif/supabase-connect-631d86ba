@@ -82,14 +82,8 @@ export default function DashboardSidebar({
     return Math.round((done / allModules.length) * 100);
   }, [deliverables, modules]);
 
-  const togglePhase = (phaseId: string) => {
-    setExpandedPhases(prev => {
-      const next = new Set(prev);
-      if (next.has(phaseId)) next.delete(phaseId);
-      else next.add(phaseId);
-      return next;
-    });
-  };
+
+
 
   const phaseColorMap: Record<string, string> = {
     emerald: 'text-emerald-600 bg-emerald-500/10',
