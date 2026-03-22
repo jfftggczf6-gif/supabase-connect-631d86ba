@@ -63,7 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setRoleLoading(true);
+        // Only show roleLoading spinner on first load, not on token refresh
+        setRoleLoading(prev => prev || !role);
         fetchUserData(session.user.id).finally(() => setRoleLoading(false));
       } else {
         setProfile(null);
