@@ -38,7 +38,7 @@ export default function DashboardSidebar({
     if (window.innerWidth < 1024) return true;
     return localStorage.getItem('esono_sidebar_collapsed') === 'true';
   });
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(PHASES.map(p => p.id)));
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 

@@ -264,9 +264,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                         <p className="font-medium">{a.action}</p>
                         <p className="text-[10px] text-muted-foreground">{a.objectif}</p>
                       </div>
-                      {a.duree_estimee && (
-                        <Badge variant="outline" className="text-[10px] flex-none">{a.duree_estimee}</Badge>
-                      )}
+                      {/* durée estimée masquée pour le pilote */}
                     </div>
                   ))}
                 </div>

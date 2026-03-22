@@ -159,14 +159,5 @@ export const PHASES: PhaseConfig[] = [
       { code: 'investment_memo', label: 'Mémo Investissement', icon: Briefcase },
     ],
   },
-  {
-    id: 'phase_4',
-    label: 'Décision',
-    shortLabel: 'Décision',
-    color: 'amber',
-    modules: [
-      { code: 'screening', label: 'Décision programme', icon: Search, special: 'screening' },
-      { code: 'dataroom', label: 'Data Room', icon: FolderPlus, special: 'dataroom' },
-    ],
-  },
+  // Phase 4 (Décision) masquée pour le pilote
 ];

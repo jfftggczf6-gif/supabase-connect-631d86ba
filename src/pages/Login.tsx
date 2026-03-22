@@ -90,8 +90,8 @@ export default function Login() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Pas encore de compte ?{' '}
-          <Link to="/register?role=entrepreneur" className="text-primary hover:underline font-medium">
-            Créer un compte
+          <Link to="/register?role=coach" className="text-primary hover:underline font-medium">
+            Créer un compte Coach
           </Link>
         </p>
       </div>
