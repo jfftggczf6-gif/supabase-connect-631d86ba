@@ -212,34 +212,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       }
       await supabase.from('enterprises').update(modeUpdates).eq('id', enterpriseId);
 
-      // === STEP 5: Auto-launch pre-screening ===
-      setProgressLabel('Analyse du dossier en cours…');
-      setProgress(90);
-      setPreScreeningFailed(false);
-      try {
-        const preScreenAbort = new AbortController();
-        const preScreenTimeout = setTimeout(() => preScreenAbort.abort(), 180000);
-        const preScreenResp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ enterprise_id: enterpriseId }),
-            signal: preScreenAbort.signal,
-          }
-        );
-        clearTimeout(preScreenTimeout);
-        if (preScreenResp.ok) {
-          const preScreenData = await preScreenResp.json();
-          onPreScreeningDone?.(preScreenData.data);
-        } else {
-          console.warn('Pre-screening returned error status:', preScreenResp.status);
-          setPreScreeningFailed(true);
-        }
-      } catch (e) {
-        console.warn('Pre-screening failed (non-blocking):', e);
-        setPreScreeningFailed(true);
-      }
+      setProgress(95);
 
       setProgress(100);
       setProgressLabel('Terminé !');
