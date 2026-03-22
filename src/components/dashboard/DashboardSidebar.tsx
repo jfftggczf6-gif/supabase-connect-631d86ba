@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import {
-  ChevronLeft, ChevronRight, Sparkles, Loader2, CheckCircle2, Menu, X,
+  Sparkles, Loader2, CheckCircle2, Menu, X,
 } from 'lucide-react';
 import { PHASES, type Enterprise, type Deliverable, type EnterpriseModule, type PhaseConfig } from '@/lib/dashboard-config';
 
