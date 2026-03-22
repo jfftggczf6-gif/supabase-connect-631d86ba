@@ -575,9 +575,6 @@ export default function CoachDashboard() {
                   >
                     <Eye className="h-3 w-3" /> Voir
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleDownloadReport(ent)} disabled={generatingReport === ent.id}>
-                    {generatingReport === ent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:text-destructive">
