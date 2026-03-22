@@ -1,11 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from './DashboardLayout';
-import DeliverableViewer from './DeliverableViewer';
-import BmcViewer from './BmcViewer';
-import SicViewer from './SicViewer';
-import BusinessPlanPreview from './BusinessPlanPreview';
 import EntrepreneurDashboard from './EntrepreneurDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +14,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import {
-  Users, Building2, CheckCircle2, TrendingUp,
-  Plus, Download, Sparkles, Loader2, ArrowLeft, Eye, Lock,
-  Share2, AlertCircle, FileCheck, UserPlus, Search, Trash2,
-  Upload, X, FileText, ListChecks, Maximize2, Minimize2
+  Users, Building2,
+  Plus, Download, Sparkles, Loader2, ArrowLeft, Eye,
+  UserPlus, Search, Trash2, Maximize2, Minimize2
 } from 'lucide-react';
 import {
-  MODULE_CONFIG_COACH as MODULE_CONFIG, PIPELINE,
+  PIPELINE,
   type Enterprise, type Deliverable, type EnterpriseModule, type CoachUpload,
 } from '@/lib/dashboard-config';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
@@ -32,21 +27,6 @@ import { runPipelineFromClient, getPipelineState, type PipelineState } from '@/l
 import ScreeningDashboard from './ScreeningDashboard';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import CoachingTab from './CoachingTab';
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const DELIV_MAP: Record<string, string> = {
-  bmc: 'bmc_analysis', sic: 'sic_analysis', inputs: 'inputs_data',
-  framework: 'framework_data', diagnostic: 'diagnostic_data',
-  plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
-};
-
-const SECTORS = [
-  'Agriculture / Agroalimentaire', 'Tech / Digital', 'Commerce / Distribution',
-  'Services / Conseil', 'Industrie / Manufacture', 'BTP / Construction',
-  'Énergie / Environnement', 'Santé / Pharma', 'Éducation / Formation',
-  'Transport / Logistique', 'Finance / Assurance', 'Artisanat', 'Autre',
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
