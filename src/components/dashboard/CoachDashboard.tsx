@@ -21,7 +21,7 @@ import {
   Users, Building2, CheckCircle2, TrendingUp,
   Plus, Download, Sparkles, Loader2, ArrowLeft, Eye, Lock,
   Share2, AlertCircle, FileCheck, UserPlus, Search, Trash2,
-  Upload, X, FileText, ListChecks
+  Upload, X, FileText, ListChecks, Maximize2, Minimize2
 } from 'lucide-react';
 import {
   MODULE_CONFIG_COACH as MODULE_CONFIG, PIPELINE,
