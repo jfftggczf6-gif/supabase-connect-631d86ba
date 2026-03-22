@@ -426,7 +426,7 @@ export default function CoachDashboard() {
           <EntrepreneurDashboard
             enterpriseId={selectedEnt.id}
             showBackButton={false}
-            onBack={() => { setView('list'); setSelectedEnt(null); }}
+            onBack={handleBackToList}
             coachMode={true}
           />
         )}
