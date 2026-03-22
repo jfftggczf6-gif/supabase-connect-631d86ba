@@ -214,6 +214,7 @@ export default function SuperAdminDashboard() {
           <TabsTrigger value="screening" className="gap-1"><Target className="h-3.5 w-3.5" />Screening</TabsTrigger>
           <TabsTrigger value="knowledge" className="gap-1"><Database className="h-3.5 w-3.5" />Base de connaissances</TabsTrigger>
           <TabsTrigger value="activity">Activité récente</TabsTrigger>
+          <TabsTrigger value="kb_structured" className="gap-1"><Database className="h-3.5 w-3.5" />KB Structurée</TabsTrigger>
         </TabsList>
 
         {/* USERS TAB */}
