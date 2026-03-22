@@ -707,24 +707,6 @@ export default function CoachDashboard() {
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Nom du contact</label>
-                <input type="text" placeholder="Prénom Nom"
-                  value={addForm.contact_name}
-                  onChange={e => setAddForm(f => ({ ...f, contact_name: e.target.value }))}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Téléphone</label>
-                <input type="tel" placeholder="+225 07 00 00 00"
-                  value={addForm.contact_phone}
-                  onChange={e => setAddForm(f => ({ ...f, contact_phone: e.target.value }))}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Email</label>
               <input type="email" placeholder="contact@entreprise.com"
@@ -732,27 +714,6 @@ export default function CoachDashboard() {
                 onChange={e => setAddForm(f => ({ ...f, contact_email: e.target.value }))}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Secteur</label>
-                <select value={addForm.sector} onChange={e => setAddForm(f => ({ ...f, sector: e.target.value }))}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
-                >
-                  <option value="">— Sélectionner —</option>
-                  {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Pays</label>
-                <select value={addForm.country} onChange={e => setAddForm(f => ({ ...f, country: e.target.value }))}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
-                >
-                  {["Côte d'Ivoire", "Sénégal", "Mali", "Burkina Faso", "Togo", "Bénin", "Guinée", "Niger"].map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowAddModal(false)}>Annuler</Button>
