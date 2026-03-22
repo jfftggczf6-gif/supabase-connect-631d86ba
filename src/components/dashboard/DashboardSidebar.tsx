@@ -87,7 +87,7 @@ export default function DashboardSidebar({
   };
 
   const renderSidebarContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Enterprise header */}
       <button
         onClick={() => onSelectModule('overview')}
@@ -123,7 +123,7 @@ export default function DashboardSidebar({
       </button>
 
       {/* Phases */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto min-h-0 py-1">
         {PHASES.map((phase) => {
           const { done, total } = getPhaseProgress(phase);
           
