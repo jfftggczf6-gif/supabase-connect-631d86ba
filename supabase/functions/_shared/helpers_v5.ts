@@ -737,7 +737,6 @@ ${rdvs.length ? `\nDERNIERS RDV :\n${rdvs.join('\n')}` : ''}
     console.warn("getCoachingContext error (non-blocking):", e);
     return "";
   }
-  }
 }
 
 // ===== KNOWLEDGE FOR AGENT (4-layer KB retrieval) =====
