@@ -55,9 +55,14 @@ type DetailTab = 'mirror' | 'coaching';
 export default function CoachDashboard() {
   const { user, profile } = useAuth();
 
-  const [view, setView] = useState<View>('list');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const entIdFromUrl = searchParams.get('ent');
+
+  const [view, setView] = useState<View>(entIdFromUrl ? 'detail' : 'list');
   const [selectedEnt, setSelectedEnt] = useState<Enterprise | null>(null);
-  const [detailTab, setDetailTab] = useState<DetailTab>('mirror');
+  const [detailTab, setDetailTab] = useState<DetailTab>(
+    () => (sessionStorage.getItem('esono_detail_tab') as DetailTab) || 'mirror'
+  );
   const [_selectedModule, _setSelectedModule] = useState('diagnostic');
 
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
