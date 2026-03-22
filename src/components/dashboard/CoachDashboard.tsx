@@ -58,7 +58,7 @@ export default function CoachDashboard() {
   const [view, setView] = useState<View>('list');
   const [selectedEnt, setSelectedEnt] = useState<Enterprise | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('mirror');
-  const [selectedModule, setSelectedModule] = useState('diagnostic');
+  const [_selectedModule, _setSelectedModule] = useState('diagnostic');
 
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [modulesMap, setModulesMap] = useState<Record<string, EnterpriseModule[]>>({});
@@ -66,21 +66,14 @@ export default function CoachDashboard() {
   const [uploadsMap, setUploadsMap] = useState<Record<string, CoachUpload[]>>({});
 
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
-  const [generatingMirror, _setGeneratingMirror] = useState(false);
-  const [_generatingModuleCoach, _setGeneratingModuleCoach] = useState<string | null>(null);
-  const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
-  const [sharingId, setSharingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [filterPhase, setFilterPhase] = useState('');
-  const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', contact_email: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
-  const [_generatingOvoPlanMirror, _setGeneratingOvoPlanMirror] = useState(false);
   const [reportPreview, setReportPreview] = useState<{ html: string; enterpriseName: string } | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   // Enterprise info extraction states
@@ -88,10 +81,6 @@ export default function CoachDashboard() {
   const [showExtractDialog, setShowExtractDialog] = useState(false);
   const [_extractingEntId, setExtractingEntId] = useState<string | null>(null);
   const [savingExtraction, setSavingExtraction] = useState(false);
-
-  const bmcInputRef = useRef<HTMLInputElement>(null);
-  const inputsInputRef = useRef<HTMLInputElement>(null);
-  const suppInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Data loading ─────────────────────────────────────────────────────────
 
