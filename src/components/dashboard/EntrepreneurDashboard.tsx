@@ -1071,6 +1071,7 @@ export default function EntrepreneurDashboard({
           selectedModule={selectedModule}
           onSelectModule={setSelectedModule}
           onGenerateAll={() => handleGenerate(false)}
+          onStopGeneration={handleStopGeneration}
           generating={generating}
           generationProgress={generationProgress}
           globalScore={globalScore}
