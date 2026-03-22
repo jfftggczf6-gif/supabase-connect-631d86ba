@@ -1,22 +1,35 @@
 
 
-# Ajouter le Data Room dans la sidebar
+# Diagnostic du bug "Entreprise introuvable"
 
-## Changement
+## Cause probable
 
-**Fichier unique** : `src/lib/dashboard-config.ts`
+L'entreprise `gotche Sarl` (ID `e7cfb861-...`) existe bien en base avec `coach_id = ccca884f-...`. Le `CoachDashboard` la trouve correctement (les onglets "Vue entrepreneur" / "Coaching" s'affichent), mais ensuite `EntrepreneurDashboard` fait sa propre requête Supabase pour charger les données, et cette seconde requête échoue.
 
-Ajouter le module `dataroom` dans la phase Investisseur (phase_3), car c'est lié au partage avec les investisseurs. Il faut aussi importer l'icône `FolderOpen` (ou `FolderPlus`) de lucide-react.
+Cela arrive quand le token d'authentification est brièvement expiré entre les deux requêtes. Le client Supabase le rafraîchit automatiquement, mais il y a une fenêtre de temps où la requête retourne `null` à cause des politiques de sécurité (RLS).
+
+## Correction proposée
+
+**Fichier** : `src/components/dashboard/EntrepreneurDashboard.tsx`
+
+Ajouter un mécanisme de retry dans `fetchData` quand on est en `coachMode` et que la requête retourne `null` : attendre 1 seconde puis réessayer une fois (le token sera rafraîchi entre-temps).
 
 ```typescript
-// Phase 3 — Investisseur
-modules: [
-  { code: 'valuation', label: 'Valorisation', icon: TrendingUp },
-  { code: 'onepager', label: 'One-Pager', icon: FileText },
-  { code: 'investment_memo', label: 'Mémo Investissement', icon: Briefcase },
-  { code: 'dataroom', label: 'Data Room', icon: FolderOpen, special: 'dataroom' },
-],
+// Dans fetchData, après la requête en coach mode :
+if (enterpriseId) {
+  const { data } = await supabase
+    .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
+  ent = data;
+  
+  // Retry once if RLS blocked (token might be refreshing)
+  if (!ent) {
+    await new Promise(r => setTimeout(r, 1000));
+    const { data: retry } = await supabase
+      .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
+    ent = retry;
+  }
+}
 ```
 
-Le code `dataroom` est déjà géré dans `EntrepreneurDashboard.tsx` (ligne 1251) avec le `DataRoomManager`, donc aucun autre fichier à modifier.
+Cela élimine le faux négatif sans changer le comportement normal.
 
