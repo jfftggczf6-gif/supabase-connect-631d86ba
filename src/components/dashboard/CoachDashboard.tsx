@@ -65,7 +65,7 @@ export default function CoachDashboard() {
   const [_uploadsMap, setUploadsMap] = useState<Record<string, CoachUpload[]>>({});
 
   const [loading, setLoading] = useState(true);
-  const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  
 
   const [search, setSearch] = useState('');
   const [filterPhase, setFilterPhase] = useState('');
