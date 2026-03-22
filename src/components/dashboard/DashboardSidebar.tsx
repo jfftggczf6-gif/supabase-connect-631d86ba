@@ -31,7 +31,7 @@ const DELIV_TYPE_MAP: Record<string, string> = {
 
 export default function DashboardSidebar({
   enterprise, deliverables, modules, selectedModule, onSelectModule,
-  onGenerateAll, generating, generationProgress, globalScore,
+  onGenerateAll, onStopGeneration, generating, generationProgress, globalScore,
 }: SidebarProps) {
   const collapsed = false;
   const [mobileOpen, setMobileOpen] = useState(false);
