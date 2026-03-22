@@ -75,10 +75,9 @@ export default function CoachDashboard() {
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
   const [reportPreview, setReportPreview] = useState<{ html: string; enterpriseName: string } | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  // Enterprise info extraction states
   const [extractedInfo, setExtractedInfo] = useState<{ name: string | null; country: string | null; sector: string | null } | null>(null);
   const [showExtractDialog, setShowExtractDialog] = useState(false);
-  const [_extractingEntId, setExtractingEntId] = useState<string | null>(null);
+  const [_extractingEntId, _setExtractingEntId] = useState<string | null>(null);
   const [savingExtraction, setSavingExtraction] = useState(false);
 
   // ─── Data loading ─────────────────────────────────────────────────────────
