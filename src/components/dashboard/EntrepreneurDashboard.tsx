@@ -121,6 +121,14 @@ export default function EntrepreneurDashboard({
       const { data } = await supabase
         .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
       ent = data;
+
+      // Retry once if RLS blocked (token might be refreshing)
+      if (!ent) {
+        await new Promise(r => setTimeout(r, 1000));
+        const { data: retry } = await supabase
+          .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
+        ent = retry;
+      }
     } else {
       // Entrepreneur mode: load own enterprise
       const { data } = await supabase
