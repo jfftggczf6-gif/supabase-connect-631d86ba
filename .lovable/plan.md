@@ -1,17 +1,31 @@
 
 
-## Problème
+# Simplification Pilote — Ce qui reste
 
-Le `DashboardLayout` utilise la classe Tailwind `container` sur le header et le `<main>`, ce qui limite la largeur à ~1280px et centre le contenu. Le contenu ne prend donc pas toute la largeur de l'écran.
+## Statut actuel
 
-## Solution
+Sur les 13 points du prompt, **11 sont terminés**. Il reste **2 corrections** :
 
-Remplacer `container` par `max-w-full px-6` (ou `px-8`) dans `DashboardLayout.tsx` pour que le contenu occupe toute la largeur disponible avec un padding latéral raisonnable.
+### Fix 6 — Supprimer le lancement automatique du pre-screening après reconstruction
 
-### Fichier : `src/components/dashboard/DashboardLayout.tsx`
+Actuellement, `ReconstructionUploader` appelle automatiquement `generate-pre-screening` après la reconstruction (lignes 220-244) et invoque `onPreScreeningDone`. Le bon flow est : upload → reconstruction → STOP. Le pre-screening se lance uniquement via "Générer tout le pipeline".
 
-- **Ligne 32** : header inner div — remplacer `container` par `w-full px-6`
-- **Ligne 67** : main — remplacer `container` par `w-full px-6`
+**Fichiers concernés :**
+- `src/components/dashboard/ReconstructionUploader.tsx` : Supprimer le bloc qui appelle `generate-pre-screening` après la reconstruction (lignes 220-244). Supprimer la prop `onPreScreeningDone` de l'interface et du composant. Supprimer aussi le retry pre-screening (`handleRetryPreScreening`).
+- `src/components/dashboard/EntrepreneurDashboard.tsx` : Retirer la prop `onPreScreeningDone` passée au `ReconstructionUploader` (ligne 1199).
 
-Cela donnera un layout pleine largeur tout en gardant un espacement latéral propre.
+### Fix 13 — Plein écran par défaut quand le coach clique "Voir"
+
+Le prompt demande que le plein écran soit activé par défaut. Actuellement `fullscreen` démarre à `false` et le bouton "Voir" ne l'active pas.
+
+**Fichier concerné :**
+- `src/components/dashboard/CoachDashboard.tsx` (ligne 574) : Ajouter `setFullscreen(true)` dans le handler du bouton "Voir".
+
+### Résumé des changements
+
+| Fichier | Action |
+|---------|--------|
+| `ReconstructionUploader.tsx` | Supprimer auto-launch pre-screening + prop `onPreScreeningDone` |
+| `EntrepreneurDashboard.tsx` | Retirer `onPreScreeningDone` du composant `ReconstructionUploader` |
+| `CoachDashboard.tsx` | Activer fullscreen quand le coach clique "Voir" |
 
