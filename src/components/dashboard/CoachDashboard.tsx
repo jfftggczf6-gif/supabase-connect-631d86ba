@@ -550,9 +550,6 @@ export default function CoachDashboard() {
         <Button onClick={() => setShowAddModal(true)} className="gap-2">
           <UserPlus className="h-4 w-4" /> Ajouter un entrepreneur
         </Button>
-        <Button variant="outline" onClick={() => setView('screening')} className="gap-2">
-          <ListChecks className="h-4 w-4" /> Screening & Programmes
-        </Button>
         <Button variant="outline" asChild className="gap-2">
           <a href="/templates"><Download className="h-4 w-4" /> Templates vierges</a>
         </Button>
