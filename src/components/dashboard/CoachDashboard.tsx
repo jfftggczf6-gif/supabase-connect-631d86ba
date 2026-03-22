@@ -146,18 +146,6 @@ export default function CoachDashboard() {
     getPipelineState(selectedEnt.id).then(setMirrorPipelineState);
   }, [selectedEnt?.id, selectedEnt?.updated_at, deliverablesMap[selectedEnt?.id || '']?.length]);
 
-  // ─── KPIs ─────────────────────────────────────────────────────────────────
-
-  const totalEntreprises = enterprises.length;
-  const allScores = enterprises.map((e) => e.score_ir || 0).filter((s) => s > 0);
-  const avgScore = allScores.length > 0 ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
-  const allDelivs = Object.values(deliverablesMap).flat();
-  const delivsThisWeek = allDelivs.filter(d => {
-    const date = new Date(d.created_at || d.updated_at);
-    return Date.now() - date.getTime() < 7 * 24 * 60 * 60 * 1000;
-  }).length;
-  const allMods = Object.values(modulesMap).flat();
-  const completedMods = allMods.filter(m => m.status === 'completed').length;
 
   // ─── Add Entrepreneur ────────────────────────────────────────────────────
 
