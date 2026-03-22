@@ -16,6 +16,7 @@ interface SidebarProps {
   selectedModule: string;
   onSelectModule: (code: string) => void;
   onGenerateAll: () => void;
+  onStopGeneration?: () => void;
   generating: boolean;
   generationProgress?: { current: number; total: number; name: string } | null;
   globalScore: number;
@@ -30,7 +31,7 @@ const DELIV_TYPE_MAP: Record<string, string> = {
 
 export default function DashboardSidebar({
   enterprise, deliverables, modules, selectedModule, onSelectModule,
-  onGenerateAll, generating, generationProgress, globalScore,
+  onGenerateAll, onStopGeneration, generating, generationProgress, globalScore,
 }: SidebarProps) {
   const collapsed = false;
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -217,33 +218,52 @@ export default function DashboardSidebar({
         })}
       </div>
 
-      {/* Generate button */}
-      <div className="p-3 border-t border-border">
-        <Button
-          onClick={onGenerateAll}
-          disabled={generating}
-          className={cn(
-            'w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white',
-            collapsed && 'px-2'
-          )}
-          size={collapsed ? 'icon' : 'default'}
-        >
-          {generating ? (
-            <>
+      {/* Generate / Stop buttons */}
+      <div className="p-3 border-t border-border space-y-2">
+        {generating ? (
+          <>
+            <Button
+              disabled
+              className={cn(
+                'w-full gap-2 bg-emerald-600 text-white',
+                collapsed && 'px-2'
+              )}
+              size={collapsed ? 'icon' : 'default'}
+            >
               <Loader2 className="h-4 w-4 animate-spin" />
               {!collapsed && generationProgress && (
                 <span className="text-xs truncate">{generationProgress.name} ({generationProgress.current}/{generationProgress.total})</span>
               )}
-            </>
-          ) : collapsed ? (
-            <Sparkles className="h-4 w-4" />
-          ) : (
-            <>
+            </Button>
+            <Button
+              onClick={onStopGeneration}
+              variant="destructive"
+              className={cn('w-full gap-2', collapsed && 'px-2')}
+              size={collapsed ? 'icon' : 'default'}
+            >
+              <X className="h-4 w-4" />
+              {!collapsed && <span className="text-xs">Arrêter</span>}
+            </Button>
+          </>
+        ) : (
+          <Button
+            onClick={onGenerateAll}
+            className={cn(
+              'w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white',
+              collapsed && 'px-2'
+            )}
+            size={collapsed ? 'icon' : 'default'}
+          >
+            {collapsed ? (
               <Sparkles className="h-4 w-4" />
-              <span className="text-xs">Générer tout le pipeline</span>
-            </>
-          )}
-        </Button>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs">Générer tout le pipeline</span>
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

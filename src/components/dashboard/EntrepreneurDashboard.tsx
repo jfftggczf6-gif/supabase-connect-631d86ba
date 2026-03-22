@@ -280,6 +280,15 @@ export default function EntrepreneurDashboard({
   };
 
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setGenerating(false);
+    setGenerationProgress(null);
+    toast.info('Génération interrompue. Les livrables déjà générés sont conservés.');
+  }, []);
 
   const handleGenerate = async (force = false) => {
     if (!enterprise) return;
@@ -289,6 +298,9 @@ export default function EntrepreneurDashboard({
       toast('Aucun document uploadé — la génération utilisera uniquement les données saisies. Pour des résultats plus précis, uploadez vos documents financiers.', { icon: '📄', duration: 5000 });
     }
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setGenerating(true);
     setGenerationProgress({ current: 0, total: PIPELINE.length, name: 'Lancement…' });
 
@@ -297,6 +309,7 @@ export default function EntrepreneurDashboard({
 
       const pipelineResult = await runPipelineFromClient(enterprise.id, token, {
         force,
+        signal: controller.signal,
         onProgress: setGenerationProgress,
         onStepComplete: () => fetchData(),
       });
@@ -332,8 +345,11 @@ export default function EntrepreneurDashboard({
         }
       }
     } catch (err: any) {
-      toast.error(err.message || 'Erreur de génération');
+      if (err.name !== 'AbortError' && !controller.signal.aborted) {
+        toast.error(err.message || 'Erreur de génération');
+      }
     } finally {
+      abortControllerRef.current = null;
       setGenerating(false);
       setGenerationProgress(null);
       await fetchData();
@@ -1055,6 +1071,7 @@ export default function EntrepreneurDashboard({
           selectedModule={selectedModule}
           onSelectModule={setSelectedModule}
           onGenerateAll={() => handleGenerate(false)}
+          onStopGeneration={handleStopGeneration}
           generating={generating}
           generationProgress={generationProgress}
           globalScore={globalScore}
