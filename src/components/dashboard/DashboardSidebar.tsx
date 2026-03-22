@@ -46,13 +46,8 @@ export default function DashboardSidebar({
     localStorage.setItem('esono_sidebar_collapsed', String(collapsed));
   }, [collapsed]);
 
-  // Auto-expand the phase containing the selected module
-  useEffect(() => {
-    const phase = PHASES.find(p => p.modules.some(m => m.code === selectedModule));
-    if (phase && !expandedPhases.has(phase.id)) {
-      setExpandedPhases(prev => new Set([...prev, phase.id]));
-    }
-  }, [selectedModule]);
+
+
 
   const getModuleStatus = (code: string): 'completed' | 'in_progress' | 'not_started' => {
     // Special modules
