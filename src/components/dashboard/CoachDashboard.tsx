@@ -736,34 +736,4 @@ export default function CoachDashboard() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, color, value, label, gauge }: { icon: any; color: string; value: any; label: string; gauge?: number }) {
-  const colorMap: Record<string, string> = {
-    purple: 'bg-purple-100 text-purple-600',
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    orange: 'bg-orange-100 text-orange-600',
-  };
-  const gaugeColorMap: Record<string, string> = {
-    purple: 'bg-purple-500', blue: 'bg-blue-500', green: 'bg-green-500', orange: 'bg-orange-500',
-  };
-  return (
-    <Card>
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-center gap-3 mb-1">
-          <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-none ${colorMap[color]}`}>
-            <Icon className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-2xl font-display font-black leading-none">{value}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-          </div>
-        </div>
-        {gauge !== undefined && (
-          <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${gaugeColorMap[color]}`} style={{ width: `${gauge}%` }} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+
