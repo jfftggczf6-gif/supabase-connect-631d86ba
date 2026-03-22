@@ -703,4 +703,41 @@ export default function CoachDashboard() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+  // Persist detailTab in sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('esono_detail_tab', detailTab);
+  }, [detailTab]);
+
+  // Restore selectedEnt from URL when enterprises load
+  useEffect(() => {
+    if (entIdFromUrl && enterprises.length > 0 && !selectedEnt) {
+      const found = enterprises.find(e => e.id === entIdFromUrl);
+      if (found) {
+        setSelectedEnt(found);
+        setView('detail');
+        setFullscreen(true);
+      } else {
+        searchParams.delete('ent');
+        setSearchParams(searchParams, { replace: true });
+        setView('list');
+      }
+    }
+  }, [enterprises, entIdFromUrl]);
+
+  // Navigation helpers
+  const handleViewEnterprise = useCallback((ent: Enterprise) => {
+    setSelectedEnt(ent);
+    setView('detail');
+    setDetailTab('mirror');
+    setFullscreen(true);
+    setSearchParams({ ent: ent.id }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleBackToList = useCallback(() => {
+    setView('list');
+    setSelectedEnt(null);
+    setFullscreen(false);
+    searchParams.delete('ent');
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
