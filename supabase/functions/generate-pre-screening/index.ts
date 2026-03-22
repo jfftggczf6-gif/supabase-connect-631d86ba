@@ -367,8 +367,27 @@ Classe le dossier : AVANCER_DIRECTEMENT / ACCOMPAGNER / COMPLETER_DABORD / REJET
 Réponds en JSON selon ce schéma :
 ${PRE_SCREENING_SCHEMA}`;
 
+    // KB context + risk detection
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "pre_screening");
+    let riskBlock = "";
+    try {
+      const { data: riskFactors } = await ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true);
+      if (riskFactors?.length && inputsData) {
+        const id = inputsData as any;
+        const financialData = {
+          salaire_dirigeant: id.salaire_dirigeant,
+          ebitda: id.ebitda || id.resultat_exploitation, ca: id.ca || id.chiffre_affaires,
+          tresorerie: id.tresorerie_nette || id.tresorerie,
+          capitaux_propres: id.capitaux_propres,
+          capital_social: id.capital_social,
+        };
+        const flags = detectRisks(financialData, riskFactors);
+        riskBlock = buildRiskBlock(flags);
+      }
+    } catch (e) { console.warn("[pre-screening] risk detection non-blocking:", e); }
+
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(SYSTEM_PROMPT, prompt + coachingContext, 32768);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 32768);
     const normalizedData = normalizePreScreening(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 

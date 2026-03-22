@@ -230,8 +230,34 @@ RÈGLES :
 Réponds en JSON selon ce schéma :
 ${DECISION_SCHEMA}`;
 
+    // KB context + risk detection
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "screening_report");
+    let riskBlock = "";
+    try {
+      const { data: riskFactors } = await ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true);
+      if (riskFactors?.length && inputsData) {
+        const id = inputsData as any;
+        const financialData = {
+          salaire_dirigeant: id.salaire_dirigeant,
+          ebitda: truth?.ebitda || id.ebitda, ca: truth?.ca_n || id.ca,
+          tresorerie: truth?.tresorerie_nette || id.tresorerie,
+          capitaux_propres: id.capitaux_propres,
+          capital_social: id.capital_social,
+          top_client_pct: id.top_client_pct,
+          top_3_clients_pct: id.top_3_clients_pct,
+          croissance_ca_pct: id.croissance_ca_pct,
+          has_audit_externe: id.has_audit_externe,
+          has_pv_ag: id.has_pv_ag,
+          has_daf: id.has_daf,
+          country_risk_premium: id.country_risk_premium,
+        };
+        const flags = detectRisks(financialData, riskFactors);
+        riskBlock = buildRiskBlock(flags);
+      }
+    } catch (e) { console.warn("[screening-report] risk detection non-blocking:", e); }
+
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(SYSTEM_PROMPT, prompt + coachingContext, 32768);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 32768);
     const normalizedData = normalizeScreeningReport(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 
