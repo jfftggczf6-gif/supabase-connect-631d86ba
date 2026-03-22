@@ -2,7 +2,7 @@ import {
   LayoutGrid, Globe, FileSpreadsheet, BarChart3,
   Stethoscope, ListChecks, FileText, Target,
   TrendingUp, Briefcase, Upload, RefreshCw,
-  FileSearch,
+  FileSearch, FolderOpen,
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
