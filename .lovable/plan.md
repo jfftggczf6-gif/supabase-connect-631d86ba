@@ -1,35 +1,43 @@
 
 
-# Diagnostic du bug "Entreprise introuvable"
+# Fix pre-screening timeout — paralléliser sans réduire le contexte
 
-## Cause probable
+## Problème
+L'Edge Function fait ~7 requêtes DB séquentielles avant l'appel AI. Chaque requête prend 50-200ms, ce qui cumule 500ms-1.5s de latence inutile avant même de commencer la génération. Combiné avec un appel AI long (30-60s pour 250k chars), on dépasse le timeout de 60s de l'Edge Function.
 
-L'entreprise `gotche Sarl` (ID `e7cfb861-...`) existe bien en base avec `coach_id = ccca884f-...`. Le `CoachDashboard` la trouve correctement (les onglets "Vue entrepreneur" / "Coaching" s'affichent), mais ensuite `EntrepreneurDashboard` fait sa propre requête Supabase pour charger les données, et cette seconde requête échoue.
+## Solution
+Paralléliser toutes les requêtes DB indépendantes avec `Promise.all`. Le contexte documentaire de 250 000 caractères reste intact.
 
-Cela arrive quand le token d'authentification est brièvement expiré entre les deux requêtes. Le client Supabase le rafraîchit automatiquement, mais il y a une fenêtre de temps où la requête retourne `null` à cause des politiques de sécurité (RLS).
+## Changements — `supabase/functions/generate-pre-screening/index.ts`
 
-## Correction proposée
-
-**Fichier** : `src/components/dashboard/EntrepreneurDashboard.tsx`
-
-Ajouter un mécanisme de retry dans `fetchData` quand on est en `coachMode` et que la requête retourne `null` : attendre 1 seconde puis réessayer une fois (le token sera rafraîchi entre-temps).
+### 1. Paralléliser le premier bloc de fetches (lignes 269-284)
+Regrouper `inputsDeliv`, `ragContext`, et `programmeCriteria` (si ID fourni) dans un seul `Promise.all` :
 
 ```typescript
-// Dans fetchData, après la requête en coach mode :
-if (enterpriseId) {
-  const { data } = await supabase
-    .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
-  ent = data;
-  
-  // Retry once if RLS blocked (token might be refreshing)
-  if (!ent) {
-    await new Promise(r => setTimeout(r, 1000));
-    const { data: retry } = await supabase
-      .from('enterprises').select('*').eq('id', enterpriseId).maybeSingle();
-    ent = retry;
-  }
-}
+const [inputsRes, ragContext, pcRecord] = await Promise.all([
+  ctx.supabase.from("deliverables").select("data, score")
+    .eq("enterprise_id", ctx.enterprise_id).eq("type", "inputs_data").maybeSingle(),
+  buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "pre_screening"),
+  programmeCriteriaId && !programmeCriteria
+    ? ctx.supabase.from("programme_criteria").select("*").eq("id", programmeCriteriaId).maybeSingle()
+    : Promise.resolve({ data: null }),
+]);
 ```
 
-Cela élimine le faux négatif sans changer le comportement normal.
+### 2. Paralléliser le second bloc (lignes 370-388)
+Regrouper `kbContext`, `riskFactors`, et `coachingContext` :
+
+```typescript
+const [kbContext, riskRes, coachingContext] = await Promise.all([
+  getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "pre_screening"),
+  ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true),
+  getCoachingContext(ctx.supabase, ctx.enterprise_id),
+]);
+```
+
+### 3. Aucun changement sur le contexte documentaire
+La ligne `getDocumentContentForAgent(ent, "pre_screening", 250_000)` reste intacte.
+
+## Gain estimé
+~500ms-1s économisés sur les requêtes DB, ce qui laisse plus de marge pour l'appel AI dans la fenêtre de timeout.
 
