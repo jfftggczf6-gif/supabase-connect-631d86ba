@@ -130,7 +130,8 @@ const PRE_SCREENING_SCHEMA = `{
       {
         "blocage": "string",
         "consequence": "string",
-        "resolution": "string"
+        "resolution": "string",
+        "source": "string"
       }
     ],
     "axes_coaching": [
