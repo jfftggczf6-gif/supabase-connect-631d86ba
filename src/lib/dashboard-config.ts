@@ -122,6 +122,7 @@ export const PHASES: PhaseConfig[] = [
     modules: [
       { code: 'upload', label: 'Upload documents', icon: Upload, special: 'upload' },
       { code: 'reconstruction', label: 'Reconstruction', icon: RefreshCw, special: 'upload' },
+      { code: 'sources', label: 'Sources & références', icon: BookOpen, special: 'upload' },
     ],
   },
   {
