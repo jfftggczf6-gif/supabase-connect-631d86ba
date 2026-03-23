@@ -265,8 +265,17 @@ Deno.serve(async (req: Request) => {
     const PARSER_URL = Deno.env.get("PARSER_URL") || "";
     const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
 
+    console.log(`[generate-ovo-plan] === DIAGNOSTIC ===`);
+    console.log(`[generate-ovo-plan] PARSER_URL: ${PARSER_URL ? '✅ SET (' + PARSER_URL.substring(0, 30) + '...)' : '❌ MISSING'}`);
+    console.log(`[generate-ovo-plan] PARSER_API_KEY: ${PARSER_API_KEY ? '✅ SET' : '❌ MISSING'}`);
+    console.log(`[generate-ovo-plan] Template size: ${templateBase64?.length || 0} chars`);
+
     if (!PARSER_URL) {
-      throw new Error("PARSER_URL not configured. Please set the PARSER_URL secret.");
+      throw new Error("PARSER_URL non configuré. Ajoutez le secret PARSER_URL dans les paramètres Edge Functions.");
+    }
+
+    if (!PARSER_API_KEY) {
+      throw new Error("PARSER_API_KEY non configuré. Ajoutez le secret PARSER_API_KEY dans les paramètres Edge Functions.");
     }
 
     // Sanitize: Python server calls .get() on values — ensure no raw lists where dicts expected

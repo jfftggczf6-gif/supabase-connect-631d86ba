@@ -149,7 +149,7 @@ export async function runPipelineFromClient(
   let inputsScoreZero = false;
 
   // Financial steps that require real inputs data
-  const FINANCIAL_STEPS = new Set(['generate-framework', 'generate-plan-ovo', 'reconcile-plan-ovo', 'generate-ovo-plan']);
+  const FINANCIAL_STEPS = new Set(['generate-framework', 'generate-plan-ovo']);
 
   for (let i = 0; i < PIPELINE.length; i++) {
     // Check if cancelled by user

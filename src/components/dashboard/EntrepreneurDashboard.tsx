@@ -361,16 +361,7 @@ export default function EntrepreneurDashboard({
 
       await fetchData();
 
-      // Auto-trigger Plan OVO Excel generation
-      if (pipelineResult.completedCount > 0 && !generatingOvoPlan) {
-        toast.info('Génération automatique du Plan Financier Excel...');
-        try {
-          await handleGenerateOvoPlan();
-        } catch (ovoErr: any) {
-          console.error('[handleGenerate] OVO Excel generation failed:', ovoErr?.message);
-          toast.warning('Plan Financier Excel non généré — cliquez sur "Générer Excel OVO" pour réessayer.');
-        }
-      }
+      // generate-ovo-plan is already called by the pipeline — no need to auto-trigger again
     } catch (err: any) {
       if (err.name !== 'AbortError' && !controller.signal.aborted) {
         toast.error(err.message || 'Erreur de génération');
