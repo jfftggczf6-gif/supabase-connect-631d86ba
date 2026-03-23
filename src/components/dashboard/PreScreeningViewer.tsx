@@ -431,6 +431,9 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                       {c.piste && (
                         <p className="text-[10px] mt-1.5 font-medium text-primary">→ {c.piste}</p>
                       )}
+                      {c.source && (
+                        <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {c.source}</p>
+                      )}
                     </div>
                   </div>
                 </div>

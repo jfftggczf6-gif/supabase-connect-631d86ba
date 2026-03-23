@@ -127,6 +127,7 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
             {multiples.fourchette_ebitda && (
               <p className="text-[10px] text-muted-foreground">
                 Fourchette sectorielle : {multiples.fourchette_ebitda[0]}×–{multiples.fourchette_ebitda[1]}×
+                {multiples.source_multiples && <span className="italic"> (source: {multiples.source_multiples})</span>}
               </p>
             )}
             {multiples.justification_multiples && (
