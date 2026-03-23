@@ -5,6 +5,7 @@ import {
   jsonResponse, errorResponse, getCoachingContext,
 } from "../_shared/helpers_v5.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 
 const SYSTEM_PROMPT = `Tu es un analyste deal sourcing senior spécialisé en investissement d'impact en Afrique francophone.
 
@@ -158,7 +159,7 @@ Réponds en JSON selon ce schéma :
 ${ONEPAGER_SCHEMA}`;
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(SYSTEM_PROMPT, prompt + coachingContext, 8192);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext, 8192);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "onepager", rawData, "onepager");
 

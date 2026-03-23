@@ -636,6 +636,9 @@ function DiagnosticViewer({ data }: { data: any }) {
               </div>
               <p className="text-xs text-foreground mt-2 leading-relaxed">{p.constat}</p>
               <p className="text-xs text-primary mt-2 font-medium">→ {p.piste}</p>
+              {p.source && (
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5 italic">{p.source}</p>
+              )}
             </div>
           ))}
         </div>
@@ -667,6 +670,9 @@ function DiagnosticViewer({ data }: { data: any }) {
               <p className="text-xs font-medium text-foreground">{pf.titre}</p>
               <p className="text-xs text-foreground mt-1 leading-relaxed">{pf.constat}</p>
               <p className="text-xs text-success mt-2 font-medium">Argument bailleur : {pf.argument_bailleur}</p>
+              {pf.source && (
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5 italic">{pf.source}</p>
+              )}
             </div>
           ))}
         </div>
@@ -697,6 +703,11 @@ function DiagnosticViewer({ data }: { data: any }) {
                           bench.verdict === 'dans_norme' ? 'bg-info/10 text-info border-info/20' :
                           'bg-destructive/10 text-destructive border-destructive/20'
                         }`}>{bench.verdict?.replace(/_/g, ' ') || '—'}</span>
+                      </td>
+                      <td className="pl-2">
+                        {bench.source && (
+                          <span className="text-[9px] text-muted-foreground/60 italic">{bench.source}</span>
+                        )}
                       </td>
                     </tr>
                   ))}

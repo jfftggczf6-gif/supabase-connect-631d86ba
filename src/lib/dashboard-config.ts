@@ -2,7 +2,7 @@ import {
   LayoutGrid, Globe, FileSpreadsheet, BarChart3,
   Stethoscope, ListChecks, FileText, Target,
   TrendingUp, Briefcase, Upload, RefreshCw,
-  FileSearch, FolderOpen,
+  FileSearch, FolderOpen, BookOpen,
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -122,6 +122,7 @@ export const PHASES: PhaseConfig[] = [
     modules: [
       { code: 'upload', label: 'Upload documents', icon: Upload, special: 'upload' },
       { code: 'reconstruction', label: 'Reconstruction', icon: RefreshCw, special: 'upload' },
+      { code: 'sources', label: 'Sources & références', icon: BookOpen, special: 'upload' },
     ],
   },
   {

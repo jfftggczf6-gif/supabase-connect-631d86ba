@@ -25,6 +25,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sanitize } from "../_shared/zip-utils.ts";
 import { expandCondensedData, validateAndFillVolumes, scaleToFrameworkTargets, scaleCOGSToFramework, normalizeRangeData, alignOpexToPlanOvo, alignStaffToTarget, alignTotalOpexToFramework, reconcileWithPlanOvo } from "../_shared/ovo-data-expander.ts";
 import { getFiscalParamsForPrompt } from "../_shared/helpers_v5.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 
 // ─────────────────────────────────────────────────────────────────────
 // TYPES
@@ -459,7 +460,7 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 8192,
-          system: systemPrompt,
+          system: injectGuardrails(systemPrompt),
           messages: [{ role: "user", content: userPrompt }],
         }),
       });

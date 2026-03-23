@@ -5,6 +5,7 @@ import {
   jsonResponse, errorResponse, getCoachingContext,
 } from "../_shared/helpers_v5.ts";
 import { getFinancialKnowledgePrompt, getValuationBenchmarksPrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const SONNET_MODEL = "claude-sonnet-4-20250514";
@@ -282,7 +283,7 @@ Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-      const part2 = await callAI(MEMO_SYSTEM_PROMPT, prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
+      const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
 
       const mergedMemo = { ...part1, ...part2 };
       mergedMemo.score = part1.resume_executif?.score_ir || 0;
@@ -317,7 +318,7 @@ Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
       try {
-        part1 = await callAI(MEMO_SYSTEM_PROMPT, prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
+        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
       } catch (e: any) {
         await updateMemoModuleState(ctx.enterprise_id, {
           phase: "failed",

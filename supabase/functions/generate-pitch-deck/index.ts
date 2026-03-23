@@ -5,6 +5,7 @@ import {
   jsonResponse, errorResponse,
 } from "../_shared/helpers_v5.ts";
 import { getFinancialKnowledgePrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en levée de fonds et présentation investisseur pour PME africaines.
 Tu crées des Pitch Decks de 12 slides structurées pour présentation en comité d'investissement.
@@ -111,7 +112,7 @@ La slide "Ask" (11) doit inclure la valorisation si disponible dans les livrable
 Réponds en JSON selon ce schéma :
 ${PITCH_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 16384);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt, 16384);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "pitch_deck", rawData, "pitch_deck");
 

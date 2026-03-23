@@ -246,6 +246,9 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
             </div>
             {d.points_forts && <Callout type="green" title="Points forts" text={d.points_forts} />}
             {d.points_attention && <Callout type="amber" title="Points d'attention" text={d.points_attention} />}
+            {d.source && (
+              <p className="text-[10px] text-muted-foreground/60 mt-1 italic">{d.source}</p>
+            )}
             {(d.projections || d.previsions) && (() => {
               const proj = d.projections || d.previsions || {};
               return (
@@ -279,6 +282,9 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
                 </div>
                 <p className="text-sm">{r.description || r.risque}</p>
                 {r.mitigation && <p className="text-xs text-muted-foreground mt-1">🛡️ {r.mitigation}</p>}
+                {r.source && (
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5 italic">{r.source}</p>
+                )}
               </div>
             ))}
             {(d.matrice_risque_synthese || d.commentaire || d.analyse_globale) && (
@@ -349,6 +355,9 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
               <p className="text-xs text-violet-600 mb-1">Fourchette de Valorisation</p>
               <p className="text-xl font-bold text-violet-700">{d.fourchette_valorisation || '—'}</p>
               <p className="text-sm text-violet-600">Médiane : {d.valeur_mediane || '—'}</p>
+              {d.source && (
+                <p className="text-[10px] text-muted-foreground/60 mt-1 italic">{d.source}</p>
+              )}
             </div>
             {d.note_valorisation && <p className="text-sm text-muted-foreground italic">{d.note_valorisation}</p>}
           </div>
