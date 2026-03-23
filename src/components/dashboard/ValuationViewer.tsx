@@ -191,6 +191,7 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
                 Source : {wacc.source_wacc || dcf.source_wacc}
               </p>
             )}
+          </CardContent>
         </Card>
       )}
 
