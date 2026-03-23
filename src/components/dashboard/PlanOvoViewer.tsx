@@ -114,7 +114,7 @@ function KpiCard({ label, value, icon }: { label: string; value: string; icon: s
       <CardContent className="py-3 px-4">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{icon} {label}</p>
         <p className="text-lg font-bold text-foreground mt-0.5">{value}</p>
-        <p className="text-[9px] text-muted-foreground">FCFA</p>
+        <p className="text-[9px] text-muted-foreground">{devise}</p>
       </CardContent>
     </Card>
   );
