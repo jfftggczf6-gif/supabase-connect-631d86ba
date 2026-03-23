@@ -257,7 +257,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
             <MetricCard
               label="VAN (NPV)"
               value={metrics.van != null ? fmt(metrics.van) : '—'}
-              unit="FCFA"
+              unit={devise}
               status={vanStatus(metrics.van)}
               description={`Taux d'actualisation: ${metrics.discount_rate.toFixed(0)}%`}
             />
