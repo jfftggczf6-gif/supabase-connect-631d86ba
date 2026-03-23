@@ -636,6 +636,9 @@ function DiagnosticViewer({ data }: { data: any }) {
               </div>
               <p className="text-xs text-foreground mt-2 leading-relaxed">{p.constat}</p>
               <p className="text-xs text-primary mt-2 font-medium">→ {p.piste}</p>
+              {p.source && (
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5 italic">{p.source}</p>
+              )}
             </div>
           ))}
         </div>
