@@ -107,7 +107,8 @@ const BILAN_SCHEMA = `{
       "urgence": "bloquant | important | mineur",
       "titre": "string — court et factuel",
       "constat": "string — 2-3 phrases chiffrées avec source (quel livrable, quelle valeur, quel écart)",
-      "piste": "string — action concrète : correction technique, question à poser à l'entrepreneur, ou réflexion"
+      "piste": "string — action concrète : correction technique, question à poser à l'entrepreneur, ou réflexion",
+      "source": "string — ex: 'États financiers 2024' ou 'Plan OVO — projections' ou 'calcul ESONO'"
     }
   ],
 
