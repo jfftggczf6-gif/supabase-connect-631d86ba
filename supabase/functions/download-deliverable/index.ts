@@ -1721,6 +1721,7 @@ serve(async (req) => {
       inputs_data: "Données Financières", framework_data: "Framework Analyse Financière",
       diagnostic_data: "Diagnostic Expert", plan_ovo: "Plan Financier OVO",
       business_plan: "Business Plan", odd_analysis: "Due Diligence ODD",
+      pre_screening: "Diagnostic initial", valuation: "Valorisation", screening_report: "Décision programme",
     };
     const title = titleMap[deliverableType] || deliverableType;
 
