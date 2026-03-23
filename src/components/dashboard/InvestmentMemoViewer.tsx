@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Briefcase, Download, CheckCircle2, FileText, Presentation, Loader2, TrendingUp, Users, Shield, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateMemoHtml } from '@/lib/memo-html-generator';
+import { exportToPdf } from '@/lib/export-pdf';
 import { supabase } from '@/integrations/supabase/client';
 
 const SLIDE_TITLES = [
