@@ -348,6 +348,16 @@ function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml }: {
         <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
           <Download className="h-3.5 w-3.5" /> HTML (A4)
         </Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
+          try {
+            const content = document.getElementById('screening-viewer-content')?.innerHTML || '';
+            const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Décision Programme</title><style>@page{size:A4;margin:16mm}body{font-family:"Segoe UI",sans-serif;font-size:10pt;color:#1E293B;max-width:190mm;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:6px;text-align:left;font-size:9pt}</style></head><body>${content}</body></html>`;
+            await exportToPdf(fullHtml, `decision_programme_${new Date().toISOString().slice(0, 10)}.pdf`);
+            toast.success('PDF téléchargé');
+          } catch (err: any) { toast.error(`Erreur PDF : ${err.message}`); }
+        }}>
+          <Download className="h-3.5 w-3.5" /> PDF
+        </Button>
         {onRegenerate && (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={onRegenerate}>
             <RefreshCw className="h-3.5 w-3.5" /> Regénérer

@@ -132,6 +132,29 @@ ${criteres ? `
           <Button variant="outline" size="sm" onClick={handleDownloadHtml}>
             <Download className="h-3.5 w-3.5 mr-1" /> HTML A4
           </Button>
+          <Button variant="outline" size="sm" onClick={async () => {
+            try {
+              // Reuse the same HTML generation logic from handleDownloadHtml
+              const sectionRow = (label: string, content: string) =>
+                `<tr><td class="label">${label}</td><td class="content">${content}</td></tr>`;
+              const d = data;
+              const sections = [
+                d.proposition_investissement && sectionRow('Proposition d\'investissement', d.proposition_investissement),
+                d.entreprise && sectionRow('Entreprise', d.entreprise),
+                d.marche && sectionRow('Marché', d.marche),
+                d.modele_economique && sectionRow('Modèle économique', d.modele_economique),
+                d.performance_financiere && sectionRow('Performance financière', d.performance_financiere),
+                d.impact && sectionRow('Impact', d.impact),
+                d.risques && sectionRow('Risques', d.risques),
+                d.recommandation && sectionRow('Recommandation', d.recommandation),
+              ].filter(Boolean).join('');
+              const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${d.titre || 'One-Pager'}</title><style>@page{size:A4 portrait;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:"Segoe UI",sans-serif;font-size:9pt;color:#1E293B}table{width:100%;border-collapse:collapse}td{padding:8px;vertical-align:top;border-bottom:1px solid #e2e8f0}.label{width:25%;font-weight:700;font-size:8.5pt;color:#64748b}.content{font-size:9pt}</style></head><body><table>${sections}</table></body></html>`;
+              await exportToPdf(html, `onepager_${d.titre?.replace(/[^a-zA-Z0-9]/g, '_') || 'livrable'}.pdf`);
+              toast.success('PDF téléchargé');
+            } catch (err: any) { toast.error(`Erreur PDF : ${err.message}`); }
+          }}>
+            <Download className="h-3.5 w-3.5 mr-1" /> PDF
+          </Button>
           <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{score}/100</Badge>
           {onRegenerate && (
             <button onClick={onRegenerate} className="text-xs text-muted-foreground underline">Regénérer</button>

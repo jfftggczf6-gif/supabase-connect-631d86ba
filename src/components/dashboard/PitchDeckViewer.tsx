@@ -128,6 +128,23 @@ h1{font-size:36px;margin:0 0 20px}h2{font-size:28px;margin:0 0 16px}ul{font-size
           <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{data.score || 0}/100</Badge>
           <Button variant="outline" size="sm" onClick={handleFullscreen}><Maximize2 className="h-3.5 w-3.5 mr-1" /> Plein écran</Button>
           <Button variant="outline" size="sm" onClick={handleDownloadHtml}><Download className="h-3.5 w-3.5 mr-1" /> HTML</Button>
+          <Button variant="outline" size="sm" onClick={async () => {
+            try {
+              // Build same HTML as handleDownloadHtml
+              let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pitch Deck</title><style>body{margin:0;font-family:Arial,sans-serif}.slide{width:100%;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 80px;box-sizing:border-box;color:white;page-break-after:always}h1{font-size:36px;margin:0 0 20px}h2{font-size:28px;margin:0 0 16px}ul{font-size:18px;line-height:2}@media print{.slide{min-height:auto;height:100vh}}</style></head><body>`;
+              slides.forEach((s: any) => {
+                const c = s.contenu || {};
+                const bg = s.type === 'cover' ? '#4338ca' : s.type === 'probleme' ? '#dc2626' : s.type === 'solution' ? '#059669' : '#1e40af';
+                html += `<div class="slide" style="background:${bg}"><h2>${s.titre || ''}</h2>`;
+                if (c.points) html += '<ul>' + (c.points as string[]).map((p: string) => `<li>${p}</li>`).join('') + '</ul>';
+                if (c.texte) html += `<p>${c.texte}</p>`;
+                html += '</div>';
+              });
+              html += '</body></html>';
+              await exportToPdf(html, 'pitch_deck.pdf');
+              toast.success('PDF téléchargé');
+            } catch (err: any) { toast.error(`Erreur PDF : ${err.message}`); }
+          }}><Download className="h-3.5 w-3.5 mr-1" /> PDF</Button>
           {onRegenerate && <button onClick={onRegenerate} className="text-xs text-muted-foreground underline">Regénérer</button>}
         </div>
       </div>
