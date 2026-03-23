@@ -152,13 +152,14 @@ const PRE_SCREENING_SCHEMA = `{
         "titre": "string",
         "severite": "urgent | attention | positif",
         "constat": "string — factuel, chiffré, 2-3 phrases",
-        "piste": "string — action concrète ou argument investisseur"
+        "piste": "string — action concrète ou argument investisseur",
+        "source": "string — ex: 'États financiers 2024 — compte de résultat' ou 'BMC — bloc segments clients' ou 'calcul ESONO'"
       }
     ],
-    "commercial": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
-    "operationnel": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
-    "equipe_rh": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }],
-    "legal_conformite": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string" }]
+    "commercial": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
+    "operationnel": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
+    "equipe_rh": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
+    "legal_conformite": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }]
   },
 
   "qualite_dossier": {
