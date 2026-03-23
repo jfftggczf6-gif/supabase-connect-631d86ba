@@ -126,11 +126,11 @@ const BILAN_SCHEMA = `{
   ],
 
   "benchmarks": {
-    "marge_brute": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous" },
-    "marge_ebitda": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous" },
-    "marge_nette": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous" },
-    "charges_fixes_ca": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous" },
-    "masse_salariale_ca": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous" }
+    "marge_brute": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous", "source": "string" },
+    "marge_ebitda": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous", "source": "string" },
+    "marge_nette": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous", "source": "string" },
+    "charges_fixes_ca": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous", "source": "string" },
+    "masse_salariale_ca": { "entreprise": <number>, "secteur_min": <number>, "secteur_max": <number>, "verdict": "au_dessus | dans_norme | en_dessous", "source": "string" }
   },
 
   "verdict_final": {

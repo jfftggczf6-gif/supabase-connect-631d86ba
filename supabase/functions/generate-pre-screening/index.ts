@@ -189,7 +189,8 @@ const PRE_SCREENING_SCHEMA = `{
         "indicateur": "string",
         "valeur_entreprise": "string",
         "benchmark_secteur": "string",
-        "verdict": "conforme | optimiste | alerte | critique"
+        "verdict": "conforme | optimiste | alerte | critique",
+        "source": "string — ex: 'benchmark: I&P IPAE 2023-2024' ou 'États financiers 2024'"
       }
     ],
     "health_label": "Saine | Fragile | Critique | Non evaluable",

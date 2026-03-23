@@ -98,7 +98,8 @@ const DECISION_SCHEMA = `{
       "condition": "string — ce qui doit être fait",
       "moment": "avant_financement | pendant | a_la_fin",
       "responsable": "entrepreneur | coach | bailleur",
-      "detail": "string — précision si nécessaire"
+      "detail": "string — précision si nécessaire",
+      "source": "string"
     }
   ],
 
@@ -107,7 +108,8 @@ const DECISION_SCHEMA = `{
       "risque": "string — risque pour le programme (pas pour l'entreprise)",
       "probabilite": "faible | moyenne | élevée",
       "impact": "string — conséquence pour le programme",
-      "mitigation": "string — comment réduire le risque"
+      "mitigation": "string — comment réduire le risque",
+      "source": "string"
     }
   ]
 }`;

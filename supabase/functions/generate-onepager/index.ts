@@ -64,7 +64,8 @@ const ONEPAGER_SCHEMA = `{
     "croissance": "string — taux de croissance et historique (ex: '462M (2022) → 759M (2023) → 460M (2024)')",
     "economie_unitaire": "string — marge brute, marge unitaire, avantage coût",
     "rentabilite": "string — EBITDA, marge nette, résultat net",
-    "plan_croissance": "string — hypothèses de croissance et plan à 3-5 ans"
+    "plan_croissance": "string — hypothèses de croissance et plan à 3-5 ans",
+    "source": "string — ex: 'États financiers 2022-2024' ou 'Plan OVO — projections'"
   },
 
   "potentiel_marche": "string — 1 paragraphe décrivant la taille du marché, la dynamique, la concurrence et le positionnement",

@@ -111,7 +111,8 @@ const MEMO_SCHEMA_PART2 = `{
         "description": "string",
         "probabilite": "faible | moyenne | elevee",
         "impact": "faible | moyen | fort",
-        "mitigation": "string"
+        "mitigation": "string",
+        "source": "string"
       }
     ],
     "matrice_risque_synthese": "string — résumé global"

@@ -38,7 +38,7 @@ const PITCH_SCHEMA = `{
       "contenu": {
         "headline": "string — titre principal de la slide",
         "bullets": ["string — points clés"],
-        "chiffres_cles": [{"label": "string", "valeur": "string"}],
+        "chiffres_cles": [{"label": "string", "valeur": "string", "source": "string"}],
         "notes_presentateur": "string — ce qu'il faut dire en présentant cette slide"
       }
     }
