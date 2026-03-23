@@ -186,7 +186,11 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
                 </div>
               ))}
             </div>
-          </CardContent>
+            {(wacc.source_wacc || dcf.source_wacc) && (
+              <p className="text-[10px] text-muted-foreground mt-3 italic">
+                Source : {wacc.source_wacc || dcf.source_wacc}
+              </p>
+            )}
         </Card>
       )}
 
