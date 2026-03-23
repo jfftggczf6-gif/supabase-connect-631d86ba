@@ -405,7 +405,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
-              <Tooltip formatter={(v: number) => fmt(v) + ' FCFA'} />
+              <Tooltip formatter={(v: number) => fmt(v) + ' ' + devise} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="Net Profit" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="Cashflow" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 3 }} />
