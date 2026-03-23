@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ConfidenceIndicator from './ConfidenceIndicator';
+import { formatAmount as formatAmountUtil, getDevise } from '@/lib/format-currency';
 
 
 interface FrameworkViewerProps {
@@ -24,10 +25,8 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
   const croisBmc = data.croisement_bmc_financiers || {};
   const manquantes = data.donnees_manquantes || [];
 
-  const formatAmount = (n: number) => {
-    if (!n && n !== 0) return '—';
-    return new Intl.NumberFormat('fr-FR').format(n) + ' FCFA';
-  };
+  const devise = getDevise(data);
+  const formatAmount = (n: number) => formatAmountUtil(n, devise);
 
   return (
     <div className="space-y-4">

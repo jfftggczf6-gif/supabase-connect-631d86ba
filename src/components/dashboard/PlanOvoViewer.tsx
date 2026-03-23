@@ -6,6 +6,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { useMemo } from 'react';
+import { getDevise } from '@/lib/format-currency';
 
 const YEAR_KEYS = ['year_minus_2', 'year_minus_1', 'current_year', 'year2', 'year3', 'year4', 'year5', 'year6'] as const;
 
@@ -107,19 +108,20 @@ function MetricCard({ label, value, unit, status, description }: {
 }
 
 // ===== KPI Card =====
-function KpiCard({ label, value, icon }: { label: string; value: string; icon: string }) {
+function KpiCard({ label, value, icon, devise = 'FCFA' }: { label: string; value: string; icon: string; devise?: string }) {
   return (
     <Card className="flex-1 min-w-[140px]">
       <CardContent className="py-3 px-4">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{icon} {label}</p>
         <p className="text-lg font-bold text-foreground mt-0.5">{value}</p>
-        <p className="text-[9px] text-muted-foreground">FCFA</p>
+        <p className="text-[9px] text-muted-foreground">{devise}</p>
       </CardContent>
     </Card>
   );
 }
 
 export default function PlanOvoViewer({ data, staleness: _staleness }: { data: any; staleness?: { frameworkUpdatedAt: any; planOvoUpdatedAt: any } }) {
+  const devise = getDevise(data);
   const years = data.years || {};
   const labels = YEAR_KEYS.map(k => yearLabel(k, years));
   const revSeries = getYearSeries(data.revenue);
@@ -239,10 +241,10 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
 
       {/* KPI Bar */}
       <div className="flex flex-wrap gap-3">
-        <KpiCard label="Revenue" value={fmt(revSeries[currentIdx])} icon="💰" />
-        <KpiCard label="Marge brute" value={fmt(gpSeries[currentIdx])} icon="📊" />
-        <KpiCard label="EBITDA" value={fmt(ebitdaSeries[currentIdx])} icon="📈" />
-        <KpiCard label="Résultat net" value={fmt(npSeries[currentIdx])} icon="🎯" />
+        <KpiCard label="Revenue" value={fmt(revSeries[currentIdx])} icon="💰" devise={devise} />
+        <KpiCard label="Marge brute" value={fmt(gpSeries[currentIdx])} icon="📊" devise={devise} />
+        <KpiCard label="EBITDA" value={fmt(ebitdaSeries[currentIdx])} icon="📈" devise={devise} />
+        <KpiCard label="Résultat net" value={fmt(npSeries[currentIdx])} icon="🎯" devise={devise} />
       </div>
 
       {/* ===== INVESTMENT METRICS ===== */}
@@ -255,7 +257,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
             <MetricCard
               label="VAN (NPV)"
               value={metrics.van != null ? fmt(metrics.van) : '—'}
-              unit="FCFA"
+              unit={devise}
               status={vanStatus(metrics.van)}
               description={`Taux d'actualisation: ${metrics.discount_rate.toFixed(0)}%`}
             />
@@ -383,7 +385,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
-              <Tooltip formatter={(v: number) => fmt(v) + ' FCFA'} />
+              <Tooltip formatter={(v: number) => fmt(v) + ' ' + devise} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="EBITDA" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
@@ -403,7 +405,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
-              <Tooltip formatter={(v: number) => fmt(v) + ' FCFA'} />
+              <Tooltip formatter={(v: number) => fmt(v) + ' ' + devise} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="Net Profit" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="Cashflow" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 3 }} />
@@ -492,7 +494,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
                 <TableRow>
                   <TableHead className="text-xs">Investissement</TableHead>
                   <TableHead className="text-xs text-right">Année</TableHead>
-                  <TableHead className="text-xs text-right">Montant (FCFA)</TableHead>
+                  <TableHead className="text-xs text-right">Montant ({devise})</TableHead>
                   <TableHead className="text-xs text-right">Amortissement</TableHead>
                 </TableRow>
               </TableHeader>
@@ -525,7 +527,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
                 return (
                   <div key={key} className="p-3 rounded-lg border bg-muted/20">
                     <p className="text-xs font-semibold">{loanLabels[key] || key}</p>
-                    <p className="text-sm font-bold mt-1">{fmt(loan.amount)} FCFA</p>
+                    <p className="text-sm font-bold mt-1">{fmt(loan.amount)} {devise}</p>
                     <p className="text-[10px] text-muted-foreground">Taux: {pct((loan.rate || 0) * 100)} • {loan.term_years} ans</p>
                   </div>
                 );
@@ -534,7 +536,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
             {data.funding_need != null && data.funding_need > 0 && (
               <div className="mt-3 p-2 rounded bg-primary/10 text-xs">
                 <span className="font-semibold">Besoin de financement total: </span>
-                <span className="font-bold text-primary">{fmt(data.funding_need)} FCFA</span>
+                <span className="font-bold text-primary">{fmt(data.funding_need)} {devise}</span>
               </div>
             )}
           </CardContent>

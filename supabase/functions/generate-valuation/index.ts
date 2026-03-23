@@ -118,7 +118,7 @@ Produis l'analyse qualitative en JSON :
     // 5. Fusionner calculs + analyse IA
     const finalData = {
       score: aiAnalysis.score || 70,
-      devise: "FCFA",
+      devise: inputsData?.devise || frameworkData?.devise || "FCFA",
 
       // CALCULÉ (déterministe)
       dcf: {

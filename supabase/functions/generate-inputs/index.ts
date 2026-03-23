@@ -97,6 +97,16 @@ RÈGLES D'EXTRACTION:
 5. Tous les montants en ${devise} sans séparateurs de milliers dans les champs numériques.
 6. Le score reflète la COMPLÉTUDE des données extraites (100 = toutes les données trouvées).
 
+DEVISE :
+- Détecte la devise utilisée dans les documents fournis (USD, EUR, FCFA/XOF, XAF, CDF, GNF, MGA, etc.)
+- Si les documents mentionnent des montants en USD → utilise USD comme devise
+- Si les documents sont en devise locale → utilise la devise locale
+- Si les documents mélangent 2 devises (ex: RDC avec USD + CDF) → utilise la devise MAJORITAIRE dans les états financiers et mentionne l'autre devise dans les notes
+- Stocke le résultat dans le champ "devise" du JSON (obligatoire)
+- Ajoute "devise_secondaire" si double devise détectée
+- Ne PAS convertir les montants. Garde les chiffres dans la devise d'origine des documents.
+- La devise par défaut (${devise}) n'est qu'un fallback — utilise celle détectée dans les documents en priorité.
+
 FEUILLES À ANALYSER SYSTÉMATIQUEMENT (si présentes):
 - Informations générales / Fiche entreprise → informations_generales
 - Historique financier (N-2, N-1, N) → historique_3ans

@@ -456,8 +456,9 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
     }
 
     const agentDocs = getDocumentContentForAgent(ent, "framework", 100_000);
+    const devise = inputsData?.devise || fiscalParams.devise;
     const enrichedPrompt = userPrompt(
-      ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", agentDocs, inputsData, bmcData, fiscalParams.devise
+      ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", agentDocs, inputsData, bmcData, devise
     ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework");
