@@ -126,10 +126,15 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
                   ? 'bg-red-50/50 border-red-100 dark:bg-red-950/20 dark:border-red-900/30'
                   : 'bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30';
                 return (
-                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${rowBg}`}>
+                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${rowBg}`}>
                     {statusIcon}
-                    <span className="font-medium text-sm flex-1">{c.critere}</span>
-                    <span className="text-xs text-muted-foreground text-right max-w-[50%]">{c.detail}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-sm">{c.critere}</span>
+                      <span className="text-xs text-muted-foreground block text-right">{c.detail}</span>
+                      {c.source && (
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5 italic">{c.source}</p>
+                      )}
+                    </div>
                   </div>
                 );
               })}
