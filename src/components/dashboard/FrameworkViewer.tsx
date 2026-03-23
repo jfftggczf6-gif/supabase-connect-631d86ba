@@ -188,7 +188,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
                   <span className="text-muted-foreground">{c.indicateur}</span>
                   <div className="flex gap-4">
                     <span className="font-bold">{c.valeur}</span>
-                    <span className="text-muted-foreground text-[10px]">Benchmark: {c.benchmark}</span>
+                    <span className="text-muted-foreground text-[10px]">Benchmark: {c.benchmark}{c.source && <span className="italic"> ({c.source})</span>}</span>
                   </div>
                 </div>
               ))}
