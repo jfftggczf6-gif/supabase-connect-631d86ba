@@ -205,6 +205,9 @@ ${criteres ? `
           <Field label="Économie unitaire" value={traction.economie_unitaire} />
           <Field label="Rentabilité" value={traction.rentabilite} />
           <Field label="Plan de croissance" value={traction.plan_croissance} />
+          {traction.source && (
+            <p className="text-[10px] text-muted-foreground/60 mt-1 italic">{traction.source}</p>
+          )}
         </SectionRow>
 
         <SectionRow label="Potentiel du marché">
