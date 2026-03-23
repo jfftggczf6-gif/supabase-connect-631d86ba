@@ -282,6 +282,9 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
                 </div>
                 <p className="text-sm">{r.description || r.risque}</p>
                 {r.mitigation && <p className="text-xs text-muted-foreground mt-1">🛡️ {r.mitigation}</p>}
+                {r.source && (
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5 italic">{r.source}</p>
+                )}
               </div>
             ))}
             {(d.matrice_risque_synthese || d.commentaire || d.analyse_globale) && (
