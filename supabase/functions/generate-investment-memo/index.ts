@@ -318,7 +318,7 @@ Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
       try {
-        part1 = await callAI(MEMO_SYSTEM_PROMPT, prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
+        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
       } catch (e: any) {
         await updateMemoModuleState(ctx.enterprise_id, {
           phase: "failed",

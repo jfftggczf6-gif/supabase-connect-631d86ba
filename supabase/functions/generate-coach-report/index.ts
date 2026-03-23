@@ -193,7 +193,7 @@ ${dataContext}`;
         model: "claude-sonnet-4-20250514",
         max_tokens: 16384,
         temperature: 0.3,
-        system: systemPrompt,
+        system: injectGuardrails(systemPrompt),
         messages: [{ role: "user", content: userPrompt }],
       }),
       signal: AbortSignal.timeout(120000),

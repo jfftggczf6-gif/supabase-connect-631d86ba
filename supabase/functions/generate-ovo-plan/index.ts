@@ -460,7 +460,7 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 8192,
-          system: systemPrompt,
+          system: injectGuardrails(systemPrompt),
           messages: [{ role: "user", content: userPrompt }],
         }),
       });
