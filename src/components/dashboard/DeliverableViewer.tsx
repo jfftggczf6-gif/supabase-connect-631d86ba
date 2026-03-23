@@ -120,9 +120,10 @@ export function InputsViewer({ data }: { data: any }) {
   const croisBmc = data.croisement_bmc_financiers || {};
   const manquantes = data.donnees_manquantes || [];
 
+  const deviseVal = data?.devise || data?.metadata?.devise || 'FCFA';
   const formatAmount = (n: number) => {
     if (!n && n !== 0) return '—';
-    return new Intl.NumberFormat('fr-FR').format(n) + ' FCFA';
+    return new Intl.NumberFormat('fr-FR').format(n) + ' ' + deviseVal;
   };
 
   return (

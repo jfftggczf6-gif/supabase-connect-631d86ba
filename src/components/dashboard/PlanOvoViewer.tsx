@@ -241,10 +241,10 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
 
       {/* KPI Bar */}
       <div className="flex flex-wrap gap-3">
-        <KpiCard label="Revenue" value={fmt(revSeries[currentIdx])} icon="💰" />
-        <KpiCard label="Marge brute" value={fmt(gpSeries[currentIdx])} icon="📊" />
-        <KpiCard label="EBITDA" value={fmt(ebitdaSeries[currentIdx])} icon="📈" />
-        <KpiCard label="Résultat net" value={fmt(npSeries[currentIdx])} icon="🎯" />
+        <KpiCard label="Revenue" value={fmt(revSeries[currentIdx])} icon="💰" devise={devise} />
+        <KpiCard label="Marge brute" value={fmt(gpSeries[currentIdx])} icon="📊" devise={devise} />
+        <KpiCard label="EBITDA" value={fmt(ebitdaSeries[currentIdx])} icon="📈" devise={devise} />
+        <KpiCard label="Résultat net" value={fmt(npSeries[currentIdx])} icon="🎯" devise={devise} />
       </div>
 
       {/* ===== INVESTMENT METRICS ===== */}
