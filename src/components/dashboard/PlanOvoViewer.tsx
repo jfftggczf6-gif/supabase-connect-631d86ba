@@ -108,7 +108,7 @@ function MetricCard({ label, value, unit, status, description }: {
 }
 
 // ===== KPI Card =====
-function KpiCard({ label, value, icon }: { label: string; value: string; icon: string }) {
+function KpiCard({ label, value, icon, devise = 'FCFA' }: { label: string; value: string; icon: string; devise?: string }) {
   return (
     <Card className="flex-1 min-w-[140px]">
       <CardContent className="py-3 px-4">
