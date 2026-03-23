@@ -357,11 +357,16 @@ Classe le dossier : AVANCER_DIRECTEMENT / ACCOMPAGNER / COMPLETER_DABORD / REJET
 Réponds en JSON selon ce schéma :
 ${PRE_SCREENING_SCHEMA}`;
 
-    // KB context + risk detection
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "pre_screening");
+    // Parallel block 2: KB context, risk factors, coaching context
+    const [kbContext, riskRes, coachingContext] = await Promise.all([
+      getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "pre_screening"),
+      ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true),
+      getCoachingContext(ctx.supabase, ctx.enterprise_id),
+    ]);
+
     let riskBlock = "";
     try {
-      const { data: riskFactors } = await ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true);
+      const riskFactors = riskRes?.data;
       if (riskFactors?.length && inputsData) {
         const id = inputsData as any;
         const financialData = {
@@ -375,8 +380,6 @@ ${PRE_SCREENING_SCHEMA}`;
         riskBlock = buildRiskBlock(flags);
       }
     } catch (e) { console.warn("[pre-screening] risk detection non-blocking:", e); }
-
-    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 32768);
     const normalizedData = normalizePreScreening(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
