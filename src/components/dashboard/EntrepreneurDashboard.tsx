@@ -28,6 +28,7 @@ import ValuationViewer from './ValuationViewer';
 import OnePagerViewer from './OnePagerViewer';
 import InvestmentMemoViewer from './InvestmentMemoViewer';
 import DataRoomManager from './DataRoomManager';
+import SourcesViewer from './SourcesViewer';
 import ValidationBanner from './ValidationBanner';
 import InputsDiffBanner from './InputsDiffBanner';
 import VersionHistory from './VersionHistory';
