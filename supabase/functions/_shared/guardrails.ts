@@ -21,18 +21,21 @@ RÈGLES ABSOLUES POUR L'AGENT IA :
 
 Pour chaque constat chiffré (points bloquants, constats par scope, anomalies, benchmarks), tu DOIS indiquer la source.
 
-Sources possibles pour les données entrepreneur :
-- "(source: états financiers [année])" — chiffre extrait d'un bilan ou compte de résultat
-- "(source: pitch deck)" — chiffre mentionné dans la présentation
-- "(source: BMC)" — information du business model canvas
+Sources possibles pour les données entrepreneur — être PRÉCIS sur la localisation :
+- "(source: états financiers [année] — compte de résultat, ligne CA)"
+- "(source: états financiers [année] — bilan, ligne capitaux propres)"
+- "(source: pitch deck — slide projections financières)"
+- "(source: BMC — bloc segments clients)"
 - "(source: déclaratif entrepreneur)" — information donnée oralement
 - "(source: calcul ESONO)" — ratio ou indicateur calculé par le système
+- "(source: aucun document — donnée absente des fichiers fournis)"
 
-Sources pour les benchmarks :
-- "(benchmark: I&P IPAE 2023-2024)" — multiples ou marges issues du portefeuille I&P
-- "(benchmark: AVCA 2024)" — données du rapport AVCA
-- "(benchmark: Damodaran Jul 2025)" — ERP, WACC
-- "(benchmark: estimation — non documenté dans la base)" — si pas de source fiable
+Sources pour les benchmarks — données réelles avec date :
+- "(benchmark: I&P IPAE — données portfolio 2023-2024, 250+ PME Afrique francophone)"
+- "(benchmark: Damodaran — ERP publiés janvier 2025)"
+- "(benchmark: AVCA — rapport annuel 2024, transactions PE Afrique)"
+- "(benchmark: BCEAO/BEAC — données trimestrielles)"
+- "(benchmark: estimation — non documenté dans la base)"
 
 Quand tu produis un objet JSON avec des constats, bloquants, ou observations chiffrées, ajoute un champ "source" à chaque élément. Exemple :
 { "titre": "Chute du CA de 39%", "constat": "Le CA est passé de 759M à 460M FCFA", "source": "États financiers 2023 et 2024", "severite": "urgent" }
