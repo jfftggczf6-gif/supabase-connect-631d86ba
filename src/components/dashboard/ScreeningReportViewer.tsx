@@ -325,10 +325,11 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
 }
 
 // ===== LEGACY VIEWER (ancien format) =====
-function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml }: {
+function LegacyScreeningViewer({ data, onRegenerate, handleDownloadHtml, handleDownloadPdf }: {
   data: Record<string, any>;
   onRegenerate?: () => void;
   handleDownloadHtml: () => void;
+  handleDownloadPdf: () => void;
 }) {
   const score = data.screening_score ?? 0;
   const verdict = data.verdict || 'INSUFFISANT';
