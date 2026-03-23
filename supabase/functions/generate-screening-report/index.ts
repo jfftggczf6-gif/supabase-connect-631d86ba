@@ -50,7 +50,8 @@ const DECISION_SCHEMA = `{
       {
         "critere": "string — nom du critère",
         "statut": "ok | ko | partiel",
-        "detail": "string — justification courte"
+        "detail": "string — justification courte",
+        "source": "string"
       }
     ]
   },
