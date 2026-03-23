@@ -1,5 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { BookOpen, ExternalLink, FileText, Upload } from 'lucide-react';
 
 interface SourcesViewerProps {
