@@ -536,7 +536,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
             {data.funding_need != null && data.funding_need > 0 && (
               <div className="mt-3 p-2 rounded bg-primary/10 text-xs">
                 <span className="font-semibold">Besoin de financement total: </span>
-                <span className="font-bold text-primary">{fmt(data.funding_need)} FCFA</span>
+                <span className="font-bold text-primary">{fmt(data.funding_need)} {devise}</span>
               </div>
             )}
           </CardContent>
