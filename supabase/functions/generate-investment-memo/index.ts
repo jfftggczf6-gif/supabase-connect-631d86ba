@@ -248,6 +248,8 @@ ${donorCriteria}
 
 ${ragContext}`;
 
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+
     if (hasCheckpoint) {
       // ═══════ CAS A: Resume from checkpoint — run Pass 2 only ═══════
       console.log("Investment Memo — Resuming from checkpoint, running Pass 2/2...");

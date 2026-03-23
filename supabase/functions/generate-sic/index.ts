@@ -192,9 +192,10 @@ serve(async (req) => {
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "sic");
 
     const agentDocs = getDocumentContentForAgent(ent, "sic", 80_000);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawAiData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData
-    ) + ragContext + kbContext);
+    ) + ragContext + kbContext + coachingContext);
 
     // Normalize AI response
     const sicData = normalizeSic(rawAiData);

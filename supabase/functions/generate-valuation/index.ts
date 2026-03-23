@@ -113,7 +113,8 @@ Produis l'analyse qualitative en JSON :
   "score": <0-100 — qualité et fiabilité de la valorisation>
 }`;
 
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext, 4096, undefined, 0.2);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext, 4096, undefined, 0.2);
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {

@@ -157,7 +157,8 @@ La section criteres_ip doit lister les documents OVO disponibles pour chaque cat
 Réponds en JSON selon ce schéma :
 ${ONEPAGER_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 8192);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt + coachingContext, 8192);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "onepager", rawData, "onepager");
 

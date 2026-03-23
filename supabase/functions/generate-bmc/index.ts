@@ -121,9 +121,10 @@ serve(async (req) => {
     const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "bmc");
     const agentDocs = getDocumentContentForAgent(ent, "bmc", 100_000);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawBmcData = await callAI(injectGuardrails(BMC_SYSTEM_PROMPT), BMC_USER_PROMPT(
       ent.name, ent.sector || "", ent.country || "", ent.city || "", agentDocs
-    ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}` + ragContext + kbContext, 32768, undefined, 0.2);
+    ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}` + ragContext + kbContext + coachingContext, 32768, undefined, 0.2);
 
     // Normalize AI response
     const bmcData = normalizeBmc(rawBmcData);
