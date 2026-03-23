@@ -5,6 +5,7 @@ import {
   jsonResponse, errorResponse, getCoachingContext,
 } from "../_shared/helpers_v5.ts";
 import { getFinancialKnowledgePrompt, getValuationBenchmarksPrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const SONNET_MODEL = "claude-sonnet-4-20250514";
