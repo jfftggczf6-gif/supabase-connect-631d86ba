@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, errorResponse, jsonResponse,
-  verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getKnowledgeForAgent
+  verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getKnowledgeForAgent, getCoachingContext
 } from "../_shared/helpers_v5.ts";
 import { normalizeOdd } from "../_shared/normalizers.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
@@ -173,8 +173,9 @@ serve(async (req) => {
       sicData
     ) + `\n\n══════ CRITÈRES ESG DES BAILLEURS ══════\n${donorCriteria}` + ragContext + kbContext;
 
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     console.log("[generate-odd] Calling Claude API via callAI (max_tokens: 16384)...");
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt, 16384);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt + coachingContext, 16384);
     const data = normalizeOdd(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "odd_analysis", data, "odd");

@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  jsonResponse, errorResponse,
+  jsonResponse, errorResponse, getCoachingContext,
 } from "../_shared/helpers_v5.ts";
 import { getFinancialKnowledgePrompt, getValuationBenchmarksPrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -248,6 +248,8 @@ ${donorCriteria}
 
 ${ragContext}`;
 
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+
     if (hasCheckpoint) {
       // ═══════ CAS A: Resume from checkpoint — run Pass 2 only ═══════
       console.log("Investment Memo — Resuming from checkpoint, running Pass 2/2...");
@@ -280,7 +282,7 @@ Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-      const part2 = await callAI(MEMO_SYSTEM_PROMPT, prompt2, 16384, SONNET_MODEL, 0.3);
+      const part2 = await callAI(MEMO_SYSTEM_PROMPT, prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
 
       const mergedMemo = { ...part1, ...part2 };
       mergedMemo.score = part1.resume_executif?.score_ir || 0;
@@ -315,7 +317,7 @@ Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
       try {
-        part1 = await callAI(MEMO_SYSTEM_PROMPT, prompt1, 16384, SONNET_MODEL, 0.3);
+        part1 = await callAI(MEMO_SYSTEM_PROMPT, prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
       } catch (e: any) {
         await updateMemoModuleState(ctx.enterprise_id, {
           phase: "failed",

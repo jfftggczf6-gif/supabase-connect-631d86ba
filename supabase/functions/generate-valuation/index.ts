@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable,
-  jsonResponse, errorResponse,
+  jsonResponse, errorResponse, getCoachingContext,
 } from "../_shared/helpers_v5.ts";
 import { getValuationBenchmarksPrompt } from "../_shared/financial-knowledge.ts";
 import { computeValuation, extractValuationInputs } from "../_shared/valuation-engine.ts";
@@ -113,7 +113,8 @@ Produis l'analyse qualitative en JSON :
   "score": <0-100 — qualité et fiabilité de la valorisation>
 }`;
 
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext, 4096, undefined, 0.2);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext, 4096, undefined, 0.2);
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {

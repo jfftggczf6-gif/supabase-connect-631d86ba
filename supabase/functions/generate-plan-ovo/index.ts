@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParamsForPrompt, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParamsForPrompt, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { getFinancialTruth, validateCrossDeliverables } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { normalizePlanOvo, enforceFrameworkConstraints } from "../_shared/normalizers.ts";
@@ -259,9 +259,10 @@ UTILISE CETTE CHAÎNE pour le current_year. Projette chaque poste séparément.
     const kbContext = await getKnowledgeForAgent(ctx.supabase, country, ent.sector || "", "plan_ovo");
 
     const agentDocs = getDocumentContentForAgent(ent, "plan_ovo", 80_000);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawData = await callAI(injectGuardrails(buildSystemPrompt(country, ent.sector || "")), buildUserPrompt(
       ent.name, ent.sector || "", country, agentDocs, allData, ctx.baseYear
-    ) + truthBlock + ragContext + kbContext);
+    ) + truthBlock + ragContext + kbContext + coachingContext);
     
     // Normalize: fix years, ensure consistency, fill gaps
     let data = normalizePlanOvo(rawData);

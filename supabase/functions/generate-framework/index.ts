@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { normalizeFramework } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { fillFrameworkExcelTemplate } from "../_shared/framework-excel-template.ts";
@@ -463,8 +463,9 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
 
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework");
     const enrichedSystemPrompt = injectGuardrails(SYSTEM_PROMPT + "\n\n" + knowledgeBase);
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 
-    const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt + kbContext, 16384, OPUS_MODEL);
+    const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt + kbContext + coachingContext, 16384, OPUS_MODEL);
     
     // Post-force CA année N from truth
     if (truth && rawData.kpis) {
