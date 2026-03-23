@@ -3,10 +3,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, RefreshCw, CheckCircle2, XCircle, AlertCircle, Target, TrendingUp, Banknote, Shield, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { exportToPdf } from '@/lib/export-pdf';
+import { useNavigate } from 'react-router-dom';
+import { downloadRichHtml, downloadRichPdf } from '@/lib/download-rich-html';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ScreeningReportViewerProps {
   data: Record<string, any>;
+  enterpriseId?: string;
+  enterpriseName?: string;
   onRegenerate?: () => void;
 }
 

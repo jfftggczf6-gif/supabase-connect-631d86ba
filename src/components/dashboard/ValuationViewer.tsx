@@ -3,11 +3,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Target, AlertTriangle, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { exportToPdf } from '@/lib/export-pdf';
+import { useNavigate } from 'react-router-dom';
+import { downloadRichHtml, downloadRichPdf } from '@/lib/download-rich-html';
+import { useAuth } from '@/hooks/useAuth';
 import ConfidenceIndicator from './ConfidenceIndicator';
 
 interface Props {
   data: Record<string, any>;
+  enterpriseId?: string;
+  enterpriseName?: string;
   onRegenerate?: () => void;
 }
 
