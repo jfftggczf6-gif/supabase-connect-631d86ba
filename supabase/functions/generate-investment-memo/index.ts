@@ -86,7 +86,7 @@ const MEMO_SCHEMA_PART1 = `{
 const MEMO_SCHEMA_PART2 = `{
   "besoins_financement": {
     "montant_recherche": "string",
-    "utilisation_fonds": [{"poste": "string", "montant": "string", "pourcentage": "string"}],
+    "utilisation_fonds": [{"poste": "string", "montant": "string", "pourcentage": "string", "source": "string"}],
     "calendrier_deploiement": "string",
     "retour_attendu": "string"
   },
