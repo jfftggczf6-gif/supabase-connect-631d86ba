@@ -1282,6 +1282,284 @@ function oddHTML(data: any, ent: string): string {
 
   return htmlShell('Évaluation ODD — 17 Objectifs de Développement Durable', data.score ?? scoreGlobal, body, ent);
 }
+// ===== PRE-SCREENING HTML =====
+function preScreeningHTML(data: any, ent: string): string {
+  const score = data.score_ir ?? data.score ?? 0;
+  const guide = data.guide_coach || {};
+  const constats = data.constats_par_scope || {};
+  const contexte = data.contexte_entreprise || {};
+  const classification = data.classification || data.verdict || '—';
+
+  let body = '';
+
+  // Contexte entreprise
+  body += `<div class="card"><h2>📋 Contexte entreprise</h2><div class="grid-2">`;
+  if (contexte.ca_dernier_exercice) body += `<div class="metric"><div class="lbl">CA dernier exercice</div><div class="val">${fmt(contexte.ca_dernier_exercice)}</div></div>`;
+  if (contexte.effectif) body += `<div class="metric"><div class="lbl">Effectif</div><div class="val">${contexte.effectif}</div></div>`;
+  if (contexte.secteur) body += `<div class="metric"><div class="lbl">Secteur</div><div class="val">${contexte.secteur}</div></div>`;
+  if (contexte.pays) body += `<div class="metric"><div class="lbl">Pays</div><div class="val">${contexte.pays}</div></div>`;
+  if (contexte.date_creation) body += `<div class="metric"><div class="lbl">Date de création</div><div class="val">${contexte.date_creation}</div></div>`;
+  if (contexte.forme_juridique) body += `<div class="metric"><div class="lbl">Forme juridique</div><div class="val">${contexte.forme_juridique}</div></div>`;
+  body += `</div>`;
+  if (contexte.activite) body += `<p style="margin-top:12px;font-size:13px;color:#475569">${contexte.activite}</p>`;
+  body += `</div>`;
+
+  // Classification
+  const classColor = classification === 'PRIORITAIRE' ? 'green' : classification === 'POTENTIEL' ? 'yellow' : 'red';
+  body += `<div class="card"><h2>🎯 Classification</h2><span class="badge badge-${classColor}" style="font-size:16px;padding:8px 20px">${classification}</span></div>`;
+
+  // Points bloquants
+  const bloquants = guide.points_bloquants_pipeline || [];
+  if (bloquants.length) {
+    body += `<div class="card"><h2>🚫 Points bloquants</h2>`;
+    bloquants.forEach((b: any) => {
+      body += `<div style="border-left:3px solid #ef4444;padding:12px 16px;margin-bottom:12px;background:#fef2f2;border-radius:0 8px 8px 0">`;
+      body += `<p style="font-weight:600;color:#991b1b">${b.blocage || b.titre || ''}</p>`;
+      if (b.consequence) body += `<p style="font-size:12px;color:#64748b">Conséquence : ${b.consequence}</p>`;
+      if (b.resolution) body += `<p style="font-size:12px;color:#1e40af">Résolution : ${b.resolution}</p>`;
+      if (b.source) body += `<p style="font-size:10px;color:#94a3b8;font-style:italic">Source : ${b.source}</p>`;
+      body += `</div>`;
+    });
+    body += `</div>`;
+  }
+
+  // Constats par scope
+  for (const [scope, items] of Object.entries(constats)) {
+    if (!Array.isArray(items) || !items.length) continue;
+    body += `<div class="card"><h2>📊 Constats — ${scope}</h2>`;
+    (items as any[]).forEach((c: any) => {
+      const color = c.severite === 'urgent' ? '#ef4444' : c.severite === 'positif' ? '#22c55e' : '#eab308';
+      const badgeColor = c.severite === 'urgent' ? 'red' : c.severite === 'positif' ? 'green' : 'yellow';
+      body += `<div style="border-left:3px solid ${color};padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0">`;
+      body += `<span class="badge badge-${badgeColor}">${c.severite || ''}</span> `;
+      body += `<strong>${c.titre || ''}</strong>`;
+      if (c.constat) body += `<p style="font-size:12px;color:#475569;margin-top:4px">${c.constat}</p>`;
+      if (c.source) body += `<p style="font-size:10px;color:#94a3b8;font-style:italic">Source : ${c.source}</p>`;
+      body += `</div>`;
+    });
+    body += `</div>`;
+  }
+
+  // Actions recommandées
+  const actions = guide.actions_recommandees || guide.actions_coach_semaine || [];
+  if (actions.length) {
+    body += `<div class="card"><h2>✅ Actions recommandées</h2><ol>`;
+    actions.forEach((a: any) => {
+      body += `<li><strong>${typeof a === 'string' ? a : a.action || a.titre || ''}</strong>`;
+      if (a.detail) body += ` — <span style="color:#64748b">${a.detail}</span>`;
+      body += `</li>`;
+    });
+    body += `</ol></div>`;
+  }
+
+  // Documents, Questions, Axes
+  (['documents_a_demander', 'questions_a_poser', 'axes_accompagnement'] as string[]).forEach(key => {
+    const items = guide[key] || [];
+    if (items.length) {
+      const title = key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      body += `<div class="card"><h2>${key === 'documents_a_demander' ? '📄' : key === 'questions_a_poser' ? '❓' : '🧭'} ${title}</h2><ul>`;
+      items.forEach((item: any) => body += `<li>${typeof item === 'string' ? item : item.item || item.document || item.question || JSON.stringify(item)}</li>`);
+      body += `</ul></div>`;
+    }
+  });
+
+  // Alertes
+  const alertes = guide.alertes || [];
+  if (alertes.length) {
+    body += `<div class="card"><h2>⚠️ Alertes</h2>`;
+    alertes.forEach((a: any) => {
+      body += `<div style="border-left:3px solid #eab308;padding:10px 14px;margin-bottom:8px;background:#fefce8;border-radius:0 6px 6px 0">`;
+      body += `<p style="font-weight:600;color:#854d0e">${typeof a === 'string' ? a : a.titre || a.alerte || JSON.stringify(a)}</p>`;
+      body += `</div>`;
+    });
+    body += `</div>`;
+  }
+
+  return htmlShell('Diagnostic initial', score, body, ent);
+}
+
+// ===== VALUATION HTML =====
+function valuationHTML(data: any, ent: string): string {
+  const score = data.score ?? data.confidence_score ?? 0;
+  const synthese = data.synthese || data.valuation_range || {};
+  const dcf = data.dcf || {};
+  const multEbitda = data.multiples_ebitda || data.mult_ebitda || {};
+  const multCA = data.multiples_ca || data.mult_ca || {};
+  const decotes = data.decotes || data.discounts || {};
+  const qualitative = data.analyse_qualitative || data.qualitative || {};
+  const devise = data.devise || 'FCFA';
+
+  const fmtV = (n: any) => {
+    if (n == null || n === '' || isNaN(Number(n))) return '—';
+    const v = Number(n);
+    if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + ' Mrd ' + devise;
+    if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + ' M ' + devise;
+    return fmt(v) + ' ' + devise;
+  };
+
+  let body = '';
+
+  // Synthèse / Range
+  body += `<div class="card"><h2>💰 Synthèse de valorisation</h2><div class="grid-4">`;
+  body += `<div class="metric" style="background:#fef2f2"><div class="lbl">Valeur basse</div><div class="val" style="color:#dc2626;font-size:18px">${fmtV(synthese.low || synthese.valeur_basse)}</div></div>`;
+  body += `<div class="metric" style="background:#dcfce7"><div class="lbl">Valeur médiane</div><div class="val" style="color:#16a34a;font-size:22px">${fmtV(synthese.median || synthese.valeur_mediane)}</div></div>`;
+  body += `<div class="metric" style="background:#dbeafe"><div class="lbl">Valeur haute</div><div class="val" style="color:#2563eb;font-size:18px">${fmtV(synthese.high || synthese.valeur_haute)}</div></div>`;
+  if (synthese.equity_value) body += `<div class="metric"><div class="lbl">Equity Value</div><div class="val" style="font-size:18px">${fmtV(synthese.equity_value)}</div></div>`;
+  body += `</div></div>`;
+
+  // DCF
+  if (dcf.equity_value || dcf.enterprise_value) {
+    body += `<div class="card"><h2>📐 Méthode DCF</h2><div class="grid-2">`;
+    if (dcf.wacc) body += `<div class="metric"><div class="lbl">WACC</div><div class="val">${(Number(dcf.wacc) * 100).toFixed(1)}%</div></div>`;
+    if (dcf.terminal_value) body += `<div class="metric"><div class="lbl">Valeur terminale</div><div class="val" style="font-size:16px">${fmtV(dcf.terminal_value)}</div></div>`;
+    if (dcf.enterprise_value) body += `<div class="metric"><div class="lbl">Enterprise Value</div><div class="val" style="font-size:16px">${fmtV(dcf.enterprise_value)}</div></div>`;
+    if (dcf.equity_value) body += `<div class="metric"><div class="lbl">Equity Value</div><div class="val" style="font-size:16px">${fmtV(dcf.equity_value)}</div></div>`;
+    body += `</div>`;
+    if (dcf.source) body += `<p style="font-size:11px;color:#94a3b8;margin-top:8px">Source : ${dcf.source}</p>`;
+    body += `</div>`;
+  }
+
+  // Multiples EBITDA
+  if (multEbitda.valeur || multEbitda.equity_value) {
+    body += `<div class="card"><h2>📊 Multiples EBITDA</h2><div class="grid-2">`;
+    if (multEbitda.multiple) body += `<div class="metric"><div class="lbl">Multiple</div><div class="val">${multEbitda.multiple}x</div></div>`;
+    if (multEbitda.fourchette) body += `<div class="metric"><div class="lbl">Fourchette</div><div class="val" style="font-size:14px">${multEbitda.fourchette}</div></div>`;
+    body += `<div class="metric"><div class="lbl">Valeur</div><div class="val" style="font-size:16px">${fmtV(multEbitda.valeur || multEbitda.equity_value)}</div></div>`;
+    body += `</div>`;
+    if (multEbitda.source) body += `<p style="font-size:11px;color:#94a3b8;margin-top:8px">Source : ${multEbitda.source}</p>`;
+    body += `</div>`;
+  }
+
+  // Multiples CA
+  if (multCA.valeur || multCA.equity_value) {
+    body += `<div class="card"><h2>📈 Multiples CA</h2><div class="grid-2">`;
+    if (multCA.multiple) body += `<div class="metric"><div class="lbl">Multiple</div><div class="val">${multCA.multiple}x</div></div>`;
+    if (multCA.fourchette) body += `<div class="metric"><div class="lbl">Fourchette</div><div class="val" style="font-size:14px">${multCA.fourchette}</div></div>`;
+    body += `<div class="metric"><div class="lbl">Valeur</div><div class="val" style="font-size:16px">${fmtV(multCA.valeur || multCA.equity_value)}</div></div>`;
+    body += `</div>`;
+    if (multCA.source) body += `<p style="font-size:11px;color:#94a3b8;margin-top:8px">Source : ${multCA.source}</p>`;
+    body += `</div>`;
+  }
+
+  // Décotes
+  const decoteEntries = Object.entries(decotes).filter(([_, v]) => v != null);
+  if (decoteEntries.length) {
+    body += `<div class="card"><h2>📉 Décotes appliquées</h2><table><tr><th>Type</th><th style="text-align:right">Valeur</th></tr>`;
+    for (const [k, v] of decoteEntries) {
+      const label = k.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      body += `<tr><td>${label}</td><td class="amount">${typeof v === 'number' ? (v * 100).toFixed(0) + '%' : v}</td></tr>`;
+    }
+    body += `</table></div>`;
+  }
+
+  // Analyse qualitative
+  if (qualitative.forces || qualitative.faiblesses || qualitative.commentaire) {
+    body += `<div class="card"><h2>🔍 Analyse qualitative</h2>`;
+    if (qualitative.commentaire) body += `<p style="font-size:13px;color:#475569;margin-bottom:12px">${qualitative.commentaire}</p>`;
+    if (qualitative.forces?.length) {
+      body += `<h3 style="color:#166534">Forces</h3><ul>${qualitative.forces.map((f: string) => `<li style="color:#166534">✓ ${f}</li>`).join('')}</ul>`;
+    }
+    if (qualitative.faiblesses?.length) {
+      body += `<h3 style="color:#991b1b">Faiblesses</h3><ul>${qualitative.faiblesses.map((f: string) => `<li style="color:#991b1b">✗ ${f}</li>`).join('')}</ul>`;
+    }
+    body += `</div>`;
+  }
+
+  return htmlShell('Valorisation', score, body, ent);
+}
+
+// ===== SCREENING REPORT HTML =====
+function screeningReportHTML(data: any, ent: string): string {
+  const score = data.score ?? 0;
+  const verdict = data.decision?.verdict || data.verdict || '—';
+  const verdictColor = verdict === 'ÉLIGIBLE' || verdict === 'ELIGIBLE' ? 'green' : verdict.includes('CONDITIONNEL') ? 'yellow' : 'red';
+
+  let body = '';
+
+  // Decision / Verdict
+  body += `<div class="card" style="background:linear-gradient(135deg,${verdictColor === 'green' ? '#f0fdf4,#ecfeff' : verdictColor === 'yellow' ? '#fefce8,#fffbeb' : '#fef2f2,#fff1f2'})">`;
+  body += `<h2>🏛️ Décision</h2><span class="badge badge-${verdictColor}" style="font-size:18px;padding:10px 24px">${verdict}</span>`;
+  if (data.decision?.synthese) body += `<p style="margin-top:12px;font-size:14px;color:#475569">${data.decision.synthese}</p>`;
+  body += `</div>`;
+
+  // Matching critères programme
+  const matching = data.matching_criteres || data.matching || {};
+  const critMet = matching.criteres_remplis || matching.met || [];
+  const critNotMet = matching.criteres_non_remplis || matching.not_met || [];
+  const critPartial = matching.criteres_partiels || matching.partial || [];
+  if (critMet.length || critNotMet.length || critPartial.length) {
+    body += `<div class="card"><h2>✅ Matching critères programme</h2>`;
+    if (critMet.length) {
+      body += `<h3 style="color:#166534">Critères remplis</h3><ul>`;
+      critMet.forEach((c: any) => body += `<li style="color:#166534">✓ ${typeof c === 'string' ? c : c.critere || c.label || JSON.stringify(c)}</li>`);
+      body += `</ul>`;
+    }
+    if (critPartial.length) {
+      body += `<h3 style="color:#854d0e">Critères partiels</h3><ul>`;
+      critPartial.forEach((c: any) => body += `<li style="color:#854d0e">⚠ ${typeof c === 'string' ? c : c.critere || c.label || JSON.stringify(c)}</li>`);
+      body += `</ul>`;
+    }
+    if (critNotMet.length) {
+      body += `<h3 style="color:#991b1b">Critères non remplis</h3><ul>`;
+      critNotMet.forEach((c: any) => body += `<li style="color:#991b1b">✗ ${typeof c === 'string' ? c : c.critere || c.label || JSON.stringify(c)}</li>`);
+      body += `</ul>`;
+    }
+    body += `</div>`;
+  }
+
+  // Impact attendu
+  const impact = data.impact_attendu || data.impact || {};
+  if (typeof impact === 'string') {
+    body += `<div class="card"><h2>🌍 Impact attendu</h2><p style="font-size:13px">${impact}</p></div>`;
+  } else if (impact.description || impact.odd_cibles) {
+    body += `<div class="card"><h2>🌍 Impact attendu</h2>`;
+    if (impact.description) body += `<p style="font-size:13px;margin-bottom:12px">${impact.description}</p>`;
+    if (impact.odd_cibles?.length) body += `<div style="display:flex;gap:4px;flex-wrap:wrap">${impact.odd_cibles.map((o: any) => `<span class="tag" style="background:#dcfce7;color:#166534">${typeof o === 'string' ? o : o.odd || o.label || ''}</span>`).join('')}</div>`;
+    body += `</div>`;
+  }
+
+  // Dimensionnement appui
+  const dim = data.dimensionnement_appui || data.dimensionnement || {};
+  if (dim.montant || dim.instrument || dim.duree) {
+    body += `<div class="card"><h2>💰 Dimensionnement de l'appui</h2><div class="grid-2">`;
+    if (dim.montant) body += `<div class="metric"><div class="lbl">Montant</div><div class="val">${fmt(dim.montant)}</div></div>`;
+    if (dim.instrument) body += `<div class="metric"><div class="lbl">Instrument</div><div class="val" style="font-size:14px">${dim.instrument}</div></div>`;
+    if (dim.duree) body += `<div class="metric"><div class="lbl">Durée</div><div class="val" style="font-size:14px">${dim.duree}</div></div>`;
+    if (dim.justification) body += `<div class="metric" style="grid-column:span 2"><div class="lbl">Justification</div><div class="val" style="font-size:13px;font-weight:400">${dim.justification}</div></div>`;
+    body += `</div></div>`;
+  }
+
+  // Conditions préalables
+  const conditions = data.conditions_prealables || data.conditions || [];
+  if (conditions.length) {
+    body += `<div class="card"><h2>📋 Conditions préalables</h2><ol>`;
+    conditions.forEach((c: any) => body += `<li>${typeof c === 'string' ? c : c.condition || c.titre || JSON.stringify(c)}</li>`);
+    body += `</ol></div>`;
+  }
+
+  // Risques
+  const risques = data.risques_programme || data.risques || [];
+  if (risques.length) {
+    body += `<div class="card"><h2>⚠️ Risques programme</h2>`;
+    risques.forEach((r: any) => {
+      const sev = r.severite || r.niveau || '';
+      const sevColor = sev === 'élevé' || sev === 'high' ? 'red' : sev === 'moyen' || sev === 'medium' ? 'yellow' : 'green';
+      body += `<div style="border-left:3px solid ${sevColor === 'red' ? '#ef4444' : sevColor === 'yellow' ? '#eab308' : '#22c55e'};padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0">`;
+      if (sev) body += `<span class="badge badge-${sevColor}">${sev}</span> `;
+      body += `<strong>${typeof r === 'string' ? r : r.risque || r.titre || ''}</strong>`;
+      if (r.mitigation) body += `<p style="font-size:12px;color:#1e40af;margin-top:4px">Mitigation : ${r.mitigation}</p>`;
+      body += `</div>`;
+    });
+    body += `</div>`;
+  }
+
+  // Recommandation finale
+  if (data.recommandation) {
+    body += `<div class="card" style="background:#f8fafc"><h2>📝 Recommandation</h2><p style="font-size:14px">${data.recommandation}</p></div>`;
+  }
+
+  return htmlShell('Décision programme (Screening)', score, body, ent);
+}
 
 // ===== COACHING REPORT HTML =====
 function coachingReportHTML(allDeliverables: any[], modules: any[], ent: string): string {
@@ -1443,6 +1721,7 @@ serve(async (req) => {
       inputs_data: "Données Financières", framework_data: "Framework Analyse Financière",
       diagnostic_data: "Diagnostic Expert", plan_ovo: "Plan Financier OVO",
       business_plan: "Business Plan", odd_analysis: "Due Diligence ODD",
+      pre_screening: "Diagnostic initial", valuation: "Valorisation", screening_report: "Décision programme",
     };
     const title = titleMap[deliverableType] || deliverableType;
 
@@ -1543,6 +1822,7 @@ serve(async (req) => {
       bmc_analysis: bmcHTML, sic_analysis: sicHTML, inputs_data: inputsHTML,
       framework_data: frameworkHTML, diagnostic_data: diagnosticHTML,
       plan_ovo: planOvoHTML, business_plan: businessPlanHTML, odd_analysis: oddHTML,
+      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML,
     };
 
     const generator = richGenerators[deliverableType];
