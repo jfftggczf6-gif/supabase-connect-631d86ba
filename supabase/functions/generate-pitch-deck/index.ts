@@ -5,6 +5,7 @@ import {
   jsonResponse, errorResponse,
 } from "../_shared/helpers_v5.ts";
 import { getFinancialKnowledgePrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
+import { injectGuardrails } from "../_shared/guardrails.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en levée de fonds et présentation investisseur pour PME africaines.
 Tu crées des Pitch Decks de 12 slides structurées pour présentation en comité d'investissement.
