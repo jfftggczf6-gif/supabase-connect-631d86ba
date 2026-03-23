@@ -1821,6 +1821,7 @@ serve(async (req) => {
       bmc_analysis: bmcHTML, sic_analysis: sicHTML, inputs_data: inputsHTML,
       framework_data: frameworkHTML, diagnostic_data: diagnosticHTML,
       plan_ovo: planOvoHTML, business_plan: businessPlanHTML, odd_analysis: oddHTML,
+      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML,
     };
 
     const generator = richGenerators[deliverableType];
