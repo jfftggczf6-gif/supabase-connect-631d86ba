@@ -244,6 +244,9 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                       <p className="font-medium text-red-800">{p.blocage}</p>
                       <p className="text-red-600 mt-0.5">Conséquence : {p.consequence}</p>
                       <p className="text-emerald-700 mt-0.5">Résolution : {p.resolution}</p>
+                      {p.source && (
+                        <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {p.source}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -427,6 +430,9 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                       <p className="text-xs text-foreground leading-relaxed">{c.constat}</p>
                       {c.piste && (
                         <p className="text-[10px] mt-1.5 font-medium text-primary">→ {c.piste}</p>
+                      )}
+                      {c.source && (
+                        <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {c.source}</p>
                       )}
                     </div>
                   </div>

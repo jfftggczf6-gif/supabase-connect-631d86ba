@@ -127,6 +127,7 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
             {multiples.fourchette_ebitda && (
               <p className="text-[10px] text-muted-foreground">
                 Fourchette sectorielle : {multiples.fourchette_ebitda[0]}×–{multiples.fourchette_ebitda[1]}×
+                {multiples.source_multiples && <span className="italic"> (source: {multiples.source_multiples})</span>}
               </p>
             )}
             {multiples.justification_multiples && (
@@ -185,6 +186,11 @@ export default function ValuationViewer({ data, onRegenerate }: Props) {
                 </div>
               ))}
             </div>
+            {(wacc.source_wacc || dcf.source_wacc) && (
+              <p className="text-[10px] text-muted-foreground mt-3 italic">
+                Source : {wacc.source_wacc || dcf.source_wacc}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

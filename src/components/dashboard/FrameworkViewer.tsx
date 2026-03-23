@@ -155,7 +155,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
                     <td className="text-right">{r.n_moins_2}</td>
                     <td className="text-right">{r.n_moins_1}</td>
                     <td className="text-right font-bold">{r.n}</td>
-                    <td className="text-right text-muted-foreground">{r.benchmark}</td>
+                    <td className="text-right text-muted-foreground">{r.benchmark}{r.source && <span className="text-[9px] italic block">({r.source})</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -188,7 +188,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
                   <span className="text-muted-foreground">{c.indicateur}</span>
                   <div className="flex gap-4">
                     <span className="font-bold">{c.valeur}</span>
-                    <span className="text-muted-foreground text-[10px]">Benchmark: {c.benchmark}</span>
+                    <span className="text-muted-foreground text-[10px]">Benchmark: {c.benchmark}{c.source && <span className="italic"> ({c.source})</span>}</span>
                   </div>
                 </div>
               ))}
