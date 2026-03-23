@@ -155,7 +155,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
                     <td className="text-right">{r.n_moins_2}</td>
                     <td className="text-right">{r.n_moins_1}</td>
                     <td className="text-right font-bold">{r.n}</td>
-                    <td className="text-right text-muted-foreground">{r.benchmark}</td>
+                    <td className="text-right text-muted-foreground">{r.benchmark}{r.source && <span className="text-[9px] italic block">({r.source})</span>}</td>
                   </tr>
                 ))}
               </tbody>
