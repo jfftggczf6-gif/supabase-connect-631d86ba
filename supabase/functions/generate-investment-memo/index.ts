@@ -283,7 +283,7 @@ Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-      const part2 = await callAI(MEMO_SYSTEM_PROMPT, prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
+      const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
 
       const mergedMemo = { ...part1, ...part2 };
       mergedMemo.score = part1.resume_executif?.score_ir || 0;
