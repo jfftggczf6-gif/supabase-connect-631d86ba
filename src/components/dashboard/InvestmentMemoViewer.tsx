@@ -246,6 +246,9 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
             </div>
             {d.points_forts && <Callout type="green" title="Points forts" text={d.points_forts} />}
             {d.points_attention && <Callout type="amber" title="Points d'attention" text={d.points_attention} />}
+            {d.source && (
+              <p className="text-[10px] text-muted-foreground/60 mt-1 italic">{d.source}</p>
+            )}
             {(d.projections || d.previsions) && (() => {
               const proj = d.projections || d.previsions || {};
               return (
