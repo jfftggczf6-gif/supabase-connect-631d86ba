@@ -1828,6 +1828,33 @@ serve(async (req) => {
     const generator = richGenerators[deliverableType];
     const html = generator ? generator(deliv.data, ent.name) : htmlShell(title, deliv.data?.score, `<div class="card"><pre style="white-space:pre-wrap;font-size:12px">${JSON.stringify(deliv.data, null, 2)}</pre></div>`, ent.name);
 
+    // PDF format — generate HTML then send to parser for PDF conversion
+    if (format === "pdf") {
+      const parserUrl = Deno.env.get("PARSER_URL");
+      const parserApiKey = Deno.env.get("PARSER_API_KEY");
+      if (!parserUrl) {
+        return new Response(JSON.stringify({ error: "PARSER_URL not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const pdfFilename = `${safeName}_${deliverableType}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const pdfRes = await fetch(`${parserUrl}/generate-pdf`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(parserApiKey ? { "Authorization": `Bearer ${parserApiKey}` } : {}),
+        },
+        body: JSON.stringify({ html, filename: pdfFilename }),
+      });
+      if (!pdfRes.ok) {
+        const errText = await pdfRes.text();
+        console.error("[download-deliverable] PDF generation failed:", pdfRes.status, errText);
+        return new Response(JSON.stringify({ error: `PDF generation failed: ${pdfRes.status}` }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const pdfBytes = new Uint8Array(await pdfRes.arrayBuffer());
+      return new Response(pdfBytes, {
+        headers: { ...corsHeaders, "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${pdfFilename}"` },
+      });
+    }
+
     return new Response(html, {
       headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${safeName}_${deliverableType}.html"` },
     });
