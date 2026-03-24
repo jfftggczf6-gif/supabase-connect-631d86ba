@@ -940,6 +940,150 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* OPEX multi-annuel from projections */}
+            {projections.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">OPEX — évolution pluriannuelle</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Poste</TableHead>
+                          {projections.map((p: any) => (
+                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                              {p.annee_num}{p.is_reel ? ' ✓' : ''}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[
+                          { label: 'Masse salariale', key: 'masse_salariale' },
+                          { label: 'Loyers', key: 'loyers' },
+                          { label: 'Marketing', key: 'marketing' },
+                          { label: 'Autres OPEX', key: 'autres_opex' },
+                          { label: 'OPEX total', key: 'opex_total', bold: true },
+                          { label: '% du CA', key: 'opex_pct_ca', isPct: true },
+                        ].filter(row => {
+                          if (row.key === 'opex_total') return true;
+                          return projections.some((p: any) => p[row.key] != null);
+                        }).map((row) => (
+                          <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                            <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
+                            {projections.map((p: any) => {
+                              const val = row.key === 'opex_pct_ca' && p.ca
+                                ? ((p.opex_total || 0) / p.ca) * 100
+                                : p[row.key];
+                              return (
+                                <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                  {row.isPct ? pctFmt(val) : fmtM(val)}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* OPEX detail breakdown if present */}
+            {data.opex_detail?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Détail des charges opérationnelles</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Poste</TableHead>
+                        <TableHead className="text-[10px]">Type</TableHead>
+                        <TableHead className="text-[10px] text-right">Montant annuel</TableHead>
+                        <TableHead className="text-[10px] text-right">Croissance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.opex_detail.map((op: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-[10px] font-medium">{op.poste || op.label || op.nom}</TableCell>
+                          <TableCell className="text-[10px] text-muted-foreground">{op.type || op.categorie || '—'}</TableCell>
+                          <TableCell className="text-[10px] text-right">{fmtM(op.montant || op.amount)}</TableCell>
+                          <TableCell className="text-[10px] text-right">{op.croissance != null ? pctFmt((op.croissance || 0) * 100) : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Channels if present */}
+            {data.channels?.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-2">Canaux de distribution</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {data.channels.map((ch: any, i: number) => (
+                      <div key={i} className="bg-muted/30 rounded-lg p-2.5 text-xs">
+                        <p className="font-semibold text-[11px]">{ch.nom || ch.name}</p>
+                        {ch.part_ca != null && <p className="text-muted-foreground mt-0.5">{pctFmt((ch.part_ca || 0) * 100)} du CA</p>}
+                        {ch.description && <p className="text-muted-foreground mt-0.5">{ch.description}</p>}
+                        <Tracabilite estimation={ch.estimation} />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Financing detail if present */}
+            {data.financing && typeof data.financing === 'object' && !Array.isArray(data.financing) && Object.keys(data.financing).length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-2">Sources de financement</p>
+                  <div className="space-y-1 text-[11px]">
+                    {Object.entries(data.financing).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([key, val]: [string, any]) => {
+                      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                        return (
+                          <div key={key} className="bg-muted/30 rounded-lg p-2.5 mb-1.5">
+                            <p className="text-[10px] font-semibold mb-1">{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+                            <div className="space-y-0.5">
+                              {Object.entries(val).filter(([k]) => !['sources', 'methode', 'hypotheses'].includes(k)).map(([k, v]) => (
+                                <div key={k} className="flex justify-between text-[10px]">
+                                  <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
+                                  <span className="font-medium">{typeof v === 'number' ? fmtM(v) : String(v)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <Row key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} value={typeof val === 'number' ? fmtM(val) : String(val || '—')} />
+                      );
+                    })}
+                  </div>
+                  <Tracabilite estimation={data.financing} />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Revenue ranges if present */}
+            {data.ranges && typeof data.ranges === 'object' && Object.keys(data.ranges).length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-2">Fourchettes de revenus</p>
+                  <div className="space-y-1 text-[11px]">
+                    {Object.entries(data.ranges).map(([key, val]: [string, any]) => (
+                      <Row key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} value={typeof val === 'number' ? fmtM(val) : typeof val === 'object' ? `${fmtM(val?.min)} — ${fmtM(val?.max)}` : String(val || '—')} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
