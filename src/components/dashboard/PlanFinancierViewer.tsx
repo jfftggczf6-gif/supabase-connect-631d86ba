@@ -200,7 +200,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
   const auditReconciliation = data.audit_reconciliation || null;
   const explicabilite = data.explicabilite || null;
 
-  const hasAnalyseTab = analyseInvestisseur || analyseCoaching || analyseMarges || analyseRH || analyseInvestissement || analyseFinancement;
+  
   const hasAuditTab = auditReconciliation || explicabilite;
 
   // Chart data
