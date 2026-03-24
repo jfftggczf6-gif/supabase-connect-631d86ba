@@ -1460,6 +1460,8 @@ export default function EntrepreneurDashboard({
                   <BmcViewer data={selectedDeliv.data} />
                 ) : selectedModule === 'sic' ? (
                   <SicViewer data={selectedDeliv.data} />
+                ) : selectedModule === 'plan_financier' ? (
+                  <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} />
                 ) : selectedModule === 'business_plan' ? (
                   <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} />
                 ) : selectedModule === 'valuation' ? (
