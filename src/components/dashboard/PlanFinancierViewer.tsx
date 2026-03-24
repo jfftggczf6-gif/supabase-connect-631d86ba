@@ -723,6 +723,40 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* OPEX par catégorie */}
+            {data.opex_categories?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">OPEX par catégorie</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Poste</TableHead>
+                        <TableHead className="text-[10px] text-right">Montant ({devise})</TableHead>
+                        <TableHead className="text-[10px] text-right">%</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.opex_categories.map((op: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-[10px]">{op.poste}</TableCell>
+                          <TableCell className="text-[10px] text-right">{fmtM(op.montant)}</TableCell>
+                          <TableCell className="text-[10px] text-right">{pctFmt(op.pct)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/30">
+                        <TableCell className="text-[10px] font-bold">Total OPEX</TableCell>
+                        <TableCell className="text-[10px] text-right font-bold">
+                          {fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}
+                        </TableCell>
+                        <TableCell className="text-[10px] text-right font-bold">100%</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
