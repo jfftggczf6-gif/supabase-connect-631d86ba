@@ -1399,6 +1399,9 @@ export default function EntrepreneurDashboard({
                         <div><p className="text-sm font-semibold text-purple-900">Plan Financier</p></div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <button onClick={() => handleDownload('plan_financier', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors shadow-sm">
+                          <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                        </button>
                         <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
                         </button>
