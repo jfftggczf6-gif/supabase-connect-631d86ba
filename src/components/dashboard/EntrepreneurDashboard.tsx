@@ -20,6 +20,7 @@ import BmcViewer from './BmcViewer';
 import SicViewer from './SicViewer';
 import DeliverableViewer from './DeliverableViewer';
 import BusinessPlanPreview from './BusinessPlanPreview';
+import PlanFinancierViewer from './PlanFinancierViewer';
 
 import ReconstructionUploader from './ReconstructionUploader';
 import ScreeningReportViewer from './ScreeningReportViewer';
@@ -393,7 +394,12 @@ export default function EntrepreneurDashboard({
         }
       );
       clearTimeout(timeoutId);
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
+      if (!response.ok) {
+        const errText = await response.text();
+        let errMsg = 'Erreur';
+        try { const errJson = JSON.parse(errText); errMsg = errJson.error || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
       return await response.json();
     };
 
@@ -1454,6 +1460,8 @@ export default function EntrepreneurDashboard({
                   <BmcViewer data={selectedDeliv.data} />
                 ) : selectedModule === 'sic' ? (
                   <SicViewer data={selectedDeliv.data} />
+                ) : selectedModule === 'plan_financier' ? (
+                  <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} />
                 ) : selectedModule === 'business_plan' ? (
                   <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} />
                 ) : selectedModule === 'valuation' ? (
@@ -1480,6 +1488,22 @@ export default function EntrepreneurDashboard({
                 >
                   {generatingModule === 'investment_memo' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   Générer le Mémo d'Investissement
+                </button>
+              </div>
+            ) : selectedModule === 'plan_financier' ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+                <BarChart3 className="h-16 w-16 text-muted-foreground/20 mb-4" />
+                <h3 className="font-semibold text-lg mb-2">Plan Financier</h3>
+                <p className="text-sm text-muted-foreground/70 max-w-sm mb-6">
+                  Génère le plan financier complet (projections, ratios, CAPEX, etc.)
+                </p>
+                <button
+                  onClick={() => handleGenerateModule('plan_financier')}
+                  disabled={generating}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {generatingModule === 'plan_financier' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Générer le Plan Financier
                 </button>
               </div>
             ) : (
