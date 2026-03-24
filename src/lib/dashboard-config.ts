@@ -23,13 +23,12 @@ export const MODULE_CONFIG = [
   { code: 'diagnostic' as ModuleCode, title: 'Bilan de progression', shortTitle: 'Bilan de progression', icon: Stethoscope, color: 'bg-orange-100 text-orange-600', step: 1 },
   { code: 'bmc' as ModuleCode,        title: 'Business Model Canvas',    shortTitle: 'Business Model Canvas',    icon: LayoutGrid,  color: 'bg-emerald-100 text-emerald-600', step: 2 },
   { code: 'sic' as ModuleCode,        title: 'Social Impact Canvas',     shortTitle: 'Social Impact Canvas',     icon: Globe,       color: 'bg-teal-100 text-teal-600',    step: 3 },
-  { code: 'framework' as ModuleCode,  title: 'Plan Financier Intermédiaire', shortTitle: 'Plan Financier Intermédiaire', icon: BarChart3, color: 'bg-purple-100 text-purple-600', step: 4 },
-  { code: 'plan_ovo' as ModuleCode,   title: 'Plan Financier Final',     shortTitle: 'Plan Financier Final',     icon: ListChecks,  color: 'bg-amber-100 text-amber-600',  step: 5 },
-  { code: 'business_plan' as ModuleCode, title: 'Business Plan',         shortTitle: 'Business Plan',            icon: FileText,    color: 'bg-indigo-100 text-indigo-600', step: 6 },
-  { code: 'odd' as ModuleCode,        title: 'ODD',                      shortTitle: 'ODD',                      icon: Target,      color: 'bg-red-100 text-red-600',      step: 7 },
-  { code: 'valuation' as ModuleCode,  title: 'Valorisation',             shortTitle: 'Valorisation',             icon: TrendingUp,  color: 'bg-violet-100 text-violet-600', step: 8 },
-  { code: 'onepager' as ModuleCode,   title: 'One-Pager Investisseur',   shortTitle: 'One-Pager',                icon: FileText,    color: 'bg-cyan-100 text-cyan-600',    step: 9 },
-  { code: 'investment_memo' as ModuleCode, title: "Mémo d'Investissement", shortTitle: 'Mémo Investisseur',      icon: Briefcase,   color: 'bg-slate-100 text-slate-700',  step: 10 },
+  { code: 'plan_financier' as ModuleCode, title: 'Plan Financier', shortTitle: 'Plan Financier', icon: BarChart3, color: 'bg-purple-100 text-purple-600', step: 4 },
+  { code: 'business_plan' as ModuleCode, title: 'Business Plan',         shortTitle: 'Business Plan',            icon: FileText,    color: 'bg-indigo-100 text-indigo-600', step: 5 },
+  { code: 'odd' as ModuleCode,        title: 'ODD',                      shortTitle: 'ODD',                      icon: Target,      color: 'bg-red-100 text-red-600',      step: 6 },
+  { code: 'valuation' as ModuleCode,  title: 'Valorisation',             shortTitle: 'Valorisation',             icon: TrendingUp,  color: 'bg-violet-100 text-violet-600', step: 7 },
+  { code: 'onepager' as ModuleCode,   title: 'One-Pager Investisseur',   shortTitle: 'One-Pager',                icon: FileText,    color: 'bg-cyan-100 text-cyan-600',    step: 8 },
+  { code: 'investment_memo' as ModuleCode, title: "Mémo d'Investissement", shortTitle: 'Mémo Investisseur',      icon: Briefcase,   color: 'bg-slate-100 text-slate-700',  step: 9 },
 ];
 
 export const MODULE_CONFIG_COACH = [
