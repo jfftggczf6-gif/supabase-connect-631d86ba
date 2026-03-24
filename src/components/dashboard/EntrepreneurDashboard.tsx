@@ -986,7 +986,8 @@ export default function EntrepreneurDashboard({
   const selectedMod = MODULE_CONFIG.find(m => m.code === selectedModule);
   const delivTypeMap: Record<string, string> = {
     bmc: 'bmc_analysis', sic: 'sic_analysis', inputs: 'inputs_data', framework: 'framework_data',
-    diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
+    diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', plan_financier: 'plan_financier',
+    business_plan: 'business_plan', odd: 'odd_analysis',
     screening: 'screening_report', pre_screening: 'pre_screening',
     valuation: 'valuation', onepager: 'onepager', investment_memo: 'investment_memo',
   };
@@ -1387,6 +1388,27 @@ export default function EntrepreneurDashboard({
                       <button onClick={() => handleDownload('framework_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm">
                         <Download className="h-3.5 w-3.5" /> HTML
                       </button>
+                    </div>
+                  </div>
+                )}
+                {selectedModule === 'plan_financier' && (
+                  <div className="mb-4 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center"><BarChart3 className="h-5 w-5 text-purple-600" /></div>
+                        <div><p className="text-sm font-semibold text-purple-900">Plan Financier</p></div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors">
+                          <Download className="h-3.5 w-3.5" /> HTML
+                        </button>
+                        <button onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors shadow-sm">
+                          <Download className="h-3.5 w-3.5" /> PDF
+                        </button>
+                        <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors disabled:opacity-50">
+                          {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Regénérer
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
