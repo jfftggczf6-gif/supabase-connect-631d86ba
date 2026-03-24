@@ -93,6 +93,10 @@ export default function Login() {
           <Link to="/register?role=coach" className="text-primary hover:underline font-medium">
             Créer un compte Coach
           </Link>
+          {' · '}
+          <Link to="/register?role=entrepreneur" className="text-primary hover:underline font-medium">
+            Créer un compte Entrepreneur
+          </Link>
         </p>
       </div>
     </div>
