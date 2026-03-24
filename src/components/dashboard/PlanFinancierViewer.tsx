@@ -244,7 +244,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
           <TabsTrigger value="projections" className="text-[11px] flex-1">Projections</TabsTrigger>
           <TabsTrigger value="produits" className="text-[11px] flex-1">Produits & RH</TabsTrigger>
           <TabsTrigger value="investissement" className="text-[11px] flex-1">Invest.</TabsTrigger>
-          {hasAnalyseTab && <TabsTrigger value="analyse" className="text-[11px] flex-1">Analyse</TabsTrigger>}
+          
           {hasAuditTab && <TabsTrigger value="audit" className="text-[11px] flex-1">Audit</TabsTrigger>}
         </TabsList>
 
