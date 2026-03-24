@@ -17,7 +17,7 @@ import {
 import {
   Users, Building2,
   Plus, Download, Loader2, ArrowLeft, Eye,
-  UserPlus, Search, Trash2, Maximize2, Minimize2
+  UserPlus, Search, Trash2, Maximize2, Minimize2, Database
 } from 'lucide-react';
 import {
   type Enterprise, type Deliverable, type EnterpriseModule, type CoachUpload,
@@ -27,6 +27,7 @@ import { getPipelineState, type PipelineState } from '@/lib/pipeline-runner';
 import ScreeningDashboard from './ScreeningDashboard';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import CoachingTab from './CoachingTab';
+import KnowledgeBaseManager from './KnowledgeBaseManager';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export default function CoachDashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', contact_email: '' });
   const [addLoading, setAddLoading] = useState(false);
+  const [showKBManager, setShowKBManager] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
   const [reportPreview, setReportPreview] = useState<{ html: string; enterpriseName: string } | null>(null);
   const [fullscreen, setFullscreen] = useState(!!entIdFromUrl);
@@ -486,6 +488,9 @@ export default function CoachDashboard() {
         <Button variant="outline" asChild className="gap-2">
           <a href="/templates"><Download className="h-4 w-4" /> Templates vierges</a>
         </Button>
+        <Button variant="outline" className="gap-2" onClick={() => setShowKBManager(true)}>
+          <Database className="h-4 w-4" /> Base de connaissances
+        </Button>
       </div>
 
       {/* Barre de recherche + filtres */}
@@ -739,6 +744,16 @@ export default function CoachDashboard() {
               Mettre à jour
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Knowledge Base Manager Dialog */}
+      <Dialog open={showKBManager} onOpenChange={setShowKBManager}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Base de connaissances</DialogTitle>
+          </DialogHeader>
+          <KnowledgeBaseManager />
         </DialogContent>
       </Dialog>
 

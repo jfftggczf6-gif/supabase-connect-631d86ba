@@ -398,6 +398,50 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 3: ANALYSE DES MARGES ═══════════ */}
         <TabsContent value="marges">
           <div className="space-y-4">
+            {/* Rentabilité par activité */}
+            {analyse.rentabilite_par_activite?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Rentabilité par activité</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Activité</TableHead>
+                        <TableHead className="text-[10px] text-right">CA</TableHead>
+                        <TableHead className="text-[10px] text-right">% CA</TableHead>
+                        <TableHead className="text-[10px] text-right">Coûts directs</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge brute</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge %</TableHead>
+                        <TableHead className="text-[10px] text-right">EBE</TableHead>
+                        <TableHead className="text-[10px] text-center">Verdict</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analyse.rentabilite_par_activite.map((item: any, i: number) => {
+                        const rentable = (item.verdict || '').toLowerCase().includes('rentable') && !(item.verdict || '').toLowerCase().includes('déficitaire');
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{item.activite || item.nom}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.ca)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{pctFmt(item.pct_ca)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.couts_directs)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.marge_brute)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{pctFmt(item.marge_pct)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.ebe)}</TableCell>
+                            <TableCell className="text-[10px] text-center">
+                              <Badge variant={rentable ? 'default' : 'destructive'} className="text-[9px]">
+                                {rentable ? 'Rentable' : 'Déficitaire'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Seuil de rentabilité */}
             <Card>
               <CardContent className="py-3">
@@ -417,6 +461,44 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
               </CardContent>
             </Card>
+
+            {/* Ratios vs benchmarks */}
+            {analyse.ratios_vs_benchmarks?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Ratios vs benchmarks sectoriels</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Indicateur</TableHead>
+                        <TableHead className="text-[10px] text-right">Valeur</TableHead>
+                        <TableHead className="text-[10px] text-right">Benchmark</TableHead>
+                        <TableHead className="text-[10px] text-center">Statut</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analyse.ratios_vs_benchmarks.map((r: any, i: number) => {
+                        const statut = (r.statut || r.status || '').toLowerCase();
+                        const isOk = statut.includes('ok') || statut.includes('bon') || statut.includes('conforme');
+                        const isWarn = statut.includes('attention') || statut.includes('moyen');
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{r.label}</TableCell>
+                            <TableCell className="text-[10px] text-right font-semibold">{r.valeur}</TableCell>
+                            <TableCell className="text-[10px] text-right text-muted-foreground">{r.benchmark}</TableCell>
+                            <TableCell className="text-[10px] text-center">
+                              <Badge variant="outline" className={`text-[9px] ${isOk ? 'bg-green-50 text-green-700 border-green-200' : isWarn ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                {r.statut || r.status || '—'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -536,6 +618,32 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+            {/* Avant / Après investissement OVO */}
+            {analyse.avant_apres_ovo && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Avant / Après investissement OVO</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
+                      <p className="text-[10px] font-semibold text-red-700 uppercase mb-2">Sans investissement</p>
+                      <div className="space-y-1 text-xs">
+                        {Object.entries(analyse.avant_apres_ovo.sans || {}).map(([k, v]: [string, any]) => (
+                          <Row key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? fmtM(v) : String(v ?? '—')} color="text-red-700" />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-green-200 bg-green-50/50 p-3">
+                      <p className="text-[10px] font-semibold text-green-700 uppercase mb-2">Avec investissement</p>
+                      <div className="space-y-1 text-xs">
+                        {Object.entries(analyse.avant_apres_ovo.avec || {}).map(([k, v]: [string, any]) => (
+                          <Row key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? fmtM(v) : String(v ?? '—')} color="text-green-700" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -609,6 +717,40 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                             return s + (y5.effectif || 0);
                           }, 0)}
                         </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* OPEX par catégorie */}
+            {data.opex_categories?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">OPEX par catégorie</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Poste</TableHead>
+                        <TableHead className="text-[10px] text-right">Montant ({devise})</TableHead>
+                        <TableHead className="text-[10px] text-right">%</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.opex_categories.map((op: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-[10px]">{op.poste}</TableCell>
+                          <TableCell className="text-[10px] text-right">{fmtM(op.montant)}</TableCell>
+                          <TableCell className="text-[10px] text-right">{pctFmt(op.pct)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/30">
+                        <TableCell className="text-[10px] font-bold">Total OPEX</TableCell>
+                        <TableCell className="text-[10px] text-right font-bold">
+                          {fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}
+                        </TableCell>
+                        <TableCell className="text-[10px] text-right font-bold">100%</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -690,6 +832,50 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
               </CardContent>
             </Card>
+
+            {/* Échéancier de remboursement */}
+            {data.echeancier?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Échéancier de remboursement</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Prêt</TableHead>
+                          {data.echeancier[0]?.annees?.map((_: any, i: number) => (
+                            <TableHead key={i} className="text-[10px] text-right">An {i + 1}</TableHead>
+                          )) || projections.filter((p: any) => !p.is_reel).map((p: any) => (
+                            <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.echeancier.map((pret: any, i: number) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{pret.label || pret.pret}</TableCell>
+                            {(pret.annees || pret.montants || []).map((val: any, j: number) => {
+                              const montant = typeof val === 'object' ? val.montant : val;
+                              const dscr = typeof val === 'object' ? val.dscr : null;
+                              return (
+                                <TableCell key={j} className="text-[10px] text-right">
+                                  <div>{fmtM(montant)}</div>
+                                  {dscr != null && (
+                                    <div className={`text-[9px] font-semibold ${dscr >= 1.5 ? 'text-green-600' : dscr >= 1.2 ? 'text-amber-600' : 'text-red-600'}`}>
+                                      DSCR {dscr}x
+                                    </div>
+                                  )}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
       </Tabs>
