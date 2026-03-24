@@ -18,10 +18,10 @@ const COUNTRIES = [
 ];
 
 export default function Register() {
-  const [_searchParams] = useSearchParams();
-  const initialRole = 'coach' as AppRole;
+  const [searchParams] = useSearchParams();
+  const initialRole = (searchParams.get('role') === 'entrepreneur' ? 'entrepreneur' : 'coach') as AppRole;
 
-  const [selectedRole] = useState<AppRole>(initialRole);
+  const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
