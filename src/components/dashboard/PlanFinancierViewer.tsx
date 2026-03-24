@@ -415,6 +415,20 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
               </div>
             )}
+
+            {/* ── Analyse investisseur ── */}
+            <AnalysisSection
+              title="Analyse investisseur"
+              icon={<TrendingUp className="h-4 w-4 text-primary" />}
+              data={analyseInvestisseur}
+            />
+
+            {/* ── Analyse coaching ── */}
+            <AnalysisSection
+              title="Analyse coaching"
+              icon={<Users className="h-4 w-4 text-primary" />}
+              data={analyseCoaching}
+            />
           </div>
         </TabsContent>
 
