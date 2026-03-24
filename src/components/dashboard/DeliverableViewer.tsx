@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import FrameworkViewerComponent from './FrameworkViewer';
 import PlanOvoViewerComponent from './PlanOvoViewer';
 import { OddViewer as OddViewerComponent } from './OddViewer';
+import PlanFinancierViewerComponent from './PlanFinancierViewer';
 
 interface DeliverableViewerProps {
   moduleCode: string;
@@ -46,6 +47,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
       } : undefined;
       return wrapWithRegenerate(<PlanOvoViewerComponent data={data} staleness={staleness} />);
     }
+    case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} />);
     case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
     case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} />);
     default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
