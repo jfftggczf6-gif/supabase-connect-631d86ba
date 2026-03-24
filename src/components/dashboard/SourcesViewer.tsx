@@ -1,4 +1,7 @@
-import { BookOpen, ExternalLink, FileText, Upload } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { BookOpen, ExternalLink, FileText, Upload, Database } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SourcesViewerProps {
   coachUploads?: { filename: string; category: string; created_at: string }[];
@@ -49,7 +52,47 @@ const BENCHMARK_SOURCES = [
   },
 ];
 
+const CATEGORY_LABELS: Record<string, string> = {
+  rapport: 'Rapports',
+  dataset: 'Datasets',
+  etude: 'Études',
+  base_legale: 'Bases légales',
+  methodologie: 'Méthodologies',
+  programme: 'Programmes',
+  classement: 'Classements',
+  rapport_annuel: 'Rapports annuels',
+  magazine: 'Magazines',
+  strategie: 'Stratégies',
+  enquete: 'Enquêtes',
+  communique: 'Communiqués',
+};
+
 export default function SourcesViewer({ coachUploads }: SourcesViewerProps) {
+  const [kbEntries, setKbEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('knowledge_base')
+        .select('id, title, source, tags, category')
+        .order('category')
+        .limit(500);
+      setKbEntries(data || []);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const groupedByCategory = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    kbEntries.forEach(entry => {
+      const cat = entry.category || 'autre';
+      (groups[cat] ||= []).push(entry);
+    });
+    return groups;
+  }, [kbEntries]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -112,6 +155,44 @@ export default function SourcesViewer({ coachUploads }: SourcesViewerProps) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Section 3 — Base de connaissances dynamique */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+          <Database className="h-3.5 w-3.5" />
+          Base de connaissances ESONO
+        </h3>
+        {loading ? (
+          <p className="text-xs text-muted-foreground">Chargement…</p>
+        ) : kbEntries.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucune entrée dans la base de connaissances.</p>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(groupedByCategory).map(([cat, entries]) => (
+              <div key={cat}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  {CATEGORY_LABELS[cat] || cat} ({entries.length})
+                </p>
+                <div className="space-y-1.5">
+                  {entries.map((entry: any) => (
+                    <div key={entry.id} className="border rounded-lg p-2.5 bg-card">
+                      <p className="text-sm font-medium">{entry.title}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {entry.source && (
+                          <span className="text-[10px] text-muted-foreground">{entry.source}</span>
+                        )}
+                        {entry.tags?.map((tag: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[9px] h-4">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

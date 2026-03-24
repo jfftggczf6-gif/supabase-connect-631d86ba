@@ -666,6 +666,12 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         <Row label="Volume N" value={fmt(p.volume_annuel)} />
                         <Row label="Croissance" value={`+${(p.taux_croissance_volume * 100).toFixed(0)}%/an`} color="text-green-600" />
                       </div>
+                      {p.estimation && (
+                        <p className="text-[10px] text-muted-foreground/60 italic mt-1">
+                          {p.estimation.methode}
+                          {p.estimation.sources && ` — Sources : ${p.estimation.sources.join(', ')}`}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -781,7 +787,15 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                     <TableBody>
                       {capexItems.map((c: any, i: number) => (
                         <TableRow key={i}>
-                          <TableCell className="text-[10px] font-medium">{c.label}</TableCell>
+                          <TableCell className="text-[10px] font-medium">
+                            {c.label}
+                            {c.estimation && (
+                              <p className="text-[10px] text-muted-foreground/60 italic mt-0.5">
+                                {c.estimation.methode}
+                                {c.estimation.sources && ` — Sources : ${c.estimation.sources.join(', ')}`}
+                              </p>
+                            )}
+                          </TableCell>
                           <TableCell className="text-[10px] text-muted-foreground">{c.categorie}</TableCell>
                           <TableCell className="text-[10px] text-right">{fmtM(c.acquisition_value || c.montant)}</TableCell>
                           <TableCell className="text-[10px] text-right">{c.acquisition_year || c.annee}</TableCell>
