@@ -986,7 +986,8 @@ export default function EntrepreneurDashboard({
   const selectedMod = MODULE_CONFIG.find(m => m.code === selectedModule);
   const delivTypeMap: Record<string, string> = {
     bmc: 'bmc_analysis', sic: 'sic_analysis', inputs: 'inputs_data', framework: 'framework_data',
-    diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', business_plan: 'business_plan', odd: 'odd_analysis',
+    diagnostic: 'diagnostic_data', plan_ovo: 'plan_ovo', plan_financier: 'plan_financier',
+    business_plan: 'business_plan', odd: 'odd_analysis',
     screening: 'screening_report', pre_screening: 'pre_screening',
     valuation: 'valuation', onepager: 'onepager', investment_memo: 'investment_memo',
   };
