@@ -787,7 +787,15 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                     <TableBody>
                       {capexItems.map((c: any, i: number) => (
                         <TableRow key={i}>
-                          <TableCell className="text-[10px] font-medium">{c.label}</TableCell>
+                          <TableCell className="text-[10px] font-medium">
+                            {c.label}
+                            {c.estimation && (
+                              <p className="text-[10px] text-muted-foreground/60 italic mt-0.5">
+                                {c.estimation.methode}
+                                {c.estimation.sources && ` — Sources : ${c.estimation.sources.join(', ')}`}
+                              </p>
+                            )}
+                          </TableCell>
                           <TableCell className="text-[10px] text-muted-foreground">{c.categorie}</TableCell>
                           <TableCell className="text-[10px] text-right">{fmtM(c.acquisition_value || c.montant)}</TableCell>
                           <TableCell className="text-[10px] text-right">{c.acquisition_year || c.annee}</TableCell>
