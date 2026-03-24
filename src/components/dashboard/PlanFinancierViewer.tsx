@@ -618,6 +618,32 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+            {/* Avant / Après investissement OVO */}
+            {analyse.avant_apres_ovo && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Avant / Après investissement OVO</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
+                      <p className="text-[10px] font-semibold text-red-700 uppercase mb-2">Sans investissement</p>
+                      <div className="space-y-1 text-xs">
+                        {Object.entries(analyse.avant_apres_ovo.sans || {}).map(([k, v]: [string, any]) => (
+                          <Row key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? fmtM(v) : String(v ?? '—')} color="text-red-700" />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-green-200 bg-green-50/50 p-3">
+                      <p className="text-[10px] font-semibold text-green-700 uppercase mb-2">Avec investissement</p>
+                      <div className="space-y-1 text-xs">
+                        {Object.entries(analyse.avant_apres_ovo.avec || {}).map(([k, v]: [string, any]) => (
+                          <Row key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? fmtM(v) : String(v ?? '—')} color="text-green-700" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
