@@ -808,10 +808,45 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </CardContent>
             </Card>
 
+            {/* Échéancier de remboursement */}
+            {data.echeancier?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Échéancier de remboursement</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Prêt</TableHead>
+                          {data.echeancier[0]?.annees?.map((a: any) => (
+                            <TableHead key={a.annee} className="text-[10px] text-right">{a.annee}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.echeancier.map((row: any, i: number) => (
+                          <TableRow key={i} className={row.is_total ? 'bg-muted/30' : row.is_dscr ? '' : ''}>
+                            <TableCell className={`text-[10px] ${row.is_total ? 'font-semibold' : row.is_dscr ? 'text-green-700' : row.dim ? 'text-muted-foreground' : ''}`}>
+                              {row.label}
+                            </TableCell>
+                            {row.annees?.map((a: any) => (
+                              <TableCell key={a.annee} className={`text-[10px] text-right ${row.is_total ? 'font-semibold' : ''} ${row.is_dscr ? (Number(String(a.valeur).replace('x', '')) < 1.5 ? 'text-amber-600 font-medium' : 'text-green-700 font-medium') : ''}`}>
+                                {a.valeur || '—'}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* BFR */}
             <Card>
               <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">BFR et trésorerie</p>
+                <p className="text-sm font-semibold mb-3">BFR et trésorerie prévisionnelle</p>
                 <div className="grid grid-cols-3 gap-2">
                   <MetricBox label="Stock" value={`${data.working_capital?.stock_days?.[0] || 0}j`} />
                   <MetricBox label="Clients" value={`${data.working_capital?.receivable_days?.[0] || 0}j`} />
