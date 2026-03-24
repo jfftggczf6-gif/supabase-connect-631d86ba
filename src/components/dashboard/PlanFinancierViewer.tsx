@@ -211,22 +211,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Cohérence BMC */}
-            {analyse.coherence_bmc?.length > 0 && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-2">Cohérence BMC ↔ Financiers</p>
-                  <div className="space-y-1.5">
-                    {analyse.coherence_bmc.map((c: any, i: number) => (
-                      <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${c.niveau === 'erreur' ? 'bg-red-50 text-red-700' : c.niveau === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-muted/30 text-muted-foreground'}`}>
-                        <span className="font-semibold mr-1">{c.niveau === 'erreur' ? '!!' : c.niveau === 'warning' ? '!' : '✓'}</span>
-                        {c.texte}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+
 
             {/* Scénarios */}
             {Object.keys(scenarios).length > 0 && (
