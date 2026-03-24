@@ -2,13 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, ComposedChart, Area,
+  Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, ComposedChart,
 } from 'recharts';
 import { useMemo } from 'react';
-import { formatCompact, getDevise } from '@/lib/format-currency';
+import { getDevise } from '@/lib/format-currency';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -33,22 +32,6 @@ const pctFmt = (n: any) => {
   return `${v.toFixed(1)}%`;
 };
 
-const colorForStatus = (v: number, goodMin: number, warnMin: number, inverse = false) => {
-  if (inverse) return v <= goodMin ? 'text-green-600' : v <= warnMin ? 'text-amber-600' : 'text-red-600';
-  return v >= goodMin ? 'text-green-600' : v >= warnMin ? 'text-amber-600' : 'text-red-600';
-};
-
-const statusBadge = (status: string) => {
-  const map: Record<string, { label: string; cls: string }> = {
-    bon: { label: 'Bon', cls: 'bg-green-50 text-green-700 border-green-200' },
-    conforme: { label: 'Conforme', cls: 'bg-green-50 text-green-700 border-green-200' },
-    attention: { label: 'Attention', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-    faible: { label: 'Faible', cls: 'bg-red-50 text-red-700 border-red-200' },
-    critique: { label: 'Critique', cls: 'bg-red-50 text-red-700 border-red-200' },
-  };
-  const s = map[status] || map.attention;
-  return <span className={`text-[9px] px-1.5 py-0.5 rounded border ${s!.cls}`}>{s!.label}</span>;
-};
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -67,7 +50,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
   const seuil = data.seuil_rentabilite || {};
   const indicateurs = data.indicateurs_decision || {};
   const produits = data.produits || [];
-  const services = data.services || [];
+  
   const staff = data.staff || [];
   const capexItems = data.capex || [];
   const loans = data.loans || {};
