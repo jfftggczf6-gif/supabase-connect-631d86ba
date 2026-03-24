@@ -1918,119 +1918,300 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
 
         {/* ═══════════ TAB 7: INVESTISSEMENT ═══════════ */}
         <TabsContent value="investissement">
-          <div className="space-y-4">
+          <div className="space-y-6">
+
+            {/* ─── CAPEX ─── */}
             {capexItems.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Plan d'investissement (CAPEX)</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[10px]">Investissement</TableHead>
-                        <TableHead className="text-[10px]">Catégorie</TableHead>
-                        <TableHead className="text-[10px] text-right">Montant</TableHead>
-                        <TableHead className="text-[10px] text-right">Année</TableHead>
-                        <TableHead className="text-[10px] text-right">Amort.</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {capexItems.map((c: any, i: number) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-[10px] font-medium">
-                            {c.label}
-                            <Tracabilite estimation={c.estimation} />
-                          </TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground">{c.categorie}</TableCell>
-                          <TableCell className="text-[10px] text-right">{fmtM(c.acquisition_value || c.montant)}</TableCell>
-                          <TableCell className="text-[10px] text-right">{c.acquisition_year || c.annee}</TableCell>
-                          <TableCell className="text-[10px] text-right">{((c.amortisation_rate || c.taux_amortissement || 0) * 100).toFixed(0)}%</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={2} className="text-[10px] font-semibold">Total CAPEX</TableCell>
-                        <TableCell className="text-[10px] text-right font-semibold">
-                          {fmtM(capexItems.reduce((s: number, c: any) => s + (c.acquisition_value || c.montant || 0), 0))}
-                        </TableCell>
-                        <TableCell colSpan={2} />
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">Plan de financement</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Prêt OVO', data: loans.ovo, cls: 'bg-blue-50 text-blue-700' },
-                    { label: 'Autofinancement', data: loans.family, cls: 'bg-muted' },
-                    { label: 'Crédit bancaire', data: loans.bank, cls: 'bg-muted' },
-                  ].map((l) => (
-                    <div key={l.label} className={`rounded-lg p-3 text-center ${l.cls}`}>
-                      <p className="text-[10px] text-muted-foreground">{l.label}</p>
-                      <p className="text-base font-bold mt-1">{fmtM(l.data?.amount)}</p>
-                      <p className="text-[9px] text-muted-foreground">{((l.data?.rate || 0) * 100).toFixed(0)}% • {l.data?.term_years || 0} ans</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">BFR et trésorerie</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <MetricBox label="Stock" value={`${data.working_capital?.stock_days?.[0] || 0}j`} />
-                  <MetricBox label="Clients" value={`${data.working_capital?.receivable_days?.[0] || 0}j`} />
-                  <MetricBox label="Fournisseurs" value={`${data.working_capital?.payable_days?.[0] || 0}j`} />
-                </div>
-              </CardContent>
-            </Card>
-
-            {data.echeancier?.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Échéancier de remboursement</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-[10px]">Prêt</TableHead>
-                          {data.echeancier[0]?.annees?.map((_: any, i: number) => (
-                            <TableHead key={i} className="text-[10px] text-right">An {i + 1}</TableHead>
-                          )) || projections.filter((p: any) => !p.is_reel).map((p: any) => (
-                            <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.echeancier.map((pret: any, i: number) => (
-                          <TableRow key={i}>
-                            <TableCell className="text-[10px] font-medium">{pret.label || pret.pret}</TableCell>
-                            {(pret.annees || pret.montants || []).map((val: any, j: number) => {
-                              const montant = typeof val === 'object' ? val.montant : val;
-                              const dscr = typeof val === 'object' ? val.dscr : null;
-                              return (
-                                <TableCell key={j} className="text-[10px] text-right">
-                                  <div>{fmtM(montant)}</div>
-                                  {dscr != null && (
-                                    <div className={`text-[9px] font-semibold ${dscr >= 1.5 ? 'text-green-600' : dscr >= 1.2 ? 'text-amber-600' : 'text-red-600'}`}>
-                                      DSCR {dscr}x
-                                    </div>
-                                  )}
-                                </TableCell>
-                              );
-                            })}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-primary" /> Plan d'investissement (CAPEX)
+                </p>
+                <Card>
+                  <CardContent className="py-3 px-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Investissement</TableHead>
+                            <TableHead className="text-[10px]">Catégorie</TableHead>
+                            <TableHead className="text-[10px] text-right">Montant ({devise})</TableHead>
+                            <TableHead className="text-[10px] text-right">Année</TableHead>
+                            <TableHead className="text-[10px] text-right">Durée amort.</TableHead>
+                            <TableHead className="text-[10px] text-right">Dot. annuelle</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {capexItems.map((c: any, i: number) => {
+                            const montant = c.acquisition_value || c.montant || 0;
+                            const taux = c.amortisation_rate || c.taux_amortissement || 0;
+                            const duree = c.duree_amortissement || c.amortissement_annees || (taux > 0 ? Math.round(1 / taux) : 0);
+                            const dotation = duree > 0 ? montant / duree : montant * taux;
+                            return (
+                              <TableRow key={i}>
+                                <TableCell className="text-[10px] font-medium">
+                                  {c.label || c.nom}
+                                  <Tracabilite estimation={c.estimation} />
+                                </TableCell>
+                                <TableCell className="text-[10px] text-muted-foreground">{c.categorie || '—'}</TableCell>
+                                <TableCell className="text-[10px] text-right">{fmtM(montant)}</TableCell>
+                                <TableCell className="text-[10px] text-right">{c.acquisition_year || c.annee || '—'}</TableCell>
+                                <TableCell className="text-[10px] text-right">{duree > 0 ? `${duree} ans` : `${(taux * 100).toFixed(0)}%`}</TableCell>
+                                <TableCell className="text-[10px] text-right">{fmtM(dotation)}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          <TableRow className="bg-muted/30">
+                            <TableCell colSpan={2} className="text-[10px] font-semibold">Total CAPEX</TableCell>
+                            <TableCell className="text-[10px] text-right font-semibold">
+                              {fmtM(capexItems.reduce((s: number, c: any) => s + (c.acquisition_value || c.montant || 0), 0))}
+                            </TableCell>
+                            <TableCell colSpan={2} />
+                            <TableCell className="text-[10px] text-right font-semibold">
+                              {fmtM(capexItems.reduce((s: number, c: any) => {
+                                const m = c.acquisition_value || c.montant || 0;
+                                const t = c.amortisation_rate || c.taux_amortissement || 0;
+                                const d = c.duree_amortissement || c.amortissement_annees || (t > 0 ? Math.round(1 / t) : 0);
+                                return s + (d > 0 ? m / d : m * t);
+                              }, 0))}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Amortissements par année */}
+                {projections.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Amortissements prévisionnels</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Poste</TableHead>
+                              {projections.map((p: any) => (
+                                <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {[
+                              { label: 'CAPEX annuel', key: 'capex_annuel' },
+                              { label: 'Amortissements', key: 'amortissement', bold: true },
+                              { label: 'VNC (valeur nette)', key: 'vnc' },
+                            ].filter(r => r.key === 'amortissement' || projections.some((p: any) => p[r.key] != null)).map((row) => (
+                              <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                                <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
+                                {projections.map((p: any) => (
+                                  <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''}`}>
+                                    {fmtM(p[row.key])}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ─── FINANCEMENT ─── */}
+            <div className="space-y-3">
+              <p className="text-sm font-semibold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" /> Plan de financement
+              </p>
+
+              {/* Cartes prêts — format enrichi */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { key: 'ovo', label: 'Prêt OVO', data: loans.ovo, fallback: { amount: loans.ovo?.amount, rate: loans.ovo?.rate, term_years: loans.ovo?.term_years } },
+                  { key: 'bancaire', label: 'Crédit bancaire', data: loans.bancaire || loans.bank },
+                  { key: 'famille', label: 'Autofinancement / Famille', data: loans.famille || loans.family },
+                ].filter(l => {
+                  const d = l.data;
+                  return d && ((d.montant || d.amount || 0) > 0);
+                }).map((l) => {
+                  const d = l.data;
+                  const montant = d.montant || d.amount || 0;
+                  const taux = d.taux || d.rate || 0;
+                  const duree = d.duree_mois || d.term_months || ((d.term_years || d.duree_annees || 0) * 12);
+                  const grace = d.grace_mois || d.grace_months || 0;
+                  const mensualite = d.mensualite || d.monthly_payment || 0;
+                  return (
+                    <Card key={l.key}>
+                      <CardContent className="py-3">
+                        <p className="text-xs font-semibold mb-2">{l.label}</p>
+                        <p className="text-xl font-bold text-primary">{fmtM(montant)} <span className="text-xs font-normal text-muted-foreground">{devise}</span></p>
+                        <div className="space-y-1 mt-2 text-[11px]">
+                          <Row label="Taux" value={pctFmt(taux > 1 ? taux : taux * 100)} />
+                          {duree > 0 && <Row label="Durée" value={`${duree} mois (${(duree / 12).toFixed(1)} ans)`} />}
+                          {grace > 0 && <Row label="Différé" value={`${grace} mois`} />}
+                          {mensualite > 0 && <Row label="Mensualité" value={`${fmtM(mensualite)} ${devise}`} />}
+                        </div>
+                        <Tracabilite estimation={d.estimation} />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Sources de financement complémentaires */}
+              {data.financing && Array.isArray(data.financing) && data.financing.length > 0 && (
+                <Card>
+                  <CardContent className="py-3">
+                    <p className="text-xs font-semibold mb-2">Sources complémentaires</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {data.financing.map((f: any, i: number) => (
+                        <div key={i} className="border border-border rounded-lg p-2.5 text-[11px] space-y-1">
+                          <p className="font-semibold text-xs">{f.source || f.type || 'Source'}</p>
+                          {f.montant != null && <Row label="Montant" value={`${fmtM(f.montant)} ${devise}`} />}
+                          {f.part != null && <Row label="Part" value={pctFmt((f.part || 0) * 100)} />}
+                          {f.condition && <Row label="Conditions" value={f.condition} />}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {data.financing && typeof data.financing === 'object' && !Array.isArray(data.financing) && Object.keys(data.financing).length > 0 && (
+                <Card>
+                  <CardContent className="py-3">
+                    <p className="text-xs font-semibold mb-2">Détail du financement</p>
+                    <div className="space-y-1 text-[11px]">
+                      {Object.entries(data.financing).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([key, val]: [string, any]) => {
+                        if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                          return (
+                            <div key={key} className="bg-muted/30 rounded-lg p-2.5 mb-1.5">
+                              <p className="text-[10px] font-semibold mb-1">{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+                              <div className="space-y-0.5">
+                                {Object.entries(val).filter(([k]) => !['sources', 'methode', 'hypotheses'].includes(k)).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between text-[10px]">
+                                    <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
+                                    <span className="font-medium">{typeof v === 'number' ? fmtM(v) : String(v)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return <Row key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} value={typeof val === 'number' ? fmtM(val) : String(val || '—')} />;
+                      })}
+                    </div>
+                    <Tracabilite estimation={data.financing} />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* ─── BFR & TRÉSORERIE ─── */}
+            <div className="space-y-3">
+              <p className="text-sm font-semibold flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" /> BFR et trésorerie
+              </p>
+              <Card>
+                <CardContent className="py-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <MetricBox label="Délai clients" value={`${data.working_capital?.receivable_days?.[0] || data.bfr?.delai_clients || 0} j`} />
+                    <MetricBox label="Délai fournisseurs" value={`${data.working_capital?.payable_days?.[0] || data.bfr?.delai_fournisseurs || 0} j`} />
+                    <MetricBox label="Rotation stock" value={`${data.working_capital?.stock_days?.[0] || data.bfr?.delai_stock || 0} j`} />
+                    <MetricBox label="BFR (jrs CA)" value={`${data.bfr?.bfr_jours_ca || '—'} j`} />
                   </div>
+                  <Tracabilite estimation={data.bfr?.estimation || data.working_capital?.estimation} />
                 </CardContent>
               </Card>
+
+              {/* Évolution BFR/trésorerie sur les projections */}
+              {projections.length > 0 && projections.some((p: any) => p.bfr != null || p.tresorerie_cumulee != null) && (
+                <Card>
+                  <CardContent className="py-3 px-0">
+                    <p className="text-xs font-semibold px-4 mb-2">Évolution BFR & trésorerie</p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Poste</TableHead>
+                            {projections.map((p: any) => (
+                              <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {[
+                            { label: 'BFR', key: 'bfr' },
+                            { label: 'Δ BFR', key: 'variation_bfr' },
+                            { label: 'Trésorerie cumulée', key: 'tresorerie_cumulee', bold: true },
+                          ].filter(r => projections.some((p: any) => p[r.key] != null)).map((row) => (
+                            <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                              <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
+                              {projections.map((p: any) => (
+                                <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''}`}>
+                                  {fmtM(p[row.key])}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* ─── ÉCHÉANCIER ─── */}
+            {data.echeancier?.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Échéancier de remboursement
+                </p>
+                <Card>
+                  <CardContent className="py-3 px-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Prêt</TableHead>
+                            {data.echeancier[0]?.annees?.map((_: any, i: number) => (
+                              <TableHead key={i} className="text-[10px] text-right">An {i + 1}</TableHead>
+                            )) || projections.filter((p: any) => !p.is_reel).map((p: any) => (
+                              <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.echeancier.map((pret: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-[10px] font-medium">{pret.label || pret.pret}</TableCell>
+                              {(pret.annees || pret.montants || []).map((val: any, j: number) => {
+                                const montant = typeof val === 'object' ? val.montant : val;
+                                const dscr = typeof val === 'object' ? val.dscr : null;
+                                return (
+                                  <TableCell key={j} className="text-[10px] text-right">
+                                    <div>{fmtM(montant)}</div>
+                                    {dscr != null && (
+                                      <div className={`text-[9px] font-semibold ${dscr >= 1.5 ? 'text-green-600' : dscr >= 1.2 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        DSCR {dscr}x
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                );
+                              })}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
+
           </div>
         </TabsContent>
 
