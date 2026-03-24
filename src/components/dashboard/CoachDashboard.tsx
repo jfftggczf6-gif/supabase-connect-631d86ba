@@ -79,6 +79,7 @@ export default function CoachDashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', contact_email: '' });
   const [addLoading, setAddLoading] = useState(false);
+  const [showKBManager, setShowKBManager] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
   const [reportPreview, setReportPreview] = useState<{ html: string; enterpriseName: string } | null>(null);
   const [fullscreen, setFullscreen] = useState(!!entIdFromUrl);
