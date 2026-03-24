@@ -69,12 +69,23 @@ export default function Register() {
           </p>
         </div>
 
-        {/* Role fixed to coach for pilot */}
         <div className="flex mb-6 bg-muted rounded-lg p-1">
-          <div className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium bg-primary text-primary-foreground shadow-sm">
+          <button
+            type="button"
+            onClick={() => setSelectedRole('coach')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${selectedRole === 'coach' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
             <GraduationCap className="h-4 w-4" />
             Coach
-          </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedRole('entrepreneur')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${selectedRole === 'entrepreneur' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Building2 className="h-4 w-4" />
+            Entrepreneur
+          </button>
         </div>
 
         {/* Form card */}
