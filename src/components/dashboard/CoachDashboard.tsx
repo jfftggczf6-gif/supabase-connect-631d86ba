@@ -747,6 +747,16 @@ export default function CoachDashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Knowledge Base Manager Dialog */}
+      <Dialog open={showKBManager} onOpenChange={setShowKBManager}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Base de connaissances</DialogTitle>
+          </DialogHeader>
+          <KnowledgeBaseManager />
+        </DialogContent>
+      </Dialog>
+
     </DashboardLayout>
   );
 }
