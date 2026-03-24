@@ -526,6 +526,198 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 3: ANALYSE DES MARGES ═══════════ */}
         <TabsContent value="marges">
           <div className="space-y-4">
+
+            {/* KPIs marges résumé */}
+            <div className="grid grid-cols-4 gap-2">
+              <MetricBox label="Marge brute" value={pctFmt(sante.rentabilite?.marge_brute_pct)} color={sante.rentabilite?.marge_brute_pct >= 30 ? 'text-green-600' : 'text-amber-600'} sub="bench 30-50%" />
+              <MetricBox label="Marge EBITDA" value={pctFmt(sante.rentabilite?.marge_ebitda_pct)} color={sante.rentabilite?.marge_ebitda_pct >= 10 ? 'text-green-600' : 'text-amber-600'} sub="bench 10-20%" />
+              <MetricBox label="Marge nette" value={pctFmt(sante.rentabilite?.marge_nette_pct)} />
+              <MetricBox label="Seuil rentabilité" value={fmtM(seuil.seuil_annuel)} sub={seuil.marge_securite_pct != null ? `+${seuil.marge_securite_pct}% sécurité` : undefined} />
+            </div>
+
+            {/* Cascade CA → Résultat net */}
+            {(kpis.ca || cyProj?.ca) && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Où se crée la marge</p>
+                  {(() => {
+                    const ca = kpis.ca || cyProj?.ca || 0;
+                    const cogs = cyProj?.cogs || 0;
+                    const mb = cyProj?.marge_brute || (ca - cogs);
+                    const opex = cyProj?.opex_total || 0;
+                    const ebitda = cyProj?.ebitda || (mb - opex);
+                    const amort = cyProj?.amortissement || 0;
+                    const rn = cyProj?.resultat_net || (ebitda - amort);
+                    const steps = [
+                      { label: "Chiffre d'affaires", value: ca, color: 'bg-blue-500' },
+                      { label: 'Achats / COGS', value: -Math.abs(cogs), color: 'bg-red-400' },
+                      { label: 'Marge brute', value: mb, color: 'bg-green-500', bold: true },
+                      { label: 'OPEX', value: -Math.abs(opex), color: 'bg-red-400' },
+                      { label: 'EBITDA', value: ebitda, color: 'bg-green-400', bold: true },
+                      { label: 'Amortissements', value: -Math.abs(amort), color: 'bg-red-300' },
+                      { label: 'Résultat net', value: rn, color: rn >= 0 ? 'bg-green-600' : 'bg-red-600', bold: true },
+                    ];
+                    const maxVal = Math.max(...steps.map(s => Math.abs(s.value)), 1);
+                    return (
+                      <div className="space-y-1.5">
+                        {steps.map((s, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className={`text-[10px] w-[110px] shrink-0 text-right ${s.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{s.label}</span>
+                            <div className="flex-1 flex items-center">
+                              <div className={`h-4 rounded ${s.color}`} style={{ width: `${Math.max((Math.abs(s.value) / maxVal) * 100, 2)}%` }} />
+                            </div>
+                            <span className={`text-[10px] w-[70px] text-right ${s.value < 0 ? 'text-red-600' : s.bold ? 'font-semibold' : ''}`}>
+                              {s.value < 0 ? '−' : ''}{fmtM(Math.abs(s.value))}
+                            </span>
+                            {s.bold && ca > 0 && (
+                              <span className="text-[9px] text-muted-foreground w-[40px]">({pctFmt((s.value / ca) * 100)})</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Détail marges par produit */}
+            {produits.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Marges par produit</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Produit</TableHead>
+                        <TableHead className="text-[10px] text-right">Prix unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Coût unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge %</TableHead>
+                        <TableHead className="text-[10px] text-right">Volume</TableHead>
+                        <TableHead className="text-[10px] text-right">CA total</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge totale</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {produits.map((p: any, i: number) => {
+                        const prix = p.prix_unitaire || 0;
+                        const cout = p.cout_unitaire || 0;
+                        const margeUnit = prix - cout;
+                        const margePct = prix > 0 ? (margeUnit / prix) * 100 : 0;
+                        const vol = p.volume_annuel || 0;
+                        const caTotal = prix * vol;
+                        const margeTotal = margeUnit * vol;
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{p.nom}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmt(prix)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmt(cout)}</TableCell>
+                            <TableCell className={`text-[10px] text-right font-medium ${margeUnit >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmt(margeUnit)}</TableCell>
+                            <TableCell className={`text-[10px] text-right ${margePct >= 30 ? 'text-green-700' : margePct >= 10 ? 'text-amber-600' : 'text-red-700'}`}>{pctFmt(margePct)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmt(vol)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(caTotal)}</TableCell>
+                            <TableCell className={`text-[10px] text-right font-medium ${margeTotal >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmtM(margeTotal)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={6} className="text-[10px] font-semibold">Total produits</TableCell>
+                        <TableCell className="text-[10px] text-right font-semibold">
+                          {fmtM(produits.reduce((s: number, p: any) => s + (p.prix_unitaire || 0) * (p.volume_annuel || 0), 0))}
+                        </TableCell>
+                        <TableCell className="text-[10px] text-right font-semibold">
+                          {fmtM(produits.reduce((s: number, p: any) => s + ((p.prix_unitaire || 0) - (p.cout_unitaire || 0)) * (p.volume_annuel || 0), 0))}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Détail marges par service */}
+            {services.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Marges par service</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Service</TableHead>
+                        <TableHead className="text-[10px] text-right">Prix unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Coût unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge %</TableHead>
+                        <TableHead className="text-[10px] text-right">Volume</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge totale</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {services.map((s: any, i: number) => {
+                        const prix = s.prix_unitaire || 0;
+                        const cout = s.cout_unitaire || 0;
+                        const margePct = prix > 0 ? ((prix - cout) / prix) * 100 : 0;
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{s.nom}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmt(prix)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmt(cout)}</TableCell>
+                            <TableCell className={`text-[10px] text-right ${margePct >= 30 ? 'text-green-700' : 'text-amber-600'}`}>{pctFmt(margePct)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmt(s.volume_annuel || 0)}</TableCell>
+                            <TableCell className="text-[10px] text-right font-medium">{fmtM((prix - cout) * (s.volume_annuel || 0))}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Évolution des marges dans le temps */}
+            {projections.length > 1 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Évolution des marges</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Indicateur</TableHead>
+                          {projections.map((p: any) => (
+                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                              {p.annee_num}{p.is_reel ? ' ✓' : ''}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[
+                          { label: 'Marge brute %', key: 'marge_brute_pct', isPct: true },
+                          { label: 'EBITDA %', key: 'ebitda_pct', isPct: true },
+                          { label: 'Marge nette %', key: 'resultat_net', compute: (p: any) => p.ca > 0 ? (p.resultat_net / p.ca) * 100 : 0, isPct: true },
+                        ].map((row) => (
+                          <TableRow key={row.key}>
+                            <TableCell className="text-[10px] font-medium">{row.label}</TableCell>
+                            {projections.map((p: any) => {
+                              const val = row.compute ? row.compute(p) : p[row.key];
+                              const isGood = (val || 0) >= 10;
+                              return (
+                                <TableCell key={p.annee} className={`text-[10px] text-right font-medium ${p.is_reel ? 'bg-muted/30' : ''} ${isGood ? 'text-green-700' : (val || 0) >= 0 ? 'text-amber-600' : 'text-red-700'}`}>
+                                  {pctFmt(val)}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Rentabilité par activité (existant) */}
             {analyse.rentabilite_par_activite?.length > 0 && (
               <Card>
                 <CardContent className="py-3 px-0">
@@ -615,24 +807,49 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             )}
 
             {/* Seuil de rentabilité */}
-            <Card>
-              <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">Seuil de rentabilité</p>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <MetricBox label="Seuil annuel" value={fmtM(seuil.seuil_annuel)} />
-                  <MetricBox label="CA actuel" value={fmtM(seuil.ca_actuel)} />
-                  <MetricBox label="Marge sécurité" value={seuil.marge_securite_pct != null ? `+${seuil.marge_securite_pct}%` : '—'} color={seuil.marge_securite_pct > 20 ? 'text-green-600' : 'text-amber-600'} />
-                </div>
-                <div className="relative h-4 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-red-400 via-amber-400 to-green-400 rounded-full"
-                       style={{ width: `${Math.min(((seuil.ca_actuel || 0) / Math.max(seuil.ca_actuel || 1, seuil.seuil_annuel || 1)) * 100, 100)}%` }} />
-                  {seuil.seuil_annuel > 0 && seuil.ca_actuel > 0 && (
-                    <div className="absolute top-0 h-full w-0.5 bg-foreground"
-                         style={{ left: `${(seuil.seuil_annuel / Math.max(seuil.ca_actuel, seuil.seuil_annuel)) * 100}%` }} />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {(seuil.seuil_annuel || seuil.ca_actuel) && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Seuil de rentabilité</p>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <MetricBox label="Seuil annuel" value={fmtM(seuil.seuil_annuel)} />
+                    <MetricBox label="CA actuel" value={fmtM(seuil.ca_actuel)} />
+                    <MetricBox label="Marge sécurité" value={seuil.marge_securite_pct != null ? `+${seuil.marge_securite_pct}%` : '—'} color={seuil.marge_securite_pct > 20 ? 'text-green-600' : 'text-amber-600'} />
+                  </div>
+                  <div className="relative h-4 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-red-400 via-amber-400 to-green-400 rounded-full"
+                         style={{ width: `${Math.min(((seuil.ca_actuel || 0) / Math.max(seuil.ca_actuel || 1, seuil.seuil_annuel || 1)) * 100, 100)}%` }} />
+                    {seuil.seuil_annuel > 0 && seuil.ca_actuel > 0 && (
+                      <div className="absolute top-0 h-full w-0.5 bg-foreground"
+                           style={{ left: `${(seuil.seuil_annuel / Math.max(seuil.ca_actuel, seuil.seuil_annuel)) * 100}%` }} />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Structure coûts variables vs fixes */}
+            {data.structure_couts && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Structure des coûts</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Coûts variables ({data.structure_couts.pct_variables || 0}%)</p>
+                      {data.structure_couts.variables?.map((c: any, i: number) => (
+                        <CostBar key={i} label={c.poste} amount={c.montant} max={kpis.ca || 1} color="bg-red-400" />
+                      ))}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Coûts fixes ({(100 - (data.structure_couts.pct_variables || 0)).toFixed(0)}%)</p>
+                      {data.structure_couts.fixes?.map((c: any, i: number) => (
+                        <CostBar key={i} label={c.poste} amount={c.montant} max={kpis.ca || 1} color="bg-blue-400" />
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Ratios vs benchmarks */}
             {analyse.ratios_vs_benchmarks?.length > 0 && (
