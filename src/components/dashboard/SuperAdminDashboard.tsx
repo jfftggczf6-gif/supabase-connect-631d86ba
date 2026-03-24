@@ -8,14 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw, Target, Database } from 'lucide-react';
+import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw, Target, Database, Server, AlertTriangle } from 'lucide-react';
 import CoachesTab from './CoachesTab';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import ScreeningDashboard from './ScreeningDashboard';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 import WorkspaceKnowledgeManager from './WorkspaceKnowledgeManager';
+import { PIPELINE } from '@/lib/dashboard-config';
 
 interface Profile {
   user_id: string;
@@ -51,6 +53,7 @@ interface Deliverable {
   generated_by: string | null;
   coach_id?: string | null;
   visibility?: string | null;
+  data?: any;
 }
 
 interface CoachUpload {
@@ -71,6 +74,14 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchUsers, setSearchUsers] = useState('');
   const [searchEnterprises, setSearchEnterprises] = useState('');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [parserStatus, setParserStatus] = useState<'checking' | 'up' | 'down'>('checking');
+  const [parserVersion, setParserVersion] = useState('');
+  const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
+
+  // --- Helpers declared early ---
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const deliverableLabel = (type: string) => type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const fetchAll = async () => {
     setLoading(true);
@@ -78,7 +89,7 @@ export default function SuperAdminDashboard() {
       supabase.from('profiles').select('user_id, full_name, email, created_at'),
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('enterprises').select('id, name, user_id, coach_id, sector, country, phase, score_ir, last_activity, contact_email, created_at'),
-      supabase.from('deliverables').select('id, enterprise_id, type, created_at, generated_by, coach_id, visibility').order('created_at', { ascending: false }).limit(500),
+      supabase.from('deliverables').select('id, enterprise_id, type, created_at, generated_by, coach_id, visibility, data').order('created_at', { ascending: false }).limit(500),
       supabase.from('coach_uploads').select('id, coach_id, enterprise_id, filename, category, created_at').order('created_at', { ascending: false }).limit(500),
     ]);
     if (pRes.data) setProfiles(pRes.data);
@@ -89,7 +100,34 @@ export default function SuperAdminDashboard() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  // STEP 1 — Auto-refresh polling
+  useEffect(() => {
+    fetchAll();
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchAll, 30000);
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
+
+  // STEP 3 — Parser health check
+  useEffect(() => {
+    const checkParser = async () => {
+      try {
+        const resp = await fetch(`${import.meta.env.VITE_PARSER_URL}/health`, { signal: AbortSignal.timeout(5000) });
+        if (resp.ok) {
+          const data = await resp.json();
+          setParserStatus('up');
+          setParserVersion(data.version || '');
+        } else {
+          setParserStatus('down');
+        }
+      } catch {
+        setParserStatus('down');
+      }
+    };
+    checkParser();
+    const interval = setInterval(checkParser, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const roleMap = useMemo(() => {
     const m: Record<string, string[]> = {};
@@ -143,6 +181,45 @@ export default function SuperAdminDashboard() {
     );
   }, [enterprises, searchEnterprises]);
 
+  // STEP 5 — Combined activity feed
+  const recentActivity = useMemo(() => {
+    const items: Array<{ date: string; type: 'deliverable' | 'upload'; label: string; enterprise: string; user: string }> = [];
+
+    deliverables.slice(0, 30).forEach(d => {
+      const ent = enterpriseMap[d.enterprise_id];
+      items.push({
+        date: d.created_at,
+        type: 'deliverable',
+        label: deliverableLabel(d.type),
+        enterprise: ent?.name || '?',
+        user: d.generated_by || '—',
+      });
+    });
+
+    coachUploads.slice(0, 30).forEach(u => {
+      const ent = enterpriseMap[u.enterprise_id];
+      const coach = profileMap[u.coach_id];
+      items.push({
+        date: u.created_at,
+        type: 'upload',
+        label: u.filename,
+        enterprise: ent?.name || '?',
+        user: coach?.full_name || '—',
+      });
+    });
+
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50);
+  }, [deliverables, coachUploads, enterpriseMap, profileMap]);
+
+  // STEP 2 — Error deliverables
+  const errorDeliverables = useMemo(() =>
+    deliverables.filter(d => {
+      const data = d.data as any;
+      return data?.error || data?.status === 'failed' || data?.success === false;
+    }).slice(0, 50),
+    [deliverables]
+  );
+
   const handleReassignCoach = async (enterpriseId: string, newCoachId: string | null) => {
     const { error } = await supabase.from('enterprises').update({ coach_id: newCoachId || null }).eq('id', enterpriseId);
     if (error) {
@@ -172,14 +249,10 @@ export default function SuperAdminDashboard() {
     return 'outline';
   };
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-
-  const deliverableLabel = (type: string) => type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
   return (
     <DashboardLayout title="Administration" subtitle="Vue globale de la plateforme">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* KPI Cards — STEP 3: added parser status card */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {[
           { label: 'Utilisateurs', value: stats.users, icon: Users },
           { label: 'Coaches', value: stats.coaches, icon: UserCog },
@@ -198,12 +271,39 @@ export default function SuperAdminDashboard() {
             </CardContent>
           </Card>
         ))}
+        {/* Parser status card */}
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+              parserStatus === 'up' ? 'bg-emerald-100' : parserStatus === 'down' ? 'bg-red-100' : 'bg-muted'
+            }`}>
+              <Server className={`h-5 w-5 ${
+                parserStatus === 'up' ? 'text-emerald-600' : parserStatus === 'down' ? 'text-red-600' : 'text-muted-foreground'
+              }`} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {parserStatus === 'up' ? 'En ligne' : parserStatus === 'down' ? 'Hors ligne' : 'Vérification...'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Serveur Python {parserVersion ? `v${parserVersion}` : ''}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* STEP 1 — Auto-refresh toggle + manual refresh */}
       <div className="flex justify-end mb-4">
-        <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading} className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Actualiser
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} className="rounded" />
+            Auto-refresh 30s
+          </label>
+          <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Actualiser
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="users">
@@ -211,6 +311,7 @@ export default function SuperAdminDashboard() {
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
           <TabsTrigger value="coaches">Coaches</TabsTrigger>
           <TabsTrigger value="enterprises">Entreprises</TabsTrigger>
+          <TabsTrigger value="errors" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Erreurs{errorDeliverables.length > 0 ? ` (${errorDeliverables.length})` : ''}</TabsTrigger>
           <TabsTrigger value="screening" className="gap-1"><Target className="h-3.5 w-3.5" />Screening</TabsTrigger>
           <TabsTrigger value="knowledge" className="gap-1"><Database className="h-3.5 w-3.5" />Base de connaissances</TabsTrigger>
           <TabsTrigger value="activity">Activité récente</TabsTrigger>
@@ -275,7 +376,7 @@ export default function SuperAdminDashboard() {
           />
         </TabsContent>
 
-        {/* ENTERPRISES TAB */}
+        {/* ENTERPRISES TAB — STEP 4: clickable name */}
         <TabsContent value="enterprises">
           <Card>
             <CardHeader className="pb-3">
@@ -307,7 +408,12 @@ export default function SuperAdminDashboard() {
                     const owner = profileMap[e.user_id];
                     return (
                       <TableRow key={e.id}>
-                        <TableCell className="font-medium">{e.name}</TableCell>
+                        <TableCell
+                          className="font-medium cursor-pointer hover:text-primary hover:underline"
+                          onClick={() => setSelectedEnterprise(e)}
+                        >
+                          {e.name}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{owner?.full_name || owner?.email || e.user_id.slice(0, 8)}</TableCell>
                         <TableCell>
                           <Select
@@ -371,7 +477,46 @@ export default function SuperAdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* ACTIVITY TAB */}
+        {/* STEP 2 — ERRORS TAB */}
+        <TabsContent value="errors">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Générations en erreur</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Entreprise</TableHead>
+                    <TableHead>Module</TableHead>
+                    <TableHead>Erreur</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {errorDeliverables.map(d => {
+                    const ent = enterpriseMap[d.enterprise_id];
+                    const data = d.data as any;
+                    const errorMsg = data?.error || data?.detail || data?.message || 'Erreur inconnue';
+                    return (
+                      <TableRow key={d.id}>
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(d.created_at)}</TableCell>
+                        <TableCell className="font-medium">{ent?.name || d.enterprise_id.slice(0, 8)}</TableCell>
+                        <TableCell><Badge variant="destructive" className="text-xs">{deliverableLabel(d.type)}</Badge></TableCell>
+                        <TableCell className="text-sm text-destructive max-w-md truncate">{errorMsg}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!errorDeliverables.length && (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Aucune erreur détectée 🎉</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* STEP 5 — ENRICHED ACTIVITY TAB */}
         <TabsContent value="activity">
           <Card>
             <CardHeader>
@@ -383,25 +528,24 @@ export default function SuperAdminDashboard() {
                   <TableRow>
                     <TableHead>Type</TableHead>
                     <TableHead>Entreprise</TableHead>
-                    <TableHead>Généré par</TableHead>
+                    <TableHead>Par</TableHead>
                     <TableHead>Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {deliverables.slice(0, 50).map(d => {
-                    const ent = enterpriseMap[d.enterprise_id];
-                    return (
-                      <TableRow key={d.id}>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">{deliverableLabel(d.type)}</Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">{ent?.name || d.enterprise_id.slice(0, 8)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground capitalize">{d.generated_by || '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatDate(d.created_at)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {!deliverables.length && (
+                  {recentActivity.map((a, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Badge variant={a.type === 'deliverable' ? 'outline' : 'secondary'} className="text-xs">
+                          {a.type === 'deliverable' ? '📄' : '📤'} {a.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{a.enterprise}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground capitalize">{a.user}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(a.date)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {!recentActivity.length && (
                     <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Aucune activité</TableCell></TableRow>
                   )}
                 </TableBody>
@@ -426,6 +570,47 @@ export default function SuperAdminDashboard() {
           <WorkspaceKnowledgeManager />
         </TabsContent>
       </Tabs>
+
+      {/* STEP 4 — Enterprise pipeline dialog */}
+      {selectedEnterprise && (
+        <Dialog open={!!selectedEnterprise} onOpenChange={() => setSelectedEnterprise(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{selectedEnterprise.name} — Pipeline</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 mt-4">
+              {PIPELINE.map(step => {
+                const deliv = deliverables.find(
+                  d => d.enterprise_id === selectedEnterprise.id && d.type === step.type
+                );
+                const hasError = deliv && (deliv.data as any)?.error;
+                const status = !deliv ? 'not_started' : hasError ? 'error' : 'done';
+                return (
+                  <div key={step.fn} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
+                    <span className="text-sm">{step.name}</span>
+                    <div className="flex items-center gap-2">
+                      {status === 'done' && (
+                        <Badge className="text-xs bg-emerald-100 text-emerald-700">Fait</Badge>
+                      )}
+                      {status === 'error' && (
+                        <Badge variant="destructive" className="text-xs">Erreur</Badge>
+                      )}
+                      {status === 'not_started' && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                      {deliv && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatDate(deliv.created_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </DashboardLayout>
   );
 }
