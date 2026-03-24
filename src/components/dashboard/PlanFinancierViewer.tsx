@@ -911,6 +911,8 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 4: HYPOTHESES ═══════════ */}
         <TabsContent value="hypotheses">
           <div className="space-y-4">
+
+            {/* Hypothèses globales de croissance */}
             <Card>
               <CardContent className="py-3">
                 <p className="text-sm font-semibold mb-3">Hypothèses de croissance</p>
@@ -927,6 +929,228 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </CardContent>
             </Card>
 
+            {/* Hypothèses par produit */}
+            {produits.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Hypothèses par produit</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Produit</TableHead>
+                        <TableHead className="text-[10px] text-right">Prix unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Coût unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Volume N</TableHead>
+                        <TableHead className="text-[10px] text-right">Croiss. vol.</TableHead>
+                        <TableHead className="text-[10px] text-right">Part CA</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {produits.map((p: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-[10px] font-medium">
+                            {p.nom}
+                            <Tracabilite estimation={p.estimation} />
+                          </TableCell>
+                          <TableCell className="text-[10px] text-right">{fmt(p.prix_unitaire)} {devise}</TableCell>
+                          <TableCell className="text-[10px] text-right">{fmt(p.cout_unitaire)} {devise}</TableCell>
+                          <TableCell className="text-[10px] text-right">{fmt(p.volume_annuel)}</TableCell>
+                          <TableCell className="text-[10px] text-right text-green-600">+{((p.taux_croissance_volume || 0) * 100).toFixed(0)}%/an</TableCell>
+                          <TableCell className="text-[10px] text-right">{((p.part_ca || 0) * 100).toFixed(0)}%</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hypothèses par service */}
+            {services.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Hypothèses par service</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Service</TableHead>
+                        <TableHead className="text-[10px] text-right">Prix unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Coût unit.</TableHead>
+                        <TableHead className="text-[10px] text-right">Volume N</TableHead>
+                        <TableHead className="text-[10px] text-right">Croiss. vol.</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {services.map((s: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-[10px] font-medium">
+                            {s.nom}
+                            <Tracabilite estimation={s.estimation} />
+                          </TableCell>
+                          <TableCell className="text-[10px] text-right">{s.prix_unitaire != null ? `${fmt(s.prix_unitaire)} ${devise}` : '—'}</TableCell>
+                          <TableCell className="text-[10px] text-right">{s.cout_unitaire != null ? `${fmt(s.cout_unitaire)} ${devise}` : '—'}</TableCell>
+                          <TableCell className="text-[10px] text-right">{fmt(s.volume_annuel)}</TableCell>
+                          <TableCell className="text-[10px] text-right text-green-600">{s.taux_croissance_volume != null ? `+${((s.taux_croissance_volume || 0) * 100).toFixed(0)}%/an` : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hypothèses RH */}
+            {staff.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Hypothèses RH & masse salariale</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Catégorie</TableHead>
+                        <TableHead className="text-[10px] text-right">Effectif N</TableHead>
+                        <TableHead className="text-[10px] text-right">Salaire brut/mois</TableHead>
+                        <TableHead className="text-[10px] text-right">Charges %</TableHead>
+                        <TableHead className="text-[10px] text-right">Effectif An 5</TableHead>
+                        <TableHead className="text-[10px] text-right">Évolution</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {staff.map((s: any, i: number) => {
+                        const cy = s.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || s.par_annee?.[2] || {};
+                        const y5 = s.par_annee?.[s.par_annee.length - 1] || {};
+                        const effN = cy.effectif || 0;
+                        const eff5 = y5.effectif || 0;
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">
+                              {s.categorie}
+                              <Tracabilite estimation={s.estimation} />
+                            </TableCell>
+                            <TableCell className="text-[10px] text-right">{effN}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(cy.salaire_mensuel_brut || 0)} {devise}</TableCell>
+                            <TableCell className="text-[10px] text-right">{((s.taux_charges_sociales || 0) * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-[10px] text-right">{eff5}</TableCell>
+                            <TableCell className="text-[10px] text-right text-green-600">{effN > 0 ? `+${eff5 - effN}` : '—'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hypothèses CAPEX */}
+            {capexItems.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Hypothèses d'investissement (CAPEX)</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Investissement</TableHead>
+                        <TableHead className="text-[10px]">Catégorie</TableHead>
+                        <TableHead className="text-[10px] text-right">Montant</TableHead>
+                        <TableHead className="text-[10px] text-right">Année</TableHead>
+                        <TableHead className="text-[10px] text-right">Amort. %</TableHead>
+                        <TableHead className="text-[10px] text-right">Durée amort.</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {capexItems.map((c: any, i: number) => {
+                        const amortRate = c.amortisation_rate || c.taux_amortissement || 0;
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">
+                              {c.label}
+                              <Tracabilite estimation={c.estimation} />
+                            </TableCell>
+                            <TableCell className="text-[10px] text-muted-foreground">{c.categorie || '—'}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(c.acquisition_value || c.montant)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{c.acquisition_year || c.annee || '—'}</TableCell>
+                            <TableCell className="text-[10px] text-right">{(amortRate * 100).toFixed(0)}%</TableCell>
+                            <TableCell className="text-[10px] text-right">{amortRate > 0 ? `${Math.round(1 / amortRate)} ans` : '—'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={2} className="text-[10px] font-semibold">Total CAPEX</TableCell>
+                        <TableCell className="text-[10px] text-right font-semibold">
+                          {fmtM(capexItems.reduce((s: number, c: any) => s + (c.acquisition_value || c.montant || 0), 0))}
+                        </TableCell>
+                        <TableCell colSpan={3} />
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hypothèses de financement */}
+            {(loans.ovo?.amount || loans.bank?.amount || loans.family?.amount) && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Hypothèses de financement</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Prêt OVO', data: loans.ovo },
+                      { label: 'Crédit bancaire', data: loans.bank },
+                      { label: 'Autofinancement / Famille', data: loans.family },
+                    ].filter(l => l.data?.amount > 0).map((l) => (
+                      <div key={l.label} className="bg-muted/30 rounded-lg p-2.5">
+                        <p className="text-[10px] font-semibold mb-1">{l.label}</p>
+                        <div className="grid grid-cols-4 gap-2 text-[10px]">
+                          <div><span className="text-muted-foreground">Montant</span><p className="font-medium">{fmtM(l.data.amount)}</p></div>
+                          <div><span className="text-muted-foreground">Taux</span><p className="font-medium">{((l.data.rate || 0) * 100).toFixed(1)}%</p></div>
+                          <div><span className="text-muted-foreground">Durée</span><p className="font-medium">{l.data.term_years || 0} ans</p></div>
+                          <div><span className="text-muted-foreground">Différé</span><p className="font-medium">{l.data.grace_years || l.data.grace_period || 0} ans</p></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hypothèses macro / fiscales */}
+            {(data.fiscal_params || data.hypotheses_ia) && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Paramètres macro & fiscaux</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                    {data.fiscal_params?.taux_is != null && <Row label="Taux IS" value={pctFmt((data.fiscal_params.taux_is || 0) * 100)} />}
+                    {data.fiscal_params?.taux_tva != null && <Row label="TVA" value={pctFmt((data.fiscal_params.taux_tva || 0) * 100)} />}
+                    {data.fiscal_params?.cotisations_sociales_pct != null && <Row label="Cotisations sociales" value={pctFmt((data.fiscal_params.cotisations_sociales_pct || 0) * 100)} />}
+                    {data.fiscal_params?.taux_emprunt_pme != null && <Row label="Taux emprunt PME" value={pctFmt((data.fiscal_params.taux_emprunt_pme || 0) * 100)} />}
+                    <Row label="Inflation" value={pctFmt((data.hypotheses_ia?.inflation || 0.03) * 100)} />
+                    <Row label="Devise" value={devise} />
+                    {data.fiscal_params?.cadre_comptable && <Row label="Cadre comptable" value={data.fiscal_params.cadre_comptable} />}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* BFR hypothèses */}
+            {data.working_capital && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Hypothèses BFR</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <MetricBox label="Stocks (DIO)" value={`${data.working_capital.stock_days?.[0] || 0} jours`} />
+                    <MetricBox label="Clients (DSO)" value={`${data.working_capital.receivable_days?.[0] || 0} jours`} />
+                    <MetricBox label="Fournisseurs (DPO)" value={`${data.working_capital.payable_days?.[0] || 0} jours`} />
+                  </div>
+                  {(data.working_capital.stock_days?.length > 1 || data.working_capital.receivable_days?.length > 1) && (
+                    <div className="mt-2 text-[10px] text-muted-foreground italic">
+                      Évolution sur 5 ans : Stock {data.working_capital.stock_days?.join(' → ')}j · Clients {data.working_capital.receivable_days?.join(' → ')}j · Fournisseurs {data.working_capital.payable_days?.join(' → ')}j
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sensibilité */}
             {analyse.sensibilite?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
