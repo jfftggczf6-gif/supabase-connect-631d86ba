@@ -1598,6 +1598,13 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* ── Analyse RH ── */}
+            <AnalysisSection
+              title="Analyse RH"
+              icon={<Users className="h-4 w-4 text-primary" />}
+              data={analyseRH}
+            />
           </div>
         </TabsContent>
 
