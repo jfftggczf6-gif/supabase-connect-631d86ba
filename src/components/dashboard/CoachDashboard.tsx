@@ -27,6 +27,7 @@ import { getPipelineState, type PipelineState } from '@/lib/pipeline-runner';
 import ScreeningDashboard from './ScreeningDashboard';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import CoachingTab from './CoachingTab';
+import KnowledgeBaseManager from './KnowledgeBaseManager';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
