@@ -87,6 +87,7 @@ export const MODULE_FN_MAP: Record<string, string> = {
   framework: 'generate-framework',
   diagnostic: 'generate-diagnostic',
   plan_ovo: 'generate-plan-ovo',
+  plan_financier: 'generate-plan-financier',
   business_plan: 'generate-business-plan',
   odd: 'generate-odd',
   pre_screening: 'generate-pre-screening',
