@@ -739,6 +739,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         <TableHead className="text-[10px] text-right">Effectif N</TableHead>
                         <TableHead className="text-[10px] text-right">Salaire/mois</TableHead>
                         <TableHead className="text-[10px] text-right">Charges %</TableHead>
+                        <TableHead className="text-[10px] text-right">Coût annuel</TableHead>
                         <TableHead className="text-[10px] text-right">Eff. An 5</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -746,12 +747,14 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                       {staff.map((s: any, i: number) => {
                         const cy = s.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || s.par_annee?.[2] || {};
                         const y5 = s.par_annee?.[s.par_annee.length - 1] || {};
+                        const coutAnnuel = (cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (s.taux_charges_sociales || 0));
                         return (
                           <TableRow key={i}>
                             <TableCell className="text-[10px] font-medium">{s.categorie}</TableCell>
                             <TableCell className="text-[10px] text-right">{cy.effectif || 0}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmt(cy.salaire_mensuel_brut || 0)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(cy.salaire_mensuel_brut || 0)}</TableCell>
                             <TableCell className="text-[10px] text-right">{((s.taux_charges_sociales || 0) * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(coutAnnuel)}</TableCell>
                             <TableCell className="text-[10px] text-right">{y5.effectif || 0}</TableCell>
                           </TableRow>
                         );
@@ -766,6 +769,12 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         </TableCell>
                         <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
                         <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
+                        <TableCell className="text-[10px] text-right font-semibold">
+                          {fmtM(staff.reduce((s: number, st: any) => {
+                            const cy = st.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || st.par_annee?.[2] || {};
+                            return s + ((cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (st.taux_charges_sociales || 0)));
+                          }, 0))}
+                        </TableCell>
                         <TableCell className="text-[10px] text-right font-semibold">
                           {staff.reduce((s: number, st: any) => {
                             const y5 = st.par_annee?.[st.par_annee.length - 1] || {};
