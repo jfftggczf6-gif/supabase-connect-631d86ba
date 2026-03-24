@@ -48,8 +48,8 @@ export default function Livrables() {
       if (!session) throw new Error("Non authentifié");
       const ts = Date.now();
 
-      // For ODD xlsx, use fetch with validation instead of window.open
-      if (type === 'odd_analysis' && format === 'xlsx') {
+      // For ODD and plan_financier xlsx, use fetch+blob to respect Content-Disposition
+      if ((type === 'odd_analysis' || type === 'plan_financier') && format === 'xlsx') {
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterprise.id}&format=${format}&_ts=${ts}`;
         const response = await fetch(url, {
           headers: { Authorization: `Bearer ${session.access_token}` },
