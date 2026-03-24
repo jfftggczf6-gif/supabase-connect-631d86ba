@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { syncBusinessPlanWithPlanOvo } from "../_shared/normalizers.ts";
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
@@ -709,6 +709,9 @@ serve(async (req) => {
 
     console.log("[BP] Generating Business Plan for:", ent.name);
 
+    // Coaching notes
+    const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+
     // RAG: enrichir avec données bailleurs et benchmarks
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["bailleurs", "benchmarks", "secteurs", "reglementation"], "business_plan");
 
@@ -724,7 +727,7 @@ serve(async (req) => {
 
     // PART 1: Sections 1-8
     console.log("[BP] AI Call 1/2: Sections 1-8...");
-    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext, 16384, OPUS_MODEL, 0.3);
+    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, OPUS_MODEL, 0.3);
     console.log("[BP] Part 1 OK, keys:", Object.keys(part1).length);
 
     // Build summary of part1 for context in part2
@@ -732,7 +735,7 @@ serve(async (req) => {
 
     // PART 2: Sections 9-14
     console.log("[BP] AI Call 2/2: Sections 9-14...");
-    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext, 16384, OPUS_MODEL, 0.3);
+    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, OPUS_MODEL, 0.3);
     console.log("[BP] Part 2 OK, keys:", Object.keys(part2).length);
 
     // Merge

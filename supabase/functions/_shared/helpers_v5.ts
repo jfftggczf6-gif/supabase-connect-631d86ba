@@ -135,7 +135,7 @@ export async function parseXlsx(arrayBuffer: ArrayBuffer): Promise<string> {
   }
 }
 
-export async function verifyAndGetContext(req: Request) {
+export async function verifyAndGetContext(req: Request, preParsedBody?: any) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) throw { status: 401, message: "Non autorisé" };
 
@@ -149,7 +149,8 @@ export async function verifyAndGetContext(req: Request) {
   const { data: { user }, error: userErr } = await anonClient.auth.getUser();
   if (userErr || !user) throw { status: 401, message: "Non autorisé" };
 
-  const { enterprise_id } = await req.json();
+  const body = preParsedBody ?? await req.json();
+  const enterprise_id = body.enterprise_id;
   if (!enterprise_id) throw { status: 400, message: "enterprise_id requis" };
 
   const supabase = createClient(supabaseUrl, serviceKey);

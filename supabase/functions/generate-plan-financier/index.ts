@@ -22,8 +22,8 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { supabase, user } = await verifyAndGetContext(req);
     const body = await req.json();
+    const { supabase, user } = await verifyAndGetContext(req, body);
     const enterpriseId = body.enterprise_id;
     if (!enterpriseId) return errorResponse("enterprise_id required", 400);
 
