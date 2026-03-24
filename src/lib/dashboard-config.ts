@@ -1,6 +1,6 @@
 import {
   LayoutGrid, Globe, FileSpreadsheet, BarChart3,
-  Stethoscope, ListChecks, FileText, Target,
+  Stethoscope, FileText, Target,
   TrendingUp, Briefcase, Upload, RefreshCw,
   FileSearch, FolderOpen, BookOpen,
 } from 'lucide-react';
