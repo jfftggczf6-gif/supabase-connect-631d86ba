@@ -462,27 +462,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {data.structure_couts && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-3">Structure des coûts</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Coûts variables ({data.structure_couts.pct_variables}%)</p>
-                      {data.structure_couts.variables?.map((c: any, i: number) => (
-                        <CostBar key={i} label={c.poste} amount={c.montant} max={kpis.ca || 1} color="bg-red-400" />
-                      ))}
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Coûts fixes ({(100 - (data.structure_couts.pct_variables || 0)).toFixed(0)}%)</p>
-                      {data.structure_couts.fixes?.map((c: any, i: number) => (
-                        <CostBar key={i} label={c.poste} amount={c.montant} max={kpis.ca || 1} color="bg-blue-400" />
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Structure des coûts moved to Marges tab */}
 
             <Card>
               <CardContent className="py-3">
