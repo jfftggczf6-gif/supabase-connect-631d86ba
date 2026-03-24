@@ -1904,48 +1904,24 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </div>
             )}
 
+
+            {/* ── Analyse investissement ── */}
+            <AnalysisSection
+              title="Analyse investissement"
+              icon={<Landmark className="h-4 w-4 text-primary" />}
+              data={analyseInvestissement}
+            />
+
+            {/* ── Analyse financement ── */}
+            <AnalysisSection
+              title="Analyse financement"
+              icon={<Landmark className="h-4 w-4 text-primary" />}
+              data={analyseFinancement}
+            />
           </div>
         </TabsContent>
 
-        {/* ═══════════ TAB 8: ANALYSE ═══════════ */}
-        {hasAnalyseTab && (
-          <TabsContent value="analyse">
-            <div className="space-y-4">
-              <AnalysisSection
-                title="Analyse investisseur"
-                icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                data={analyseInvestisseur}
-              />
-              <AnalysisSection
-                title="Analyse coaching"
-                icon={<Users className="h-4 w-4 text-primary" />}
-                data={analyseCoaching}
-              />
-              <AnalysisSection
-                title="Analyse des marges"
-                icon={<BarChart3 className="h-4 w-4 text-primary" />}
-                data={analyseMarges}
-              />
-              <AnalysisSection
-                title="Analyse RH"
-                icon={<Users className="h-4 w-4 text-primary" />}
-                data={analyseRH}
-              />
-              <AnalysisSection
-                title="Analyse investissement"
-                icon={<Landmark className="h-4 w-4 text-primary" />}
-                data={analyseInvestissement}
-              />
-              <AnalysisSection
-                title="Analyse financement"
-                icon={<Landmark className="h-4 w-4 text-primary" />}
-                data={analyseFinancement}
-              />
-            </div>
-          </TabsContent>
-        )}
-
-        {/* ═══════════ TAB 9: AUDIT ═══════════ */}
+        {/* ═══════════ TAB 8: AUDIT ═══════════ */}
         {hasAuditTab && (
           <TabsContent value="audit">
             <div className="space-y-4">
