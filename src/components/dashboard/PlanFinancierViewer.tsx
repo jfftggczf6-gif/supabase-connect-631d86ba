@@ -420,24 +420,73 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                       {analyse.rentabilite_par_activite.map((item: any, i: number) => {
                         const rentable = (item.verdict || '').toLowerCase().includes('rentable') && !(item.verdict || '').toLowerCase().includes('déficitaire');
                         return (
-                          <TableRow key={i}>
-                            <TableCell className="text-[10px] font-medium">{item.activite || item.nom}</TableCell>
+                          <TableRow key={i} className={!rentable ? 'bg-red-50/50' : ''}>
+                            <TableCell className={`text-[10px] font-medium ${!rentable ? 'text-red-800' : ''}`}>{item.activite || item.nom}</TableCell>
                             <TableCell className="text-[10px] text-right">{fmtM(item.ca)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{pctFmt(item.pct_ca)}</TableCell>
+                            <TableCell className="text-[10px] text-right text-muted-foreground">{pctFmt(item.pct_ca)}</TableCell>
                             <TableCell className="text-[10px] text-right">{fmtM(item.couts_directs)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(item.marge_brute)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{pctFmt(item.marge_pct)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(item.ebe)}</TableCell>
+                            <TableCell className={`text-[10px] text-right font-medium ${(item.marge_brute || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {(item.marge_brute || 0) >= 0 ? '+' : ''}{fmtM(item.marge_brute)}
+                            </TableCell>
+                            <TableCell className={`text-[10px] text-right ${(item.marge_pct || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {(item.marge_pct || 0) < 0 ? 'neg.' : pctFmt(item.marge_pct)}
+                            </TableCell>
+                            <TableCell className={`text-[10px] text-right font-medium ${(item.ebe || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {(item.ebe || 0) >= 0 ? '+' : ''}{fmtM(item.ebe)}
+                            </TableCell>
                             <TableCell className="text-[10px] text-center">
-                              <Badge variant={rentable ? 'default' : 'destructive'} className="text-[9px]">
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded ${rentable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 {rentable ? 'Rentable' : 'Déficitaire'}
-                              </Badge>
+                              </span>
                             </TableCell>
                           </TableRow>
                         );
                       })}
                     </TableBody>
                   </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Visualisation — contribution à la marge */}
+            {analyse.rentabilite_par_activite?.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Visualisation — contribution à la marge</p>
+                  <div className="flex items-end gap-1 h-[120px] px-5">
+                    {analyse.rentabilite_par_activite.map((item: any, i: number) => {
+                      const mb = item.marge_brute || 0;
+                      const maxAbs = Math.max(...analyse.rentabilite_par_activite.map((a: any) => Math.abs(a.marge_brute || 0)), 1);
+                      const barH = Math.max((Math.abs(mb) / maxAbs) * 100, 4);
+                      const isPositive = mb >= 0;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center justify-end">
+                          {isPositive && <p className="text-[9px] text-green-700 font-medium mb-0.5">+{fmtM(mb)}</p>}
+                          <div
+                            className={`w-full rounded-t ${isPositive ? 'bg-green-500' : 'bg-red-500 rounded-t-none rounded-b'}`}
+                            style={{ height: `${barH}px` }}
+                          />
+                          {!isPositive && <p className="text-[9px] text-red-700 font-medium mt-0.5">{fmtM(mb)}</p>}
+                          <p className="text-[9px] text-muted-foreground mt-0.5 text-center truncate w-full">{item.activite || item.nom}</p>
+                        </div>
+                      );
+                    })}
+                    <div className="w-px bg-border h-full mx-2" />
+                    {/* Résultat net = somme des marges */}
+                    {(() => {
+                      const totalMB = analyse.rentabilite_par_activite.reduce((s: number, a: any) => s + (a.marge_brute || 0), 0);
+                      const maxAbs = Math.max(...analyse.rentabilite_par_activite.map((a: any) => Math.abs(a.marge_brute || 0)), 1);
+                      const barH = Math.max((Math.abs(totalMB) / maxAbs) * 100, 4);
+                      return (
+                        <div className="flex-1 flex flex-col items-center justify-end">
+                          {totalMB >= 0 && <p className="text-[9px] text-green-700 font-medium mb-0.5">+{fmtM(totalMB)}</p>}
+                          <div className={`w-full rounded ${totalMB >= 0 ? 'bg-green-400' : 'bg-amber-500'}`} style={{ height: `${barH}px` }} />
+                          {totalMB < 0 && <p className="text-[9px] text-amber-700 font-medium mt-0.5">{fmtM(totalMB)}</p>}
+                          <p className="text-[9px] text-muted-foreground mt-0.5 text-center font-medium">Résultat net</p>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </CardContent>
               </Card>
             )}
