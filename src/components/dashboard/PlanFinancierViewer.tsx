@@ -1441,237 +1441,448 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
 
         {/* ═══════════ TAB 6: PRODUITS & RH ═══════════ */}
         <TabsContent value="produits">
-          <div className="space-y-4">
-            {/* Products */}
+          <div className="space-y-6">
+
+            {/* ─── SECTION PRODUITS ─── */}
             {produits.length > 0 && (
-              <>
-                <p className="text-sm font-semibold">Produits</p>
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" /> Produits
+                </p>
+
+                {/* Cartes produits */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {produits.map((p: any, i: number) => (
-                    <Card key={i}>
-                      <CardContent className="py-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold">{p.nom}</p>
-                          <Badge variant="outline" className="text-[9px]">{((p.part_ca || 0) * 100).toFixed(0)}% CA</Badge>
-                        </div>
-                        <div className="space-y-1 text-[11px]">
-                          <Row label="Prix" value={`${fmt(p.prix_unitaire)} ${devise}`} />
-                          <Row label="COGS" value={`${fmt(p.cout_unitaire)} (${((p.cout_unitaire / (p.prix_unitaire || 1)) * 100).toFixed(0)}%)`} />
-                          <Row label="Volume N" value={fmt(p.volume_annuel)} />
-                          <Row label="Croissance" value={`+${((p.taux_croissance_volume || 0) * 100).toFixed(0)}%/an`} color="text-green-600" />
-                        </div>
-                        <Tracabilite estimation={p.estimation} />
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {produits.map((p: any, i: number) => {
+                    const marge = (p.prix_unitaire || 0) - (p.cout_unitaire || 0);
+                    const margePct = p.prix_unitaire ? (marge / p.prix_unitaire) * 100 : 0;
+                    const caAnnuel = (p.prix_unitaire || 0) * (p.volume_annuel || 0);
+                    return (
+                      <Card key={i}>
+                        <CardContent className="py-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold">{p.nom}</p>
+                            <Badge variant="outline" className="text-[9px]">{((p.part_ca || 0) * 100).toFixed(0)}% CA</Badge>
+                          </div>
+                          <div className="space-y-1 text-[11px]">
+                            <Row label="Prix unitaire" value={`${fmt(p.prix_unitaire)} ${devise}`} />
+                            <Row label="Coût unitaire" value={`${fmt(p.cout_unitaire)} ${devise}`} />
+                            <Row label="Marge unitaire" value={`${fmt(marge)} (${margePct.toFixed(0)}%)`} color={margePct > 30 ? 'text-green-600' : margePct > 10 ? 'text-amber-600' : 'text-red-500'} />
+                            <Row label="Volume annuel" value={fmt(p.volume_annuel)} />
+                            <Row label="CA annuel" value={`${fmtM(caAnnuel)} ${devise}`} />
+                            <Row label="Croissance vol." value={`+${((p.taux_croissance_volume || 0) * 100).toFixed(0)}%/an`} color="text-green-600" />
+                            {p.saisonnalite && <Row label="Saisonnalité" value={p.saisonnalite} />}
+                          </div>
+                          <Tracabilite estimation={p.estimation} />
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
-              </>
-            )}
 
-            {/* Services */}
-            {services.length > 0 && (
-              <>
-                <p className="text-sm font-semibold mt-4">Services</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {services.map((s: any, i: number) => (
-                    <Card key={i}>
-                      <CardContent className="py-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold">{s.nom}</p>
-                          {s.part_ca != null && <Badge variant="outline" className="text-[9px]">{((s.part_ca || 0) * 100).toFixed(0)}% CA</Badge>}
-                        </div>
-                        <div className="space-y-1 text-[11px]">
-                          {s.prix_unitaire != null && <Row label="Prix" value={`${fmt(s.prix_unitaire)} ${devise}`} />}
-                          {s.cout_unitaire != null && <Row label="Coût" value={`${fmt(s.cout_unitaire)}`} />}
-                          {s.volume_annuel != null && <Row label="Volume N" value={fmt(s.volume_annuel)} />}
-                          {s.taux_croissance_volume != null && <Row label="Croissance" value={`+${((s.taux_croissance_volume || 0) * 100).toFixed(0)}%/an`} color="text-green-600" />}
-                        </div>
-                        <Tracabilite estimation={s.estimation} />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Staff */}
-            {staff.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Effectifs et masse salariale</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[10px]">Catégorie</TableHead>
-                        <TableHead className="text-[10px] text-right">Effectif N</TableHead>
-                        <TableHead className="text-[10px] text-right">Salaire/mois</TableHead>
-                        <TableHead className="text-[10px] text-right">Charges %</TableHead>
-                        <TableHead className="text-[10px] text-right">Coût annuel</TableHead>
-                        <TableHead className="text-[10px] text-right">Eff. An 5</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {staff.map((s: any, i: number) => {
-                        const cy = s.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || s.par_annee?.[2] || {};
-                        const y5 = s.par_annee?.[s.par_annee.length - 1] || {};
-                        const coutAnnuel = (cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (s.taux_charges_sociales || 0));
-                        return (
-                          <TableRow key={i}>
-                            <TableCell className="text-[10px] font-medium">
-                              {s.categorie}
-                              <Tracabilite estimation={s.estimation} />
-                            </TableCell>
-                            <TableCell className="text-[10px] text-right">{cy.effectif || 0}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(cy.salaire_mensuel_brut || 0)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{((s.taux_charges_sociales || 0) * 100).toFixed(1)}%</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(coutAnnuel)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{y5.effectif || 0}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      <TableRow className="bg-muted/30">
-                        <TableCell className="text-[10px] font-semibold">Total</TableCell>
-                        <TableCell className="text-[10px] text-right font-semibold">
-                          {staff.reduce((s: number, st: any) => {
-                            const cy = st.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || st.par_annee?.[2] || {};
-                            return s + (cy.effectif || 0);
-                          }, 0)}
-                        </TableCell>
-                        <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
-                        <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
-                        <TableCell className="text-[10px] text-right font-semibold">
-                          {fmtM(staff.reduce((s: number, st: any) => {
-                            const cy = st.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || st.par_annee?.[2] || {};
-                            return s + ((cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (st.taux_charges_sociales || 0)));
-                          }, 0))}
-                        </TableCell>
-                        <TableCell className="text-[10px] text-right font-semibold">
-                          {staff.reduce((s: number, st: any) => {
-                            const y5 = st.par_annee?.[st.par_annee.length - 1] || {};
-                            return s + (y5.effectif || 0);
-                          }, 0)}
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* OPEX par catégorie */}
-            {data.opex_categories?.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">OPEX par catégorie</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[10px]">Poste</TableHead>
-                        <TableHead className="text-[10px] text-right">Montant ({devise})</TableHead>
-                        <TableHead className="text-[10px] text-right">%</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.opex_categories.map((op: any, i: number) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-[10px]">{op.poste}</TableCell>
-                          <TableCell className="text-[10px] text-right">{fmtM(op.montant)}</TableCell>
-                          <TableCell className="text-[10px] text-right">{pctFmt(op.pct)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/30">
-                        <TableCell className="text-[10px] font-bold">Total OPEX</TableCell>
-                        <TableCell className="text-[10px] text-right font-bold">
-                          {fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}
-                        </TableCell>
-                        <TableCell className="text-[10px] text-right font-bold">100%</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* OPEX multi-annuel from projections */}
-            {projections.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">OPEX — évolution pluriannuelle</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-[10px]">Poste</TableHead>
-                          {projections.map((p: any) => (
-                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
-                              {p.annee_num}{p.is_reel ? ' ✓' : ''}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {[
-                          { label: 'Masse salariale', key: 'masse_salariale' },
-                          { label: 'Loyers', key: 'loyers' },
-                          { label: 'Marketing', key: 'marketing' },
-                          { label: 'Autres OPEX', key: 'autres_opex' },
-                          { label: 'OPEX total', key: 'opex_total', bold: true },
-                          { label: '% du CA', key: 'opex_pct_ca', isPct: true },
-                        ].filter(row => {
-                          if (row.key === 'opex_total') return true;
-                          return projections.some((p: any) => p[row.key] != null);
-                        }).map((row) => (
-                          <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
-                            <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
-                            {projections.map((p: any) => {
-                              const val = row.key === 'opex_pct_ca' && p.ca
-                                ? ((p.opex_total || 0) / p.ca) * 100
-                                : p[row.key];
+                {/* Tableau récap marges produits */}
+                {produits.length > 1 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Contribution par produit</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Produit</TableHead>
+                              <TableHead className="text-[10px] text-right">Prix</TableHead>
+                              <TableHead className="text-[10px] text-right">Coût</TableHead>
+                              <TableHead className="text-[10px] text-right">Marge %</TableHead>
+                              <TableHead className="text-[10px] text-right">Volume</TableHead>
+                              <TableHead className="text-[10px] text-right">CA annuel</TableHead>
+                              <TableHead className="text-[10px] text-right">Marge totale</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {produits.map((p: any, i: number) => {
+                              const marge = (p.prix_unitaire || 0) - (p.cout_unitaire || 0);
+                              const margePct = p.prix_unitaire ? (marge / p.prix_unitaire) * 100 : 0;
+                              const ca = (p.prix_unitaire || 0) * (p.volume_annuel || 0);
+                              const margeTot = marge * (p.volume_annuel || 0);
                               return (
-                                <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
-                                  {row.isPct ? pctFmt(val) : fmtM(val)}
-                                </TableCell>
+                                <TableRow key={i}>
+                                  <TableCell className="text-[10px] font-medium">{p.nom}</TableCell>
+                                  <TableCell className="text-[10px] text-right">{fmtM(p.prix_unitaire)}</TableCell>
+                                  <TableCell className="text-[10px] text-right">{fmtM(p.cout_unitaire)}</TableCell>
+                                  <TableCell className={`text-[10px] text-right font-medium ${margePct > 30 ? 'text-green-600' : margePct > 10 ? 'text-amber-600' : 'text-red-500'}`}>{pctFmt(margePct)}</TableCell>
+                                  <TableCell className="text-[10px] text-right">{fmt(p.volume_annuel)}</TableCell>
+                                  <TableCell className="text-[10px] text-right">{fmtM(ca)}</TableCell>
+                                  <TableCell className="text-[10px] text-right font-medium">{fmtM(margeTot)}</TableCell>
+                                </TableRow>
                               );
                             })}
+                            <TableRow className="bg-muted/30">
+                              <TableCell className="text-[10px] font-semibold">Total</TableCell>
+                              <TableCell colSpan={4} />
+                              <TableCell className="text-[10px] text-right font-semibold">
+                                {fmtM(produits.reduce((s: number, p: any) => s + ((p.prix_unitaire || 0) * (p.volume_annuel || 0)), 0))}
+                              </TableCell>
+                              <TableCell className="text-[10px] text-right font-semibold">
+                                {fmtM(produits.reduce((s: number, p: any) => s + (((p.prix_unitaire || 0) - (p.cout_unitaire || 0)) * (p.volume_annuel || 0)), 0))}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Projection CA par produit */}
+                {projections.length > 0 && produits.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Projection du CA par produit</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Produit</TableHead>
+                              {projections.map((p: any) => (
+                                <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {produits.map((prod: any, idx: number) => (
+                              <TableRow key={idx}>
+                                <TableCell className="text-[10px] font-medium">{prod.nom}</TableCell>
+                                {projections.map((_: any, yi: number) => {
+                                  const vol = (prod.volume_annuel || 0) * Math.pow(1 + (prod.taux_croissance_volume || 0), yi);
+                                  return (
+                                    <TableCell key={yi} className="text-[10px] text-right">{fmtM(vol * (prod.prix_unitaire || 0))}</TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ─── SECTION SERVICES ─── */}
+            {services.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" /> Services
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {services.map((s: any, i: number) => {
+                    const marge = (s.prix_unitaire || 0) - (s.cout_unitaire || 0);
+                    const margePct = s.prix_unitaire ? (marge / s.prix_unitaire) * 100 : 0;
+                    const caAnnuel = (s.prix_unitaire || 0) * (s.volume_annuel || 0);
+                    return (
+                      <Card key={i}>
+                        <CardContent className="py-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold">{s.nom}</p>
+                            {s.part_ca != null && <Badge variant="outline" className="text-[9px]">{((s.part_ca || 0) * 100).toFixed(0)}% CA</Badge>}
+                          </div>
+                          <div className="space-y-1 text-[11px]">
+                            {s.prix_unitaire != null && <Row label="Prix unitaire" value={`${fmt(s.prix_unitaire)} ${devise}`} />}
+                            {s.cout_unitaire != null && <Row label="Coût unitaire" value={`${fmt(s.cout_unitaire)} ${devise}`} />}
+                            {s.prix_unitaire != null && s.cout_unitaire != null && (
+                              <Row label="Marge" value={`${fmt(marge)} (${margePct.toFixed(0)}%)`} color={margePct > 30 ? 'text-green-600' : 'text-amber-600'} />
+                            )}
+                            {s.volume_annuel != null && <Row label="Volume annuel" value={fmt(s.volume_annuel)} />}
+                            {caAnnuel > 0 && <Row label="CA annuel" value={`${fmtM(caAnnuel)} ${devise}`} />}
+                            {s.taux_croissance_volume != null && <Row label="Croissance" value={`+${((s.taux_croissance_volume || 0) * 100).toFixed(0)}%/an`} color="text-green-600" />}
+                            {s.type_facturation && <Row label="Facturation" value={s.type_facturation} />}
+                          </div>
+                          <Tracabilite estimation={s.estimation} />
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ─── SECTION RH ─── */}
+            {staff.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" /> Ressources humaines
+                </p>
+
+                {/* Tableau principal */}
+                <Card>
+                  <CardContent className="py-3 px-0">
+                    <p className="text-xs font-semibold px-4 mb-2">Effectifs et masse salariale</p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Catégorie</TableHead>
+                            <TableHead className="text-[10px] text-right">Effectif N</TableHead>
+                            <TableHead className="text-[10px] text-right">Salaire brut/mois</TableHead>
+                            <TableHead className="text-[10px] text-right">Charges soc.</TableHead>
+                            <TableHead className="text-[10px] text-right">Coût annuel chargé</TableHead>
+                            <TableHead className="text-[10px] text-right">Eff. An 5</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {staff.map((s: any, i: number) => {
+                            const cy = s.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || s.par_annee?.[0] || {};
+                            const y5 = s.par_annee?.[s.par_annee?.length - 1] || {};
+                            const salaire = cy.salaire_mensuel_brut || s.salaire_mensuel_brut || 0;
+                            const effectif = cy.effectif || s.effectif_actuel || 0;
+                            const charges = s.taux_charges_sociales || 0;
+                            const coutAnnuel = effectif * salaire * 12 * (1 + charges);
+                            return (
+                              <TableRow key={i}>
+                                <TableCell className="text-[10px] font-medium">
+                                  {s.categorie}
+                                  <Tracabilite estimation={s.estimation} />
+                                </TableCell>
+                                <TableCell className="text-[10px] text-right">{effectif}</TableCell>
+                                <TableCell className="text-[10px] text-right">{fmtM(salaire)} {devise}</TableCell>
+                                <TableCell className="text-[10px] text-right">{pctFmt(charges * 100)}</TableCell>
+                                <TableCell className="text-[10px] text-right font-medium">{fmtM(coutAnnuel)} {devise}</TableCell>
+                                <TableCell className="text-[10px] text-right">{y5.effectif || '—'}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          <TableRow className="bg-muted/30">
+                            <TableCell className="text-[10px] font-semibold">Total</TableCell>
+                            <TableCell className="text-[10px] text-right font-semibold">
+                              {staff.reduce((s: number, st: any) => {
+                                const cy = st.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || st.par_annee?.[0] || {};
+                                return s + (cy.effectif || st.effectif_actuel || 0);
+                              }, 0)}
+                            </TableCell>
+                            <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
+                            <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
+                            <TableCell className="text-[10px] text-right font-semibold">
+                              {fmtM(staff.reduce((s: number, st: any) => {
+                                const cy = st.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || st.par_annee?.[0] || {};
+                                const sal = cy.salaire_mensuel_brut || st.salaire_mensuel_brut || 0;
+                                const eff = cy.effectif || st.effectif_actuel || 0;
+                                return s + (eff * sal * 12 * (1 + (st.taux_charges_sociales || 0)));
+                              }, 0))} {devise}
+                            </TableCell>
+                            <TableCell className="text-[10px] text-right font-semibold">
+                              {staff.reduce((s: number, st: any) => {
+                                const y5 = st.par_annee?.[st.par_annee?.length - 1] || {};
+                                return s + (y5.effectif || 0);
+                              }, 0)}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Évolution effectifs par année */}
+                {staff.some((s: any) => s.par_annee?.length > 1) && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Évolution des effectifs</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Catégorie</TableHead>
+                              {(staff[0]?.par_annee || []).map((y: any, yi: number) => (
+                                <TableHead key={yi} className="text-[10px] text-right">{y.annee || `An ${yi}`}</TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {staff.map((s: any, i: number) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-[10px] font-medium">{s.categorie}</TableCell>
+                                {(s.par_annee || []).map((y: any, yi: number) => (
+                                  <TableCell key={yi} className="text-[10px] text-right">{y.effectif || 0}</TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                            <TableRow className="bg-muted/30">
+                              <TableCell className="text-[10px] font-semibold">Total</TableCell>
+                              {(staff[0]?.par_annee || []).map((_: any, yi: number) => (
+                                <TableCell key={yi} className="text-[10px] text-right font-semibold">
+                                  {staff.reduce((sum: number, s: any) => sum + (s.par_annee?.[yi]?.effectif || 0), 0)}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Évolution masse salariale par année */}
+                {staff.some((s: any) => s.par_annee?.length > 1) && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Évolution de la masse salariale chargée</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Catégorie</TableHead>
+                              {(staff[0]?.par_annee || []).map((y: any, yi: number) => (
+                                <TableHead key={yi} className="text-[10px] text-right">{y.annee || `An ${yi}`}</TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {staff.map((s: any, i: number) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-[10px] font-medium">{s.categorie}</TableCell>
+                                {(s.par_annee || []).map((y: any, yi: number) => {
+                                  const cost = (y.effectif || 0) * (y.salaire_mensuel_brut || 0) * 12 * (1 + (s.taux_charges_sociales || 0));
+                                  return (
+                                    <TableCell key={yi} className="text-[10px] text-right">{fmtM(cost)}</TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            ))}
+                            <TableRow className="bg-muted/30">
+                              <TableCell className="text-[10px] font-semibold">Total</TableCell>
+                              {(staff[0]?.par_annee || []).map((_: any, yi: number) => (
+                                <TableCell key={yi} className="text-[10px] text-right font-semibold">
+                                  {fmtM(staff.reduce((sum: number, s: any) => {
+                                    const y = s.par_annee?.[yi] || {};
+                                    return sum + ((y.effectif || 0) * (y.salaire_mensuel_brut || 0) * 12 * (1 + (s.taux_charges_sociales || 0)));
+                                  }, 0))}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
 
-            {/* OPEX detail breakdown if present */}
-            {data.opex_detail?.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Détail des charges opérationnelles</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[10px]">Poste</TableHead>
-                        <TableHead className="text-[10px]">Type</TableHead>
-                        <TableHead className="text-[10px] text-right">Montant annuel</TableHead>
-                        <TableHead className="text-[10px] text-right">Croissance</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.opex_detail.map((op: any, i: number) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-[10px] font-medium">{op.poste || op.label || op.nom}</TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground">{op.type || op.categorie || '—'}</TableCell>
-                          <TableCell className="text-[10px] text-right">{fmtM(op.montant || op.amount)}</TableCell>
-                          <TableCell className="text-[10px] text-right">{op.croissance != null ? pctFmt((op.croissance || 0) * 100) : '—'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+            {/* ─── SECTION OPEX ─── */}
+            {(data.opex_categories?.length > 0 || projections.length > 0) && (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-primary" /> Charges opérationnelles (OPEX)
+                </p>
+
+                {data.opex_categories?.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Répartition OPEX</p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Poste</TableHead>
+                            <TableHead className="text-[10px] text-right">Montant ({devise})</TableHead>
+                            <TableHead className="text-[10px] text-right">%</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.opex_categories.map((op: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-[10px]">{op.poste}</TableCell>
+                              <TableCell className="text-[10px] text-right">{fmtM(op.montant)}</TableCell>
+                              <TableCell className="text-[10px] text-right">{pctFmt(op.pct)}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="bg-muted/30">
+                            <TableCell className="text-[10px] font-bold">Total</TableCell>
+                            <TableCell className="text-[10px] text-right font-bold">
+                              {fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}
+                            </TableCell>
+                            <TableCell className="text-[10px] text-right font-bold">100%</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {projections.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">OPEX — évolution pluriannuelle</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Poste</TableHead>
+                              {projections.map((p: any) => (
+                                <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                  {p.annee_num}{p.is_reel ? ' ✓' : ''}
+                                </TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {[
+                              { label: 'Masse salariale', key: 'masse_salariale' },
+                              { label: 'Loyers', key: 'loyers' },
+                              { label: 'Marketing', key: 'marketing' },
+                              { label: 'Autres OPEX', key: 'autres_opex' },
+                              { label: 'OPEX total', key: 'opex_total', bold: true },
+                              { label: '% du CA', key: 'opex_pct_ca', isPct: true },
+                            ].filter(row => row.key === 'opex_total' || projections.some((p: any) => p[row.key] != null)).map((row) => (
+                              <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                                <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
+                                {projections.map((p: any) => {
+                                  const val = row.key === 'opex_pct_ca' && p.ca ? ((p.opex_total || 0) / p.ca) * 100 : p[row.key];
+                                  return (
+                                    <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                      {row.isPct ? pctFmt(val) : fmtM(val)}
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {data.opex_detail?.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Détail des charges</p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Poste</TableHead>
+                            <TableHead className="text-[10px]">Type</TableHead>
+                            <TableHead className="text-[10px] text-right">Montant annuel</TableHead>
+                            <TableHead className="text-[10px] text-right">Croissance</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.opex_detail.map((op: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-[10px] font-medium">{op.poste || op.label || op.nom}</TableCell>
+                              <TableCell className="text-[10px] text-muted-foreground">{op.type || op.categorie || '—'}</TableCell>
+                              <TableCell className="text-[10px] text-right">{fmtM(op.montant || op.amount)}</TableCell>
+                              <TableCell className="text-[10px] text-right">{op.croissance != null ? pctFmt((op.croissance || 0) * 100) : '—'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
 
-            {/* Channels if present */}
+            {/* ─── CANAUX / FINANCING / RANGES ─── */}
             {data.channels?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
@@ -1690,39 +1901,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Financing detail if present */}
-            {data.financing && typeof data.financing === 'object' && !Array.isArray(data.financing) && Object.keys(data.financing).length > 0 && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-2">Sources de financement</p>
-                  <div className="space-y-1 text-[11px]">
-                    {Object.entries(data.financing).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([key, val]: [string, any]) => {
-                      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-                        return (
-                          <div key={key} className="bg-muted/30 rounded-lg p-2.5 mb-1.5">
-                            <p className="text-[10px] font-semibold mb-1">{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
-                            <div className="space-y-0.5">
-                              {Object.entries(val).filter(([k]) => !['sources', 'methode', 'hypotheses'].includes(k)).map(([k, v]) => (
-                                <div key={k} className="flex justify-between text-[10px]">
-                                  <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
-                                  <span className="font-medium">{typeof v === 'number' ? fmtM(v) : String(v)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <Row key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} value={typeof val === 'number' ? fmtM(val) : String(val || '—')} />
-                      );
-                    })}
-                  </div>
-                  <Tracabilite estimation={data.financing} />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Revenue ranges if present */}
             {data.ranges && typeof data.ranges === 'object' && Object.keys(data.ranges).length > 0 && (
               <Card>
                 <CardContent className="py-3">
