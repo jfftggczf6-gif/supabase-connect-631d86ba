@@ -211,22 +211,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Cohérence BMC */}
-            {analyse.coherence_bmc?.length > 0 && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-2">Cohérence BMC ↔ Financiers</p>
-                  <div className="space-y-1.5">
-                    {analyse.coherence_bmc.map((c: any, i: number) => (
-                      <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${c.niveau === 'erreur' ? 'bg-red-50 text-red-700' : c.niveau === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-muted/30 text-muted-foreground'}`}>
-                        <span className="font-semibold mr-1">{c.niveau === 'erreur' ? '!!' : c.niveau === 'warning' ? '!' : '✓'}</span>
-                        {c.texte}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+
 
             {/* Scénarios */}
             {Object.keys(scenarios).length > 0 && (
@@ -420,24 +405,73 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                       {analyse.rentabilite_par_activite.map((item: any, i: number) => {
                         const rentable = (item.verdict || '').toLowerCase().includes('rentable') && !(item.verdict || '').toLowerCase().includes('déficitaire');
                         return (
-                          <TableRow key={i}>
-                            <TableCell className="text-[10px] font-medium">{item.activite || item.nom}</TableCell>
+                          <TableRow key={i} className={!rentable ? 'bg-red-50/50' : ''}>
+                            <TableCell className={`text-[10px] font-medium ${!rentable ? 'text-red-800' : ''}`}>{item.activite || item.nom}</TableCell>
                             <TableCell className="text-[10px] text-right">{fmtM(item.ca)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{pctFmt(item.pct_ca)}</TableCell>
+                            <TableCell className="text-[10px] text-right text-muted-foreground">{pctFmt(item.pct_ca)}</TableCell>
                             <TableCell className="text-[10px] text-right">{fmtM(item.couts_directs)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(item.marge_brute)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{pctFmt(item.marge_pct)}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(item.ebe)}</TableCell>
+                            <TableCell className={`text-[10px] text-right font-medium ${(item.marge_brute || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {(item.marge_brute || 0) >= 0 ? '+' : ''}{fmtM(item.marge_brute)}
+                            </TableCell>
+                            <TableCell className={`text-[10px] text-right ${(item.marge_pct || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {(item.marge_pct || 0) < 0 ? 'neg.' : pctFmt(item.marge_pct)}
+                            </TableCell>
+                            <TableCell className={`text-[10px] text-right font-medium ${(item.ebe || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {(item.ebe || 0) >= 0 ? '+' : ''}{fmtM(item.ebe)}
+                            </TableCell>
                             <TableCell className="text-[10px] text-center">
-                              <Badge variant={rentable ? 'default' : 'destructive'} className="text-[9px]">
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded ${rentable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 {rentable ? 'Rentable' : 'Déficitaire'}
-                              </Badge>
+                              </span>
                             </TableCell>
                           </TableRow>
                         );
                       })}
                     </TableBody>
                   </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Visualisation — contribution à la marge */}
+            {analyse.rentabilite_par_activite?.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">Visualisation — contribution à la marge</p>
+                  <div className="flex items-end gap-1 h-[120px] px-5">
+                    {analyse.rentabilite_par_activite.map((item: any, i: number) => {
+                      const mb = item.marge_brute || 0;
+                      const maxAbs = Math.max(...analyse.rentabilite_par_activite.map((a: any) => Math.abs(a.marge_brute || 0)), 1);
+                      const barH = Math.max((Math.abs(mb) / maxAbs) * 100, 4);
+                      const isPositive = mb >= 0;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center justify-end">
+                          {isPositive && <p className="text-[9px] text-green-700 font-medium mb-0.5">+{fmtM(mb)}</p>}
+                          <div
+                            className={`w-full rounded-t ${isPositive ? 'bg-green-500' : 'bg-red-500 rounded-t-none rounded-b'}`}
+                            style={{ height: `${barH}px` }}
+                          />
+                          {!isPositive && <p className="text-[9px] text-red-700 font-medium mt-0.5">{fmtM(mb)}</p>}
+                          <p className="text-[9px] text-muted-foreground mt-0.5 text-center truncate w-full">{item.activite || item.nom}</p>
+                        </div>
+                      );
+                    })}
+                    <div className="w-px bg-border h-full mx-2" />
+                    {/* Résultat net = somme des marges */}
+                    {(() => {
+                      const totalMB = analyse.rentabilite_par_activite.reduce((s: number, a: any) => s + (a.marge_brute || 0), 0);
+                      const maxAbs = Math.max(...analyse.rentabilite_par_activite.map((a: any) => Math.abs(a.marge_brute || 0)), 1);
+                      const barH = Math.max((Math.abs(totalMB) / maxAbs) * 100, 4);
+                      return (
+                        <div className="flex-1 flex flex-col items-center justify-end">
+                          {totalMB >= 0 && <p className="text-[9px] text-green-700 font-medium mb-0.5">+{fmtM(totalMB)}</p>}
+                          <div className={`w-full rounded ${totalMB >= 0 ? 'bg-green-400' : 'bg-amber-500'}`} style={{ height: `${barH}px` }} />
+                          {totalMB < 0 && <p className="text-[9px] text-amber-700 font-medium mt-0.5">{fmtM(totalMB)}</p>}
+                          <p className="text-[9px] text-muted-foreground mt-0.5 text-center font-medium">Résultat net</p>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -499,10 +533,25 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* Cohérence BMC ↔ Financiers */}
+            {analyse.coherence_bmc?.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-2">Cohérence BMC ↔ Financiers</p>
+                  <div className="space-y-1.5">
+                    {analyse.coherence_bmc.map((c: any, i: number) => (
+                      <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${c.niveau === 'erreur' ? 'bg-red-50 text-red-700' : c.niveau === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-muted/30 text-muted-foreground'}`}>
+                        <span className="font-semibold mr-1">{c.niveau === 'erreur' ? '!!' : c.niveau === 'warning' ? '!' : '✓'}</span>
+                        {c.texte}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
-
-        {/* ═══════════ TAB 4: HYPOTHÈSES ═══════════ */}
         <TabsContent value="hypotheses">
           <div className="space-y-4">
             <Card>
@@ -690,6 +739,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         <TableHead className="text-[10px] text-right">Effectif N</TableHead>
                         <TableHead className="text-[10px] text-right">Salaire/mois</TableHead>
                         <TableHead className="text-[10px] text-right">Charges %</TableHead>
+                        <TableHead className="text-[10px] text-right">Coût annuel</TableHead>
                         <TableHead className="text-[10px] text-right">Eff. An 5</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -697,12 +747,14 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                       {staff.map((s: any, i: number) => {
                         const cy = s.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || s.par_annee?.[2] || {};
                         const y5 = s.par_annee?.[s.par_annee.length - 1] || {};
+                        const coutAnnuel = (cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (s.taux_charges_sociales || 0));
                         return (
                           <TableRow key={i}>
                             <TableCell className="text-[10px] font-medium">{s.categorie}</TableCell>
                             <TableCell className="text-[10px] text-right">{cy.effectif || 0}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmt(cy.salaire_mensuel_brut || 0)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(cy.salaire_mensuel_brut || 0)}</TableCell>
                             <TableCell className="text-[10px] text-right">{((s.taux_charges_sociales || 0) * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(coutAnnuel)}</TableCell>
                             <TableCell className="text-[10px] text-right">{y5.effectif || 0}</TableCell>
                           </TableRow>
                         );
@@ -717,6 +769,12 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         </TableCell>
                         <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
                         <TableCell className="text-[10px] text-right text-muted-foreground">—</TableCell>
+                        <TableCell className="text-[10px] text-right font-semibold">
+                          {fmtM(staff.reduce((s: number, st: any) => {
+                            const cy = st.par_annee?.find((y: any) => y.annee === 'CURRENT YEAR') || st.par_annee?.[2] || {};
+                            return s + ((cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (st.taux_charges_sociales || 0)));
+                          }, 0))}
+                        </TableCell>
                         <TableCell className="text-[10px] text-right font-semibold">
                           {staff.reduce((s: number, st: any) => {
                             const y5 = st.par_annee?.[st.par_annee.length - 1] || {};
