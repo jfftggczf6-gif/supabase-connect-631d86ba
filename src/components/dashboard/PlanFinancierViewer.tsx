@@ -720,6 +720,30 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* OPEX par catégorie */}
+            {data.opex_categories?.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-semibold mb-3">OPEX par catégorie (année N)</p>
+                  <div className="space-y-0">
+                    {data.opex_categories.map((o: any, i: number) => (
+                      <div key={i} className="flex justify-between py-1 border-b border-border/30 last:border-0 text-xs">
+                        <span className="text-muted-foreground">{o.poste}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{fmtM(o.montant)}</span>
+                          <span className="text-[9px] text-muted-foreground">{pctFmt(o.pct)}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-between py-1 border-t border-foreground/20 mt-1 text-xs font-semibold">
+                      <span>Total OPEX</span>
+                      <span>{fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
