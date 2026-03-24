@@ -1488,6 +1488,22 @@ export default function EntrepreneurDashboard({
                   Générer le Mémo d'Investissement
                 </button>
               </div>
+            ) : selectedModule === 'plan_financier' ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+                <BarChart3 className="h-16 w-16 text-muted-foreground/20 mb-4" />
+                <h3 className="font-semibold text-lg mb-2">Plan Financier</h3>
+                <p className="text-sm text-muted-foreground/70 max-w-sm mb-6">
+                  Génère le plan financier complet (projections, ratios, CAPEX, etc.)
+                </p>
+                <button
+                  onClick={() => handleGenerateModule('plan_financier')}
+                  disabled={generating}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {generatingModule === 'plan_financier' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Générer le Plan Financier
+                </button>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <div className="mb-4">
