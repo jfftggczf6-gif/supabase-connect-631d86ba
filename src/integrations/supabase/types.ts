@@ -710,9 +710,12 @@ export type Database = {
       }
       knowledge_benchmarks: {
         Row: {
+          bfr_typique: Json | null
+          capex_typiques: Json | null
           croissance_ca_max: number | null
           date_mise_a_jour: string | null
           date_source: string | null
+          duree_amort_specifique: Json | null
           id: string
           marge_brute_max: number | null
           marge_brute_mediane: number | null
@@ -726,6 +729,7 @@ export type Database = {
           multiple_ebitda_max: number | null
           multiple_ebitda_min: number | null
           notes: string | null
+          opex_structure: Json | null
           pays: string
           perimetre: string | null
           ratio_charges_fixes_ca_max: number | null
@@ -733,15 +737,19 @@ export type Database = {
           ratio_personnel_ca_max: number | null
           ratio_personnel_ca_min: number | null
           secteur: string
+          seuil_alerte: Json | null
           source: string
           source_type: string | null
           source_url: string | null
           zone: string | null
         }
         Insert: {
+          bfr_typique?: Json | null
+          capex_typiques?: Json | null
           croissance_ca_max?: number | null
           date_mise_a_jour?: string | null
           date_source?: string | null
+          duree_amort_specifique?: Json | null
           id?: string
           marge_brute_max?: number | null
           marge_brute_mediane?: number | null
@@ -755,6 +763,7 @@ export type Database = {
           multiple_ebitda_max?: number | null
           multiple_ebitda_min?: number | null
           notes?: string | null
+          opex_structure?: Json | null
           pays?: string
           perimetre?: string | null
           ratio_charges_fixes_ca_max?: number | null
@@ -762,15 +771,19 @@ export type Database = {
           ratio_personnel_ca_max?: number | null
           ratio_personnel_ca_min?: number | null
           secteur: string
+          seuil_alerte?: Json | null
           source: string
           source_type?: string | null
           source_url?: string | null
           zone?: string | null
         }
         Update: {
+          bfr_typique?: Json | null
+          capex_typiques?: Json | null
           croissance_ca_max?: number | null
           date_mise_a_jour?: string | null
           date_source?: string | null
+          duree_amort_specifique?: Json | null
           id?: string
           marge_brute_max?: number | null
           marge_brute_mediane?: number | null
@@ -784,6 +797,7 @@ export type Database = {
           multiple_ebitda_max?: number | null
           multiple_ebitda_min?: number | null
           notes?: string | null
+          opex_structure?: Json | null
           pays?: string
           perimetre?: string | null
           ratio_charges_fixes_ca_max?: number | null
@@ -791,6 +805,7 @@ export type Database = {
           ratio_personnel_ca_max?: number | null
           ratio_personnel_ca_min?: number | null
           secteur?: string
+          seuil_alerte?: Json | null
           source?: string
           source_type?: string | null
           source_url?: string | null
@@ -802,68 +817,134 @@ export type Database = {
         Row: {
           acces_credit_pme_pct: number | null
           cadre_comptable: string | null
+          charges_patronales_pct: number | null
+          charges_salariales_pct: number | null
+          charges_sociales_detail: Json | null
+          contribution_fonciere_pct: number | null
           corruption_index: number | null
           cotisations_sociales_pct: number | null
           croissance_pib_pct: number | null
           date_mise_a_jour: string | null
           devise: string | null
+          duree_amort_equipement_agri_ans: number | null
+          duree_amort_immeubles_ans: number | null
+          duree_amort_informatique_ans: number | null
+          duree_amort_materiel_ans: number | null
+          duree_amort_mobilier_ans: number | null
+          duree_amort_vehicules_ans: number | null
+          fiscalite_detail: Json | null
           id: string
           inflation_pct: number | null
+          is_pme: number | null
+          opex_benchmarks: Json | null
+          patente_taux: string | null
           pays: string
           pib_usd_millions: number | null
           population_millions: number | null
+          regime_fiscal_notes: string | null
           risque_politique: string | null
           salaire_dirigeant_pme_max: number | null
           salaire_dirigeant_pme_min: number | null
           salaire_minimum: number | null
+          seuil_is_pme: string | null
           source: string | null
+          taux_change_eur: number | null
+          taux_change_usd: number | null
+          taux_directeur: number | null
           taux_emprunt_pme: number | null
           taux_is: number | null
           taux_tva: number | null
+          taux_usure: number | null
+          taxe_apprentissage_pct: number | null
+          zone_monetaire: string | null
         }
         Insert: {
           acces_credit_pme_pct?: number | null
           cadre_comptable?: string | null
+          charges_patronales_pct?: number | null
+          charges_salariales_pct?: number | null
+          charges_sociales_detail?: Json | null
+          contribution_fonciere_pct?: number | null
           corruption_index?: number | null
           cotisations_sociales_pct?: number | null
           croissance_pib_pct?: number | null
           date_mise_a_jour?: string | null
           devise?: string | null
+          duree_amort_equipement_agri_ans?: number | null
+          duree_amort_immeubles_ans?: number | null
+          duree_amort_informatique_ans?: number | null
+          duree_amort_materiel_ans?: number | null
+          duree_amort_mobilier_ans?: number | null
+          duree_amort_vehicules_ans?: number | null
+          fiscalite_detail?: Json | null
           id?: string
           inflation_pct?: number | null
+          is_pme?: number | null
+          opex_benchmarks?: Json | null
+          patente_taux?: string | null
           pays: string
           pib_usd_millions?: number | null
           population_millions?: number | null
+          regime_fiscal_notes?: string | null
           risque_politique?: string | null
           salaire_dirigeant_pme_max?: number | null
           salaire_dirigeant_pme_min?: number | null
           salaire_minimum?: number | null
+          seuil_is_pme?: string | null
           source?: string | null
+          taux_change_eur?: number | null
+          taux_change_usd?: number | null
+          taux_directeur?: number | null
           taux_emprunt_pme?: number | null
           taux_is?: number | null
           taux_tva?: number | null
+          taux_usure?: number | null
+          taxe_apprentissage_pct?: number | null
+          zone_monetaire?: string | null
         }
         Update: {
           acces_credit_pme_pct?: number | null
           cadre_comptable?: string | null
+          charges_patronales_pct?: number | null
+          charges_salariales_pct?: number | null
+          charges_sociales_detail?: Json | null
+          contribution_fonciere_pct?: number | null
           corruption_index?: number | null
           cotisations_sociales_pct?: number | null
           croissance_pib_pct?: number | null
           date_mise_a_jour?: string | null
           devise?: string | null
+          duree_amort_equipement_agri_ans?: number | null
+          duree_amort_immeubles_ans?: number | null
+          duree_amort_informatique_ans?: number | null
+          duree_amort_materiel_ans?: number | null
+          duree_amort_mobilier_ans?: number | null
+          duree_amort_vehicules_ans?: number | null
+          fiscalite_detail?: Json | null
           id?: string
           inflation_pct?: number | null
+          is_pme?: number | null
+          opex_benchmarks?: Json | null
+          patente_taux?: string | null
           pays?: string
           pib_usd_millions?: number | null
           population_millions?: number | null
+          regime_fiscal_notes?: string | null
           risque_politique?: string | null
           salaire_dirigeant_pme_max?: number | null
           salaire_dirigeant_pme_min?: number | null
           salaire_minimum?: number | null
+          seuil_is_pme?: string | null
           source?: string | null
+          taux_change_eur?: number | null
+          taux_change_usd?: number | null
+          taux_directeur?: number | null
           taux_emprunt_pme?: number | null
           taux_is?: number | null
           taux_tva?: number | null
+          taux_usure?: number | null
+          taxe_apprentissage_pct?: number | null
+          zone_monetaire?: string | null
         }
         Relationships: []
       }
