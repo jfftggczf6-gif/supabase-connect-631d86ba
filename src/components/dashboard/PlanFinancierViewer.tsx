@@ -619,6 +619,28 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* Avant / Après investissement OVO */}
+            {analyse.avant_apres_ovo && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg p-3 bg-red-50 dark:bg-red-950/20">
+                  <p className="text-[11px] font-semibold text-red-700 dark:text-red-400 mb-2">Sans prêt OVO</p>
+                  <div className="space-y-1 text-[10px] text-red-600 dark:text-red-400">
+                    {Object.entries(analyse.avant_apres_ovo.sans || {}).map(([k, v]: [string, any]) => (
+                      <div key={k} className="flex justify-between"><span>{k}</span><span className="font-medium">{v}</span></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-lg p-3 bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+                  <p className="text-[11px] font-semibold text-green-700 dark:text-green-400 mb-2">Avec prêt OVO ({fmtM(loans.ovo?.amount)})</p>
+                  <div className="space-y-1 text-[10px] text-green-700 dark:text-green-400">
+                    {Object.entries(analyse.avant_apres_ovo.avec || {}).map(([k, v]: [string, any]) => (
+                      <div key={k} className="flex justify-between"><span>{k}</span><span className="font-medium">{v}</span></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
