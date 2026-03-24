@@ -411,7 +411,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
                 <div className="border-l pl-4">
                   <p className="text-sm font-semibold">Score investissabilité : {analyse.verdict || '—'}</p>
-                  {analyse.avis && <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{analyse.avis}</p>}
+                  
                 </div>
               </div>
             )}
