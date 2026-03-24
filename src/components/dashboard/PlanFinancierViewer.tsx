@@ -2,12 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ComposedChart,
 } from 'recharts';
 import { useMemo } from 'react';
 import { getDevise } from '@/lib/format-currency';
+import { ChevronDown, Info, ShieldCheck, AlertTriangle, TrendingUp, Users, Landmark, BarChart3 } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -39,6 +41,137 @@ interface PlanFinancierViewerProps {
   data: any;
 }
 
+// ─── Tracability component ────────────────────────────────────
+
+function Tracabilite({ estimation }: { estimation?: any }) {
+  if (!estimation) return null;
+  const { methode, sources, hypotheses, niveau, confiance } = estimation;
+  const hasContent = methode || sources?.length || hypotheses?.length || niveau || confiance;
+  if (!hasContent) return null;
+
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="inline-flex items-center gap-1 text-[9px] text-muted-foreground/60 hover:text-muted-foreground transition-colors mt-1 cursor-pointer">
+        <Info className="h-3 w-3" />
+        <span>Traçabilité</span>
+        <ChevronDown className="h-2.5 w-2.5 transition-transform [[data-state=open]>&]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1 pl-4 border-l border-border/40 text-[10px] text-muted-foreground/70 space-y-0.5">
+        {methode && <p><span className="font-medium">Méthode :</span> {methode}</p>}
+        {sources?.length > 0 && <p><span className="font-medium">Sources :</span> {sources.join(', ')}</p>}
+        {hypotheses?.length > 0 && <p><span className="font-medium">Hypothèses :</span> {hypotheses.join(' · ')}</p>}
+        {niveau && <p><span className="font-medium">Niveau :</span> {niveau}</p>}
+        {confiance != null && <p><span className="font-medium">Confiance :</span> {confiance}%</p>}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ─── Confidence dot ───────────────────────────────────────────
+
+function ConfidenceDot({ value }: { value?: number }) {
+  if (value == null) return null;
+  const cls = value >= 80 ? 'bg-green-500' : value >= 40 ? 'bg-amber-500' : 'bg-red-500';
+  return <span className={`inline-block w-1.5 h-1.5 rounded-full ${cls} ml-1`} title={`Confiance: ${value}%`} />;
+}
+
+// ─── Generic analysis section ─────────────────────────────────
+
+function AnalysisSection({ title, icon, data: sectionData }: { title: string; icon: React.ReactNode; data?: any }) {
+  if (!sectionData || (typeof sectionData === 'object' && Object.keys(sectionData).length === 0)) return null;
+
+  return (
+    <Card>
+      <CardContent className="py-3">
+        <div className="flex items-center gap-2 mb-3">
+          {icon}
+          <p className="text-sm font-semibold">{title}</p>
+        </div>
+        <div className="space-y-2">
+          {Object.entries(sectionData).map(([key, value]: [string, any]) => {
+            if (['sources', 'methode', 'hypotheses', 'niveau', 'confiance', 'score'].includes(key)) return null;
+            if (value == null) return null;
+
+            const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+            // String
+            if (typeof value === 'string') {
+              return (
+                <div key={key} className="text-xs">
+                  <p className="text-[10px] font-medium text-muted-foreground mb-0.5">{label}</p>
+                  <p className="text-foreground leading-relaxed">{value}</p>
+                </div>
+              );
+            }
+
+            // Array of strings
+            if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+              return (
+                <div key={key}>
+                  <p className="text-[10px] font-medium text-muted-foreground mb-1">{label}</p>
+                  <ul className="space-y-0.5">
+                    {value.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-foreground flex items-start gap-1.5">
+                        <span className="text-muted-foreground mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+
+            // Array of objects
+            if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+              return (
+                <div key={key}>
+                  <p className="text-[10px] font-medium text-muted-foreground mb-1">{label}</p>
+                  <div className="space-y-1.5">
+                    {value.map((item: any, i: number) => (
+                      <div key={i} className="bg-muted/30 rounded-lg px-3 py-2 text-xs">
+                        {item.titre && <p className="font-semibold text-[11px]">{item.titre}</p>}
+                        {item.description && <p className="text-muted-foreground mt-0.5">{item.description}</p>}
+                        {item.texte && <p className="text-muted-foreground">{item.texte}</p>}
+                        {item.impact && <Badge variant="outline" className="text-[9px] mt-1">{item.impact}</Badge>}
+                        {item.priorite && <Badge variant="outline" className="text-[9px] mt-1 ml-1">{item.priorite}</Badge>}
+                        {item.delai && <span className="text-[9px] text-muted-foreground ml-1">• {item.delai}</span>}
+                        <Tracabilite estimation={item.estimation || item} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            // Nested object (not array)
+            if (typeof value === 'object' && !Array.isArray(value)) {
+              return (
+                <div key={key}>
+                  <p className="text-[10px] font-medium text-muted-foreground mb-1">{label}</p>
+                  <div className="bg-muted/30 rounded-lg px-3 py-2 text-xs space-y-0.5">
+                    {Object.entries(value).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([k, v]) => (
+                      <div key={k} className="flex justify-between">
+                        <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
+                        <span className="font-medium">{typeof v === 'string' || typeof v === 'number' ? String(v) : '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Tracabilite estimation={value} />
+                </div>
+              );
+            }
+
+            return null;
+          })}
+
+          {/* Discrete tracability for the whole section */}
+          <Tracabilite estimation={sectionData} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────
 
 export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) {
@@ -50,11 +183,25 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
   const seuil = data.seuil_rentabilite || {};
   const indicateurs = data.indicateurs_decision || {};
   const produits = data.produits || [];
+  const services = data.services || [];
   
   const staff = data.staff || [];
   const capexItems = data.capex || [];
   const loans = data.loans || {};
   const scenarios = data.scenarios || {};
+
+  // New analysis blocs
+  const analyseInvestisseur = data.analyse_investisseur || null;
+  const analyseCoaching = data.analyse_coaching || null;
+  const analyseMarges = data.analyse_marges || null;
+  const analyseRH = data.analyse_rh || null;
+  const analyseInvestissement = data.analyse_investissement || null;
+  const analyseFinancement = data.analyse_financement || null;
+  const auditReconciliation = data.audit_reconciliation || null;
+  const explicabilite = data.explicabilite || null;
+
+  const hasAnalyseTab = analyseInvestisseur || analyseCoaching || analyseMarges || analyseRH || analyseInvestissement || analyseFinancement;
+  const hasAuditTab = auditReconciliation || explicabilite;
 
   // Chart data
   const chartData = useMemo(() =>
@@ -91,12 +238,14 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
       <Tabs defaultValue="synthese" className="w-full">
         <TabsList className="w-full flex overflow-x-auto">
           <TabsTrigger value="synthese" className="text-[11px] flex-1">Synthèse</TabsTrigger>
-          <TabsTrigger value="situation" className="text-[11px] flex-1">Situation actuelle</TabsTrigger>
+          <TabsTrigger value="situation" className="text-[11px] flex-1">Situation</TabsTrigger>
           <TabsTrigger value="marges" className="text-[11px] flex-1">Marges</TabsTrigger>
           <TabsTrigger value="hypotheses" className="text-[11px] flex-1">Hypothèses</TabsTrigger>
           <TabsTrigger value="projections" className="text-[11px] flex-1">Projections</TabsTrigger>
           <TabsTrigger value="produits" className="text-[11px] flex-1">Produits & RH</TabsTrigger>
-          <TabsTrigger value="investissement" className="text-[11px] flex-1">Investissement</TabsTrigger>
+          <TabsTrigger value="investissement" className="text-[11px] flex-1">Invest.</TabsTrigger>
+          {hasAnalyseTab && <TabsTrigger value="analyse" className="text-[11px] flex-1">Analyse</TabsTrigger>}
+          {hasAuditTab && <TabsTrigger value="audit" className="text-[11px] flex-1">Audit</TabsTrigger>}
         </TabsList>
 
         {/* ═══════════ TAB 1: SYNTHÈSE ═══════════ */}
@@ -193,7 +342,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Risques clés */}
+            {/* Risques clés — without source display */}
             {analyse.risques?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
@@ -201,17 +350,19 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {analyse.risques.map((r: any, i: number) => (
                       <div key={i} className={`rounded-lg p-3 ${r.impact === 'critique' ? 'bg-red-50' : r.impact === 'élevé' ? 'bg-amber-50' : 'bg-muted/30'}`}>
-                        <p className={`text-[11px] font-semibold ${r.impact === 'critique' ? 'text-red-700' : r.impact === 'élevé' ? 'text-amber-700' : 'text-foreground'}`}>{r.titre}</p>
+                        <div className="flex items-center gap-1">
+                          <p className={`text-[11px] font-semibold ${r.impact === 'critique' ? 'text-red-700' : r.impact === 'élevé' ? 'text-amber-700' : 'text-foreground'}`}>{r.titre}</p>
+                          <ConfidenceDot value={r.confiance || r.estimation?.confiance} />
+                        </div>
                         <p className="text-[10px] text-muted-foreground mt-1">{r.description}</p>
                         <p className={`text-[9px] font-semibold mt-2 ${r.impact === 'critique' ? 'text-red-600' : 'text-amber-600'}`}>{r.impact}</p>
+                        <Tracabilite estimation={r.estimation || r} />
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             )}
-
-
 
             {/* Scénarios */}
             {Object.keys(scenarios).length > 0 && (
@@ -251,7 +402,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Score investissabilité — en bas, indicatif */}
+            {/* Score investissabilité */}
             {analyse.score_investissabilite != null && (
               <div className={`rounded-lg p-4 flex items-center gap-4 ${analyse.score_investissabilite >= 70 ? 'bg-green-50 border border-green-200' : analyse.score_investissabilite >= 40 ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
                 <div className="text-center shrink-0">
@@ -270,14 +421,12 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 2: SITUATION ACTUELLE ═══════════ */}
         <TabsContent value="situation">
           <div className="space-y-4">
-            {/* KPIs */}
             <div className="grid grid-cols-3 gap-2">
               <MetricBox label="CA" value={fmtM(kpis.ca)} sub={devise} />
               <MetricBox label="Résultat net" value={fmtM(kpis.resultat_net)} color={kpis.resultat_net < 0 ? 'text-red-600' : undefined} />
               <MetricBox label="Trésorerie" value={fmtM(kpis.tresorerie)} />
             </div>
 
-            {/* Compte de résultat réel */}
             {projections.filter((p: any) => p.is_reel).length > 0 && (
               <Card>
                 <CardContent className="py-3 px-0">
@@ -313,7 +462,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Structure des coûts */}
             {data.structure_couts && (
               <Card>
                 <CardContent className="py-3">
@@ -336,12 +484,10 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Santé financière — 4 cartes visuelles */}
             <Card>
               <CardContent className="py-3">
                 <p className="text-sm font-semibold mb-3">Santé financière</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Rentabilité */}
                   <RatioCard title="Rentabilité" ratios={[
                     { label: 'Marge brute', value: pctFmt(sante.rentabilite?.marge_brute_pct), bench: '30-50%' },
                     { label: 'Marge EBITDA', value: pctFmt(sante.rentabilite?.marge_ebitda_pct), bench: '10-20%' },
@@ -350,7 +496,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                     { label: 'ROA', value: pctFmt(sante.rentabilite?.roa), bench: '5-10%' },
                     { label: 'Couv. intérêts', value: sante.rentabilite?.couverture_interets != null ? `${sante.rentabilite.couverture_interets}x` : '—', bench: '>3x' },
                   ]} />
-                  {/* Liquidité */}
                   <RatioCard title="Liquidité & Trésorerie" ratios={[
                     { label: 'Tréso nette', value: fmtM(sante.liquidite?.tresorerie_nette) },
                     { label: 'Cash-flow op.', value: fmtM(sante.liquidite?.cashflow_operationnel) },
@@ -359,14 +504,12 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                     { label: 'BFR', value: `${sante.liquidite?.bfr_jours || 0}j` },
                     { label: 'Runway', value: sante.liquidite?.runway_mois != null ? `${sante.liquidite.runway_mois} mois` : '—', bench: '>3 mois', alert: sante.liquidite?.runway_mois != null && sante.liquidite.runway_mois < 2 },
                   ]} />
-                  {/* Solvabilité */}
                   <RatioCard title="Solvabilité" ratios={[
                     { label: 'Endettement', value: pctFmt(sante.solvabilite?.endettement_pct), bench: '<50%' },
                     { label: 'Autonomie fin.', value: pctFmt(sante.solvabilite?.autonomie_financiere_pct), bench: '>30%' },
                     { label: 'Cap. rembourst', value: sante.solvabilite?.capacite_remboursement_ans != null ? `${sante.solvabilite.capacite_remboursement_ans} ans` : '—', bench: '<3 ans' },
                     { label: 'Gearing', value: sante.solvabilite?.gearing != null ? `${sante.solvabilite.gearing}x` : '—', bench: '<2x' },
                   ]} />
-                  {/* Cycle */}
                   <RatioCard title="Cycle d'exploitation" ratios={[
                     { label: 'DSO (clients)', value: `${sante.cycle_exploitation?.dso || 0}j`, bench: '30-45j' },
                     { label: 'DIO (stocks)', value: `${sante.cycle_exploitation?.dio || 0}j`, bench: '30-45j' },
@@ -383,7 +526,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 3: ANALYSE DES MARGES ═══════════ */}
         <TabsContent value="marges">
           <div className="space-y-4">
-            {/* Rentabilité par activité */}
             {analyse.rentabilite_par_activite?.length > 0 && (
               <Card>
                 <CardContent className="py-3 px-0">
@@ -433,7 +575,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Visualisation — contribution à la marge */}
+            {/* Waterfall chart */}
             {analyse.rentabilite_par_activite?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
@@ -447,17 +589,13 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center justify-end">
                           {isPositive && <p className="text-[9px] text-green-700 font-medium mb-0.5">+{fmtM(mb)}</p>}
-                          <div
-                            className={`w-full rounded-t ${isPositive ? 'bg-green-500' : 'bg-red-500 rounded-t-none rounded-b'}`}
-                            style={{ height: `${barH}px` }}
-                          />
+                          <div className={`w-full rounded-t ${isPositive ? 'bg-green-500' : 'bg-red-500 rounded-t-none rounded-b'}`} style={{ height: `${barH}px` }} />
                           {!isPositive && <p className="text-[9px] text-red-700 font-medium mt-0.5">{fmtM(mb)}</p>}
                           <p className="text-[9px] text-muted-foreground mt-0.5 text-center truncate w-full">{item.activite || item.nom}</p>
                         </div>
                       );
                     })}
                     <div className="w-px bg-border h-full mx-2" />
-                    {/* Résultat net = somme des marges */}
                     {(() => {
                       const totalMB = analyse.rentabilite_par_activite.reduce((s: number, a: any) => s + (a.marge_brute || 0), 0);
                       const maxAbs = Math.max(...analyse.rentabilite_par_activite.map((a: any) => Math.abs(a.marge_brute || 0)), 1);
@@ -534,7 +672,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Cohérence BMC ↔ Financiers */}
+            {/* Cohérence BMC */}
             {analyse.coherence_bmc?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
@@ -552,6 +690,8 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             )}
           </div>
         </TabsContent>
+
+        {/* ═══════════ TAB 4: HYPOTHESES ═══════════ */}
         <TabsContent value="hypotheses">
           <div className="space-y-4">
             <Card>
@@ -570,7 +710,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </CardContent>
             </Card>
 
-            {/* Sensibilité */}
             {analyse.sensibilite?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
@@ -601,94 +740,47 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 5: PROJECTIONS ═══════════ */}
         <TabsContent value="projections">
           <div className="space-y-4">
-            <Card>
-              <CardContent className="py-3 px-0">
-                <p className="text-sm font-semibold px-4 mb-2">Compte de résultat prévisionnel</p>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[10px] min-w-[120px]">Poste</TableHead>
-                        {projections.map((p: any) => (
-                          <TableHead key={p.annee} className={`text-[10px] text-right min-w-[70px] ${p.is_reel ? 'bg-blue-50' : ''}`}>
-                            {p.annee_num}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {[
-                        { label: 'CA', key: 'ca', bold: true },
-                        { label: 'COGS', key: 'cogs', indent: true },
-                        { label: 'Marge brute', key: 'marge_brute', bold: true },
-                        { label: '% marge', key: 'marge_brute_pct', pct: true, dim: true },
-                        { label: 'OPEX', key: 'opex_total', indent: true },
-                        { label: 'EBITDA', key: 'ebitda', bold: true },
-                        { label: '% EBITDA', key: 'ebitda_pct', pct: true, dim: true },
-                        { label: 'Résultat net', key: 'resultat_net', bold: true },
-                        { label: 'Cash-flow', key: 'cashflow' },
-                      ].map((row) => (
-                        <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
-                          <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : ''} ${row.indent ? 'pl-6 text-muted-foreground' : ''} ${row.dim ? 'text-muted-foreground italic' : ''}`}>
-                            {row.label}
-                          </TableCell>
+            {projections.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Compte de résultat prévisionnel</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Poste</TableHead>
                           {projections.map((p: any) => (
-                            <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-blue-50' : ''}`}>
-                              {row.pct ? pctFmt(p[row.key]) : fmtM(p[row.key])}
-                            </TableCell>
+                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                              {p.annee_num}{p.is_reel ? ' ✓' : ''}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex gap-2 mt-2 px-4">
-                  <span className="text-[9px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Bleu = données réelles</span>
-                  <span className="text-[9px] bg-muted text-muted-foreground px-2 py-0.5 rounded">Gris = projections</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Graphique */}
-            {chartData.length > 0 && (
-              <Card>
-                <CardHeader className="py-3 px-4"><CardTitle className="text-sm">Résultat net & Cash-flow</CardTitle></CardHeader>
-                <CardContent className="h-[240px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => fmtM(v)} />
-                      <Tooltip formatter={(v: number) => `${fmt(v)} ${devise}`} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="Résultat net" stroke="#E24B4A" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-            {/* Avant / Après investissement OVO */}
-            {analyse.avant_apres_ovo && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-3">Avant / Après investissement OVO</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
-                      <p className="text-[10px] font-semibold text-red-700 uppercase mb-2">Sans investissement</p>
-                      <div className="space-y-1 text-xs">
-                        {Object.entries(analyse.avant_apres_ovo.sans || {}).map(([k, v]: [string, any]) => (
-                          <Row key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? fmtM(v) : String(v ?? '—')} color="text-red-700" />
+                      </TableHeader>
+                      <TableBody>
+                        {[
+                          { label: "Chiffre d'affaires", key: 'ca', bold: true },
+                          { label: "COGS", key: 'cogs' },
+                          { label: "Marge brute", key: 'marge_brute', bold: true },
+                          { label: "Marge brute %", key: 'marge_brute_pct', isPct: true },
+                          { label: "Masse salariale", key: 'masse_salariale' },
+                          { label: "OPEX total", key: 'opex_total' },
+                          { label: "EBITDA", key: 'ebitda', bold: true },
+                          { label: "EBITDA %", key: 'ebitda_pct', isPct: true },
+                          { label: "Amortissements", key: 'amortissement' },
+                          { label: "Résultat net", key: 'resultat_net', bold: true },
+                          { label: "Cash-flow libre", key: 'free_cashflow', bold: true },
+                        ].map((row) => (
+                          <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                            <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
+                            {projections.map((p: any) => (
+                              <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                {row.isPct ? pctFmt(p[row.key]) : fmtM(p[row.key])}
+                              </TableCell>
+                            ))}
+                          </TableRow>
                         ))}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-green-200 bg-green-50/50 p-3">
-                      <p className="text-[10px] font-semibold text-green-700 uppercase mb-2">Avec investissement</p>
-                      <div className="space-y-1 text-xs">
-                        {Object.entries(analyse.avant_apres_ovo.avec || {}).map(([k, v]: [string, any]) => (
-                          <Row key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? fmtM(v) : String(v ?? '—')} color="text-green-700" />
-                        ))}
-                      </div>
-                    </div>
+                      </TableBody>
+                    </Table>
                   </div>
                 </CardContent>
               </Card>
@@ -701,30 +793,54 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
           <div className="space-y-4">
             {/* Products */}
             {produits.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {produits.map((p: any, i: number) => (
-                  <Card key={i}>
-                    <CardContent className="py-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold">{p.nom}</p>
-                        <Badge variant="outline" className="text-[9px]">{(p.part_ca * 100).toFixed(0)}% CA</Badge>
-                      </div>
-                      <div className="space-y-1 text-[11px]">
-                        <Row label="Prix" value={`${fmt(p.prix_unitaire)} ${devise}`} />
-                        <Row label="COGS" value={`${fmt(p.cout_unitaire)} (${((p.cout_unitaire / (p.prix_unitaire || 1)) * 100).toFixed(0)}%)`} />
-                        <Row label="Volume N" value={fmt(p.volume_annuel)} />
-                        <Row label="Croissance" value={`+${(p.taux_croissance_volume * 100).toFixed(0)}%/an`} color="text-green-600" />
-                      </div>
-                      {p.estimation && (
-                        <p className="text-[10px] text-muted-foreground/60 italic mt-1">
-                          {p.estimation.methode}
-                          {p.estimation.sources && ` — Sources : ${p.estimation.sources.join(', ')}`}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <>
+                <p className="text-sm font-semibold">Produits</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {produits.map((p: any, i: number) => (
+                    <Card key={i}>
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold">{p.nom}</p>
+                          <Badge variant="outline" className="text-[9px]">{((p.part_ca || 0) * 100).toFixed(0)}% CA</Badge>
+                        </div>
+                        <div className="space-y-1 text-[11px]">
+                          <Row label="Prix" value={`${fmt(p.prix_unitaire)} ${devise}`} />
+                          <Row label="COGS" value={`${fmt(p.cout_unitaire)} (${((p.cout_unitaire / (p.prix_unitaire || 1)) * 100).toFixed(0)}%)`} />
+                          <Row label="Volume N" value={fmt(p.volume_annuel)} />
+                          <Row label="Croissance" value={`+${((p.taux_croissance_volume || 0) * 100).toFixed(0)}%/an`} color="text-green-600" />
+                        </div>
+                        <Tracabilite estimation={p.estimation} />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Services */}
+            {services.length > 0 && (
+              <>
+                <p className="text-sm font-semibold mt-4">Services</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {services.map((s: any, i: number) => (
+                    <Card key={i}>
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold">{s.nom}</p>
+                          {s.part_ca != null && <Badge variant="outline" className="text-[9px]">{((s.part_ca || 0) * 100).toFixed(0)}% CA</Badge>}
+                        </div>
+                        <div className="space-y-1 text-[11px]">
+                          {s.prix_unitaire != null && <Row label="Prix" value={`${fmt(s.prix_unitaire)} ${devise}`} />}
+                          {s.cout_unitaire != null && <Row label="Coût" value={`${fmt(s.cout_unitaire)}`} />}
+                          {s.volume_annuel != null && <Row label="Volume N" value={fmt(s.volume_annuel)} />}
+                          {s.taux_croissance_volume != null && <Row label="Croissance" value={`+${((s.taux_croissance_volume || 0) * 100).toFixed(0)}%/an`} color="text-green-600" />}
+                        </div>
+                        <Tracabilite estimation={s.estimation} />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* Staff */}
@@ -750,7 +866,10 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         const coutAnnuel = (cy.effectif || 0) * (cy.salaire_mensuel_brut || 0) * 12 * (1 + (s.taux_charges_sociales || 0));
                         return (
                           <TableRow key={i}>
-                            <TableCell className="text-[10px] font-medium">{s.categorie}</TableCell>
+                            <TableCell className="text-[10px] font-medium">
+                              {s.categorie}
+                              <Tracabilite estimation={s.estimation} />
+                            </TableCell>
                             <TableCell className="text-[10px] text-right">{cy.effectif || 0}</TableCell>
                             <TableCell className="text-[10px] text-right">{fmtM(cy.salaire_mensuel_brut || 0)}</TableCell>
                             <TableCell className="text-[10px] text-right">{((s.taux_charges_sociales || 0) * 100).toFixed(1)}%</TableCell>
@@ -827,7 +946,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 7: INVESTISSEMENT ═══════════ */}
         <TabsContent value="investissement">
           <div className="space-y-4">
-            {/* CAPEX */}
             {capexItems.length > 0 && (
               <Card>
                 <CardContent className="py-3 px-0">
@@ -847,12 +965,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                         <TableRow key={i}>
                           <TableCell className="text-[10px] font-medium">
                             {c.label}
-                            {c.estimation && (
-                              <p className="text-[10px] text-muted-foreground/60 italic mt-0.5">
-                                {c.estimation.methode}
-                                {c.estimation.sources && ` — Sources : ${c.estimation.sources.join(', ')}`}
-                              </p>
-                            )}
+                            <Tracabilite estimation={c.estimation} />
                           </TableCell>
                           <TableCell className="text-[10px] text-muted-foreground">{c.categorie}</TableCell>
                           <TableCell className="text-[10px] text-right">{fmtM(c.acquisition_value || c.montant)}</TableCell>
@@ -873,7 +986,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* Financement */}
             <Card>
               <CardContent className="py-3">
                 <p className="text-sm font-semibold mb-3">Plan de financement</p>
@@ -893,7 +1005,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </CardContent>
             </Card>
 
-            {/* BFR */}
             <Card>
               <CardContent className="py-3">
                 <p className="text-sm font-semibold mb-3">BFR et trésorerie</p>
@@ -905,7 +1016,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </CardContent>
             </Card>
 
-            {/* Échéancier de remboursement */}
             {data.echeancier?.length > 0 && (
               <Card>
                 <CardContent className="py-3 px-0">
@@ -950,6 +1060,192 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             )}
           </div>
         </TabsContent>
+
+        {/* ═══════════ TAB 8: ANALYSE ═══════════ */}
+        {hasAnalyseTab && (
+          <TabsContent value="analyse">
+            <div className="space-y-4">
+              <AnalysisSection
+                title="Analyse investisseur"
+                icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                data={analyseInvestisseur}
+              />
+              <AnalysisSection
+                title="Analyse coaching"
+                icon={<Users className="h-4 w-4 text-primary" />}
+                data={analyseCoaching}
+              />
+              <AnalysisSection
+                title="Analyse des marges"
+                icon={<BarChart3 className="h-4 w-4 text-primary" />}
+                data={analyseMarges}
+              />
+              <AnalysisSection
+                title="Analyse RH"
+                icon={<Users className="h-4 w-4 text-primary" />}
+                data={analyseRH}
+              />
+              <AnalysisSection
+                title="Analyse investissement"
+                icon={<Landmark className="h-4 w-4 text-primary" />}
+                data={analyseInvestissement}
+              />
+              <AnalysisSection
+                title="Analyse financement"
+                icon={<Landmark className="h-4 w-4 text-primary" />}
+                data={analyseFinancement}
+              />
+            </div>
+          </TabsContent>
+        )}
+
+        {/* ═══════════ TAB 9: AUDIT ═══════════ */}
+        {hasAuditTab && (
+          <TabsContent value="audit">
+            <div className="space-y-4">
+              {/* Explicabilité */}
+              {explicabilite && (
+                <Card>
+                  <CardContent className="py-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-semibold">Explicabilité</p>
+                      {explicabilite.score_confiance_global != null && (
+                        <Badge variant={explicabilite.score_confiance_global >= 70 ? 'default' : explicabilite.score_confiance_global >= 40 ? 'secondary' : 'destructive'} className="text-[9px] ml-auto">
+                          Confiance : {explicabilite.score_confiance_global}%
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {explicabilite.zones_fiables?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-medium text-green-700 mb-1">✓ Zones fiables</p>
+                          <div className="space-y-1">
+                            {explicabilite.zones_fiables.map((z: any, i: number) => (
+                              <p key={i} className="text-xs text-muted-foreground bg-green-50 rounded px-2 py-1">{typeof z === 'string' ? z : z.texte || z.zone || JSON.stringify(z)}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {explicabilite.zones_estimees?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-medium text-amber-700 mb-1">⚠ Zones estimées</p>
+                          <div className="space-y-1">
+                            {explicabilite.zones_estimees.map((z: any, i: number) => (
+                              <p key={i} className="text-xs text-muted-foreground bg-amber-50 rounded px-2 py-1">{typeof z === 'string' ? z : z.texte || z.zone || JSON.stringify(z)}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {explicabilite.hypotheses_sensibles?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-medium text-red-700 mb-1">⚡ Hypothèses sensibles</p>
+                          <div className="space-y-1">
+                            {explicabilite.hypotheses_sensibles.map((h: any, i: number) => (
+                              <p key={i} className="text-xs text-muted-foreground bg-red-50 rounded px-2 py-1">{typeof h === 'string' ? h : h.texte || h.hypothese || JSON.stringify(h)}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Audit Réconciliation */}
+              {auditReconciliation && (
+                <Card>
+                  <CardContent className="py-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <p className="text-sm font-semibold">Audit de réconciliation</p>
+                    </div>
+
+                    {auditReconciliation.commentaire_global && (
+                      <p className="text-xs text-muted-foreground mb-3 italic border-l-2 border-primary/30 pl-2">{auditReconciliation.commentaire_global}</p>
+                    )}
+
+                    {auditReconciliation.reference_historique_retenue && (
+                      <div className="mb-3">
+                        <p className="text-[10px] font-medium text-muted-foreground">Référence historique</p>
+                        <p className="text-xs">{typeof auditReconciliation.reference_historique_retenue === 'string' ? auditReconciliation.reference_historique_retenue : JSON.stringify(auditReconciliation.reference_historique_retenue)}</p>
+                      </div>
+                    )}
+
+                    {/* Ponts de réconciliation */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {['pont_ca', 'pont_opex', 'pont_personnel', 'pont_bfr'].map((pontKey) => {
+                        const pont = auditReconciliation[pontKey];
+                        if (!pont) return null;
+                        const label = pontKey.replace('pont_', '').toUpperCase();
+                        return (
+                          <div key={pontKey} className="bg-muted/30 rounded-lg p-2.5">
+                            <p className="text-[10px] font-semibold mb-1">Pont {label}</p>
+                            {typeof pont === 'string' ? (
+                              <p className="text-[10px] text-muted-foreground">{pont}</p>
+                            ) : typeof pont === 'object' && !Array.isArray(pont) ? (
+                              <div className="space-y-0.5 text-[10px]">
+                                {Object.entries(pont).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between">
+                                    <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
+                                    <span className="font-medium">{typeof v === 'number' ? fmtM(v) : String(v)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : Array.isArray(pont) ? (
+                              <div className="space-y-0.5 text-[10px]">
+                                {pont.map((item: any, i: number) => (
+                                  <p key={i} className="text-muted-foreground">{typeof item === 'string' ? item : item.texte || JSON.stringify(item)}</p>
+                                ))}
+                              </div>
+                            ) : null}
+                            <Tracabilite estimation={pont} />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Écarts, zones à revoir, hypothèses forcées */}
+                    {auditReconciliation.ecarts_inputs_modele?.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[10px] font-medium text-amber-700 mb-1">Écarts inputs ↔ modèle</p>
+                        <div className="space-y-1">
+                          {auditReconciliation.ecarts_inputs_modele.map((e: any, i: number) => (
+                            <p key={i} className="text-[10px] text-muted-foreground bg-amber-50 rounded px-2 py-1">{typeof e === 'string' ? e : e.texte || e.description || JSON.stringify(e)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {auditReconciliation.zones_a_revoir?.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[10px] font-medium text-red-700 mb-1">Zones à revoir</p>
+                        <div className="space-y-1">
+                          {auditReconciliation.zones_a_revoir.map((z: any, i: number) => (
+                            <p key={i} className="text-[10px] text-muted-foreground bg-red-50 rounded px-2 py-1">{typeof z === 'string' ? z : z.texte || JSON.stringify(z)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {auditReconciliation.hypotheses_forcees?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground mb-1">Hypothèses forcées</p>
+                        <div className="space-y-1">
+                          {auditReconciliation.hypotheses_forcees.map((h: any, i: number) => (
+                            <p key={i} className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1">{typeof h === 'string' ? h : h.texte || JSON.stringify(h)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Tracabilite estimation={auditReconciliation} />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
