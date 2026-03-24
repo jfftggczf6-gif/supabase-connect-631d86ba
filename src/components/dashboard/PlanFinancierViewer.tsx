@@ -398,58 +398,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 3: ANALYSE DES MARGES ═══════════ */}
         <TabsContent value="marges">
           <div className="space-y-4">
-            {/* Rentabilité par activité */}
-            {analyse.rentabilite_par_activite?.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Rentabilité par activité</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-[10px]">Activité</TableHead>
-                          <TableHead className="text-[10px] text-right">CA</TableHead>
-                          <TableHead className="text-[10px] text-right">% CA</TableHead>
-                          <TableHead className="text-[10px] text-right">Coûts directs</TableHead>
-                          <TableHead className="text-[10px] text-right">Marge brute</TableHead>
-                          <TableHead className="text-[10px] text-right">Marge %</TableHead>
-                          <TableHead className="text-[10px] text-right">EBE</TableHead>
-                          <TableHead className="text-[10px] text-center">Verdict</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {analyse.rentabilite_par_activite.map((a: any, i: number) => {
-                          const isDeficit = (a.marge_brute || 0) < 0;
-                          return (
-                            <TableRow key={i} className={isDeficit ? 'bg-red-50 dark:bg-red-950/20' : ''}>
-                              <TableCell className={`text-[10px] font-medium ${isDeficit ? 'text-red-700 dark:text-red-400' : ''}`}>{a.activite}</TableCell>
-                              <TableCell className="text-[10px] text-right">{fmtM(a.ca)}</TableCell>
-                              <TableCell className="text-[10px] text-right text-muted-foreground">{pctFmt(a.pct_ca)}</TableCell>
-                              <TableCell className="text-[10px] text-right">{fmtM(a.couts_directs)}</TableCell>
-                              <TableCell className={`text-[10px] text-right font-medium ${isDeficit ? 'text-red-600' : 'text-green-700'}`}>
-                                {isDeficit ? '' : '+'}{fmtM(a.marge_brute)}
-                              </TableCell>
-                              <TableCell className={`text-[10px] text-right ${isDeficit ? 'text-red-600' : 'text-green-700'}`}>
-                                {isDeficit ? 'nég.' : pctFmt(a.marge_pct)}
-                              </TableCell>
-                              <TableCell className={`text-[10px] text-right ${(a.ebe || 0) < 0 ? 'text-red-600 font-medium' : 'text-green-700'}`}>
-                                {(a.ebe || 0) < 0 ? '' : '+'}{fmtM(a.ebe)}
-                              </TableCell>
-                              <TableCell className="text-[10px] text-center">
-                                <Badge variant="outline" className={`text-[8px] ${isDeficit ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                                  {isDeficit ? 'Déficitaire' : 'Rentable'}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Seuil de rentabilité */}
             <Card>
               <CardContent className="py-3">
@@ -467,39 +415,8 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                          style={{ left: `${(seuil.seuil_annuel / Math.max(seuil.ca_actuel, seuil.seuil_annuel)) * 100}%` }} />
                   )}
                 </div>
-                <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
-                  <span>0</span>
-                  <span>Seuil {fmtM(seuil.seuil_annuel)}</span>
-                  <span>CA {fmtM(seuil.ca_actuel)}</span>
-                </div>
               </CardContent>
             </Card>
-
-            {/* Ratios vs benchmarks */}
-            {analyse.ratios_vs_benchmarks?.length > 0 && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-3">Ratios vs benchmarks sectoriels</p>
-                  <div className="space-y-0">
-                    {analyse.ratios_vs_benchmarks.map((r: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0 text-xs">
-                        <span className="text-muted-foreground">{r.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{r.valeur}</span>
-                          <span className="text-[10px] text-muted-foreground">bench: {r.benchmark}</span>
-                          <Badge variant="outline" className={`text-[8px] ${r.statut === 'critique' || r.statut === 'sous' ? 'bg-red-50 text-red-700 border-red-200' : r.statut === 'attention' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                            {r.statut === 'critique' ? 'Critique' : r.statut === 'sous' ? 'Sous bench.' : r.statut === 'attention' ? 'Attention' : 'OK'}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {analyse.benchmark_source && (
-                    <p className="text-[9px] text-muted-foreground/60 italic mt-2">Source : {analyse.benchmark_source}</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         </TabsContent>
 
@@ -619,28 +536,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
-
-            {/* Avant / Après investissement OVO */}
-            {analyse.avant_apres_ovo && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg p-3 bg-red-50 dark:bg-red-950/20">
-                  <p className="text-[11px] font-semibold text-red-700 dark:text-red-400 mb-2">Sans prêt OVO</p>
-                  <div className="space-y-1 text-[10px] text-red-600 dark:text-red-400">
-                    {Object.entries(analyse.avant_apres_ovo.sans || {}).map(([k, v]: [string, any]) => (
-                      <div key={k} className="flex justify-between"><span>{k}</span><span className="font-medium">{v}</span></div>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-lg p-3 bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
-                  <p className="text-[11px] font-semibold text-green-700 dark:text-green-400 mb-2">Avec prêt OVO ({fmtM(loans.ovo?.amount)})</p>
-                  <div className="space-y-1 text-[10px] text-green-700 dark:text-green-400">
-                    {Object.entries(analyse.avant_apres_ovo.avec || {}).map(([k, v]: [string, any]) => (
-                      <div key={k} className="flex justify-between"><span>{k}</span><span className="font-medium">{v}</span></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </TabsContent>
 
@@ -720,30 +615,6 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
-
-            {/* OPEX par catégorie */}
-            {data.opex_categories?.length > 0 && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-3">OPEX par catégorie (année N)</p>
-                  <div className="space-y-0">
-                    {data.opex_categories.map((o: any, i: number) => (
-                      <div key={i} className="flex justify-between py-1 border-b border-border/30 last:border-0 text-xs">
-                        <span className="text-muted-foreground">{o.poste}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{fmtM(o.montant)}</span>
-                          <span className="text-[9px] text-muted-foreground">{pctFmt(o.pct)}</span>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex justify-between py-1 border-t border-foreground/20 mt-1 text-xs font-semibold">
-                      <span>Total OPEX</span>
-                      <span>{fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </TabsContent>
 
@@ -808,45 +679,10 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </CardContent>
             </Card>
 
-            {/* Échéancier de remboursement */}
-            {data.echeancier?.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Échéancier de remboursement</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-[10px]">Prêt</TableHead>
-                          {data.echeancier[0]?.annees?.map((a: any) => (
-                            <TableHead key={a.annee} className="text-[10px] text-right">{a.annee}</TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.echeancier.map((row: any, i: number) => (
-                          <TableRow key={i} className={row.is_total ? 'bg-muted/30' : row.is_dscr ? '' : ''}>
-                            <TableCell className={`text-[10px] ${row.is_total ? 'font-semibold' : row.is_dscr ? 'text-green-700' : row.dim ? 'text-muted-foreground' : ''}`}>
-                              {row.label}
-                            </TableCell>
-                            {row.annees?.map((a: any) => (
-                              <TableCell key={a.annee} className={`text-[10px] text-right ${row.is_total ? 'font-semibold' : ''} ${row.is_dscr ? (Number(String(a.valeur).replace('x', '')) < 1.5 ? 'text-amber-600 font-medium' : 'text-green-700 font-medium') : ''}`}>
-                                {a.valeur || '—'}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* BFR */}
             <Card>
               <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">BFR et trésorerie prévisionnelle</p>
+                <p className="text-sm font-semibold mb-3">BFR et trésorerie</p>
                 <div className="grid grid-cols-3 gap-2">
                   <MetricBox label="Stock" value={`${data.working_capital?.stock_days?.[0] || 0}j`} />
                   <MetricBox label="Clients" value={`${data.working_capital?.receivable_days?.[0] || 0}j`} />

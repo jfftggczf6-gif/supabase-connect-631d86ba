@@ -50,10 +50,10 @@ serve(async (req: Request) => {
 
     const getDeliv = (type: string) => deliverables?.find((d: any) => d.type === type)?.data || {};
 
-    const inputsData = getDeliv("inputs_data") as InputsData;
-    const bmcData = getDeliv("bmc_analysis");
-    const sicData = getDeliv("sic_analysis");
-    const diagnosticData = getDeliv("diagnostic_data");
+    const inputsData = getDeliv("inputs") as InputsData;
+    const bmcData = getDeliv("bmc");
+    const sicData = getDeliv("sic");
+    const diagnosticData = getDeliv("diagnostic");
 
     // Coaching notes
     const coachingContext = await getCoachingContext(supabase, enterpriseId);
@@ -252,9 +252,7 @@ RÈGLES :
 5. Le pays est ${country}. CAPEX uniquement pour ${country}.
 
 Quand tu as terminé toutes tes estimations et vérifications, produis le JSON final.
-FORMAT : JSON strict, zéro markdown, zéro texte avant/après.
-
-CRITICAL: Tu DOIS répondre UNIQUEMENT avec un objet JSON valide. Pas de texte avant, pas de texte après, pas de markdown. Commence ta réponse par { et termine par }.`;
+FORMAT : JSON strict, zéro markdown, zéro texte avant/après.`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -479,9 +477,7 @@ RAPPELS CRITIQUES :
 - La SOMME des CA produits (prix × volume) doit ≈ CA total réel
 - La SOMME des salaires staff × effectif × 12 × (1 + charges) doit ≈ charges personnel réelles
 - L'OPEX total doit être cohérent avec les charges externes réelles
-- Chaque estimation porte son objet "estimation" avec niveau, méthode, sources, confiance
-
-RAPPEL FINAL : Ta réponse doit être UNIQUEMENT un objet JSON valide commençant par { — aucun texte explicatif, aucune introduction, aucun markdown.`;
+- Chaque estimation porte son objet "estimation" avec niveau, méthode, sources, confiance`;
 
   return blocks;
 }
