@@ -398,6 +398,50 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
         {/* ═══════════ TAB 3: ANALYSE DES MARGES ═══════════ */}
         <TabsContent value="marges">
           <div className="space-y-4">
+            {/* Rentabilité par activité */}
+            {analyse.rentabilite_par_activite?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Rentabilité par activité</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Activité</TableHead>
+                        <TableHead className="text-[10px] text-right">CA</TableHead>
+                        <TableHead className="text-[10px] text-right">% CA</TableHead>
+                        <TableHead className="text-[10px] text-right">Coûts directs</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge brute</TableHead>
+                        <TableHead className="text-[10px] text-right">Marge %</TableHead>
+                        <TableHead className="text-[10px] text-right">EBE</TableHead>
+                        <TableHead className="text-[10px] text-center">Verdict</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analyse.rentabilite_par_activite.map((item: any, i: number) => {
+                        const rentable = (item.verdict || '').toLowerCase().includes('rentable') && !(item.verdict || '').toLowerCase().includes('déficitaire');
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{item.activite || item.nom}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.ca)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{pctFmt(item.pct_ca)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.couts_directs)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.marge_brute)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{pctFmt(item.marge_pct)}</TableCell>
+                            <TableCell className="text-[10px] text-right">{fmtM(item.ebe)}</TableCell>
+                            <TableCell className="text-[10px] text-center">
+                              <Badge variant={rentable ? 'default' : 'destructive'} className="text-[9px]">
+                                {rentable ? 'Rentable' : 'Déficitaire'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Seuil de rentabilité */}
             <Card>
               <CardContent className="py-3">
@@ -417,6 +461,44 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
               </CardContent>
             </Card>
+
+            {/* Ratios vs benchmarks */}
+            {analyse.ratios_vs_benchmarks?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Ratios vs benchmarks sectoriels</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Indicateur</TableHead>
+                        <TableHead className="text-[10px] text-right">Valeur</TableHead>
+                        <TableHead className="text-[10px] text-right">Benchmark</TableHead>
+                        <TableHead className="text-[10px] text-center">Statut</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analyse.ratios_vs_benchmarks.map((r: any, i: number) => {
+                        const statut = (r.statut || r.status || '').toLowerCase();
+                        const isOk = statut.includes('ok') || statut.includes('bon') || statut.includes('conforme');
+                        const isWarn = statut.includes('attention') || statut.includes('moyen');
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{r.label}</TableCell>
+                            <TableCell className="text-[10px] text-right font-semibold">{r.valeur}</TableCell>
+                            <TableCell className="text-[10px] text-right text-muted-foreground">{r.benchmark}</TableCell>
+                            <TableCell className="text-[10px] text-center">
+                              <Badge variant="outline" className={`text-[9px] ${isOk ? 'bg-green-50 text-green-700 border-green-200' : isWarn ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                {r.statut || r.status || '—'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
