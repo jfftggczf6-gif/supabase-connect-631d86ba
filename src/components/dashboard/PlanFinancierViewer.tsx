@@ -200,7 +200,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
   const auditReconciliation = data.audit_reconciliation || null;
   const explicabilite = data.explicabilite || null;
 
-  const hasAnalyseTab = analyseInvestisseur || analyseCoaching || analyseMarges || analyseRH || analyseInvestissement || analyseFinancement;
+  
   const hasAuditTab = auditReconciliation || explicabilite;
 
   // Chart data
@@ -244,7 +244,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
           <TabsTrigger value="projections" className="text-[11px] flex-1">Projections</TabsTrigger>
           <TabsTrigger value="produits" className="text-[11px] flex-1">Produits & RH</TabsTrigger>
           <TabsTrigger value="investissement" className="text-[11px] flex-1">Invest.</TabsTrigger>
-          {hasAnalyseTab && <TabsTrigger value="analyse" className="text-[11px] flex-1">Analyse</TabsTrigger>}
+          
           {hasAuditTab && <TabsTrigger value="audit" className="text-[11px] flex-1">Audit</TabsTrigger>}
         </TabsList>
 
@@ -415,6 +415,20 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
               </div>
             )}
+
+            {/* ── Analyse investisseur ── */}
+            <AnalysisSection
+              title="Analyse investisseur"
+              icon={<TrendingUp className="h-4 w-4 text-primary" />}
+              data={analyseInvestisseur}
+            />
+
+            {/* ── Analyse coaching ── */}
+            <AnalysisSection
+              title="Analyse coaching"
+              icon={<Users className="h-4 w-4 text-primary" />}
+              data={analyseCoaching}
+            />
           </div>
         </TabsContent>
 
@@ -885,6 +899,13 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* ── Analyse des marges ── */}
+            <AnalysisSection
+              title="Analyse des marges"
+              icon={<BarChart3 className="h-4 w-4 text-primary" />}
+              data={analyseMarges}
+            />
           </div>
         </TabsContent>
 
@@ -1591,6 +1612,13 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* ── Analyse RH ── */}
+            <AnalysisSection
+              title="Analyse RH"
+              icon={<Users className="h-4 w-4 text-primary" />}
+              data={analyseRH}
+            />
           </div>
         </TabsContent>
 
@@ -1890,48 +1918,24 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </div>
             )}
 
+
+            {/* ── Analyse investissement ── */}
+            <AnalysisSection
+              title="Analyse investissement"
+              icon={<Landmark className="h-4 w-4 text-primary" />}
+              data={analyseInvestissement}
+            />
+
+            {/* ── Analyse financement ── */}
+            <AnalysisSection
+              title="Analyse financement"
+              icon={<Landmark className="h-4 w-4 text-primary" />}
+              data={analyseFinancement}
+            />
           </div>
         </TabsContent>
 
-        {/* ═══════════ TAB 8: ANALYSE ═══════════ */}
-        {hasAnalyseTab && (
-          <TabsContent value="analyse">
-            <div className="space-y-4">
-              <AnalysisSection
-                title="Analyse investisseur"
-                icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                data={analyseInvestisseur}
-              />
-              <AnalysisSection
-                title="Analyse coaching"
-                icon={<Users className="h-4 w-4 text-primary" />}
-                data={analyseCoaching}
-              />
-              <AnalysisSection
-                title="Analyse des marges"
-                icon={<BarChart3 className="h-4 w-4 text-primary" />}
-                data={analyseMarges}
-              />
-              <AnalysisSection
-                title="Analyse RH"
-                icon={<Users className="h-4 w-4 text-primary" />}
-                data={analyseRH}
-              />
-              <AnalysisSection
-                title="Analyse investissement"
-                icon={<Landmark className="h-4 w-4 text-primary" />}
-                data={analyseInvestissement}
-              />
-              <AnalysisSection
-                title="Analyse financement"
-                icon={<Landmark className="h-4 w-4 text-primary" />}
-                data={analyseFinancement}
-              />
-            </div>
-          </TabsContent>
-        )}
-
-        {/* ═══════════ TAB 9: AUDIT ═══════════ */}
+        {/* ═══════════ TAB 8: AUDIT ═══════════ */}
         {hasAuditTab && (
           <TabsContent value="audit">
             <div className="space-y-4">
