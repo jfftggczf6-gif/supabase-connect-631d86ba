@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -516,6 +516,7 @@ export type Database = {
       }
       enterprises: {
         Row: {
+          base_year: number | null
           city: string | null
           coach_id: string | null
           contact_email: string | null
@@ -546,6 +547,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          base_year?: number | null
           city?: string | null
           coach_id?: string | null
           contact_email?: string | null
@@ -576,6 +578,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          base_year?: number | null
           city?: string | null
           coach_id?: string | null
           contact_email?: string | null
@@ -1284,7 +1287,6 @@ export type Database = {
         | "plan_ovo"
         | "business_plan"
         | "odd_analysis"
-        | "plan_ovo_excel"
         | "odd_excel"
         | "screening_report"
         | "pre_screening"
@@ -1292,6 +1294,8 @@ export type Database = {
         | "onepager"
         | "pitch_deck"
         | "investment_memo"
+        | "plan_ovo_excel"
+        | "plan_financier"
       module_code:
         | "bmc"
         | "sic"
@@ -1305,6 +1309,7 @@ export type Database = {
         | "onepager"
         | "pitch_deck"
         | "investment_memo"
+        | "plan_financier"
       module_status: "not_started" | "in_progress" | "completed"
       operating_mode: "reconstruction" | "due_diligence"
     }
@@ -1451,7 +1456,6 @@ export const Constants = {
         "plan_ovo",
         "business_plan",
         "odd_analysis",
-        "plan_ovo_excel",
         "odd_excel",
         "screening_report",
         "pre_screening",
@@ -1459,6 +1463,8 @@ export const Constants = {
         "onepager",
         "pitch_deck",
         "investment_memo",
+        "plan_ovo_excel",
+        "plan_financier",
       ],
       module_code: [
         "bmc",
@@ -1473,6 +1479,7 @@ export const Constants = {
         "onepager",
         "pitch_deck",
         "investment_memo",
+        "plan_financier",
       ],
       module_status: ["not_started", "in_progress", "completed"],
       operating_mode: ["reconstruction", "due_diligence"],
