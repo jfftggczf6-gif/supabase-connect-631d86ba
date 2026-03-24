@@ -152,7 +152,7 @@ export default function Livrables() {
                       <Button size="sm" variant="outline" className="gap-1 text-xs h-8" onClick={() => handleDownload(config.type, 'html')}>
                         <Download className="h-3 w-3" /> HTML
                       </Button>
-                      {['inputs_data', 'framework_data', 'plan_ovo', 'odd_analysis'].includes(config.type) && (
+                      {['inputs_data', 'framework_data', 'plan_ovo', 'odd_analysis', 'plan_financier'].includes(config.type) && (
                         <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleDownload(config.type, 'xlsx')}>
                           XLSX
                         </Button>
