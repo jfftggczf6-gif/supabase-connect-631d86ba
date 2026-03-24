@@ -1110,91 +1110,120 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               </Card>
             )}
 
-            {/* --- Plan d'investissement --- */}
-            {capexItems.length > 0 && (
-              <Card>
-                <CardContent className="py-3 px-0">
-                  <p className="text-sm font-semibold px-4 mb-2">Plan d'investissement (CAPEX)</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-[10px]">Investissement</TableHead>
-                          <TableHead className="text-[10px] text-right">Montant</TableHead>
-                          <TableHead className="text-[10px] text-right">Année</TableHead>
-                          <TableHead className="text-[10px] text-right">Amort. (ans)</TableHead>
-                          <TableHead className="text-[10px]">Catégorie</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {capexItems.map((c: any, i: number) => (
-                          <TableRow key={i}>
-                            <TableCell className="text-[10px] font-medium">{c.nom || c.label}</TableCell>
-                            <TableCell className="text-[10px] text-right">{fmtM(c.montant)} {devise}</TableCell>
-                            <TableCell className="text-[10px] text-right">{c.annee || c.annee_acquisition || '—'}</TableCell>
-                            <TableCell className="text-[10px] text-right">{c.duree_amortissement || c.amortissement_annees || '—'}</TableCell>
-                            <TableCell className="text-[10px] text-muted-foreground">{c.categorie || '—'}</TableCell>
+            {/* CAPEX, Financement, BFR moved to Investissement tab */}
+
+            {/* --- OPEX évolution (moved from Produits & RH) --- */}
+            {(data.opex_categories?.length > 0 || projections.length > 0) && (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-primary" /> Charges opérationnelles (OPEX)
+                </p>
+
+                {data.opex_categories?.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Répartition OPEX</p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Poste</TableHead>
+                            <TableHead className="text-[10px] text-right">Montant ({devise})</TableHead>
+                            <TableHead className="text-[10px] text-right">%</TableHead>
                           </TableRow>
-                        ))}
-                        <TableRow className="bg-muted/30">
-                          <TableCell className="text-[10px] font-semibold">Total CAPEX</TableCell>
-                          <TableCell className="text-[10px] text-right font-semibold">{fmtM(capexItems.reduce((s: number, c: any) => s + (c.montant || 0), 0))} {devise}</TableCell>
-                          <TableCell colSpan={3} />
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                        </TableHeader>
+                        <TableBody>
+                          {data.opex_categories.map((op: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-[10px]">{op.poste}</TableCell>
+                              <TableCell className="text-[10px] text-right">{fmtM(op.montant)}</TableCell>
+                              <TableCell className="text-[10px] text-right">{pctFmt(op.pct)}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="bg-muted/30">
+                            <TableCell className="text-[10px] font-bold">Total</TableCell>
+                            <TableCell className="text-[10px] text-right font-bold">
+                              {fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}
+                            </TableCell>
+                            <TableCell className="text-[10px] text-right font-bold">100%</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* --- Plan de financement --- */}
-            {(loans.ovo || loans.bancaire || loans.famille || data.financing) && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-2">Plan de financement</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {[
-                      { key: 'ovo', label: 'Prêt OVO', data: loans.ovo },
-                      { key: 'bancaire', label: 'Prêt bancaire', data: loans.bancaire },
-                      { key: 'famille', label: 'Prêt famille/associés', data: loans.famille },
-                    ].filter(l => l.data && l.data.montant > 0).map((loan) => (
-                      <div key={loan.key} className="rounded-lg border border-border p-3 space-y-1 text-[11px]">
-                        <p className="font-semibold text-xs">{loan.label}</p>
-                        <Row label="Montant" value={`${fmtM(loan.data.montant)} ${devise}`} />
-                        <Row label="Taux" value={pctFmt((loan.data.taux || 0) * 100)} />
-                        <Row label="Durée" value={`${loan.data.duree_mois || loan.data.duree || '—'} mois`} />
-                        {loan.data.grace_mois > 0 && <Row label="Grâce" value={`${loan.data.grace_mois} mois`} />}
-                        {loan.data.mensualite && <Row label="Mensualité" value={`${fmtM(loan.data.mensualite)} ${devise}`} />}
+                {projections.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">OPEX — évolution pluriannuelle</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[10px]">Poste</TableHead>
+                              {projections.map((p: any) => (
+                                <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                  {p.annee_num}{p.is_reel ? ' ✓' : ''}
+                                </TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {[
+                              { label: 'Masse salariale', key: 'masse_salariale' },
+                              { label: 'Loyers', key: 'loyers' },
+                              { label: 'Marketing', key: 'marketing' },
+                              { label: 'Autres OPEX', key: 'autres_opex' },
+                              { label: 'OPEX total', key: 'opex_total', bold: true },
+                              { label: '% du CA', key: 'opex_pct_ca', isPct: true },
+                            ].filter(row => row.key === 'opex_total' || projections.some((p: any) => p[row.key] != null)).map((row) => (
+                              <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                                <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
+                                {projections.map((p: any) => {
+                                  const val = row.key === 'opex_pct_ca' && p.ca ? ((p.opex_total || 0) / p.ca) * 100 : p[row.key];
+                                  return (
+                                    <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                      {row.isPct ? pctFmt(val) : fmtM(val)}
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
-                    ))}
-                    {data.financing && Array.isArray(data.financing) && data.financing.map((f: any, i: number) => (
-                      <div key={`fin-${i}`} className="rounded-lg border border-border p-3 space-y-1 text-[11px]">
-                        <p className="font-semibold text-xs">{f.source || f.type || 'Source'}</p>
-                        {f.montant != null && <Row label="Montant" value={`${fmtM(f.montant)} ${devise}`} />}
-                        {f.part != null && <Row label="Part" value={pctFmt((f.part || 0) * 100)} />}
-                        {f.condition && <Row label="Conditions" value={f.condition} />}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* --- BFR détaillé --- */}
-            {data.bfr && (
-              <Card>
-                <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-2">Besoin en Fonds de Roulement (BFR)</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {data.bfr.delai_clients != null && <MetricBox label="Délai clients (jrs)" value={`${data.bfr.delai_clients}`} />}
-                    {data.bfr.delai_fournisseurs != null && <MetricBox label="Délai fourn. (jrs)" value={`${data.bfr.delai_fournisseurs}`} />}
-                    {data.bfr.delai_stock != null && <MetricBox label="Rotation stock (jrs)" value={`${data.bfr.delai_stock}`} />}
-                    {data.bfr.bfr_jours_ca != null && <MetricBox label="BFR (jrs CA)" value={`${data.bfr.bfr_jours_ca}`} />}
-                  </div>
-                  <Tracabilite estimation={data.bfr?.estimation} />
-                </CardContent>
-              </Card>
+                {data.opex_detail?.length > 0 && (
+                  <Card>
+                    <CardContent className="py-3 px-0">
+                      <p className="text-xs font-semibold px-4 mb-2">Détail des charges</p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px]">Poste</TableHead>
+                            <TableHead className="text-[10px]">Type</TableHead>
+                            <TableHead className="text-[10px] text-right">Montant annuel</TableHead>
+                            <TableHead className="text-[10px] text-right">Croissance</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.opex_detail.map((op: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-[10px] font-medium">{op.poste || op.label || op.nom}</TableCell>
+                              <TableCell className="text-[10px] text-muted-foreground">{op.type || op.categorie || '—'}</TableCell>
+                              <TableCell className="text-[10px] text-right">{fmtM(op.montant || op.amount)}</TableCell>
+                              <TableCell className="text-[10px] text-right">{op.croissance != null ? pctFmt((op.croissance || 0) * 100) : '—'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
 
           </div>
