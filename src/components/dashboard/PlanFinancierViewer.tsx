@@ -885,6 +885,13 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* ── Analyse des marges ── */}
+            <AnalysisSection
+              title="Analyse des marges"
+              icon={<BarChart3 className="h-4 w-4 text-primary" />}
+              data={analyseMarges}
+            />
           </div>
         </TabsContent>
 
