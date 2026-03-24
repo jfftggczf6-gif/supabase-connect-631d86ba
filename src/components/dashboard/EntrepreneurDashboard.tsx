@@ -393,7 +393,12 @@ export default function EntrepreneurDashboard({
         }
       );
       clearTimeout(timeoutId);
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erreur'); }
+      if (!response.ok) {
+        const errText = await response.text();
+        let errMsg = 'Erreur';
+        try { const errJson = JSON.parse(errText); errMsg = errJson.error || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
       return await response.json();
     };
 
