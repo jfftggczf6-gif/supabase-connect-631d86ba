@@ -486,6 +486,9 @@ export default function CoachDashboard() {
         <Button variant="outline" asChild className="gap-2">
           <a href="/templates"><Download className="h-4 w-4" /> Templates vierges</a>
         </Button>
+        <Button variant="outline" className="gap-2" onClick={() => setShowKBManager(true)}>
+          <Database className="h-4 w-4" /> Base de connaissances
+        </Button>
       </div>
 
       {/* Barre de recherche + filtres */}

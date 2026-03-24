@@ -832,6 +832,50 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
                 </div>
               </CardContent>
             </Card>
+
+            {/* Échéancier de remboursement */}
+            {data.echeancier?.length > 0 && (
+              <Card>
+                <CardContent className="py-3 px-0">
+                  <p className="text-sm font-semibold px-4 mb-2">Échéancier de remboursement</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Prêt</TableHead>
+                          {data.echeancier[0]?.annees?.map((_: any, i: number) => (
+                            <TableHead key={i} className="text-[10px] text-right">An {i + 1}</TableHead>
+                          )) || projections.filter((p: any) => !p.is_reel).map((p: any) => (
+                            <TableHead key={p.annee} className="text-[10px] text-right">{p.annee_num}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.echeancier.map((pret: any, i: number) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-[10px] font-medium">{pret.label || pret.pret}</TableCell>
+                            {(pret.annees || pret.montants || []).map((val: any, j: number) => {
+                              const montant = typeof val === 'object' ? val.montant : val;
+                              const dscr = typeof val === 'object' ? val.dscr : null;
+                              return (
+                                <TableCell key={j} className="text-[10px] text-right">
+                                  <div>{fmtM(montant)}</div>
+                                  {dscr != null && (
+                                    <div className={`text-[9px] font-semibold ${dscr >= 1.5 ? 'text-green-600' : dscr >= 1.2 ? 'text-amber-600' : 'text-red-600'}`}>
+                                      DSCR {dscr}x
+                                    </div>
+                                  )}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
       </Tabs>
