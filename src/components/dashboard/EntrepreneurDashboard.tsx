@@ -842,12 +842,21 @@ export default function EntrepreneurDashboard({
       }
 
       const blob = await response.blob();
-      const ext = format === 'csv' ? '.csv' : format === 'json' ? '.json' : format === 'xlsx' ? (type === 'plan_ovo' ? '.xlsm' : '.xlsx') : '.html';
-      const label = type === 'odd_analysis' && format === 'xlsx' ? 'ODD' : type;
-      const safeName = enterprise.name.replace(/[^a-zA-Z0-9]/g, '_');
+      // Extract real filename from Content-Disposition (handles .xlsm vs .xlsx)
+      const disposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = disposition.match(/filename="?([^";\n]+)"?/);
+      let downloadName: string;
+      if (filenameMatch?.[1]) {
+        downloadName = filenameMatch[1];
+      } else {
+        const ext = format === 'csv' ? '.csv' : format === 'json' ? '.json' : format === 'xlsx' ? ((type === 'plan_ovo' || type === 'plan_financier') ? '.xlsm' : '.xlsx') : '.html';
+        const label = type === 'odd_analysis' && format === 'xlsx' ? 'ODD' : type;
+        const safeName = enterprise.name.replace(/[^a-zA-Z0-9]/g, '_');
+        downloadName = `${safeName}_${label}${ext}`;
+      }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${safeName}_${label}${ext}`;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

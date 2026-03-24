@@ -48,8 +48,8 @@ export default function Livrables() {
       if (!session) throw new Error("Non authentifié");
       const ts = Date.now();
 
-      // For ODD xlsx, use fetch with validation instead of window.open
-      if (type === 'odd_analysis' && format === 'xlsx') {
+      // For ODD and plan_financier xlsx, use fetch+blob to respect Content-Disposition
+      if ((type === 'odd_analysis' || type === 'plan_financier') && format === 'xlsx') {
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterprise.id}&format=${format}&_ts=${ts}`;
         const response = await fetch(url, {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -57,14 +57,18 @@ export default function Livrables() {
         });
         if (!response.ok) throw new Error('Erreur de téléchargement');
         const contentDisp = response.headers.get('content-disposition') || '';
-        if (contentDisp.includes('.xlsm') || contentDisp.toLowerCase().includes('ovo')) {
+        // ODD-specific validation: reject if contaminated with OVO content
+        if (type === 'odd_analysis' && (contentDisp.includes('.xlsm') || contentDisp.toLowerCase().includes('ovo'))) {
           throw new Error('Fichier ODD incorrect reçu. Veuillez régénérer le module ODD.');
         }
         const blob = await response.blob();
+        // Extract real filename from Content-Disposition (handles .xlsm for plan_financier)
+        const filenameMatch = contentDisp.match(/filename="?([^";\n]+)"?/);
         const safeName = enterprise.name.replace(/[^a-zA-Z0-9]/g, '_');
+        const fallbackName = type === 'plan_financier' ? `${safeName}_PlanFinancier_${ts}.xlsm` : `${safeName}_ODD_${ts}.xlsx`;
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${safeName}_ODD_${ts}.xlsx`;
+        a.download = filenameMatch?.[1] || fallbackName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
