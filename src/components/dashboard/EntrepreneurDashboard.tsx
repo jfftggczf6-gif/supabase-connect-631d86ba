@@ -427,9 +427,9 @@ export default function EntrepreneurDashboard({
       const token = await getValidAccessToken(authSession, navigate);
       const functionName = MODULE_FN_MAP[moduleCode] || `generate-${moduleCode}`;
 
-      // Timeouts: 6 min per pass for investment_memo, 5 min for business_plan, 2 min default
+      // Timeouts: 6 min for investment_memo, 5 min for business_plan/plan_financier, 2 min default
       const timeoutMs = moduleCode === 'investment_memo' ? 360000
-        : moduleCode === 'business_plan' ? 300000
+        : (moduleCode === 'business_plan' || moduleCode === 'plan_financier') ? 300000
         : 120000;
 
       let result: any;
