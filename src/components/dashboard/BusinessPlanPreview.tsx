@@ -223,7 +223,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
         ))}
       </Section>
 
-      <Section title="10. Équipe et organisation">
+      <Section title="10. Équipe et organisation" editBtn={editBtn('equipe', 'Équipe')}>
         {[
           ["Équipe de direction", bp.equipe_direction],
           ["Personnel", bp.personnel],
