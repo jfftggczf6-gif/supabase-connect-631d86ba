@@ -194,7 +194,7 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
       {/* Compte de résultat */}
       {Object.keys(cr).length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">📊 Compte de résultat</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">📊 Compte de résultat</h4>{editBtn('compte_resultat', 'Compte de Résultat')}</div>
           <div className="space-y-1">
             {Object.entries(cr).map(([key, val]) => (
               <div key={key} className={`flex justify-between text-xs py-0.5 border-b border-border/50 ${key.includes('resultat') ? 'font-bold' : ''}`}>
