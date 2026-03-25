@@ -339,7 +339,7 @@ export default function FrameworkViewer({ data, enterpriseId, onUpdated }: Frame
       {/* Plan d'action */}
       {planAction.length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">🎯 Plan d'Action & Trajectoire</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">🎯 Plan d'Action & Trajectoire</h4>{editBtn('plan_action', "Plan d'action")}</div>
           <div className="space-y-1.5">
             {planAction.map((a: any, i: number) => (
               <div key={i} className={`p-2 rounded-lg border-l-4 text-xs ${
