@@ -266,7 +266,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4">
             <div className="flex items-center gap-2 mb-4">
               <Shield className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Conditions</h4>
+              <h4 className="text-sm font-display font-semibold">Conditions</h4> {editBtn('conditions', 'Conditions')}
             </div>
             {['avant_financement', 'pendant', 'a_la_fin'].map(moment => {
               const items = conditions.filter((c: any) => c.moment === moment);
