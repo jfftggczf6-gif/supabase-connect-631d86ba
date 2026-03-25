@@ -186,16 +186,16 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
 
       {/* Forces & Points de vigilance */}
       <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="bg-card border rounded-xl p-5" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
-          <h4 className="text-sm font-bold mb-3" style={{ color: '#166534' }}>✅ Forces</h4>
+        <div className="bg-card border rounded-xl p-5 group" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#166534' }}>✅ Forces {editBtn('diagnostic.forces', 'Forces')}</h4>
           <ul className="space-y-1.5">
             {(diag.forces || []).map((f: string, i: number) => (
               <li key={i} className="text-xs text-foreground">• {f}</li>
             ))}
           </ul>
         </div>
-        <div className="bg-card border rounded-xl p-5" style={{ borderColor: '#fef08a', background: '#fefce8' }}>
-          <h4 className="text-sm font-bold mb-3" style={{ color: '#854d0e' }}>⚠️ Points de vigilance</h4>
+        <div className="bg-card border rounded-xl p-5 group" style={{ borderColor: '#fef08a', background: '#fefce8' }}>
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#854d0e' }}>⚠️ Points de vigilance {editBtn('diagnostic.points_vigilance', 'Points de Vigilance')}</h4>
           <ul className="space-y-1.5">
             {(diag.points_vigilance || []).map((p: string, i: number) => (
               <li key={i} className="text-xs text-foreground">• {p}</li>
