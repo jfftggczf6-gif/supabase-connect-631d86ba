@@ -148,7 +148,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
         </div>
       </Section>
 
-      <Section title="2. Résumé de la gestion">
+      <Section title="2. Résumé de la gestion" editBtn={editBtn('resume_gestion', 'Résumé de Gestion')}>
         <MultiText text={bp.resume_gestion} />
       </Section>
 
