@@ -134,6 +134,11 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     return 'text-muted-foreground bg-muted';
   };
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="pre_screening" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-6" id="prescreening-viewer-content">
 
