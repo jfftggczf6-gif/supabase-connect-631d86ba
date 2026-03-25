@@ -99,8 +99,10 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
       {/* Score global */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
+          <CardTitle className="flex items-center gap-2 text-lg group">
             🌍 ODD — Objectifs de Développement Durable
+            {editBtn('evaluation_cibles_odd.cibles', 'Évaluation des Cibles')}
+          </CardTitle>
           </CardTitle>
         </CardHeader>
         <CardContent>
