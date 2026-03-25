@@ -131,6 +131,11 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
     return new Intl.NumberFormat('fr-FR').format(n) + ' ' + deviseVal;
   };
 
+  const editBtn = (path: string, title: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="inputs_data" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-4">
       <ScoreHeader
