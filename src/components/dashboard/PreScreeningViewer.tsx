@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SectionEditButton from './SectionEditButton';
 import { downloadRichHtml, downloadRichPdf } from '@/lib/download-rich-html';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
