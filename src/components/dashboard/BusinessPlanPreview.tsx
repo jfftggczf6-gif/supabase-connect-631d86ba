@@ -156,7 +156,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
         <MultiText text={bp.historique} />
       </Section>
 
-      <Section title="4. Vision, mission et valeurs">
+      <Section title="4. Vision, mission et valeurs" editBtn={editBtn('vision', 'Vision')}>
         <p className="font-medium text-muted-foreground mb-1">Vision</p>
         <MultiText text={bp.vision} />
         <p className="font-medium text-muted-foreground mt-3 mb-1">Mission</p>
