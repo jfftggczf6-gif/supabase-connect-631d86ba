@@ -55,6 +55,11 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
     }
   };
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="valuation" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-6" id="valuation-viewer-content">
       {/* Header */}
