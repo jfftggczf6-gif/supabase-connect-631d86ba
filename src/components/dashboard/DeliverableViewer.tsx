@@ -732,7 +732,7 @@ function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterp
       {(verdictFinal.synthese || verdictFinal.prochaines_etapes?.length > 0) && (
         <Card className="bg-card border shadow-sm">
           <CardContent className="py-4">
-            <h4 className="text-xs font-bold text-primary mb-2">Verdict final</h4>
+            <h4 className="text-xs font-bold text-primary mb-2 group flex items-center gap-2">Verdict final {editBtn('verdict_final', 'Verdict Final')}</h4>
             <p className="text-xs text-foreground leading-relaxed">{verdictFinal.synthese}</p>
             {verdictFinal.delai_estime && (
               <Badge className="mt-3" variant="outline">
