@@ -214,7 +214,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       </div>
 
       {/* ===== RECOMMANDATIONS STRATÉGIQUES ===== */}
-      <SectionTitle>RECOMMANDATIONS STRATÉGIQUES</SectionTitle>
+      <div className="group flex items-center gap-2"><SectionTitle>RECOMMANDATIONS STRATÉGIQUES</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
       <div className="space-y-4 mb-8">
         {reco.court_terme && (
           <RecoBlock emoji="📌" title="Court terme — Consolider les fondations" text={reco.court_terme} color="#22c55e" />
