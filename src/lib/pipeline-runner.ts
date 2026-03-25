@@ -281,6 +281,20 @@ export async function runPipelineFromClient(
             inputsScoreZero = true;
           }
         }
+      } else {
+        const err = await response.json().catch(() => ({ error: 'Unknown' }));
+
+        if (response.status === 402 || err.error?.includes('Crédits') || err.error?.includes('insuffisants')) {
+          creditError = true;
+          results.push({ step: step.name, success: false, error: err.error });
+          break;
+        }
+        if (response.status === 429) {
+          results.push({ step: step.name, success: false, error: 'Limite de requêtes atteinte, réessayez plus tard.' });
+          break;
+        }
+
+        results.push({ step: step.name, success: false, error: err.error });
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
