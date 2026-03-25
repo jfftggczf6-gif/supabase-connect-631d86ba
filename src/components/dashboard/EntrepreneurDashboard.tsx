@@ -492,14 +492,26 @@ export default function EntrepreneurDashboard({
         }
       }
 
-      // Investment memo 2-pass: if pass 1 returned processing, auto-chain pass 2
-      if (result.processing === true && moduleCode === 'investment_memo') {
+      // Investment memo 2-pass: if pass 1 returned processing (not async 202), auto-chain pass 2
+      if (result.processing === true && !result._async && moduleCode === 'investment_memo') {
         toast.info('Mémo d\'investissement — passe 1 terminée, finalisation en cours…');
         const freshToken = await getValidAccessToken(authSession, navigate);
         result = await runSingleAttempt(functionName, freshToken, enterprise.id, timeoutMs);
       }
 
-      toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score ?? 0}/100`);
+      // Handle async 202 responses — poll until deliverable is ready
+      if (result._async) {
+        const delivType = MODULE_TYPE_MAP[moduleCode] || moduleCode;
+        toast.info(`${moduleCode.toUpperCase()} en cours de génération…`, { description: 'Cela peut prendre 1-4 minutes.' });
+        const completed = await pollDeliverableReady(enterprise.id, delivType);
+        if (completed) {
+          toast.success(`${moduleCode.toUpperCase()} généré avec succès ✅`);
+        } else {
+          toast.warning(`${moduleCode.toUpperCase()} prend plus de temps que prévu. Rafraîchissez dans quelques instants.`);
+        }
+      } else {
+        toast.success(`${moduleCode.toUpperCase()} généré ! Score: ${result.score ?? 0}/100`);
+      }
       setSelectedModule(moduleCode);
       await fetchData();
     } catch (err: any) {
