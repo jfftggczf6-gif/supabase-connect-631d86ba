@@ -300,8 +300,9 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
 
       {/* ===== BLOC 5 — CANVAS VISUEL (6 blocs) ===== */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border">
+        <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border group flex items-center gap-2">
           SOCIAL IMPACT CANVAS — VUE SYNTHÉTIQUE
+          {editBtn('canvas_blocs', 'Canvas Impact Social')}
         </h2>
         {/* Row 1: 4 cols */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border">
