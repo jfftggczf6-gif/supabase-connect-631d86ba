@@ -33,6 +33,8 @@ const SLIDE_TITLES = [
 interface Props {
   data: Record<string, any>;
   onRegenerate?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 const SECTIONS = [
