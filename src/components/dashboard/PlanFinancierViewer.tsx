@@ -1640,6 +1640,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
               <div className="space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <Landmark className="h-4 w-4 text-primary" /> Plan d'investissement (CAPEX)
+                  {editBtn('capex', 'Investissements (CAPEX)')}
                 </p>
                 <Card>
                   <CardContent className="py-3 px-0">
