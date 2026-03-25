@@ -107,7 +107,7 @@ function SicViewer({ data }: { data: any }) {
 }
 
 // ===== INPUTS VIEWER =====
-export function InputsViewer({ data }: { data: any }) {
+export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; enterpriseId?: string; onUpdated?: () => void }) {
   const cr = data.compte_resultat || {};
   const bilan = data.bilan || {};
   const kpis = data.kpis || {};
