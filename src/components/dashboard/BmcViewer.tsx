@@ -205,7 +205,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       </div>
 
       {/* ===== MATRICE SWOT ===== */}
-      <SectionTitle>MATRICE SWOT SYNTHÉTIQUE</SectionTitle>
+      <div className="group flex items-center gap-2"><SectionTitle>MATRICE SWOT SYNTHÉTIQUE</SectionTitle>{editBtn('swot', 'SWOT')}</div>
       <div className="grid grid-cols-2 gap-3 mb-8">
         <SwotBox title="FORCES" items={swot.forces} bg="#f0fdf4" border="#bbf7d0" />
         <SwotBox title="FAIBLESSES" items={swot.faiblesses} bg="#fef2f2" border="#fecaca" />
