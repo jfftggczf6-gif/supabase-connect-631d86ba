@@ -259,7 +259,7 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
             {synthese.odd_prioritaires.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">ODD Prioritaires</CardTitle>
+                  <CardTitle className="text-sm group flex items-center gap-2">ODD Prioritaires {editBtn('synthese', 'Synthèse')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
