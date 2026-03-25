@@ -353,7 +353,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             {analyse.risques?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-3">Risques clés</p>
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-3">Risques clés</p>{editBtn('analyse.risques', 'Risques')}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {analyse.risques.map((r: any, i: number) => (
                       <div key={i} className={`rounded-lg p-3 ${r.impact === 'critique' ? 'bg-red-50' : r.impact === 'élevé' ? 'bg-amber-50' : 'bg-muted/30'}`}>
