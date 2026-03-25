@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CheckCircle } from "lucide-react";
+import MarketAnalysisSection from "./MarketAnalysisSection";
 
 interface BusinessPlanPreviewProps {
   data: Record<string, any>;
