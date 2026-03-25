@@ -87,7 +87,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
       </div>
 
       {/* Fourchette de valorisation */}
-      <Card className="border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50">
+      <Card className="border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50">{/* Synthèse */}
         <CardContent className="pt-6">
           <div className="grid grid-cols-3 gap-6 text-center">
             <div>
