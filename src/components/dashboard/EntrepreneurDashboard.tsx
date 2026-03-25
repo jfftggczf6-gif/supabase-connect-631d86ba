@@ -396,14 +396,13 @@ export default function EntrepreneurDashboard({
           .from('deliverables')
           .select('data, version, updated_at')
           .eq('enterprise_id', entId)
-          .eq('type', delivType)
+          .eq('type', delivType as any)
           .single();
         if (deliv?.data) {
           const delivData = deliv.data as Record<string, any>;
           if (delivData.status === 'error') throw new Error(delivData.error || 'Erreur de génération');
           if (delivData.status !== 'processing' && Object.keys(delivData).length > 10) return true;
         }
-        setModuleProgress(prev => ({ ...prev, [moduleCode]: Math.min(95, 20 + i * 2) }));
       }
       return false;
     };
