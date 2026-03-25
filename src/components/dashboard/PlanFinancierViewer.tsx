@@ -262,7 +262,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             {analyse.avis && (
               <Card>
                 <CardContent className="py-4">
-                  <p className="text-sm font-semibold mb-2">Avis de l'IA</p>
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis de l'IA</p>{editBtn('analyse.avis', 'Avis général')}</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{analyse.avis}</p>
                   {analyse.tags?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
