@@ -5,6 +5,7 @@ const SUPPORTED_TYPES = [
   "bmc_analysis", "sic_analysis", "diagnostic_data", "business_plan",
   "odd_analysis", "pre_screening", "valuation", "screening_report",
   "plan_financier", "inputs_data", "framework_data",
+  "onepager", "investment_memo",
 ];
 
 // Map deliverable types to module codes for saveDeliverable
@@ -20,6 +21,8 @@ const TYPE_TO_MODULE: Record<string, string> = {
   plan_financier: "plan_financier",
   inputs_data: "inputs",
   framework_data: "framework",
+  onepager: "onepager",
+  investment_memo: "investment_memo",
 };
 
 function getNestedValue(obj: any, path: string): any {
