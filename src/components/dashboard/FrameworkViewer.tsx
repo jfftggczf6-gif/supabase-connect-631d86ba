@@ -300,7 +300,7 @@ export default function FrameworkViewer({ data, enterpriseId, onUpdated }: Frame
       {/* Scénarios */}
       {scenarios.tableau?.length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">🔄 Analyse par Scénarios (Année 5)</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">🔄 Analyse par Scénarios (Année 5)</h4>{editBtn('scenarios', 'Scénarios')}</div>
           {scenarios.verdict && <p className="text-xs italic text-muted-foreground mb-3 border-l-2 border-primary/30 pl-3">{scenarios.verdict}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
