@@ -254,7 +254,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
       {decotes.ajustement_total_pct != null && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Décotes & Primes</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Décotes & Primes {editBtn('decotes_primes', 'Décotes & Primes')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
