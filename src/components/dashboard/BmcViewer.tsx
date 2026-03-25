@@ -33,8 +33,13 @@ function toArr(val: any): string[] {
   return [];
 }
 
-export default function BmcViewer({ data }: BmcViewerProps) {
+export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerProps) {
   if (!data) return null;
+
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="bmc_analysis" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
 
   const canvas = data.canvas || {};
   const diag = data.diagnostic || {};
