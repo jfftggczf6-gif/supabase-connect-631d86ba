@@ -185,7 +185,7 @@ ${criteres ? `
 
       {/* Tableau 5 sections */}
       <div className="border rounded-lg overflow-hidden">
-        <SectionRow label="Présentation de l'entreprise">
+        <SectionRow label="Présentation de l'entreprise">{editBtn('presentation_entreprise', 'Présentation')}
           <Field label="Nom" value={pres.nom} />
           <Field label="Secteur" value={pres.secteur} />
           <Field label="Localisation" value={pres.localisation} />
