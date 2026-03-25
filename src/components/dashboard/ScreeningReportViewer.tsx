@@ -306,7 +306,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Risques pour le programme</h4>
+              <h4 className="text-sm font-display font-semibold">Risques pour le programme</h4> {editBtn('risques_programme', 'Risques Programme')}
             </div>
             <div className="space-y-2">
               {risques.map((r: any, i: number) => {

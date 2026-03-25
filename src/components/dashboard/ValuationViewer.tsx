@@ -287,7 +287,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
       {implications.pre_money_estime && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><TrendingDown className="h-4 w-4 text-indigo-600" /> Implications Investissement</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><TrendingDown className="h-4 w-4 text-indigo-600" /> Implications Investissement {editBtn('implications_investissement', 'Implications Investissement')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Pre-money estimé</span><span className="font-bold">{fmt(implications.pre_money_estime, devise)}</span></div>
