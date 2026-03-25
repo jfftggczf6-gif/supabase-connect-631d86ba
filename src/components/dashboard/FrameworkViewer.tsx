@@ -263,7 +263,7 @@ export default function FrameworkViewer({ data, enterpriseId, onUpdated }: Frame
       {/* Projection 5 ans */}
       {proj.lignes?.length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">📈 Projection Financière 5 Ans</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">📈 Projection Financière 5 Ans</h4>{editBtn('projection_5ans', 'Projections 5 ans')}</div>
           {proj.verdict && <p className="text-xs italic text-muted-foreground mb-3 border-l-2 border-primary/30 pl-3">{proj.verdict}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
