@@ -149,6 +149,41 @@ export default function CoachDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ─── Realtime: listen for deliverable/module changes across all coach enterprises
+  useEffect(() => {
+    if (!user?.id || enterprises.length === 0) return;
+    const ids = enterprises.map(e => e.id);
+
+    const channels = ids.flatMap(entId => [
+      supabase
+        .channel(`coach-deliv-${entId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'deliverables', filter: `enterprise_id=eq.${entId}` },
+          () => {
+            supabase.from('deliverables').select('*').eq('enterprise_id', entId).then(({ data }) => {
+              if (data) setDeliverablesMap(prev => ({ ...prev, [entId]: data }));
+            });
+          }
+        )
+        .subscribe(),
+      supabase
+        .channel(`coach-mods-${entId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'enterprise_modules', filter: `enterprise_id=eq.${entId}` },
+          () => {
+            supabase.from('enterprise_modules').select('*').eq('enterprise_id', entId).then(({ data }) => {
+              if (data) setModulesMap(prev => ({ ...prev, [entId]: data }));
+            });
+          }
+        )
+        .subscribe(),
+    ]);
+
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
+  }, [user?.id, enterprises.map(e => e.id).join(',')]);
+
   // Compute mirror pipeline state when selected enterprise changes
   useEffect(() => {
     if (!selectedEnt) return;
