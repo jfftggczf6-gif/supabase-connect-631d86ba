@@ -212,7 +212,7 @@ export default function FrameworkViewer({ data, enterpriseId, onUpdated }: Frame
         <>
           {sante.resume_chiffres?.length > 0 && (
             <Card><CardContent className="py-3">
-              <h4 className="text-xs font-bold text-primary mb-1">📊 État de santé financière</h4>
+              <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-1">📊 État de santé financière</h4>{editBtn('sante_financiere', 'Santé financière')}</div>
               <div className="flex flex-wrap gap-2">
                 {sante.resume_chiffres.map((c: string, i: number) => (
                   <Badge key={i} variant="outline" className="text-[10px]">{c}</Badge>
