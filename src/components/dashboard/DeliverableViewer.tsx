@@ -546,7 +546,7 @@ export function InputsViewer({ data }: { data: any }) {
 // ===== FRAMEWORK VIEWER (now in separate file: FrameworkViewer.tsx) =====
 
 // ===== BILAN DE PROGRESSION VIEWER (6 zones) =====
-function DiagnosticViewer({ data }: { data: any }) {
+function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterpriseId?: string; onUpdated?: () => void }) {
   // Support both old format and new "Bilan de progression" format
   const isNewFormat = !!(data.verdict_readiness || data.problemes || data.points_forts);
 
