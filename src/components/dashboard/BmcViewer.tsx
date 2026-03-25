@@ -143,8 +143,8 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
         </div>
 
         {/* Revenus */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">FLUX DE REVENUS</h4>
+        <div className="bg-card border border-border rounded-xl p-5 group">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">FLUX DE REVENUS {editBtn('canvas.flux_revenus', 'Flux de Revenus')}</h4>
           <div className="space-y-1.5 text-xs">
             {canvas.flux_revenus?.produit_principal && <Row label="Produit principal" val={canvas.flux_revenus.produit_principal} />}
             {canvas.flux_revenus?.prix_moyen && <Row label="Prix moyen" val={canvas.flux_revenus.prix_moyen} />}
