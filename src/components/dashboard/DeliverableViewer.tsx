@@ -17,7 +17,7 @@ interface DeliverableViewerProps {
   onUpdated?: () => void;
 }
 
-export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate }: DeliverableViewerProps) {
+export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated }: DeliverableViewerProps) {
   if (!data || typeof data !== 'object') return null;
 
   const regenerateButton = onRegenerate ? (
@@ -39,7 +39,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
     case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
     case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} />);
     case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} />);
-    case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} />);
+    case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'plan_ovo': {
       const frameworkDel = allDeliverables?.find((d: any) => d.type === 'framework_data');
       const planOvoDel = allDeliverables?.find((d: any) => d.type === 'plan_ovo');
@@ -51,7 +51,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
     }
     case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} />);
     case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
-    case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} />);
+    case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
   }
 }
