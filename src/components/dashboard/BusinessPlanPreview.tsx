@@ -107,8 +107,13 @@ function FinancierTable({ tableau }: { tableau: Record<string, Record<string, st
   );
 }
 
-export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) {
+export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: BusinessPlanPreviewProps) {
   const bp = data || {};
+
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="business_plan" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
 
   return (
     <div className="space-y-4">
