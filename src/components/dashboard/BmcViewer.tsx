@@ -1,7 +1,10 @@
 // BmcViewer
+import SectionEditButton from './SectionEditButton';
 
 interface BmcViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 const BLOC_LABELS: Record<string, string> = {
@@ -30,8 +33,13 @@ function toArr(val: any): string[] {
   return [];
 }
 
-export default function BmcViewer({ data }: BmcViewerProps) {
+export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerProps) {
   if (!data) return null;
+
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="bmc_analysis" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
 
   const canvas = data.canvas || {};
   const diag = data.diagnostic || {};
@@ -74,12 +82,13 @@ export default function BmcViewer({ data }: BmcViewerProps) {
       {/* ===== CANVAS — VUE D'ENSEMBLE ===== */}
       <SectionTitle>CANVAS — VUE D'ENSEMBLE</SectionTitle>
 
+
       {/* 5-column grid row */}
       <div className="grid grid-cols-5 gap-px bg-border rounded-xl overflow-hidden mb-px">
-        <CanvasCell title="PARTENAIRES CLÉS" items={toArr(canvas.partenaires_cles)} critical={canvas.partenaires_cles?.element_critique} />
-        <CanvasCell title="ACTIVITÉS CLÉS" items={toArr(canvas.activites_cles)} critical={canvas.activites_cles?.element_critique} />
-        <CanvasCell title="PROPOSITION DE VALEUR" items={canvas.proposition_valeur?.enonce ? [canvas.proposition_valeur.enonce, ...(canvas.proposition_valeur.avantages || [])] : toArr(canvas.proposition_valeur)} highlight />
-        <CanvasCell title="RELATIONS CLIENTS" items={[canvas.relations_clients?.type, ...toArr(canvas.relations_clients?.items || canvas.relations_clients)].filter(Boolean)} />
+        <CanvasCell title="PARTENAIRES CLÉS" items={toArr(canvas.partenaires_cles)} critical={canvas.partenaires_cles?.element_critique} editBtn={editBtn('canvas.partenaires_cles', 'Partenaires Clés')} />
+        <CanvasCell title="ACTIVITÉS CLÉS" items={toArr(canvas.activites_cles)} critical={canvas.activites_cles?.element_critique} editBtn={editBtn('canvas.activites_cles', 'Activités Clés')} />
+        <CanvasCell title="PROPOSITION DE VALEUR" items={canvas.proposition_valeur?.enonce ? [canvas.proposition_valeur.enonce, ...(canvas.proposition_valeur.avantages || [])] : toArr(canvas.proposition_valeur)} highlight editBtn={editBtn('canvas.proposition_valeur', 'Proposition de Valeur')} />
+        <CanvasCell title="RELATIONS CLIENTS" items={[canvas.relations_clients?.type, ...toArr(canvas.relations_clients?.items || canvas.relations_clients)].filter(Boolean)} editBtn={editBtn('canvas.relations_clients', 'Relations Clients')} />
         <CanvasCell title="SEGMENTS CLIENTS" items={[
           canvas.segments_clients?.principal,
           canvas.segments_clients?.zone ? `Zone: ${canvas.segments_clients.zone}` : null,
@@ -87,12 +96,12 @@ export default function BmcViewer({ data }: BmcViewerProps) {
           canvas.segments_clients?.probleme_resolu ? `Problème résolu: ${canvas.segments_clients.probleme_resolu}` : null,
           canvas.segments_clients?.taille_marche ? `Taille marché: ${canvas.segments_clients.taille_marche}` : null,
           canvas.segments_clients?.intensite_besoin ? `Intensité besoin: ${canvas.segments_clients.intensite_besoin}` : null,
-        ].filter(Boolean) as string[]} />
+        ].filter(Boolean) as string[]} editBtn={editBtn('canvas.segments_clients', 'Segments Clients')} />
       </div>
 
       {/* RESSOURCES CLÉS (full width below canvas) */}
-      <div className="bg-card border border-t-0 border-border rounded-b-xl p-5 mb-6">
-        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">RESSOURCES CLÉS</h4>
+      <div className="bg-card border border-t-0 border-border rounded-b-xl p-5 mb-6 group">
+        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">RESSOURCES CLÉS {editBtn('canvas.ressources_cles', 'Ressources Clés')}</h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
           {canvas.ressources_cles?.categories ? (
             Object.entries(canvas.ressources_cles.categories).map(([key, val]: [string, any]) => (
@@ -115,8 +124,8 @@ export default function BmcViewer({ data }: BmcViewerProps) {
       {/* STRUCTURE DE COÛTS + FLUX DE REVENUS (bottom row) */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         {/* Coûts */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">STRUCTURE DE COÛTS</h4>
+        <div className="bg-card border border-border rounded-xl p-5 group">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">STRUCTURE DE COÛTS {editBtn('canvas.structure_couts', 'Structure de Coûts')}</h4>
           <div className="space-y-1.5">
             {(canvas.structure_couts?.postes || []).map((p: any, i: number) => (
               <div key={i} className="flex justify-between text-xs">
@@ -134,8 +143,8 @@ export default function BmcViewer({ data }: BmcViewerProps) {
         </div>
 
         {/* Revenus */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">FLUX DE REVENUS</h4>
+        <div className="bg-card border border-border rounded-xl p-5 group">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">FLUX DE REVENUS {editBtn('canvas.flux_revenus', 'Flux de Revenus')}</h4>
           <div className="space-y-1.5 text-xs">
             {canvas.flux_revenus?.produit_principal && <Row label="Produit principal" val={canvas.flux_revenus.produit_principal} />}
             {canvas.flux_revenus?.prix_moyen && <Row label="Prix moyen" val={canvas.flux_revenus.prix_moyen} />}
@@ -152,7 +161,7 @@ export default function BmcViewer({ data }: BmcViewerProps) {
 
       {/* ===== DIAGNOSTIC EXPERT ===== */}
       <SectionTitle>DIAGNOSTIC EXPERT</SectionTitle>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-muted-foreground mb-4 group">
         Scores par bloc BMC — Score global : <strong className="text-foreground">{data.score_global ?? data.score ?? '—'}%</strong>
       </p>
 
@@ -177,16 +186,16 @@ export default function BmcViewer({ data }: BmcViewerProps) {
 
       {/* Forces & Points de vigilance */}
       <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="bg-card border rounded-xl p-5" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
-          <h4 className="text-sm font-bold mb-3" style={{ color: '#166534' }}>✅ Forces</h4>
+        <div className="bg-card border rounded-xl p-5 group" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#166534' }}>✅ Forces {editBtn('diagnostic.forces', 'Forces')}</h4>
           <ul className="space-y-1.5">
             {(diag.forces || []).map((f: string, i: number) => (
               <li key={i} className="text-xs text-foreground">• {f}</li>
             ))}
           </ul>
         </div>
-        <div className="bg-card border rounded-xl p-5" style={{ borderColor: '#fef08a', background: '#fefce8' }}>
-          <h4 className="text-sm font-bold mb-3" style={{ color: '#854d0e' }}>⚠️ Points de vigilance</h4>
+        <div className="bg-card border rounded-xl p-5 group" style={{ borderColor: '#fef08a', background: '#fefce8' }}>
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#854d0e' }}>⚠️ Points de vigilance {editBtn('diagnostic.points_vigilance', 'Points de Vigilance')}</h4>
           <ul className="space-y-1.5">
             {(diag.points_vigilance || []).map((p: string, i: number) => (
               <li key={i} className="text-xs text-foreground">• {p}</li>
@@ -196,7 +205,7 @@ export default function BmcViewer({ data }: BmcViewerProps) {
       </div>
 
       {/* ===== MATRICE SWOT ===== */}
-      <SectionTitle>MATRICE SWOT SYNTHÉTIQUE</SectionTitle>
+      <div className="group flex items-center gap-2"><SectionTitle>MATRICE SWOT SYNTHÉTIQUE</SectionTitle>{editBtn('swot', 'SWOT')}</div>
       <div className="grid grid-cols-2 gap-3 mb-8">
         <SwotBox title="FORCES" items={swot.forces} bg="#f0fdf4" border="#bbf7d0" />
         <SwotBox title="FAIBLESSES" items={swot.faiblesses} bg="#fef2f2" border="#fecaca" />
@@ -205,7 +214,7 @@ export default function BmcViewer({ data }: BmcViewerProps) {
       </div>
 
       {/* ===== RECOMMANDATIONS STRATÉGIQUES ===== */}
-      <SectionTitle>RECOMMANDATIONS STRATÉGIQUES</SectionTitle>
+      <div className="group flex items-center gap-2"><SectionTitle>RECOMMANDATIONS STRATÉGIQUES</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
       <div className="space-y-4 mb-8">
         {reco.court_terme && (
           <RecoBlock emoji="📌" title="Court terme — Consolider les fondations" text={reco.court_terme} color="#22c55e" />
@@ -241,11 +250,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CanvasCell({ title, items, critical, highlight }: { title: string; items: string[]; critical?: string; highlight?: boolean }) {
+function CanvasCell({ title, items, critical, highlight, editBtn }: { title: string; items: string[]; critical?: string; highlight?: boolean; editBtn?: React.ReactNode }) {
   return (
-    <div className={`bg-card p-4 min-h-[160px] ${highlight ? 'bg-primary/5' : ''}`}>
-      <h4 className="text-[9px] font-black uppercase tracking-[0.12em] text-primary mb-2 pb-1.5 border-b border-border">
-        {title}
+    <div className={`bg-card p-4 min-h-[160px] group ${highlight ? 'bg-primary/5' : ''}`}>
+      <h4 className="text-[9px] font-black uppercase tracking-[0.12em] text-primary mb-2 pb-1.5 border-b border-border flex items-center gap-1.5">
+        <span className="flex-1">{title}</span>
+        {editBtn}
       </h4>
       <ul className="space-y-1">
         {items.map((item, i) => (

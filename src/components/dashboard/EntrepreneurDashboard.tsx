@@ -1491,13 +1491,13 @@ export default function EntrepreneurDashboard({
 
                 {/* Viewers */}
                 {selectedModule === 'bmc' ? (
-                  <BmcViewer data={selectedDeliv.data} />
+                  <BmcViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'sic' ? (
-                  <SicViewer data={selectedDeliv.data} />
+                  <SicViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'plan_financier' ? (
                   <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} />
                 ) : selectedModule === 'business_plan' ? (
-                  <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} />
+                  <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'valuation' ? (
                   <ValuationViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} enterpriseName={enterprise?.name} onRegenerate={() => handleGenerateModule('valuation')} />
                 ) : selectedModule === 'onepager' ? (
@@ -1505,7 +1505,7 @@ export default function EntrepreneurDashboard({
                 ) : selectedModule === 'investment_memo' ? (
                   <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} />
                 ) : (
-                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} />
+                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 )}
               </div>
             ) : selectedModule === 'investment_memo' ? (

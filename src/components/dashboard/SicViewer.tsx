@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import SectionEditButton from './SectionEditButton';
 
 interface SicViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 const ODD_COLORS: Record<number, string> = {
@@ -191,7 +194,7 @@ function normalizeData(raw: any) {
 }
 
 
-export default function SicViewer({ data }: SicViewerProps) {
+export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerProps) {
   const [expandedDim, setExpandedDim] = useState<string | null>(null);
 
   if (!data) return null;
@@ -219,6 +222,11 @@ export default function SicViewer({ data }: SicViewerProps) {
   const dimOrder = ['probleme_vision', 'beneficiaires', 'mesure_impact', 'alignement_odd', 'gestion_risques'];
   const maturityIdx = MATURITY_LEVELS.indexOf(maturite);
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="sic_analysis" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="max-w-[900px] mx-auto space-y-6" style={{ fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif" }}>
 
@@ -240,7 +248,7 @@ export default function SicViewer({ data }: SicViewerProps) {
 
       {/* ===== BLOC 2 — 5 JAUGES DE DIMENSIONS ===== */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <SectionTitle>SCORES PAR DIMENSION</SectionTitle>
+        <div className="group flex items-center gap-2"><SectionTitle>SCORES PAR DIMENSION</SectionTitle>{editBtn('dimensions', 'Dimensions d\'Impact')}</div>
         <div className="space-y-3">
           {dimOrder.map(key => {
             const dim = dims[key];
@@ -292,8 +300,9 @@ export default function SicViewer({ data }: SicViewerProps) {
 
       {/* ===== BLOC 5 — CANVAS VISUEL (6 blocs) ===== */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border">
+        <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border group flex items-center gap-2">
           SOCIAL IMPACT CANVAS — VUE SYNTHÉTIQUE
+          {editBtn('canvas_blocs', 'Canvas Impact Social')}
         </h2>
         {/* Row 1: 4 cols */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border">
@@ -350,7 +359,7 @@ export default function SicViewer({ data }: SicViewerProps) {
       {/* ===== BLOC 6 — RISQUES & ATTÉNUATION ===== */}
       {risques.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border">RISQUES & ATTÉNUATION</h2>
+          <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border group flex items-center gap-2">RISQUES & ATTÉNUATION {editBtn('risques_attenuation', 'Risques & Atténuation')}</h2>
           <table className="w-full text-[13px]">
             <thead><tr className="bg-muted/50"><th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">⚠️ Risque</th><th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">✅ Atténuation</th></tr></thead>
             <tbody>{risques.map((r: any, i: number) => (
@@ -362,7 +371,7 @@ export default function SicViewer({ data }: SicViewerProps) {
 
       {/* ===== BLOC 7 — THÉORIE DU CHANGEMENT ===== */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <SectionTitle>THÉORIE DU CHANGEMENT</SectionTitle>
+        <div className="group flex items-center gap-2"><SectionTitle>THÉORIE DU CHANGEMENT</SectionTitle>{editBtn('theorie_du_changement', 'Théorie du Changement')}</div>
         <div className="hidden md:flex items-stretch gap-1">
           {TC_KEYS.map((key, i) => (
             <div key={key} className="flex items-stretch" style={{ width: '19%' }}>
@@ -508,7 +517,7 @@ export default function SicViewer({ data }: SicViewerProps) {
       {/* ===== BLOC 13 — TOP 3 RECOMMANDATIONS ===== */}
       {recos.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-6">
-          <SectionTitle>RECOMMANDATIONS POUR RENFORCER L'IMPACT</SectionTitle>
+          <div className="group flex items-center gap-2"><SectionTitle>RECOMMANDATIONS POUR RENFORCER L'IMPACT</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recos.slice(0, 3).map((r: any, i: number) => (
               <div key={i} className="bg-muted/30 border border-border rounded-xl p-5 relative">

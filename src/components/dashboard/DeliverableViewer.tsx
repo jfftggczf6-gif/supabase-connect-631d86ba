@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import SectionEditButton from './SectionEditButton';
 import FrameworkViewerComponent from './FrameworkViewer';
 import PlanOvoViewerComponent from './PlanOvoViewer';
 import { OddViewer as OddViewerComponent } from './OddViewer';
@@ -13,9 +14,11 @@ interface DeliverableViewerProps {
   data: any;
   allDeliverables?: any[];
   onRegenerate?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate }: DeliverableViewerProps) {
+export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated }: DeliverableViewerProps) {
   if (!data || typeof data !== 'object') return null;
 
   const regenerateButton = onRegenerate ? (
@@ -37,7 +40,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
     case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
     case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} />);
     case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} />);
-    case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} />);
+    case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'plan_ovo': {
       const frameworkDel = allDeliverables?.find((d: any) => d.type === 'framework_data');
       const planOvoDel = allDeliverables?.find((d: any) => d.type === 'plan_ovo');
@@ -49,7 +52,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
     }
     case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} />);
     case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
-    case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} />);
+    case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
   }
 }
@@ -544,7 +547,7 @@ export function InputsViewer({ data }: { data: any }) {
 // ===== FRAMEWORK VIEWER (now in separate file: FrameworkViewer.tsx) =====
 
 // ===== BILAN DE PROGRESSION VIEWER (6 zones) =====
-function DiagnosticViewer({ data }: { data: any }) {
+function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterpriseId?: string; onUpdated?: () => void }) {
   // Support both old format and new "Bilan de progression" format
   const isNewFormat = !!(data.verdict_readiness || data.problemes || data.points_forts);
 
@@ -552,6 +555,11 @@ function DiagnosticViewer({ data }: { data: any }) {
   if (!isNewFormat) {
     return <LegacyDiagnosticViewer data={data} />;
   }
+
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="diagnostic_data" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
 
   const verdict = data.verdict_readiness || {};
   const progression = data.progression || {};
@@ -614,7 +622,7 @@ function DiagnosticViewer({ data }: { data: any }) {
       {/* ═══ ZONE 2 — Ce qui va coincer ═══ */}
       {problemes.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui va coincer</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide group flex items-center gap-2">Ce qui va coincer {editBtn('problemes', 'Problèmes')}</h3>
           {problemes.map((p: any, i: number) => (
             <div
               key={i}
@@ -666,7 +674,7 @@ function DiagnosticViewer({ data }: { data: any }) {
       {/* ═══ ZONE 4 — Ce qui est solide ═══ */}
       {pointsForts.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui est solide</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide group flex items-center gap-2">Ce qui est solide {editBtn('points_forts', 'Points Forts')}</h3>
           {pointsForts.map((pf: any, i: number) => (
             <div key={i} className="p-3 rounded-r-lg bg-card border border-l-4 border-l-success shadow-sm">
               <p className="text-xs font-medium text-foreground">{pf.titre}</p>
@@ -724,7 +732,7 @@ function DiagnosticViewer({ data }: { data: any }) {
       {(verdictFinal.synthese || verdictFinal.prochaines_etapes?.length > 0) && (
         <Card className="bg-card border shadow-sm">
           <CardContent className="py-4">
-            <h4 className="text-xs font-bold text-primary mb-2">Verdict final</h4>
+            <h4 className="text-xs font-bold text-primary mb-2 group flex items-center gap-2">Verdict final {editBtn('verdict_final', 'Verdict Final')}</h4>
             <p className="text-xs text-foreground leading-relaxed">{verdictFinal.synthese}</p>
             {verdictFinal.delai_estime && (
               <Badge className="mt-3" variant="outline">

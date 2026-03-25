@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SectionEditButton from "./SectionEditButton";
 
 const ODD_COLORS: Record<string, string> = {
   "1": "#E5243B", "2": "#DDA63A", "3": "#4C9F38", "4": "#C5192D", "5": "#FF3A21",
@@ -51,6 +52,8 @@ interface OddData {
 
 interface OddViewerProps {
   data: OddData;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 function EvalBadge({ evaluation }: { evaluation: string }) {
@@ -66,7 +69,7 @@ function EvalBadge({ evaluation }: { evaluation: string }) {
   return <Badge variant="outline">—</Badge>;
 }
 
-export function OddViewer({ data }: OddViewerProps) {
+export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
   const cibles = data.evaluation_cibles_odd?.cibles ?? [];
   const resumeOdd = data.evaluation_cibles_odd?.resume_par_odd ?? {};
   const indicateurs = data.indicateurs_impact?.indicateurs ?? [];
@@ -86,13 +89,19 @@ export function OddViewer({ data }: OddViewerProps) {
   const totalNegatifs = cibles.filter(c => c.evaluation === "negatif").length;
   const scoreGlobal = cibles.length > 0 ? Math.round((totalPositifs / cibles.length) * 100) : 0;
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="odd_analysis" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-4">
       {/* Score global */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
+          <CardTitle className="flex items-center gap-2 text-lg group">
             🌍 ODD — Objectifs de Développement Durable
+            {editBtn('evaluation_cibles_odd.cibles', 'Évaluation des Cibles')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -249,7 +258,7 @@ export function OddViewer({ data }: OddViewerProps) {
             {synthese.odd_prioritaires.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">ODD Prioritaires</CardTitle>
+                  <CardTitle className="text-sm group flex items-center gap-2">ODD Prioritaires {editBtn('synthese', 'Synthèse')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
@@ -270,7 +279,7 @@ export function OddViewer({ data }: OddViewerProps) {
             {synthese.recommandations.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Recommandations</CardTitle>
+                  <CardTitle className="text-sm group flex items-center gap-2">Recommandations {editBtn('synthese.recommandations', 'Recommandations')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">

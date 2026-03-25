@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CheckCircle } from "lucide-react";
 import MarketAnalysisSection from "./MarketAnalysisSection";
+import SectionEditButton from "./SectionEditButton";
 
 interface BusinessPlanPreviewProps {
   data: Record<string, any>;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, editBtn }: { title: string; children: React.ReactNode; editBtn?: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   return (
-    <div className="border border-border rounded-lg mb-3 overflow-hidden">
+    <div className="border border-border rounded-lg mb-3 overflow-hidden group">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-3 bg-muted/50 hover:bg-muted transition-colors text-left"
       >
-        <span className="font-semibold text-primary text-sm">{title}</span>
+        <span className="font-semibold text-primary text-sm flex items-center gap-2">{title} {editBtn}</span>
         {open ? <ChevronDown size={16} className="text-primary" /> : <ChevronRight size={16} className="text-primary" />}
       </button>
       {open && <div className="px-5 py-4 text-sm text-foreground/80 space-y-2">{children}</div>}
@@ -104,8 +107,13 @@ function FinancierTable({ tableau }: { tableau: Record<string, Record<string, st
   );
 }
 
-export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) {
+export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: BusinessPlanPreviewProps) {
   const bp = data || {};
+
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="business_plan" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -140,15 +148,15 @@ export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) 
         </div>
       </Section>
 
-      <Section title="2. Résumé de la gestion">
+      <Section title="2. Résumé de la gestion" editBtn={editBtn('resume_gestion', 'Résumé de Gestion')}>
         <MultiText text={bp.resume_gestion} />
       </Section>
 
-      <Section title="3. Revue historique">
+      <Section title="3. Revue historique" editBtn={editBtn('historique', 'Historique')}>
         <MultiText text={bp.historique} />
       </Section>
 
-      <Section title="4. Vision, mission et valeurs">
+      <Section title="4. Vision, mission et valeurs" editBtn={editBtn('vision', 'Vision')}>
         <p className="font-medium text-muted-foreground mb-1">Vision</p>
         <MultiText text={bp.vision} />
         <p className="font-medium text-muted-foreground mt-3 mb-1">Mission</p>
@@ -187,7 +195,7 @@ export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) 
         ))}
       </Section>
 
-      <Section title="8. Marché, concurrence et environnement">
+      <Section title="8. Marché, concurrence et environnement" editBtn={editBtn('analyse_marche', 'Analyse de Marché')}>
         {bp.analyse_marche ? (
           <MarketAnalysisSection marche={bp.analyse_marche} />
         ) : (
@@ -206,7 +214,7 @@ export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) 
         )}
       </Section>
 
-      <Section title="9. Stratégie marketing — Les 5P">
+      <Section title="9. Stratégie marketing — Les 5P" editBtn={editBtn('marketing_5p', 'Marketing 5P')}>
         {(["produit", "place", "prix", "promotion", "personnel"] as const).map((key, i) => (
           <div key={key} className="mb-3">
             <p className="font-medium text-muted-foreground mb-1">{["Produit", "Point(s) de vente", "Prix", "Promotion", "Personnel"][i]}</p>
@@ -215,7 +223,7 @@ export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) 
         ))}
       </Section>
 
-      <Section title="10. Équipe et organisation">
+      <Section title="10. Équipe et organisation" editBtn={editBtn('equipe', 'Équipe')}>
         {[
           ["Équipe de direction", bp.equipe_direction],
           ["Personnel", bp.personnel],
