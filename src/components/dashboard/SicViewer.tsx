@@ -359,7 +359,7 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
       {/* ===== BLOC 6 — RISQUES & ATTÉNUATION ===== */}
       {risques.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border">RISQUES & ATTÉNUATION</h2>
+          <h2 className="text-sm font-black uppercase tracking-[0.15em] text-foreground p-6 pb-4 border-b border-border group flex items-center gap-2">RISQUES & ATTÉNUATION {editBtn('risques_attenuation', 'Risques & Atténuation')}</h2>
           <table className="w-full text-[13px]">
             <thead><tr className="bg-muted/50"><th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">⚠️ Risque</th><th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">✅ Atténuation</th></tr></thead>
             <tbody>{risques.map((r: any, i: number) => (
