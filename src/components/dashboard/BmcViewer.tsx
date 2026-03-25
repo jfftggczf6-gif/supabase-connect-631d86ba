@@ -161,7 +161,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
 
       {/* ===== DIAGNOSTIC EXPERT ===== */}
       <SectionTitle>DIAGNOSTIC EXPERT</SectionTitle>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-muted-foreground mb-4 group">
         Scores par bloc BMC — Score global : <strong className="text-foreground">{data.score_global ?? data.score ?? '—'}%</strong>
       </p>
 
