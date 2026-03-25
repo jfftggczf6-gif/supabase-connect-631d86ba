@@ -1,7 +1,10 @@
 // BmcViewer
+import SectionEditButton from './SectionEditButton';
 
 interface BmcViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 const BLOC_LABELS: Record<string, string> = {
