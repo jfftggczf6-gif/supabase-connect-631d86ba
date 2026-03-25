@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { generateMemoHtml } from '@/lib/memo-html-generator';
 import { exportToPdf } from '@/lib/export-pdf';
 import { supabase } from '@/integrations/supabase/client';
+import SectionEditButton from './SectionEditButton';
 
 const SLIDE_TITLES = [
   'Page de Garde',
