@@ -289,7 +289,7 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
       {bilan.actif && (
         <div className="grid grid-cols-2 gap-3">
           <Card><CardContent className="py-4">
-            <h4 className="text-xs font-bold text-primary mb-2">Actif</h4>
+            <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">Actif</h4>{editBtn('bilan.actif', 'Bilan Actif')}</div>
             {Object.entries(bilan.actif).map(([k, v]) => (
               <div key={k} className={`flex justify-between text-[11px] py-0.5 ${k.includes('total') ? 'font-bold border-t border-border' : ''}`}>
                 <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
