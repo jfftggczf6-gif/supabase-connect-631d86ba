@@ -18,7 +18,16 @@ interface SectionEditButtonProps {
 const SUPPORTED_TYPES = [
   'bmc_analysis', 'sic_analysis', 'diagnostic_data', 'business_plan',
   'odd_analysis', 'pre_screening', 'valuation', 'screening_report',
+  'plan_financier', 'inputs_data', 'framework_data',
 ];
+
+const FINANCE_TYPES = ['plan_financier', 'inputs_data', 'framework_data'];
+
+const FINANCE_PLACEHOLDERS: Record<string, string> = {
+  plan_financier: "Ex: Le CA réel 2024 est de 500M, pas 460M. Ajoute 2 commerciaux en 2026. Réduis l'OPEX marketing de 30%...",
+  inputs_data: "Ex: Le bilan actif total est de 250M, pas 204M. Ajoute une ligne Crédit-bail de 40M...",
+  framework_data: "Ex: Le ratio d'endettement devrait être de 45%, pas 59%. Ajoute un scénario pessimiste avec -20% de CA...",
+};
 
 export default function SectionEditButton({
   enterpriseId,
