@@ -10,6 +10,7 @@ import {
 import { useMemo } from 'react';
 import { getDevise } from '@/lib/format-currency';
 import { ChevronDown, Info, ShieldCheck, AlertTriangle, TrendingUp, Users, Landmark, BarChart3 } from 'lucide-react';
+import SectionEditButton from './SectionEditButton';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
