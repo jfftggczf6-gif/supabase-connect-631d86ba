@@ -381,7 +381,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       {contexte && (
         <div>
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" /> Comprendre l'entreprise
+            <Building2 className="h-4 w-4 text-primary" /> Comprendre l'entreprise {editBtn('contexte_entreprise', 'Contexte Entreprise')}
           </h3>
           <div className="space-y-3">
             {contexte.histoire && (
