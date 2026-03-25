@@ -923,7 +923,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             {/* Hypothèses globales de croissance */}
             <Card>
               <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">Hypothèses de croissance</p>
+                <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-3">Hypothèses de croissance</p>{editBtn('hypotheses_ia', 'Hypothèses de projection')}</div>
                 <div className="space-y-1 text-xs">
                   <Row label="Croissance CA" value={data.hypotheses_ia?.taux_croissance_ca?.map((t: number) => `${(t*100).toFixed(0)}%`).join(' → ') || '—'} />
                   <Row label="Croissance prix" value={pctFmt((data.hypotheses_ia?.taux_croissance_prix || 0) * 100)} />
