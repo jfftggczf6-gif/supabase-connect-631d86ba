@@ -222,7 +222,7 @@ ${criteres ? `
           <p>{data.potentiel_marche || '—'}</p>
         </SectionRow>
 
-        <SectionRow label="Impact">
+        <SectionRow label="Impact">{editBtn('impact', 'Impact')}
           <p>{data.impact || '—'}</p>
         </SectionRow>
       </div>
