@@ -280,7 +280,7 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
             {synthese.recommandations.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Recommandations</CardTitle>
+                  <CardTitle className="text-sm group flex items-center gap-2">Recommandations {editBtn('synthese.recommandations', 'Recommandations')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
