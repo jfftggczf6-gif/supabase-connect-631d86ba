@@ -196,7 +196,7 @@ ${criteres ? `
           <Field label="Objectif" value={pres.objectif} />
         </SectionRow>
 
-        <SectionRow label="Équipe et gouvernance">
+        <SectionRow label="Équipe et gouvernance">{editBtn('equipe_gouvernance', 'Équipe & Gouvernance')}
           <Field label="Fondateur" value={equipe.fondateur} />
           <Field label="Dirigé par des femmes" value={equipe.dirige_par_femmes} />
           <Field label="Compétences" value={equipe.competences} />
