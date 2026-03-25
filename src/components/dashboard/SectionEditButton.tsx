@@ -45,9 +45,14 @@ export default function SectionEditButton({
   if (role !== 'coach' && role !== 'super_admin') return null;
   if (!SUPPORTED_TYPES.includes(deliverableType)) return null;
 
+  const isFinanceType = FINANCE_TYPES.includes(deliverableType);
+
   const handleSubmit = async () => {
     if (!instruction.trim()) return;
     setLoading(true);
+    const controller = new AbortController();
+    const timeout = isFinanceType ? 45000 : 30000;
+    const timer = setTimeout(() => controller.abort(), timeout);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -67,8 +72,11 @@ export default function SectionEditButton({
             section_path: sectionPath,
             instruction: instruction.trim(),
           }),
+          signal: controller.signal,
         },
       );
+
+      clearTimeout(timer);
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Erreur serveur' }));
@@ -77,16 +85,21 @@ export default function SectionEditButton({
 
       const result = await response.json();
       toast({
-        title: `✅ Section modifiée (v${result.version || '?'})`,
-        description: sectionTitle,
+        title: isFinanceType
+          ? `✅ Données financières mises à jour (v${result.version || '?'})`
+          : `✅ Section modifiée (v${result.version || '?'})`,
+        description: isFinanceType
+          ? `${sectionTitle} — L'Excel sera regénéré au prochain téléchargement.`
+          : sectionTitle,
       });
       setOpen(false);
       setInstruction('');
       onUpdated();
     } catch (err: any) {
+      clearTimeout(timer);
       toast({
         title: '❌ Erreur de modification',
-        description: err.message || 'Erreur inconnue',
+        description: err.name === 'AbortError' ? 'Délai dépassé — réessayez' : (err.message || 'Erreur inconnue'),
         variant: 'destructive',
       });
     } finally {
