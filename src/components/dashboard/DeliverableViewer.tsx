@@ -674,7 +674,7 @@ function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterp
       {/* ═══ ZONE 4 — Ce qui est solide ═══ */}
       {pointsForts.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui est solide</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide group flex items-center gap-2">Ce qui est solide {editBtn('points_forts', 'Points Forts')}</h3>
           {pointsForts.map((pf: any, i: number) => (
             <div key={i} className="p-3 rounded-r-lg bg-card border border-l-4 border-l-success shadow-sm">
               <p className="text-xs font-medium text-foreground">{pf.titre}</p>
