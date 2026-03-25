@@ -31,6 +31,11 @@ export default function FrameworkViewer({ data, enterpriseId, onUpdated }: Frame
   const devise = getDevise(data);
   const formatAmount = (n: number) => formatAmountUtil(n, devise);
 
+  const editBtn = (path: string, title: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="framework_data" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-4">
       {/* Score Header */}
