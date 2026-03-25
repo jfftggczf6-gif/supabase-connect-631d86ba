@@ -3,13 +3,16 @@ import { FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { exportToPdf } from '@/lib/export-pdf';
+import SectionEditButton from './SectionEditButton';
 
 interface Props {
   data: Record<string, any>;
   onRegenerate?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-export default function OnePagerViewer({ data, onRegenerate }: Props) {
+export default function OnePagerViewer({ data, onRegenerate, enterpriseId, onUpdated }: Props) {
   const score = data.score || 0;
   const pres = data.presentation_entreprise || {};
   const equipe = data.equipe_gouvernance || {};
