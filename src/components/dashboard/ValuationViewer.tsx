@@ -138,7 +138,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
         {/* Multiples EBITDA */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-600" /> Multiples EBITDA</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-600" /> Multiples EBITDA {editBtn('multiples', 'Multiples')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">EBITDA</span><span className="font-semibold">{fmt(multiples.ebitda_dernier_exercice, devise)}</span></div>
