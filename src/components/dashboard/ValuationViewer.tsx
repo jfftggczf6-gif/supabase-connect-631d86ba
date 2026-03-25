@@ -14,6 +14,7 @@ interface Props {
   enterpriseId?: string;
   enterpriseName?: string;
   onRegenerate?: () => void;
+  onUpdated?: () => void;
 }
 
 const fmt = (n: any, devise = 'FCFA') => {
