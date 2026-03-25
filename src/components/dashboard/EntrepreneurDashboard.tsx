@@ -1298,6 +1298,8 @@ export default function EntrepreneurDashboard({
                 <PreScreeningViewer
                   data={selectedDeliv.data as Record<string, any>}
                   enterprise={enterprise}
+                  enterpriseId={enterprise?.id}
+                  onUpdated={fetchData}
                   onRegenerate={async (programmeId?: string | null) => {
                     if (!enterprise) return;
                     try {
