@@ -177,8 +177,13 @@ function AnalysisSection({ title, icon, data: sectionData }: { title: string; ic
 
 // ─── Main Component ───────────────────────────────────────────
 
-export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) {
+export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: PlanFinancierViewerProps) {
   const devise = getDevise(data);
+  const noop = () => {};
+  const editBtn = (path: string, title: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="plan_financier" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
+    ) : null;
   const analyse = data.analyse || {};
   const kpis = data.kpis || {};
   const projections = data.projections || [];
