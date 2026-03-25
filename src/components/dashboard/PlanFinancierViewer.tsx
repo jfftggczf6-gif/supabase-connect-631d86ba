@@ -40,6 +40,8 @@ const pctFmt = (n: any) => {
 
 interface PlanFinancierViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 // ─── Tracability component ────────────────────────────────────
