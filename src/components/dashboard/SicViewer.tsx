@@ -194,7 +194,7 @@ function normalizeData(raw: any) {
 }
 
 
-export default function SicViewer({ data }: SicViewerProps) {
+export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerProps) {
   const [expandedDim, setExpandedDim] = useState<string | null>(null);
 
   if (!data) return null;
