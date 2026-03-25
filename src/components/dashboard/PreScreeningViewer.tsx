@@ -249,7 +249,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         <Card className="border-2 border-blue-200 bg-blue-50/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-blue-600" /> Guide d'accompagnement du coach
+              <BookOpen className="h-4 w-4 text-blue-600" /> Guide d'accompagnement du coach {editBtn('guide_coach', 'Guide Coach')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
