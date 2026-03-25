@@ -179,7 +179,6 @@ function AnalysisSection({ title, icon, data: sectionData }: { title: string; ic
 
 export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: PlanFinancierViewerProps) {
   const devise = getDevise(data);
-  const noop = () => {};
   const editBtn = (path: string, title: string) =>
     enterpriseId && onUpdated ? (
       <SectionEditButton enterpriseId={enterpriseId} deliverableType="plan_financier" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
