@@ -1740,6 +1740,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             <div className="space-y-3">
               <p className="text-sm font-semibold flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" /> Plan de financement
+                {editBtn('loans', 'Prêts')}
               </p>
 
               {/* Cartes prêts — format enrichi */}
