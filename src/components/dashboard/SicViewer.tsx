@@ -248,7 +248,7 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
 
       {/* ===== BLOC 2 — 5 JAUGES DE DIMENSIONS ===== */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <SectionTitle>SCORES PAR DIMENSION</SectionTitle>
+        <div className="group flex items-center gap-2"><SectionTitle>SCORES PAR DIMENSION</SectionTitle>{editBtn('dimensions', 'Dimensions d\'Impact')}</div>
         <div className="space-y-3">
           {dimOrder.map(key => {
             const dim = dims[key];
