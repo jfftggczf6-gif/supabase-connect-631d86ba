@@ -13,6 +13,8 @@ interface DeliverableViewerProps {
   data: any;
   allDeliverables?: any[];
   onRegenerate?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate }: DeliverableViewerProps) {
