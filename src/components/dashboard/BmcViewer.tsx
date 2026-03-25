@@ -85,10 +85,10 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
 
       {/* 5-column grid row */}
       <div className="grid grid-cols-5 gap-px bg-border rounded-xl overflow-hidden mb-px">
-        <CanvasCell title="PARTENAIRES CLÉS" items={toArr(canvas.partenaires_cles)} critical={canvas.partenaires_cles?.element_critique} />
-        <CanvasCell title="ACTIVITÉS CLÉS" items={toArr(canvas.activites_cles)} critical={canvas.activites_cles?.element_critique} />
-        <CanvasCell title="PROPOSITION DE VALEUR" items={canvas.proposition_valeur?.enonce ? [canvas.proposition_valeur.enonce, ...(canvas.proposition_valeur.avantages || [])] : toArr(canvas.proposition_valeur)} highlight />
-        <CanvasCell title="RELATIONS CLIENTS" items={[canvas.relations_clients?.type, ...toArr(canvas.relations_clients?.items || canvas.relations_clients)].filter(Boolean)} />
+        <CanvasCell title="PARTENAIRES CLÉS" items={toArr(canvas.partenaires_cles)} critical={canvas.partenaires_cles?.element_critique} editBtn={editBtn('canvas.partenaires_cles', 'Partenaires Clés')} />
+        <CanvasCell title="ACTIVITÉS CLÉS" items={toArr(canvas.activites_cles)} critical={canvas.activites_cles?.element_critique} editBtn={editBtn('canvas.activites_cles', 'Activités Clés')} />
+        <CanvasCell title="PROPOSITION DE VALEUR" items={canvas.proposition_valeur?.enonce ? [canvas.proposition_valeur.enonce, ...(canvas.proposition_valeur.avantages || [])] : toArr(canvas.proposition_valeur)} highlight editBtn={editBtn('canvas.proposition_valeur', 'Proposition de Valeur')} />
+        <CanvasCell title="RELATIONS CLIENTS" items={[canvas.relations_clients?.type, ...toArr(canvas.relations_clients?.items || canvas.relations_clients)].filter(Boolean)} editBtn={editBtn('canvas.relations_clients', 'Relations Clients')} />
         <CanvasCell title="SEGMENTS CLIENTS" items={[
           canvas.segments_clients?.principal,
           canvas.segments_clients?.zone ? `Zone: ${canvas.segments_clients.zone}` : null,
@@ -96,7 +96,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
           canvas.segments_clients?.probleme_resolu ? `Problème résolu: ${canvas.segments_clients.probleme_resolu}` : null,
           canvas.segments_clients?.taille_marche ? `Taille marché: ${canvas.segments_clients.taille_marche}` : null,
           canvas.segments_clients?.intensite_besoin ? `Intensité besoin: ${canvas.segments_clients.intensite_besoin}` : null,
-        ].filter(Boolean) as string[]} />
+        ].filter(Boolean) as string[]} editBtn={editBtn('canvas.segments_clients', 'Segments Clients')} />
       </div>
 
       {/* RESSOURCES CLÉS (full width below canvas) */}
