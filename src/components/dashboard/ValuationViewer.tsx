@@ -26,7 +26,7 @@ const fmt = (n: any, devise = 'FCFA') => {
   return `${num.toLocaleString('fr-FR')} ${devise}`;
 };
 
-export default function ValuationViewer({ data, enterpriseId, enterpriseName, onRegenerate }: Props) {
+export default function ValuationViewer({ data, enterpriseId, enterpriseName, onRegenerate, onUpdated }: Props) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const devise = data.devise || 'FCFA';
