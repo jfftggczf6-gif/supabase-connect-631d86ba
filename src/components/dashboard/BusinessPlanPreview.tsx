@@ -214,7 +214,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
         )}
       </Section>
 
-      <Section title="9. Stratégie marketing — Les 5P">
+      <Section title="9. Stratégie marketing — Les 5P" editBtn={editBtn('marketing_5p', 'Marketing 5P')}>
         {(["produit", "place", "prix", "promotion", "personnel"] as const).map((key, i) => (
           <div key={key} className="mb-3">
             <p className="font-medium text-muted-foreground mb-1">{["Produit", "Point(s) de vente", "Prix", "Promotion", "Personnel"][i]}</p>
