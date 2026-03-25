@@ -556,7 +556,7 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
               {SECTIONS.map(s => (
                 <div key={s.key} ref={el => { sectionRefs.current[s.key] = el; }}>
                   <Card>
-                    <CardHeader className="pb-3"><CardTitle className="text-sm font-display">{s.label}</CardTitle></CardHeader>
+                    <CardHeader className="pb-3"><CardTitle className="text-sm font-display flex items-center gap-2">{s.label} {editBtn(s.key, s.label)}</CardTitle></CardHeader>
                     <CardContent>{renderSection(s.key)}</CardContent>
                   </Card>
                 </div>

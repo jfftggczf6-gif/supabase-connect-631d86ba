@@ -230,7 +230,7 @@ ${criteres ? `
       {/* Critères I&P */}
       {criteres && Object.keys(criteres).length > 0 && (
         <div>
-          <h2 className="text-sm font-bold text-[#1e3a5f] mb-2">Critères I&P</h2>
+          <h2 className="text-sm font-bold text-[#1e3a5f] mb-2 flex items-center gap-2">Critères I&P {editBtn('criteres_ip', 'Critères I&P')}</h2>
           <p className="text-xs font-medium text-muted-foreground mb-2">Documentation disponible OVO</p>
           <div className="space-y-2 text-xs">
             {[
