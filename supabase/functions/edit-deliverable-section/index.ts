@@ -17,6 +17,9 @@ const TYPE_TO_MODULE: Record<string, string> = {
   pre_screening: "pre_screening",
   valuation: "valuation",
   screening_report: "screening",
+  plan_financier: "plan_financier",
+  inputs_data: "inputs",
+  framework_data: "framework",
 };
 
 function getNestedValue(obj: any, path: string): any {

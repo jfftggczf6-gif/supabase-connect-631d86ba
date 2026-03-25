@@ -127,10 +127,16 @@ export default function SectionEditButton({
           </SheetHeader>
 
           <div className="mt-6 space-y-4">
+            {isFinanceType && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                ⚠️ <strong>Modification financière</strong> : les changements de chiffres seront recalculés en cascade sur les projections et ratios. Le cache Excel sera invalidé et regénéré au prochain téléchargement.
+              </div>
+            )}
+
             <Textarea
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
-              placeholder="Ex: Reformule cette section, ajoute un concurrent, corrige le montant à 500M..."
+              placeholder={FINANCE_PLACEHOLDERS[deliverableType] || "Ex: Reformule cette section, ajoute un concurrent, corrige le montant à 500M..."}
               rows={4}
               disabled={loading}
               className="resize-none"
@@ -151,10 +157,10 @@ export default function SectionEditButton({
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Modification en cours...
+                    {isFinanceType ? 'Recalcul en cours...' : 'Modification en cours...'}
                   </>
                 ) : (
-                  'Appliquer ✨'
+                  isFinanceType ? 'Appliquer et recalculer ✨' : 'Appliquer ✨'
                 )}
               </Button>
             </div>
