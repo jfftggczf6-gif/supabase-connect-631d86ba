@@ -211,7 +211,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4 space-y-4">
             <div className="flex items-center gap-2">
               <Banknote className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Dimensionnement du financement</h4>
+              <h4 className="text-sm font-display font-semibold">Dimensionnement du financement</h4> {editBtn('dimensionnement', 'Dimensionnement')}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
