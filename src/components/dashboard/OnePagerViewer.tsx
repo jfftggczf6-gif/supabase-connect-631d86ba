@@ -179,7 +179,7 @@ ${criteres ? `
 
       {/* Aperçu du projet */}
       <div>
-        <h2 className="text-sm font-bold text-[#1e3a5f] mb-2">Aperçu du projet</h2>
+        <h2 className="text-sm font-bold text-[#1e3a5f] mb-2 flex items-center gap-2">Aperçu du projet {editBtn('apercu_projet', 'Aperçu du Projet')}</h2>
         <p className="text-xs text-muted-foreground leading-relaxed">{data.apercu_projet}</p>
       </div>
 
