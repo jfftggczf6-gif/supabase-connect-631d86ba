@@ -250,11 +250,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CanvasCell({ title, items, critical, highlight }: { title: string; items: string[]; critical?: string; highlight?: boolean }) {
+function CanvasCell({ title, items, critical, highlight, editBtn }: { title: string; items: string[]; critical?: string; highlight?: boolean; editBtn?: React.ReactNode }) {
   return (
-    <div className={`bg-card p-4 min-h-[160px] ${highlight ? 'bg-primary/5' : ''}`}>
-      <h4 className="text-[9px] font-black uppercase tracking-[0.12em] text-primary mb-2 pb-1.5 border-b border-border">
-        {title}
+    <div className={`bg-card p-4 min-h-[160px] group ${highlight ? 'bg-primary/5' : ''}`}>
+      <h4 className="text-[9px] font-black uppercase tracking-[0.12em] text-primary mb-2 pb-1.5 border-b border-border flex items-center gap-1.5">
+        <span className="flex-1">{title}</span>
+        {editBtn}
       </h4>
       <ul className="space-y-1">
         {items.map((item, i) => (
