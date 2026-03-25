@@ -205,7 +205,7 @@ ${criteres ? `
           <Field label="Formelle" value={equipe.formelle} />
         </SectionRow>
 
-        <SectionRow label="Traction et finances">
+        <SectionRow label="Traction et finances">{editBtn('traction_finances', 'Traction & Finances')}
           <Field label="Ventes" value={traction.ventes} />
           <Field label="CA année dernière" value={traction.ca_annee_derniere} />
           <Field label="Accès au financement" value={traction.acces_financement} />
