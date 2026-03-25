@@ -9,15 +9,15 @@ interface BusinessPlanPreviewProps {
   onUpdated?: () => void;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, editBtn }: { title: string; children: React.ReactNode; editBtn?: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   return (
-    <div className="border border-border rounded-lg mb-3 overflow-hidden">
+    <div className="border border-border rounded-lg mb-3 overflow-hidden group">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-3 bg-muted/50 hover:bg-muted transition-colors text-left"
       >
-        <span className="font-semibold text-primary text-sm">{title}</span>
+        <span className="font-semibold text-primary text-sm flex items-center gap-2">{title} {editBtn}</span>
         {open ? <ChevronDown size={16} className="text-primary" /> : <ChevronRight size={16} className="text-primary" />}
       </button>
       {open && <div className="px-5 py-4 text-sm text-foreground/80 space-y-2">{children}</div>}
