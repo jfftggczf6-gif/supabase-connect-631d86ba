@@ -371,7 +371,7 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
 
       {/* ===== BLOC 7 — THÉORIE DU CHANGEMENT ===== */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <SectionTitle>THÉORIE DU CHANGEMENT</SectionTitle>
+        <div className="group flex items-center gap-2"><SectionTitle>THÉORIE DU CHANGEMENT</SectionTitle>{editBtn('theorie_du_changement', 'Théorie du Changement')}</div>
         <div className="hidden md:flex items-stretch gap-1">
           {TC_KEYS.map((key, i) => (
             <div key={key} className="flex items-stretch" style={{ width: '19%' }}>
