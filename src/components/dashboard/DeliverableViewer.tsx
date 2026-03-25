@@ -622,7 +622,7 @@ function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterp
       {/* ═══ ZONE 2 — Ce qui va coincer ═══ */}
       {problemes.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Ce qui va coincer</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide group flex items-center gap-2">Ce qui va coincer {editBtn('problemes', 'Problèmes')}</h3>
           {problemes.map((p: any, i: number) => (
             <div
               key={i}
