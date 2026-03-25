@@ -115,7 +115,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
         {/* DCF */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-600" /> DCF</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-600" /> DCF {editBtn('dcf', 'DCF')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">WACC</span><span className="font-semibold">{dcf.wacc_pct || '—'}%<ConfidenceIndicator field="wacc" confidence={data._confidence} /></span></div>
