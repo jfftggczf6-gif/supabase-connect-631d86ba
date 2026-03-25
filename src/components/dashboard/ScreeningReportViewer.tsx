@@ -65,6 +65,11 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
     ? 'text-emerald-600' : (decision.niveau_conviction || 0) >= 40
     ? 'text-amber-600' : 'text-red-600';
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="screening_report" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-5" id="screening-viewer-content">
       {/* Action buttons */}
