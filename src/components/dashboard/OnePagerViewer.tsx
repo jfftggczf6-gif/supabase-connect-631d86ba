@@ -124,6 +124,11 @@ ${criteres ? `
     <p><span className="font-medium">{label} :</span> {value || '—'}</p>
   );
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="onepager" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-4">
       {/* Header */}
