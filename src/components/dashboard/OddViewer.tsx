@@ -89,6 +89,11 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
   const totalNegatifs = cibles.filter(c => c.evaluation === "negatif").length;
   const scoreGlobal = cibles.length > 0 ? Math.round((totalPositifs / cibles.length) * 100) : 0;
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="odd_analysis" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-4">
       {/* Score global */}
