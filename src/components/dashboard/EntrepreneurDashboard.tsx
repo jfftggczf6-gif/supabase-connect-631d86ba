@@ -381,6 +381,33 @@ export default function EntrepreneurDashboard({
     if (!enterprise) return;
     setGeneratingModule(moduleCode);
 
+    const MODULE_TYPE_MAP: Record<string, string> = {
+      pre_screening: 'pre_screening', bmc: 'bmc_analysis', sic: 'sic_analysis',
+      inputs: 'inputs_data', framework: 'framework_data', diagnostic: 'diagnostic_data',
+      plan_financier: 'plan_financier', plan_ovo: 'plan_ovo', business_plan: 'business_plan',
+      odd: 'odd_analysis', valuation: 'valuation', onepager: 'onepager',
+      investment_memo: 'investment_memo', screening_report: 'screening_report',
+    };
+
+    const pollDeliverableReady = async (entId: string, delivType: string, maxPolls = 72): Promise<boolean> => {
+      for (let i = 0; i < maxPolls; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const { data: deliv } = await supabase
+          .from('deliverables')
+          .select('data, version, updated_at')
+          .eq('enterprise_id', entId)
+          .eq('type', delivType)
+          .single();
+        if (deliv?.data) {
+          const delivData = deliv.data as Record<string, any>;
+          if (delivData.status === 'error') throw new Error(delivData.error || 'Erreur de génération');
+          if (delivData.status !== 'processing' && Object.keys(delivData).length > 10) return true;
+        }
+        setModuleProgress(prev => ({ ...prev, [moduleCode]: Math.min(95, 20 + i * 2) }));
+      }
+      return false;
+    };
+
     const runSingleAttempt = async (functionName: string, token: string, entId: string, timeoutMs: number) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -394,13 +421,22 @@ export default function EntrepreneurDashboard({
         }
       );
       clearTimeout(timeoutId);
+
+      // Handle async 202 responses
+      if (response.status === 202) {
+        const body = await response.json();
+        return { ...body, _async: true };
+      }
+
       if (!response.ok) {
         const errText = await response.text();
         let errMsg = 'Erreur';
         try { const errJson = JSON.parse(errText); errMsg = errJson.error || errMsg; } catch {}
         throw new Error(errMsg);
       }
-      return await response.json();
+      const body = await response.json();
+      if (body.accepted) return { ...body, _async: true };
+      return body;
     };
 
     // Poll enterprise_modules for memo checkpoint
