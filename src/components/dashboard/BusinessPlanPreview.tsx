@@ -195,7 +195,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
         ))}
       </Section>
 
-      <Section title="8. Marché, concurrence et environnement">
+      <Section title="8. Marché, concurrence et environnement" editBtn={editBtn('analyse_marche', 'Analyse de Marché')}>
         {bp.analyse_marche ? (
           <MarketAnalysisSection marche={bp.analyse_marche} />
         ) : (
