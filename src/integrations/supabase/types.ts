@@ -103,6 +103,87 @@ export type Database = {
         }
         Relationships: []
       }
+      candidatures: {
+        Row: {
+          assigned_coach_id: string | null
+          committee_date: string | null
+          committee_decision: string | null
+          committee_notes: string | null
+          company_name: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          documents: Json | null
+          enterprise_id: string | null
+          form_data: Json | null
+          id: string
+          programme_id: string
+          screening_data: Json | null
+          screening_date: string | null
+          screening_score: number | null
+          status: string
+          submitted_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_coach_id?: string | null
+          committee_date?: string | null
+          committee_decision?: string | null
+          committee_notes?: string | null
+          company_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          documents?: Json | null
+          enterprise_id?: string | null
+          form_data?: Json | null
+          id?: string
+          programme_id: string
+          screening_data?: Json | null
+          screening_date?: string | null
+          screening_score?: number | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_coach_id?: string | null
+          committee_date?: string | null
+          committee_decision?: string | null
+          committee_notes?: string | null
+          company_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          documents?: Json | null
+          enterprise_id?: string | null
+          form_data?: Json | null
+          id?: string
+          programme_id?: string
+          screening_data?: Json | null
+          screening_date?: string | null
+          screening_score?: number | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidatures_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidatures_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_uploads: {
         Row: {
           category: string
@@ -1230,6 +1311,89 @@ export type Database = {
         }
         Relationships: []
       }
+      programmes: {
+        Row: {
+          budget: number | null
+          chef_programme_id: string | null
+          country_filter: string[] | null
+          created_at: string | null
+          created_by: string
+          criteria_id: string | null
+          currency: string | null
+          description: string | null
+          end_date: string | null
+          form_fields: Json | null
+          form_slug: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          nb_places: number | null
+          organization: string | null
+          programme_end: string | null
+          programme_start: string | null
+          sector_filter: string[] | null
+          start_date: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          budget?: number | null
+          chef_programme_id?: string | null
+          country_filter?: string[] | null
+          created_at?: string | null
+          created_by: string
+          criteria_id?: string | null
+          currency?: string | null
+          description?: string | null
+          end_date?: string | null
+          form_fields?: Json | null
+          form_slug?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          nb_places?: number | null
+          organization?: string | null
+          programme_end?: string | null
+          programme_start?: string | null
+          sector_filter?: string[] | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          budget?: number | null
+          chef_programme_id?: string | null
+          country_filter?: string[] | null
+          created_at?: string | null
+          created_by?: string
+          criteria_id?: string | null
+          currency?: string | null
+          description?: string | null
+          end_date?: string | null
+          form_fields?: Json | null
+          form_slug?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          nb_places?: number | null
+          organization?: string | null
+          programme_end?: string | null
+          programme_start?: string | null
+          sector_filter?: string[] | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programmes_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "programme_criteria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       score_history: {
         Row: {
           created_at: string
@@ -1351,7 +1515,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "coach" | "entrepreneur" | "super_admin"
+      app_role: "coach" | "entrepreneur" | "super_admin" | "chef_programme"
       deliverable_type:
         | "bmc_analysis"
         | "bmc_html"
@@ -1520,7 +1684,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["coach", "entrepreneur", "super_admin"],
+      app_role: ["coach", "entrepreneur", "super_admin", "chef_programme"],
       deliverable_type: [
         "bmc_analysis",
         "bmc_html",

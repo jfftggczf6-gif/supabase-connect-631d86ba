@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CheckCircle } from "lucide-react";
+import MarketAnalysisSection from "./MarketAnalysisSection";
 
 interface BusinessPlanPreviewProps {
   data: Record<string, any>;
@@ -188,116 +189,8 @@ export default function BusinessPlanPreview({ data }: BusinessPlanPreviewProps) 
 
       <Section title="8. Marché, concurrence et environnement">
         {bp.analyse_marche ? (
-          <>
-            {/* Taille du marché */}
-            {(bp.analyse_marche.tam || bp.analyse_marche.sam || bp.analyse_marche.som) && (
-              <div className="mb-4">
-                <p className="font-medium text-muted-foreground mb-2">Taille du marché</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'TAM', value: bp.analyse_marche.tam },
-                    { label: 'SAM', value: bp.analyse_marche.sam },
-                    { label: 'SOM', value: bp.analyse_marche.som },
-                  ].map(m => (
-                    <div key={m.label} className="bg-muted/50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground">{m.label}</p>
-                      <p className="text-sm font-bold mt-0.5">{m.value || '—'}</p>
-                    </div>
-                  ))}
-                </div>
-                {bp.analyse_marche.source_taille && (
-                  <p className="text-[10px] text-muted-foreground/60 italic mt-1">Source : {bp.analyse_marche.source_taille}</p>
-                )}
-              </div>
-            )}
-
-            {/* Dynamique */}
-            <div className="mb-4">
-              <p className="font-medium text-muted-foreground mb-1">Dynamique du marché</p>
-              {bp.analyse_marche.croissance && <p className="text-sm mb-1">Croissance : {bp.analyse_marche.croissance}</p>}
-              {bp.analyse_marche.facteurs_porteurs?.length > 0 && (
-                <div className="mb-2">
-                  <p className="text-xs text-muted-foreground mb-1">Facteurs porteurs :</p>
-                  <BulletList items={bp.analyse_marche.facteurs_porteurs} />
-                </div>
-              )}
-              {bp.analyse_marche.barrieres_entree?.length > 0 && (
-                <div className="mb-2">
-                  <p className="text-xs text-muted-foreground mb-1">Barrières à l'entrée :</p>
-                  <BulletList items={bp.analyse_marche.barrieres_entree} />
-                </div>
-              )}
-              {bp.analyse_marche.reglementation && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Réglementation</p>
-                  <MultiText text={bp.analyse_marche.reglementation} />
-                </div>
-              )}
-            </div>
-
-            {/* Tableau concurrents */}
-            {bp.analyse_marche.concurrents?.length > 0 && (
-              <div className="mb-4">
-                <p className="font-medium text-muted-foreground mb-2">Concurrents</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-muted">
-                        <th className="text-left px-3 py-2 font-semibold border border-border">Concurrent</th>
-                        <th className="text-left px-3 py-2 font-semibold border border-border">Positionnement</th>
-                        <th className="text-left px-3 py-2 font-semibold border border-border">Forces</th>
-                        <th className="text-left px-3 py-2 font-semibold border border-border">Faiblesses</th>
-                        <th className="text-left px-3 py-2 font-semibold border border-border">Taille estimée</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bp.analyse_marche.concurrents.map((c: any, i: number) => (
-                        <tr key={i} className="hover:bg-muted/30">
-                          <td className="px-3 py-1.5 border border-border font-medium">
-                            {c.nom}
-                            {c.source && <span className="ml-1 text-[9px] text-muted-foreground/60 italic">[{c.source}]</span>}
-                          </td>
-                          <td className="px-3 py-1.5 border border-border">{c.positionnement || '—'}</td>
-                          <td className="px-3 py-1.5 border border-border">{Array.isArray(c.forces) ? c.forces.join(', ') : c.forces || '—'}</td>
-                          <td className="px-3 py-1.5 border border-border">{Array.isArray(c.faiblesses) ? c.faiblesses.join(', ') : c.faiblesses || '—'}</td>
-                          <td className="px-3 py-1.5 border border-border">{c.taille_estimee || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Positionnement */}
-            {bp.analyse_marche.positionnement && (
-              <div className="mb-3">
-                <p className="font-medium text-muted-foreground mb-1">Positionnement</p>
-                {bp.analyse_marche.positionnement.position && (
-                  <p className="text-sm mb-1">
-                    Position : <span className="font-semibold">{bp.analyse_marche.positionnement.position}</span>
-                  </p>
-                )}
-                {bp.analyse_marche.positionnement.avantages_concurrentiels?.length > 0 && (
-                  <div className="mb-1">
-                    <p className="text-xs text-muted-foreground">Avantages concurrentiels :</p>
-                    <BulletList items={bp.analyse_marche.positionnement.avantages_concurrentiels} />
-                  </div>
-                )}
-                {bp.analyse_marche.positionnement.points_a_renforcer?.length > 0 && (
-                  <div className="mb-1">
-                    <p className="text-xs text-muted-foreground">Points à renforcer :</p>
-                    <BulletList items={bp.analyse_marche.positionnement.points_a_renforcer} />
-                  </div>
-                )}
-                {bp.analyse_marche.positionnement.differenciation && (
-                  <p className="text-sm italic text-muted-foreground">{bp.analyse_marche.positionnement.differenciation}</p>
-                )}
-              </div>
-            )}
-          </>
+          <MarketAnalysisSection marche={bp.analyse_marche} />
         ) : (
-          /* Rétrocompatibilité anciens BP */
           <>
             {[
               ["Marché & Potentiel", bp.marche_potentiel],
