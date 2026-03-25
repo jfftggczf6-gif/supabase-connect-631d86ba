@@ -39,7 +39,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
   switch (moduleCode) {
     case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
     case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} />);
-    case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} />);
+    case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'plan_ovo': {
       const frameworkDel = allDeliverables?.find((d: any) => d.type === 'framework_data');
