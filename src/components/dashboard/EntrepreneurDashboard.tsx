@@ -1495,7 +1495,7 @@ export default function EntrepreneurDashboard({
                 ) : selectedModule === 'sic' ? (
                   <SicViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'plan_financier' ? (
-                  <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} />
+                  <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'business_plan' ? (
                   <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'valuation' ? (
