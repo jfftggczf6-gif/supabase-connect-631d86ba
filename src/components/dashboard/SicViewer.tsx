@@ -517,7 +517,7 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
       {/* ===== BLOC 13 — TOP 3 RECOMMANDATIONS ===== */}
       {recos.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-6">
-          <SectionTitle>RECOMMANDATIONS POUR RENFORCER L'IMPACT</SectionTitle>
+          <div className="group flex items-center gap-2"><SectionTitle>RECOMMANDATIONS POUR RENFORCER L'IMPACT</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recos.slice(0, 3).map((r: any, i: number) => (
               <div key={i} className="bg-muted/30 border border-border rounded-xl p-5 relative">
