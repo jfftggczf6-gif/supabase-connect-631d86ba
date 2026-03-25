@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CheckCircle } from "lucide-react";
 import MarketAnalysisSection from "./MarketAnalysisSection";
+import SectionEditButton from "./SectionEditButton";
 
 interface BusinessPlanPreviewProps {
   data: Record<string, any>;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
