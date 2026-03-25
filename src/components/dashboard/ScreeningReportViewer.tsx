@@ -13,9 +13,10 @@ interface ScreeningReportViewerProps {
   enterpriseId?: string;
   enterpriseName?: string;
   onRegenerate?: () => void;
+  onUpdated?: () => void;
 }
 
-export default function ScreeningReportViewer({ data, enterpriseId, enterpriseName, onRegenerate }: ScreeningReportViewerProps) {
+export default function ScreeningReportViewer({ data, enterpriseId, enterpriseName, onRegenerate, onUpdated }: ScreeningReportViewerProps) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const isNewFormat = !!(data.decision?.verdict);
