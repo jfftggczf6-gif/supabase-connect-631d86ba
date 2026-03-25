@@ -100,8 +100,8 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       </div>
 
       {/* RESSOURCES CLÉS (full width below canvas) */}
-      <div className="bg-card border border-t-0 border-border rounded-b-xl p-5 mb-6">
-        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3">RESSOURCES CLÉS</h4>
+      <div className="bg-card border border-t-0 border-border rounded-b-xl p-5 mb-6 group">
+        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">RESSOURCES CLÉS {editBtn('canvas.ressources_cles', 'Ressources Clés')}</h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
           {canvas.ressources_cles?.categories ? (
             Object.entries(canvas.ressources_cles.categories).map(([key, val]: [string, any]) => (
