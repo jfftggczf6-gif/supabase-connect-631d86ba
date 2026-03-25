@@ -4,6 +4,7 @@ import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, callAI }
 const SUPPORTED_TYPES = [
   "bmc_analysis", "sic_analysis", "diagnostic_data", "business_plan",
   "odd_analysis", "pre_screening", "valuation", "screening_report",
+  "plan_financier", "inputs_data", "framework_data",
 ];
 
 // Map deliverable types to module codes for saveDeliverable
