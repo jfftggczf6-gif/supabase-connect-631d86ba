@@ -2,13 +2,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import { formatAmount as formatAmountUtil, getDevise } from '@/lib/format-currency';
+import SectionEditButton from './SectionEditButton';
 
 
 interface FrameworkViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-export default function FrameworkViewer({ data }: FrameworkViewerProps) {
+export default function FrameworkViewer({ data, enterpriseId, onUpdated }: FrameworkViewerProps) {
   const ratios = data.ratios || {};
   const kpis = data.kpis || {};
   const alertes = data.alertes || [];
@@ -27,6 +30,11 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
 
   const devise = getDevise(data);
   const formatAmount = (n: number) => formatAmountUtil(n, devise);
+
+  const editBtn = (path: string, title: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="framework_data" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -117,7 +125,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
       {/* Ratios par catégorie */}
       {Object.entries(ratios).map(([category, ratioGroup]: [string, any]) => (
         <Card key={category}><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2 capitalize">{category.replace(/_/g, ' ')}</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2 capitalize">{category.replace(/_/g, ' ')}</h4>{editBtn(`ratios.${category}`, `Ratios ${category.replace(/_/g, ' ')}`)}</div>
           <div className="space-y-2">
             {Object.entries(ratioGroup).map(([key, val]: [string, any]) => (
               <div key={key} className="flex items-center justify-between text-xs p-2 rounded bg-muted/30">
@@ -204,7 +212,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
         <>
           {sante.resume_chiffres?.length > 0 && (
             <Card><CardContent className="py-3">
-              <h4 className="text-xs font-bold text-primary mb-1">📊 État de santé financière</h4>
+              <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-1">📊 État de santé financière</h4>{editBtn('sante_financiere', 'Santé financière')}</div>
               <div className="flex flex-wrap gap-2">
                 {sante.resume_chiffres.map((c: string, i: number) => (
                   <Badge key={i} variant="outline" className="text-[10px]">{c}</Badge>
@@ -255,7 +263,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
       {/* Projection 5 ans */}
       {proj.lignes?.length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">📈 Projection Financière 5 Ans</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">📈 Projection Financière 5 Ans</h4>{editBtn('projection_5ans', 'Projections 5 ans')}</div>
           {proj.verdict && <p className="text-xs italic text-muted-foreground mb-3 border-l-2 border-primary/30 pl-3">{proj.verdict}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
@@ -292,7 +300,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
       {/* Scénarios */}
       {scenarios.tableau?.length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">🔄 Analyse par Scénarios (Année 5)</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">🔄 Analyse par Scénarios (Année 5)</h4>{editBtn('scenarios', 'Scénarios')}</div>
           {scenarios.verdict && <p className="text-xs italic text-muted-foreground mb-3 border-l-2 border-primary/30 pl-3">{scenarios.verdict}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
@@ -331,7 +339,7 @@ export default function FrameworkViewer({ data }: FrameworkViewerProps) {
       {/* Plan d'action */}
       {planAction.length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">🎯 Plan d'Action & Trajectoire</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">🎯 Plan d'Action & Trajectoire</h4>{editBtn('plan_action', "Plan d'action")}</div>
           <div className="space-y-1.5">
             {planAction.map((a: any, i: number) => (
               <div key={i} className={`p-2 rounded-lg border-l-4 text-xs ${

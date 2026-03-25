@@ -38,8 +38,8 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
 
   switch (moduleCode) {
     case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
-    case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} />);
-    case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} />);
+    case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
+    case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'plan_ovo': {
       const frameworkDel = allDeliverables?.find((d: any) => d.type === 'framework_data');
@@ -50,7 +50,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
       } : undefined;
       return wrapWithRegenerate(<PlanOvoViewerComponent data={data} staleness={staleness} />);
     }
-    case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} />);
+    case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
     case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
@@ -107,7 +107,7 @@ function SicViewer({ data }: { data: any }) {
 }
 
 // ===== INPUTS VIEWER =====
-export function InputsViewer({ data }: { data: any }) {
+export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; enterpriseId?: string; onUpdated?: () => void }) {
   const cr = data.compte_resultat || {};
   const bilan = data.bilan || {};
   const kpis = data.kpis || {};
@@ -130,6 +130,11 @@ export function InputsViewer({ data }: { data: any }) {
     if (!n && n !== 0) return '—';
     return new Intl.NumberFormat('fr-FR').format(n) + ' ' + deviseVal;
   };
+
+  const editBtn = (path: string, title: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="inputs_data" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -189,7 +194,7 @@ export function InputsViewer({ data }: { data: any }) {
       {/* Compte de résultat */}
       {Object.keys(cr).length > 0 && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">📊 Compte de résultat</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">📊 Compte de résultat</h4>{editBtn('compte_resultat', 'Compte de Résultat')}</div>
           <div className="space-y-1">
             {Object.entries(cr).map(([key, val]) => (
               <div key={key} className={`flex justify-between text-xs py-0.5 border-b border-border/50 ${key.includes('resultat') ? 'font-bold' : ''}`}>
@@ -247,7 +252,7 @@ export function InputsViewer({ data }: { data: any }) {
       {/* Trésorerie & BFR */}
       {(tresBfr.tresorerie_nette || tresBfr.composantes?.length) && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">💧 Trésorerie & BFR</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">💧 Trésorerie & BFR</h4>{editBtn('tresorerie_bfr', 'Trésorerie & BFR')}</div>
           <div className="grid grid-cols-4 gap-2 mb-3">
             {[
               { l: 'Trésorerie nette', v: formatAmount(tresBfr.tresorerie_nette) },
@@ -284,7 +289,7 @@ export function InputsViewer({ data }: { data: any }) {
       {bilan.actif && (
         <div className="grid grid-cols-2 gap-3">
           <Card><CardContent className="py-4">
-            <h4 className="text-xs font-bold text-primary mb-2">Actif</h4>
+            <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">Actif</h4>{editBtn('bilan.actif', 'Bilan Actif')}</div>
             {Object.entries(bilan.actif).map(([k, v]) => (
               <div key={k} className={`flex justify-between text-[11px] py-0.5 ${k.includes('total') ? 'font-bold border-t border-border' : ''}`}>
                 <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
@@ -293,7 +298,7 @@ export function InputsViewer({ data }: { data: any }) {
             ))}
           </CardContent></Card>
           <Card><CardContent className="py-4">
-            <h4 className="text-xs font-bold text-primary mb-2">Passif</h4>
+            <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">Passif</h4>{editBtn('bilan.passif', 'Bilan Passif')}</div>
             {Object.entries(bilan.passif || {}).map(([k, v]) => (
               <div key={k} className={`flex justify-between text-[11px] py-0.5 ${k.includes('total') ? 'font-bold border-t border-border' : ''}`}>
                 <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>

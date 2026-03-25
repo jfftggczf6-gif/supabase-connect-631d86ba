@@ -10,6 +10,7 @@ import {
 import { useMemo } from 'react';
 import { getDevise } from '@/lib/format-currency';
 import { ChevronDown, Info, ShieldCheck, AlertTriangle, TrendingUp, Users, Landmark, BarChart3 } from 'lucide-react';
+import SectionEditButton from './SectionEditButton';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -39,6 +40,8 @@ const pctFmt = (n: any) => {
 
 interface PlanFinancierViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 // ─── Tracability component ────────────────────────────────────
@@ -174,8 +177,12 @@ function AnalysisSection({ title, icon, data: sectionData }: { title: string; ic
 
 // ─── Main Component ───────────────────────────────────────────
 
-export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) {
+export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: PlanFinancierViewerProps) {
   const devise = getDevise(data);
+  const editBtn = (path: string, title: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="plan_financier" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
+    ) : null;
   const analyse = data.analyse || {};
   const kpis = data.kpis || {};
   const projections = data.projections || [];
@@ -255,7 +262,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             {analyse.avis && (
               <Card>
                 <CardContent className="py-4">
-                  <p className="text-sm font-semibold mb-2">Avis de l'IA</p>
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis de l'IA</p>{editBtn('analyse.avis', 'Avis général')}</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{analyse.avis}</p>
                   {analyse.tags?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
@@ -346,7 +353,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             {analyse.risques?.length > 0 && (
               <Card>
                 <CardContent className="py-3">
-                  <p className="text-sm font-semibold mb-3">Risques clés</p>
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-3">Risques clés</p>{editBtn('analyse.risques', 'Risques')}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {analyse.risques.map((r: any, i: number) => (
                       <div key={i} className={`rounded-lg p-3 ${r.impact === 'critique' ? 'bg-red-50' : r.impact === 'élevé' ? 'bg-amber-50' : 'bg-muted/30'}`}>
@@ -916,7 +923,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             {/* Hypothèses globales de croissance */}
             <Card>
               <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">Hypothèses de croissance</p>
+                <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-3">Hypothèses de croissance</p>{editBtn('hypotheses_ia', 'Hypothèses de projection')}</div>
                 <div className="space-y-1 text-xs">
                   <Row label="Croissance CA" value={data.hypotheses_ia?.taux_croissance_ca?.map((t: number) => `${(t*100).toFixed(0)}%`).join(' → ') || '—'} />
                   <Row label="Croissance prix" value={pctFmt((data.hypotheses_ia?.taux_croissance_prix || 0) * 100)} />
@@ -1138,6 +1145,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               <div className="space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <Landmark className="h-4 w-4 text-primary" /> Charges opérationnelles (OPEX)
+                  {editBtn('opex', "Charges d'exploitation (OPEX)")}
                 </p>
 
                 {data.opex_categories?.length > 0 && (
@@ -1259,6 +1267,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               <div className="space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-primary" /> Produits
+                  {editBtn('produits', 'Produits')}
                 </p>
 
                 {/* Cartes produits */}
@@ -1422,6 +1431,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               <div className="space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" /> Ressources humaines
+                  {editBtn('staff', 'Effectifs et salaires')}
                 </p>
 
                 {/* Tableau principal */}
@@ -1631,6 +1641,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
               <div className="space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <Landmark className="h-4 w-4 text-primary" /> Plan d'investissement (CAPEX)
+                  {editBtn('capex', 'Investissements (CAPEX)')}
                 </p>
                 <Card>
                   <CardContent className="py-3 px-0">
@@ -1730,6 +1741,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             <div className="space-y-3">
               <p className="text-sm font-semibold flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" /> Plan de financement
+                {editBtn('loans', 'Prêts')}
               </p>
 
               {/* Cartes prêts — format enrichi */}
@@ -1819,6 +1831,7 @@ export default function PlanFinancierViewer({ data }: PlanFinancierViewerProps) 
             <div className="space-y-3">
               <p className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" /> BFR et trésorerie
+                {editBtn('working_capital', 'BFR')}
               </p>
               <Card>
                 <CardContent className="py-3">
