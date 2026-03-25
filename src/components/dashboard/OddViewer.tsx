@@ -52,6 +52,8 @@ interface OddData {
 
 interface OddViewerProps {
   data: OddData;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 function EvalBadge({ evaluation }: { evaluation: string }) {
