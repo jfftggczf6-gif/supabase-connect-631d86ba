@@ -125,7 +125,7 @@ export default function FrameworkViewer({ data, enterpriseId, onUpdated }: Frame
       {/* Ratios par catégorie */}
       {Object.entries(ratios).map(([category, ratioGroup]: [string, any]) => (
         <Card key={category}><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2 capitalize">{category.replace(/_/g, ' ')}</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2 capitalize">{category.replace(/_/g, ' ')}</h4>{editBtn(`ratios.${category}`, `Ratios ${category.replace(/_/g, ' ')}`)}</div>
           <div className="space-y-2">
             {Object.entries(ratioGroup).map(([key, val]: [string, any]) => (
               <div key={key} className="flex items-center justify-between text-xs p-2 rounded bg-muted/30">
