@@ -218,7 +218,7 @@ ${criteres ? `
           )}
         </SectionRow>
 
-        <SectionRow label="Potentiel du marché">
+        <SectionRow label="Potentiel du marché">{editBtn('potentiel_marche', 'Potentiel Marché')}
           <p>{data.potentiel_marche || '—'}</p>
         </SectionRow>
 
