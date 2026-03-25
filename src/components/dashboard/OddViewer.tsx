@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SectionEditButton from "./SectionEditButton";
 
 const ODD_COLORS: Record<string, string> = {
   "1": "#E5243B", "2": "#DDA63A", "3": "#4C9F38", "4": "#C5192D", "5": "#FF3A21",
