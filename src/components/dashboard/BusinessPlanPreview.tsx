@@ -152,7 +152,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
         <MultiText text={bp.resume_gestion} />
       </Section>
 
-      <Section title="3. Revue historique">
+      <Section title="3. Revue historique" editBtn={editBtn('historique', 'Historique')}>
         <MultiText text={bp.historique} />
       </Section>
 
