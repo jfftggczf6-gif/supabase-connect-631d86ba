@@ -19,6 +19,7 @@ const SUPPORTED_TYPES = [
   'bmc_analysis', 'sic_analysis', 'diagnostic_data', 'business_plan',
   'odd_analysis', 'pre_screening', 'valuation', 'screening_report',
   'plan_financier', 'inputs_data', 'framework_data',
+  'onepager', 'investment_memo',
 ];
 
 const FINANCE_TYPES = ['plan_financier', 'inputs_data', 'framework_data'];

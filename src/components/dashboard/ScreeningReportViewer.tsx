@@ -1,3 +1,4 @@
+import SectionEditButton from './SectionEditButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,9 +13,10 @@ interface ScreeningReportViewerProps {
   enterpriseId?: string;
   enterpriseName?: string;
   onRegenerate?: () => void;
+  onUpdated?: () => void;
 }
 
-export default function ScreeningReportViewer({ data, enterpriseId, enterpriseName, onRegenerate }: ScreeningReportViewerProps) {
+export default function ScreeningReportViewer({ data, enterpriseId, enterpriseName, onRegenerate, onUpdated }: ScreeningReportViewerProps) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const isNewFormat = !!(data.decision?.verdict);
@@ -63,6 +65,11 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
     ? 'text-emerald-600' : (decision.niveau_conviction || 0) >= 40
     ? 'text-amber-600' : 'text-red-600';
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="screening_report" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-5" id="screening-viewer-content">
       {/* Action buttons */}
@@ -109,7 +116,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" />
-                <h4 className="text-sm font-display font-semibold">Critères programme</h4>
+                <h4 className="text-sm font-display font-semibold">Critères programme</h4> {editBtn('matching_criteres', 'Matching Critères')}
               </div>
               <Badge className="bg-primary text-primary-foreground">{matching.score_matching}% compatible</Badge>
             </div>
@@ -149,7 +156,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4 space-y-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Impact attendu</h4>
+              <h4 className="text-sm font-display font-semibold">Impact attendu</h4> {editBtn('impact_attendu', 'Impact Attendu')}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -204,7 +211,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4 space-y-4">
             <div className="flex items-center gap-2">
               <Banknote className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Dimensionnement du financement</h4>
+              <h4 className="text-sm font-display font-semibold">Dimensionnement du financement</h4> {editBtn('dimensionnement', 'Dimensionnement')}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -259,7 +266,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4">
             <div className="flex items-center gap-2 mb-4">
               <Shield className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Conditions</h4>
+              <h4 className="text-sm font-display font-semibold">Conditions</h4> {editBtn('conditions', 'Conditions')}
             </div>
             {['avant_financement', 'pendant', 'a_la_fin'].map(moment => {
               const items = conditions.filter((c: any) => c.moment === moment);
@@ -299,7 +306,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
           <CardContent className="py-4">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-display font-semibold">Risques pour le programme</h4>
+              <h4 className="text-sm font-display font-semibold">Risques pour le programme</h4> {editBtn('risques_programme', 'Risques Programme')}
             </div>
             <div className="space-y-2">
               {risques.map((r: any, i: number) => {

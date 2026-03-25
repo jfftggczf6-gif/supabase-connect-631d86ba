@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SectionEditButton from './SectionEditButton';
 import { downloadRichHtml, downloadRichPdf } from '@/lib/download-rich-html';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -20,9 +21,11 @@ interface PreScreeningViewerProps {
   enterprise?: Record<string, any> | null;
   onRegenerate?: (programmeId?: string | null) => void;
   onLaunchPipeline?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline }: PreScreeningViewerProps) {
+export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline, enterpriseId, onUpdated }: PreScreeningViewerProps) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const [activeScope, setActiveScope] = useState('all');
@@ -130,6 +133,11 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     if (v === 'critique') return 'text-red-700 bg-red-50';
     return 'text-muted-foreground bg-muted';
   };
+
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="pre_screening" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
 
   return (
     <div className="space-y-6" id="prescreening-viewer-content">
@@ -241,7 +249,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         <Card className="border-2 border-blue-200 bg-blue-50/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-blue-600" /> Guide d'accompagnement du coach
+              <BookOpen className="h-4 w-4 text-blue-600" /> Guide d'accompagnement du coach {editBtn('guide_coach', 'Guide Coach')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -373,7 +381,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       {contexte && (
         <div>
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" /> Comprendre l'entreprise
+            <Building2 className="h-4 w-4 text-primary" /> Comprendre l'entreprise {editBtn('contexte_entreprise', 'Contexte Entreprise')}
           </h3>
           <div className="space-y-3">
             {contexte.histoire && (
@@ -402,7 +410,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       {allConstats.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Constats
+            <BarChart3 className="h-4 w-4 text-primary" /> Constats {editBtn('constats_par_scope', 'Constats')}
           </h3>
 
           {/* Filter bar */}

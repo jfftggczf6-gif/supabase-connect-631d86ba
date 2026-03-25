@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { generateMemoHtml } from '@/lib/memo-html-generator';
 import { exportToPdf } from '@/lib/export-pdf';
 import { supabase } from '@/integrations/supabase/client';
+import SectionEditButton from './SectionEditButton';
 
 const SLIDE_TITLES = [
   'Page de Garde',
@@ -32,6 +33,8 @@ const SLIDE_TITLES = [
 interface Props {
   data: Record<string, any>;
   onRegenerate?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 const SECTIONS = [
@@ -60,7 +63,7 @@ const verdictColors: Record<string, string> = {
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : []);
 
-export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
+export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId, onUpdated }: Props) {
   const [activeSection, setActiveSection] = useState('resume_executif');
   const [generatingPptx, setGeneratingPptx] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -114,6 +117,11 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
   };
 
   // ── Enhanced Section Renderers ──
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="investment_memo" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   const renderSection = (key: string) => {
     const d = data[key];
     if (!d) return <p className="text-sm text-muted-foreground italic">Section non générée</p>;
@@ -548,7 +556,7 @@ export default function InvestmentMemoViewer({ data, onRegenerate }: Props) {
               {SECTIONS.map(s => (
                 <div key={s.key} ref={el => { sectionRefs.current[s.key] = el; }}>
                   <Card>
-                    <CardHeader className="pb-3"><CardTitle className="text-sm font-display">{s.label}</CardTitle></CardHeader>
+                    <CardHeader className="pb-3"><CardTitle className="text-sm font-display flex items-center gap-2">{s.label} {editBtn(s.key, s.label)}</CardTitle></CardHeader>
                     <CardContent>{renderSection(s.key)}</CardContent>
                   </Card>
                 </div>

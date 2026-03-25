@@ -1,3 +1,4 @@
+import SectionEditButton from './SectionEditButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ interface Props {
   enterpriseId?: string;
   enterpriseName?: string;
   onRegenerate?: () => void;
+  onUpdated?: () => void;
 }
 
 const fmt = (n: any, devise = 'FCFA') => {
@@ -24,7 +26,7 @@ const fmt = (n: any, devise = 'FCFA') => {
   return `${num.toLocaleString('fr-FR')} ${devise}`;
 };
 
-export default function ValuationViewer({ data, enterpriseId, enterpriseName, onRegenerate }: Props) {
+export default function ValuationViewer({ data, enterpriseId, enterpriseName, onRegenerate, onUpdated }: Props) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const devise = data.devise || 'FCFA';
@@ -53,6 +55,11 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
     }
   };
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="valuation" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-6" id="valuation-viewer-content">
       {/* Header */}
@@ -80,7 +87,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
       </div>
 
       {/* Fourchette de valorisation */}
-      <Card className="border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50">
+      <Card className="border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50">{/* Synthèse */}
         <CardContent className="pt-6">
           <div className="grid grid-cols-3 gap-6 text-center">
             <div>
@@ -108,7 +115,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
         {/* DCF */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-600" /> DCF</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-600" /> DCF {editBtn('dcf', 'DCF')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">WACC</span><span className="font-semibold">{dcf.wacc_pct || '—'}%<ConfidenceIndicator field="wacc" confidence={data._confidence} /></span></div>
@@ -131,7 +138,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
         {/* Multiples EBITDA */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-600" /> Multiples EBITDA</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-600" /> Multiples EBITDA {editBtn('multiples', 'Multiples')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">EBITDA</span><span className="font-semibold">{fmt(multiples.ebitda_dernier_exercice, devise)}</span></div>
@@ -247,7 +254,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
       {decotes.ajustement_total_pct != null && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Décotes & Primes</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Décotes & Primes {editBtn('decotes_primes', 'Décotes & Primes')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -280,7 +287,7 @@ export default function ValuationViewer({ data, enterpriseId, enterpriseName, on
       {implications.pre_money_estime && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><TrendingDown className="h-4 w-4 text-indigo-600" /> Implications Investissement</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><TrendingDown className="h-4 w-4 text-indigo-600" /> Implications Investissement {editBtn('implications_investissement', 'Implications Investissement')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Pre-money estimé</span><span className="font-bold">{fmt(implications.pre_money_estime, devise)}</span></div>

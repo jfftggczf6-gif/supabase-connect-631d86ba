@@ -3,13 +3,16 @@ import { FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { exportToPdf } from '@/lib/export-pdf';
+import SectionEditButton from './SectionEditButton';
 
 interface Props {
   data: Record<string, any>;
   onRegenerate?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-export default function OnePagerViewer({ data, onRegenerate }: Props) {
+export default function OnePagerViewer({ data, onRegenerate, enterpriseId, onUpdated }: Props) {
   const score = data.score || 0;
   const pres = data.presentation_entreprise || {};
   const equipe = data.equipe_gouvernance || {};
@@ -121,6 +124,11 @@ ${criteres ? `
     <p><span className="font-medium">{label} :</span> {value || '—'}</p>
   );
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="onepager" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -171,13 +179,13 @@ ${criteres ? `
 
       {/* Aperçu du projet */}
       <div>
-        <h2 className="text-sm font-bold text-[#1e3a5f] mb-2">Aperçu du projet</h2>
+        <h2 className="text-sm font-bold text-[#1e3a5f] mb-2 flex items-center gap-2">Aperçu du projet {editBtn('apercu_projet', 'Aperçu du Projet')}</h2>
         <p className="text-xs text-muted-foreground leading-relaxed">{data.apercu_projet}</p>
       </div>
 
       {/* Tableau 5 sections */}
       <div className="border rounded-lg overflow-hidden">
-        <SectionRow label="Présentation de l'entreprise">
+        <SectionRow label="Présentation de l'entreprise">{editBtn('presentation_entreprise', 'Présentation')}
           <Field label="Nom" value={pres.nom} />
           <Field label="Secteur" value={pres.secteur} />
           <Field label="Localisation" value={pres.localisation} />
@@ -188,7 +196,7 @@ ${criteres ? `
           <Field label="Objectif" value={pres.objectif} />
         </SectionRow>
 
-        <SectionRow label="Équipe et gouvernance">
+        <SectionRow label="Équipe et gouvernance">{editBtn('equipe_gouvernance', 'Équipe & Gouvernance')}
           <Field label="Fondateur" value={equipe.fondateur} />
           <Field label="Dirigé par des femmes" value={equipe.dirige_par_femmes} />
           <Field label="Compétences" value={equipe.competences} />
@@ -197,7 +205,7 @@ ${criteres ? `
           <Field label="Formelle" value={equipe.formelle} />
         </SectionRow>
 
-        <SectionRow label="Traction et finances">
+        <SectionRow label="Traction et finances">{editBtn('traction_finances', 'Traction & Finances')}
           <Field label="Ventes" value={traction.ventes} />
           <Field label="CA année dernière" value={traction.ca_annee_derniere} />
           <Field label="Accès au financement" value={traction.acces_financement} />
@@ -210,11 +218,11 @@ ${criteres ? `
           )}
         </SectionRow>
 
-        <SectionRow label="Potentiel du marché">
+        <SectionRow label="Potentiel du marché">{editBtn('potentiel_marche', 'Potentiel Marché')}
           <p>{data.potentiel_marche || '—'}</p>
         </SectionRow>
 
-        <SectionRow label="Impact">
+        <SectionRow label="Impact">{editBtn('impact', 'Impact')}
           <p>{data.impact || '—'}</p>
         </SectionRow>
       </div>
@@ -222,7 +230,7 @@ ${criteres ? `
       {/* Critères I&P */}
       {criteres && Object.keys(criteres).length > 0 && (
         <div>
-          <h2 className="text-sm font-bold text-[#1e3a5f] mb-2">Critères I&P</h2>
+          <h2 className="text-sm font-bold text-[#1e3a5f] mb-2 flex items-center gap-2">Critères I&P {editBtn('criteres_ip', 'Critères I&P')}</h2>
           <p className="text-xs font-medium text-muted-foreground mb-2">Documentation disponible OVO</p>
           <div className="space-y-2 text-xs">
             {[
