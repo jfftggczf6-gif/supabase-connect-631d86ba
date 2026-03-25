@@ -103,7 +103,6 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
             🌍 ODD — Objectifs de Développement Durable
             {editBtn('evaluation_cibles_odd.cibles', 'Évaluation des Cibles')}
           </CardTitle>
-          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-4 text-center">
