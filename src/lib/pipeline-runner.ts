@@ -205,38 +205,81 @@ export async function runPipelineFromClient(
       clearTimeout(timeoutId);
       signal?.removeEventListener('abort', onAbort);
 
-      if (response.ok) {
+      if (response.ok || response.status === 202) {
         let result = await response.json();
+        const isAsync = response.status === 202 || result.accepted;
 
-        // Investment memo 2-pass: if pass 1 returned processing, auto-chain pass 2
-        if (result.processing === true && step.fn === 'generate-investment-memo') {
-          console.log('[pipeline] Investment Memo pass 1 done, chaining pass 2…');
-          await new Promise(r => setTimeout(r, 1000));
-          const token2 = await getFreshToken();
-          const controller2 = new AbortController();
-          const timeoutId2 = setTimeout(() => controller2.abort(), 360000);
-          const response2 = await fetch(`${supabaseUrl}/functions/v1/${step.fn}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
-            body: JSON.stringify({ enterprise_id: enterpriseId }),
-            signal: controller2.signal,
-          });
-          clearTimeout(timeoutId2);
-          if (response2.ok) {
-            result = await response2.json();
-          } else {
-            const err2 = await response2.json().catch(() => ({ error: 'Pass 2 failed' }));
-            results.push({ step: step.name, success: false, error: err2.error });
-            continue;
+        if (isAsync) {
+          // Async mode — poll deliverables table until ready
+          console.log(`[pipeline] ${step.name} accepted async (202), polling…`);
+          let completed = false;
+          for (let p = 0; p < 72; p++) {
+            await new Promise(r => setTimeout(r, 5000));
+            const { data: deliv } = await supabase
+              .from('deliverables')
+              .select('data, version')
+              .eq('enterprise_id', enterpriseId)
+              .eq('type', step.type)
+              .single();
+            if (deliv?.data) {
+              const dd = deliv.data as Record<string, any>;
+              if (dd.status === 'error') {
+                results.push({ step: step.name, success: false, error: dd.error || 'Erreur' });
+                completed = true;
+                break;
+              }
+              if (dd.status !== 'processing' && Object.keys(dd).length > 10) {
+                results.push({ step: step.name, success: true, score: dd.score });
+                completedCount++;
+                onStepComplete?.();
+                completed = true;
+                break;
+              }
+            }
+            onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}… (${Math.round((p / 72) * 100)}%)` });
           }
-        }
+          if (!completed) {
+            results.push({ step: step.name, success: false, error: 'Timeout polling (6 min)' });
+          }
+          // Detect empty inputs
+          if (step.fn === 'generate-inputs') {
+            const { data: chk } = await supabase.from('deliverables').select('data').eq('enterprise_id', enterpriseId).eq('type', 'inputs_data').single();
+            const score = (chk?.data as any)?.score;
+            if (score === 0 || !score) inputsScoreZero = true;
+          }
+        } else {
+          // Sync mode — original logic
 
-        results.push({ step: step.name, success: true, score: result.score });
-        completedCount++;
-        onStepComplete?.();
-        // Detect empty inputs (no financial data) to skip downstream financial steps
-        if (step.fn === 'generate-inputs' && (result.score === 0 || !result.score)) {
-          inputsScoreZero = true;
+          // Investment memo 2-pass: if pass 1 returned processing, auto-chain pass 2
+          if (result.processing === true && step.fn === 'generate-investment-memo') {
+            console.log('[pipeline] Investment Memo pass 1 done, chaining pass 2…');
+            await new Promise(r => setTimeout(r, 1000));
+            const token2 = await getFreshToken();
+            const controller2 = new AbortController();
+            const timeoutId2 = setTimeout(() => controller2.abort(), 360000);
+            const response2 = await fetch(`${supabaseUrl}/functions/v1/${step.fn}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
+              body: JSON.stringify({ enterprise_id: enterpriseId }),
+              signal: controller2.signal,
+            });
+            clearTimeout(timeoutId2);
+            if (response2.ok) {
+              result = await response2.json();
+            } else {
+              const err2 = await response2.json().catch(() => ({ error: 'Pass 2 failed' }));
+              results.push({ step: step.name, success: false, error: err2.error });
+              continue;
+            }
+          }
+
+          results.push({ step: step.name, success: true, score: result.score });
+          completedCount++;
+          onStepComplete?.();
+          // Detect empty inputs (no financial data) to skip downstream financial steps
+          if (step.fn === 'generate-inputs' && (result.score === 0 || !result.score)) {
+            inputsScoreZero = true;
+          }
         }
       } else {
         const err = await response.json().catch(() => ({ error: 'Unknown' }));
