@@ -124,7 +124,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       {/* STRUCTURE DE COÛTS + FLUX DE REVENUS (bottom row) */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         {/* Coûts */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5 group">
           <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">STRUCTURE DE COÛTS {editBtn('canvas.structure_couts', 'Structure de Coûts')}</h4>
           <div className="space-y-1.5">
             {(canvas.structure_couts?.postes || []).map((p: any, i: number) => (
