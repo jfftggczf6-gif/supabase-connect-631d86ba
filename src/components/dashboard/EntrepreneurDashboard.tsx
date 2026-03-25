@@ -157,6 +157,63 @@ export default function EntrepreneurDashboard({
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ─── Realtime subscriptions for deliverables & modules ─────────────────────
+  useEffect(() => {
+    if (!enterprise) return;
+    const entId = enterprise.id;
+
+    const delivChannel = supabase
+      .channel(`deliverables-${entId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'deliverables',
+          filter: `enterprise_id=eq.${entId}`,
+        },
+        (payload) => {
+          console.log('[realtime] deliverable updated:', (payload.new as any)?.type);
+          supabase
+            .from('deliverables')
+            .select('*')
+            .eq('enterprise_id', entId)
+            .then(({ data }) => {
+              if (data) setDeliverables(data);
+            });
+        }
+      )
+      .subscribe();
+
+    const modulesChannel = supabase
+      .channel(`modules-${entId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'enterprise_modules',
+          filter: `enterprise_id=eq.${entId}`,
+        },
+        (payload) => {
+          console.log('[realtime] module updated:', (payload.new as any)?.module, (payload.new as any)?.status);
+          supabase
+            .from('enterprise_modules')
+            .select('*')
+            .eq('enterprise_id', entId)
+            .then(({ data }) => {
+              if (data) setModules(data);
+            });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(delivChannel);
+      supabase.removeChannel(modulesChannel);
+    };
+  }, [enterprise?.id]);
+
   // Compute pipeline state whenever enterprise/deliverables change
   useEffect(() => {
     if (!enterprise) return;
