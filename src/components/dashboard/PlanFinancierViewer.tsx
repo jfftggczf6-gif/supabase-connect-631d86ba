@@ -1830,6 +1830,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             <div className="space-y-3">
               <p className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" /> BFR et trésorerie
+                {editBtn('working_capital', 'BFR')}
               </p>
               <Card>
                 <CardContent className="py-3">
