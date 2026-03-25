@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import SectionEditButton from './SectionEditButton';
 
 interface SicViewerProps {
   data: any;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
 const ODD_COLORS: Record<number, string> = {
