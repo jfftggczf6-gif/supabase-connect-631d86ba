@@ -116,7 +116,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" />
-                <h4 className="text-sm font-display font-semibold">Critères programme</h4>
+                <h4 className="text-sm font-display font-semibold">Critères programme</h4> {editBtn('matching_criteres', 'Matching Critères')}
               </div>
               <Badge className="bg-primary text-primary-foreground">{matching.score_matching}% compatible</Badge>
             </div>
