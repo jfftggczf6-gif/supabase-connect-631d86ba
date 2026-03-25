@@ -50,7 +50,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
       } : undefined;
       return wrapWithRegenerate(<PlanOvoViewerComponent data={data} staleness={staleness} />);
     }
-    case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} />);
+    case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
     case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
