@@ -82,6 +82,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       {/* ===== CANVAS — VUE D'ENSEMBLE ===== */}
       <SectionTitle>CANVAS — VUE D'ENSEMBLE</SectionTitle>
 
+
       {/* 5-column grid row */}
       <div className="grid grid-cols-5 gap-px bg-border rounded-xl overflow-hidden mb-px">
         <CanvasCell title="PARTENAIRES CLÉS" items={toArr(canvas.partenaires_cles)} critical={canvas.partenaires_cles?.element_critique} />
