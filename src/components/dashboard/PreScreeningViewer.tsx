@@ -410,7 +410,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       {allConstats.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Constats
+            <BarChart3 className="h-4 w-4 text-primary" /> Constats {editBtn('constats_par_scope', 'Constats')}
           </h3>
 
           {/* Filter bar */}
