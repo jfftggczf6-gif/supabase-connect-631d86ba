@@ -252,7 +252,7 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
       {/* Trésorerie & BFR */}
       {(tresBfr.tresorerie_nette || tresBfr.composantes?.length) && (
         <Card><CardContent className="py-4">
-          <h4 className="text-xs font-bold text-primary mb-2">💧 Trésorerie & BFR</h4>
+          <div className="flex items-center gap-2 group"><h4 className="text-xs font-bold text-primary mb-2">💧 Trésorerie & BFR</h4>{editBtn('tresorerie_bfr', 'Trésorerie & BFR')}</div>
           <div className="grid grid-cols-4 gap-2 mb-3">
             {[
               { l: 'Trésorerie nette', v: formatAmount(tresBfr.tresorerie_nette) },
