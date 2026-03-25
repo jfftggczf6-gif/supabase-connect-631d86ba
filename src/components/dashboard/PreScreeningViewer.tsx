@@ -21,9 +21,11 @@ interface PreScreeningViewerProps {
   enterprise?: Record<string, any> | null;
   onRegenerate?: (programmeId?: string | null) => void;
   onLaunchPipeline?: () => void;
+  enterpriseId?: string;
+  onUpdated?: () => void;
 }
 
-export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline }: PreScreeningViewerProps) {
+export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline, enterpriseId, onUpdated }: PreScreeningViewerProps) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const [activeScope, setActiveScope] = useState('all');
