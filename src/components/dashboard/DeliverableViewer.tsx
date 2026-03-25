@@ -557,6 +557,11 @@ function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterp
     return <LegacyDiagnosticViewer data={data} />;
   }
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="diagnostic_data" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   const verdict = data.verdict_readiness || {};
   const progression = data.progression || {};
   const problemes = data.problemes || [];
