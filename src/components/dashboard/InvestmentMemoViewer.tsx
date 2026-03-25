@@ -117,6 +117,11 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
   };
 
   // ── Enhanced Section Renderers ──
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="investment_memo" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   const renderSection = (key: string) => {
     const d = data[key];
     if (!d) return <p className="text-sm text-muted-foreground italic">Section non générée</p>;
