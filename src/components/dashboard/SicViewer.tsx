@@ -222,6 +222,11 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
   const dimOrder = ['probleme_vision', 'beneficiaires', 'mesure_impact', 'alignement_odd', 'gestion_risques'];
   const maturityIdx = MATURITY_LEVELS.indexOf(maturite);
 
+  const editBtn = (sectionPath: string, sectionTitle: string) =>
+    enterpriseId && onUpdated ? (
+      <SectionEditButton enterpriseId={enterpriseId} deliverableType="sic_analysis" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
+    ) : null;
+
   return (
     <div className="max-w-[900px] mx-auto space-y-6" style={{ fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif" }}>
 
