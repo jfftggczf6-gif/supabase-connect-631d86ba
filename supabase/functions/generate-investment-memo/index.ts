@@ -28,10 +28,13 @@ EXIGENCES QUALITÉ :
 - La recommandation finale doit être COHÉRENTE avec le score et les risques
 - Minimum 200 mots par section narrative
 
-FORMAT :
-- Sépare analyse qualitative et chiffres : les textes narratifs expliquent le POURQUOI, les chiffres vont dans des listes/tableaux
-- Ne noie PAS les chiffres dans des paragraphes — cite-les entre parenthèses ou en fin de section
-- Structure chaque section : constat → analyse → recommandation
+STYLE DE RÉDACTION :
+- Rédige comme un VRAI ANALYSTE qui écrit un RAPPORT — pas comme une IA qui liste des faits
+- Chaque section doit être un TEXTE FLUIDE avec des phrases qui s'enchaînent logiquement
+- PAS de listes de bullet points entassées — des PARAGRAPHES rédigés avec transitions
+- Structure narrative : contexte → constat → analyse → implication pour l'investisseur
+- Les chiffres sont INTÉGRÉS dans le raisonnement, pas empilés : "La marge brute de 54% (source: CdR 2024) témoigne d'un positionnement premium, supérieur à la médiane sectorielle de 35-45%"
+- Chaque section doit pouvoir se lire INDÉPENDAMMENT comme un paragraphe cohérent
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
