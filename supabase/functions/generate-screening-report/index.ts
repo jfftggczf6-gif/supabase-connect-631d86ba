@@ -27,6 +27,12 @@ TON & LANGAGE :
 - Chaque affirmation est chiffrée et sourcée
 - La décision est tranchée — pas de "peut-être"
 
+FORMAT :
+- Sois CONCIS et STRUCTURÉ — pas de pavés de texte
+- Chaque section : 2-3 phrases maximum, droit au but
+- Les chiffres dans des tableaux/listes, pas noyés dans du texte
+- Ordonne par importance : décision d'abord, justification ensuite, détails en dernier
+
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
 const DECISION_SCHEMA = `{

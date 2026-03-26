@@ -172,7 +172,13 @@ RÈGLES :
 
 4. INCOHÉRENCES ENTRE LIVRABLES : chaque incohérence est un problème. Citer les 2 valeurs et l'écart.
 
-5. BENCHMARKS : comparer aux médianes du secteur et du pays.
+5. BENCHMARKS : OBLIGATOIRE — calcule les ratios de l'entreprise à partir des INPUTS (compte_resultat) :
+   - marge_brute = (CA - achats_marchandises) / CA × 100
+   - marge_ebitda = EBITDA / CA × 100 (si EBITDA dispo)
+   - marge_nette = resultat_net / CA × 100
+   - charges_fixes_ca = charges_fixes / CA × 100
+   - masse_salariale_ca = charges_personnel / CA × 100
+   Compare chaque ratio au range secteur fourni dans les benchmarks. Le champ "entreprise" doit TOUJOURS être un NOMBRE (le % calculé), JAMAIS null ou "—".
 
 Réponds en JSON selon ce schéma :
 ${BILAN_SCHEMA}`;
@@ -286,7 +292,7 @@ Indique lesquels sont levés et lesquels persistent.
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
         + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}`
         + ragContext + kbContext,
-      16384, "claude-sonnet-4-20250514"
+      16384, "claude-sonnet-4-20250514", 0.3
     );
 
     const data = normalizeDiagnostic(rawData);
