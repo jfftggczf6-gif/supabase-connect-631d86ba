@@ -287,6 +287,7 @@ export async function runPipelineFromClient(
               pollCount++;
               onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}… (${Math.min(95, pollCount * 5)}%)` });
               try {
+                // Check deliverables table
                 const { data: deliv } = await supabase
                   .from('deliverables')
                   .select('data')
@@ -298,19 +299,53 @@ export async function runPipelineFromClient(
                   if (dd.status === 'error') {
                     clearInterval(pollInterval);
                     settle({ success: false, error: dd.error || 'Erreur' });
+                    return;
                   } else if (dd.status !== 'processing' && Object.keys(dd).length >= 5) {
                     clearInterval(pollInterval);
                     settle({ success: true, score: dd.score });
+                    return;
+                  }
+                }
+
+                // For investment_memo: also check enterprise_modules for checkpoint
+                if (step.fn === 'generate-investment-memo') {
+                  const { data: modRow } = await supabase
+                    .from('enterprise_modules')
+                    .select('data, status')
+                    .eq('enterprise_id', enterpriseId)
+                    .eq('module', 'investment_memo')
+                    .single();
+                  const modData = modRow?.data as Record<string, any> | null;
+                  if (modData?.phase === 'part1_completed' && modData?.part1) {
+                    // Checkpoint ready — trigger pass 2
+                    console.log('[pipeline] Memo checkpoint detected, triggering pass 2...');
+                    onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name} — passe 2…` });
+                    const token2 = await getFreshToken();
+                    fetch(`${supabaseUrl}/functions/v1/${step.fn}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
+                      body: JSON.stringify({ enterprise_id: enterpriseId }),
+                    }).catch(() => {});
+                    // Don't settle yet — wait for deliverable to appear
+                  } else if (modData?.phase === 'completed') {
+                    clearInterval(pollInterval);
+                    settle({ success: true, score: modData.score });
+                    return;
+                  } else if (modData?.phase === 'failed') {
+                    clearInterval(pollInterval);
+                    settle({ success: false, error: modData.error || 'Memo failed' });
+                    return;
                   }
                 }
               } catch (_) { /* non-blocking */ }
             }, 10000);
 
-            // 3. Timeout — 6 min max
+            // 3. Timeout — 10 min for memo (2 passes), 6 min for others
+            const timeoutMs = step.fn === 'generate-investment-memo' ? 600000 : 360000;
             setTimeout(() => {
               clearInterval(pollInterval);
-              settle({ success: false, error: 'Timeout (6 min)' });
-            }, 360000);
+              settle({ success: false, error: `Timeout (${timeoutMs / 60000} min)` });
+            }, timeoutMs);
 
             // 4. Abort support
             if (signal) {
