@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -26,6 +26,8 @@ export default function PublicCandidatureForm() {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [fileUploads, setFileUploads] = useState<Record<string, File>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (!slug) return;
@@ -50,6 +52,17 @@ export default function PublicCandidatureForm() {
     if (!companyName || !contactName || !contactEmail) return;
     setSubmitting(true);
     try {
+      // Convert file uploads to base64
+      const documents: Record<string, { filename: string; base64: string }> = {};
+      for (const [key, file] of Object.entries(fileUploads)) {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+        documents[key] = { filename: file.name, base64 };
+      }
+
       const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-candidature`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
@@ -59,7 +72,8 @@ export default function PublicCandidatureForm() {
           contact_name: contactName,
           contact_email: contactEmail,
           contact_phone: contactPhone,
-          form_data: formData
+          form_data: formData,
+          documents: Object.keys(documents).length > 0 ? documents : undefined,
         })
       });
       const data = await res.json();
@@ -70,6 +84,14 @@ export default function PublicCandidatureForm() {
   };
 
   const setField = (key: string, val: any) => setFormData(f => ({ ...f, [key]: val }));
+
+  const handleFileSelect = (fieldLabel: string, file: File | null) => {
+    if (file) {
+      setFileUploads(prev => ({ ...prev, [fieldLabel]: file }));
+    } else {
+      setFileUploads(prev => { const n = { ...prev }; delete n[fieldLabel]; return n; });
+    }
+  };
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -130,7 +152,35 @@ export default function PublicCandidatureForm() {
               {formFields.map((field: any) => (
                 <div key={field.id || field.label}>
                   <Label>{field.label} {field.required ? '*' : ''}</Label>
-                  {field.type === 'textarea' ? (
+                  {field.type === 'file' ? (
+                    <div className="mt-1">
+                      <input
+                        ref={el => { fileInputRefs.current[field.label] = el; }}
+                        type="file"
+                        accept=".pdf,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png"
+                        className="hidden"
+                        onChange={e => handleFileSelect(field.label, e.target.files?.[0] || null)}
+                      />
+                      {fileUploads[field.label] ? (
+                        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                          <span className="text-sm truncate flex-1">{fileUploads[field.label].name}</span>
+                          <button type="button" onClick={() => handleFileSelect(field.label, null)} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => fileInputRefs.current[field.label]?.click()}
+                          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                        >
+                          <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-sm text-muted-foreground">Cliquez ou glissez un fichier</p>
+                          <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, XLSX, Images</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : field.type === 'textarea' ? (
                     <Textarea required={field.required} value={formData[field.label] || ''} onChange={e => setField(field.label, e.target.value)} rows={3} />
                   ) : field.type === 'select' && field.options?.length ? (
                     <Select value={formData[field.label] || ''} onValueChange={v => setField(field.label, v)}>
