@@ -17,6 +17,12 @@ interface Props {
   onUpdated: () => void;
 }
 
+function safeText(v: any): string {
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  return v.titre || v.label || v.detail || v.description || v.name || JSON.stringify(v);
+}
+
 export default function CandidatureDetailDrawer({ candidatureId, open, onOpenChange, coaches, onUpdated }: Props) {
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -25,12 +31,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!candidatureId || !open) return;
+    if (!candidatureId || !open) { setDetail(null); return; }
     setLoading(true);
     supabase.functions.invoke('get-candidature-detail', { body: { candidature_id: candidatureId } })
       .then(({ data, error }) => {
         if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
-        // Backend returns { candidature: {...}, programme: {...} }
         const cand = data?.candidature || data;
         setDetail(cand);
         setNotes(cand?.committee_notes || '');
@@ -53,8 +58,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
     onUpdated();
   };
 
-  const screening = detail?.screening_data;
-  const dimensions = screening?.diagnostic_dimensions || screening?.dimensions || screening?.scores_dimensions;
+  const s = detail?.screening_data || {};
+  const dims = s.diagnostic_dimensions || s.dimensions || s.scores_dimensions;
+  const matching = s.matching_criteres;
+  const reco = s.recommandation_accompagnement || s.recommandation;
+  const incoherences = s.incoherences_detectees || s.incoherences || [];
+  const pointsForts = s.points_forts || [];
+  const pointsVig = s.points_vigilance || [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -69,8 +79,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
           <div className="space-y-6 mt-4">
             {/* Contact */}
             <div className="space-y-1 text-sm">
-              <p><strong>Contact :</strong> {detail.contact_name}</p>
-              <p><strong>Email :</strong> {detail.contact_email}</p>
+              <p><strong>Contact :</strong> {detail.contact_name || '—'}</p>
+              <p><strong>Email :</strong> {detail.contact_email || '—'}</p>
               {detail.contact_phone && <p><strong>Tél :</strong> {detail.contact_phone}</p>}
             </div>
 
@@ -79,110 +89,118 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
               <div className="p-4 rounded-lg bg-muted space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Score IA</span>
-                  <Badge className={detail.screening_score >= 70 ? 'bg-emerald-500' : detail.screening_score >= 40 ? 'bg-amber-500' : 'bg-red-500'}>
+                  <Badge className={Number(detail.screening_score) >= 70 ? 'bg-emerald-500' : Number(detail.screening_score) >= 40 ? 'bg-amber-500' : 'bg-red-500'}>
                     {detail.screening_score}/100
                   </Badge>
                 </div>
-                <Progress value={detail.screening_score} className="h-2" />
+                <Progress value={Number(detail.screening_score)} className="h-2" />
               </div>
+            )}
+
+            {/* Classification */}
+            {s.classification && (
+              <Badge variant="outline" className="text-sm">{s.classification}</Badge>
             )}
 
             {/* Dimensions */}
-            {dimensions && typeof dimensions === 'object' && (
+            {dims && typeof dims === 'object' && Object.keys(dims).length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-semibold text-sm">Dimensions</h4>
-                {Object.entries(dimensions).map(([k, v]: [string, any]) => (
-                  <div key={k} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="capitalize">{k.replace(/_/g, ' ')}</span>
-                      <span>{typeof v === 'number' ? v : v?.score ?? '—'}/100</span>
+                {Object.entries(dims).map(([k, v]: [string, any]) => {
+                  const score = typeof v === 'number' ? v : (v?.score ?? 0);
+                  const label = v?.label || '';
+                  return (
+                    <div key={k} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="capitalize">{k.replace(/_/g, ' ')}{label ? ` — ${label}` : ''}</span>
+                        <span>{score}/100</span>
+                      </div>
+                      <Progress value={score} className="h-1.5" />
                     </div>
-                    <Progress value={typeof v === 'number' ? v : v?.score ?? 0} className="h-1.5" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            {/* Matching */}
-            {screening?.matching_criteres && (
+            {/* Matching critères */}
+            {matching && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm">Matching critères</h4>
-                {(screening.matching_criteres.criteres_ok || []).map((c: any, i: number) => (
-                  <div key={`ok-${i}`} className="flex items-center gap-2 text-xs">
-                    <span>✅</span><span>{c.critere || c.label}</span>
-                  </div>
+                {Array.isArray(matching.criteres_ok) && matching.criteres_ok.map((c: any, i: number) => (
+                  <div key={`ok-${i}`} className="flex items-center gap-2 text-xs"><span>✅</span><span>{safeText(c)}</span></div>
                 ))}
-                {(screening.matching_criteres.criteres_partiels || []).map((c: any, i: number) => (
-                  <div key={`part-${i}`} className="flex items-center gap-2 text-xs">
-                    <span>⚠️</span><span>{c.critere || c.label} — {c.manque || ''}</span>
-                  </div>
+                {Array.isArray(matching.criteres_partiels) && matching.criteres_partiels.map((c: any, i: number) => (
+                  <div key={`p-${i}`} className="flex items-center gap-2 text-xs"><span>⚠️</span><span>{safeText(c)}</span></div>
                 ))}
-                {(screening.matching_criteres.criteres_ko || []).map((c: any, i: number) => (
-                  <div key={`ko-${i}`} className="flex items-center gap-2 text-xs">
-                    <span>❌</span><span>{c.critere || c.label}</span>
-                  </div>
+                {Array.isArray(matching.criteres_ko) && matching.criteres_ko.map((c: any, i: number) => (
+                  <div key={`ko-${i}`} className="flex items-center gap-2 text-xs"><span>❌</span><span>{safeText(c)}</span></div>
                 ))}
               </div>
             )}
 
-            {/* Points forts / vigilance */}
-            {screening?.points_forts && (
+            {/* Points forts */}
+            {pointsForts.length > 0 && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm text-emerald-700">Points forts</h4>
                 <ul className="text-xs space-y-0.5 list-disc pl-4">
-                  {screening.points_forts.map((p: string, i: number) => <li key={i}>{p}</li>)}
+                  {pointsForts.map((p: any, i: number) => <li key={i}>{safeText(p)}</li>)}
                 </ul>
               </div>
             )}
-            {screening?.points_vigilance && (
+
+            {/* Points de vigilance */}
+            {pointsVig.length > 0 && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm text-amber-700">Points de vigilance</h4>
                 <ul className="text-xs space-y-0.5 list-disc pl-4">
-                  {screening.points_vigilance.map((p: string, i: number) => <li key={i}>{p}</li>)}
+                  {pointsVig.map((p: any, i: number) => <li key={i}>{safeText(p)}</li>)}
                 </ul>
               </div>
             )}
 
             {/* Incohérences */}
-            {screening?.incoherences?.length > 0 && (
+            {Array.isArray(incoherences) && incoherences.length > 0 && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm">Incohérences</h4>
-                {screening.incoherences.map((inc: any, i: number) => (
-                  <Badge key={i} variant="outline" className={inc.severity === 'bloquant' ? 'border-red-300 text-red-700' : 'border-amber-300 text-amber-700'}>
-                    {inc.severity === 'bloquant' ? '🚫 BLOQUANT' : '⚠️ ATTENTION'} — {inc.label || inc.description}
-                  </Badge>
+                {incoherences.map((inc: any, i: number) => (
+                  <div key={i} className="text-xs">
+                    <Badge variant="outline" className={
+                      (inc.severite || inc.severity || '').toLowerCase().includes('bloquant') ? 'border-red-300 text-red-700' : 'border-amber-300 text-amber-700'
+                    }>
+                      {(inc.severite || inc.severity || 'INFO').toUpperCase()}
+                    </Badge>
+                    <span className="ml-2">{inc.observation || inc.label || inc.description || ''}</span>
+                  </div>
                 ))}
               </div>
             )}
 
             {/* Recommandation */}
-            {(screening?.recommandation_accompagnement || screening?.recommandation) && (() => {
-              const reco = screening.recommandation_accompagnement || screening.recommandation;
-              return (
-                <div className="p-3 rounded-lg bg-muted text-sm space-y-2">
-                  <h4 className="font-semibold">Recommandation</h4>
-                  {reco.verdict && <Badge variant="outline">{reco.verdict}</Badge>}
-                  <p>{reco.justification || (typeof reco === 'string' ? reco : '')}</p>
-                  {reco.priorites_si_selectionnee?.length > 0 && (
-                    <div>
-                      <p className="font-medium text-xs mt-1">Si sélectionnée :</p>
-                      <ul className="text-xs list-disc pl-4">{reco.priorites_si_selectionnee.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {reco && (
+              <div className="p-3 rounded-lg bg-muted text-sm space-y-2">
+                <h4 className="font-semibold">Recommandation</h4>
+                {reco.verdict && <Badge variant="outline">{reco.verdict}</Badge>}
+                {reco.justification && <p>{reco.justification}</p>}
+                {typeof reco === 'string' && <p>{reco}</p>}
+                {Array.isArray(reco.priorites_si_selectionnee) && reco.priorites_si_selectionnee.length > 0 && (
+                  <div>
+                    <p className="font-medium text-xs mt-1">Si sélectionnée :</p>
+                    <ul className="text-xs list-disc pl-4">{reco.priorites_si_selectionnee.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Résumé comité */}
-            {screening?.resume_comite && (
+            {s.resume_comite && (
               <div className="p-3 rounded-lg border-2 border-primary/20 bg-primary/5 text-sm">
                 <h4 className="font-semibold mb-1">📋 Résumé comité (30s)</h4>
-                <p>{screening.resume_comite}</p>
+                <p>{s.resume_comite}</p>
               </div>
             )}
 
             {/* Documents joints */}
-            {detail.documents?.length > 0 && (
+            {Array.isArray(detail.documents) && detail.documents.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-semibold text-sm">📎 Documents joints ({detail.documents.length})</h4>
                 <div className="space-y-1">
@@ -195,14 +213,9 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => {
                           const path = (doc.storage_path || '').replace('candidature-documents/', '');
-                          const { data } = supabase.storage.from('candidature-documents').getPublicUrl(path);
-                          window.open(data.publicUrl, '_blank');
+                          const { data: d } = supabase.storage.from('candidature-documents').getPublicUrl(path);
+                          window.open(d.publicUrl, '_blank');
                         }}>👁</Button>
-                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => {
-                          const path = (doc.storage_path || '').replace('candidature-documents/', '');
-                          const { data } = supabase.storage.from('candidature-documents').getPublicUrl(path);
-                          const a = document.createElement('a'); a.href = data.publicUrl; a.download = doc.file_name; a.click();
-                        }}>⬇</Button>
                       </div>
                     </div>
                   ))}
