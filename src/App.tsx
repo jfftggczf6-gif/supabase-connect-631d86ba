@@ -17,6 +17,10 @@ import BmcModule from "./pages/modules/BmcModule";
 import GenericModule from "./pages/modules/GenericModule";
 import Templates from "./pages/Templates";
 import DataRoomPublic from "./pages/DataRoomPublic";
+import ProgrammeListPage from "./pages/ProgrammeListPage";
+import ProgrammeCreatePage from "./pages/ProgrammeCreatePage";
+import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
+import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +44,16 @@ const App = () => (
             <Route path="/dashboard" element={
               <ProtectedRoute><Dashboard /></ProtectedRoute>
             } />
+            <Route path="/programmes" element={
+              <ProtectedRoute><ProgrammeListPage /></ProtectedRoute>
+            } />
+            <Route path="/programmes/new" element={
+              <ProtectedRoute><ProgrammeCreatePage /></ProtectedRoute>
+            } />
+            <Route path="/programmes/:id" element={
+              <ProtectedRoute><ProgrammeDetailPage /></ProtectedRoute>
+            } />
+            <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
             <Route path="/livrables" element={
               <ProtectedRoute><Livrables /></ProtectedRoute>
             } />

@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleLoading, setRoleLoading] = useState(false);
   
 
-  const ROLE_PRIORITY: AppRole[] = ['super_admin', 'coach', 'entrepreneur'];
+  const ROLE_PRIORITY: AppRole[] = ['super_admin', 'chef_programme', 'coach', 'entrepreneur'];
 
   const fetchUserData = async (userId: string) => {
     const [profileRes, rolesRes] = await Promise.all([
