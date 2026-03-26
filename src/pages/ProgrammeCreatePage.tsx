@@ -203,7 +203,7 @@ export default function ProgrammeCreatePage() {
                   id="file-upload-input"
                   type="file"
                   className="hidden"
-                  accept=".pdf,.docx,.txt,.md"
+                  accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff"
                   onChange={onFileInput}
                 />
                 {extracting ? (
