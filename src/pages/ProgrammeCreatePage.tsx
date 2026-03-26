@@ -34,6 +34,7 @@ export default function ProgrammeCreatePage() {
   const [extracting, setExtracting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [prefilledFields, setPrefilledFields] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({
     name: '', organization: '', description: '',
     budget: '', nb_places: '', currency: 'XOF',
@@ -95,19 +96,64 @@ export default function ProgrammeCreatePage() {
       const extracted = data?.extracted;
       if (!extracted) throw new Error('Aucune donnée extraite');
 
-      // Pre-fill form with extracted data
-      setForm(f => ({
-        ...f,
-        name: extracted.name || f.name,
-        description: extracted.description || f.description,
-        country_filter: extracted.country_filter?.length ? extracted.country_filter : f.country_filter,
-        sector_filter: extracted.sector_filter?.length ? extracted.sector_filter : f.sector_filter,
-        min_revenue: extracted.min_revenue ? String(extracted.min_revenue) : f.min_revenue,
-        min_margin: extracted.min_margin ? String(extracted.min_margin) : f.min_margin,
-        budget: extracted.custom_criteria?.montant_financement ? f.budget : f.budget,
-      }));
+      const filled = new Set<string>();
 
-      toast({ title: '✅ Critères extraits', description: 'Les champs ont été pré-remplis. Vérifiez et modifiez si nécessaire.' });
+      // Parse dates from custom_criteria
+      let endDate: Date | undefined;
+      let progStart: Date | undefined;
+      let progEnd: Date | undefined;
+      
+      if (extracted.custom_criteria?.date_limite) {
+        try { endDate = new Date(extracted.custom_criteria.date_limite); if (isNaN(endDate.getTime())) endDate = undefined; } catch { /* ignore */ }
+      }
+      if (extracted.custom_criteria?.duree_programme) {
+        const dur = extracted.custom_criteria.duree_programme;
+        const monthsMatch = dur.match(/(\d+)\s*mois/i);
+        const yearsMatch = dur.match(/(\d+)\s*an/i);
+        if (monthsMatch || yearsMatch) {
+          const months = monthsMatch ? parseInt(monthsMatch[1]) : (yearsMatch ? parseInt(yearsMatch[1]) * 12 : 0);
+          if (months > 0) {
+            progStart = new Date();
+            progEnd = new Date();
+            progEnd.setMonth(progEnd.getMonth() + months);
+            filled.add('programme_start');
+            filled.add('programme_end');
+          }
+        }
+      }
+
+      // Build criteria form fields from extracted criteria
+      const newFields: FormField[] = [];
+      if (extracted.custom_criteria?.criteres_eligibilite?.length) {
+        extracted.custom_criteria.criteres_eligibilite.forEach((c: string, i: number) => {
+          newFields.push({ id: `elig-${i}`, type: 'text', label: `Éligibilité : ${c}`, required: true });
+        });
+      }
+      if (extracted.custom_criteria?.criteres_selection?.length) {
+        extracted.custom_criteria.criteres_selection.forEach((c: string, i: number) => {
+          newFields.push({ id: `sel-${i}`, type: 'text', label: `Sélection : ${c}`, required: false });
+        });
+      }
+      if (newFields.length) { setFormFields(newFields); filled.add('formFields'); }
+
+      // Pre-fill form
+      setForm(f => {
+        const updated = { ...f };
+        if (extracted.name) { updated.name = extracted.name; filled.add('name'); }
+        if (extracted.description) { updated.description = extracted.description; filled.add('description'); }
+        if (extracted.country_filter?.length) { updated.country_filter = extracted.country_filter; filled.add('country_filter'); }
+        if (extracted.sector_filter?.length) { updated.sector_filter = extracted.sector_filter; filled.add('sector_filter'); }
+        if (extracted.min_revenue) { updated.min_revenue = String(extracted.min_revenue); filled.add('min_revenue'); }
+        if (extracted.min_margin) { updated.min_margin = String(extracted.min_margin); filled.add('min_margin'); }
+        if (extracted.custom_criteria?.montant_financement) { updated.budget = extracted.custom_criteria.montant_financement.replace(/[^\d]/g, ''); filled.add('budget'); }
+        if (endDate) { updated.end_date = endDate; filled.add('end_date'); }
+        if (progStart) { updated.programme_start = progStart; }
+        if (progEnd) { updated.programme_end = progEnd; }
+        return updated;
+      });
+
+      setPrefilledFields(filled);
+      toast({ title: '✅ Critères extraits avec succès', description: `${filled.size} champs pré-remplis depuis ${file.name}. Vérifiez et ajustez avant de sauvegarder.` });
     } catch (err: any) {
       toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
     } finally {
@@ -236,9 +282,15 @@ export default function ProgrammeCreatePage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Identité</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div><Label>Nom du programme *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Programme Pilote GIZ 2026" /></div>
+              <div className={cn(prefilledFields.has('name') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label>Nom du programme * {prefilledFields.has('name') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Programme Pilote GIZ 2026" />
+              </div>
               <div><Label>Organisation</Label><Input value={form.organization} onChange={e => setForm(f => ({ ...f, organization: e.target.value }))} placeholder="Ex: GIZ, AFD, I&P" /></div>
-              <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Description du programme..." /></div>
+              <div className={cn(prefilledFields.has('description') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label>Description {prefilledFields.has('description') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
+                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Description du programme..." />
+              </div>
             </CardContent>
           </Card>
 
@@ -247,7 +299,10 @@ export default function ProgrammeCreatePage() {
             <CardHeader><CardTitle className="text-base">Paramètres</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <div><Label>Budget</Label><Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} /></div>
+                <div className={cn(prefilledFields.has('budget') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <Label>Budget {prefilledFields.has('budget') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
+                  <Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} />
+                </div>
                 <div><Label>Nb places</Label><Input type="number" value={form.nb_places} onChange={e => setForm(f => ({ ...f, nb_places: e.target.value }))} /></div>
                 <div>
                   <Label>Devise</Label>
@@ -257,16 +312,16 @@ export default function ProgrammeCreatePage() {
                   </Select>
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Pays éligibles</Label>
+              <div className={cn(prefilledFields.has('country_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label className="text-xs">Pays éligibles {prefilledFields.has('country_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {COUNTRIES.map(c => (
                     <Badge key={c} variant={form.country_filter.includes(c) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('country_filter', c)}>{c}</Badge>
                   ))}
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Secteurs éligibles</Label>
+              <div className={cn(prefilledFields.has('sector_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label className="text-xs">Secteurs éligibles {prefilledFields.has('sector_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {SECTORS.map(s => (
                     <Badge key={s} variant={form.sector_filter.includes(s) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('sector_filter', s)}>{s}</Badge>
@@ -282,9 +337,15 @@ export default function ProgrammeCreatePage() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <DatePicker label="Début candidatures" value={form.start_date} onChange={d => setForm(f => ({ ...f, start_date: d }))} />
-                <DatePicker label="Fin candidatures" value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
-                <DatePicker label="Début programme" value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
-                <DatePicker label="Fin programme" value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
+                <div className={cn(prefilledFields.has('end_date') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <DatePicker label={`Fin candidatures ${prefilledFields.has('end_date') ? '(IA)' : ''}`} value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
+                </div>
+                <div className={cn(prefilledFields.has('programme_start') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <DatePicker label={`Début programme ${prefilledFields.has('programme_start') ? '(IA)' : ''}`} value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
+                </div>
+                <div className={cn(prefilledFields.has('programme_end') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <DatePicker label={`Fin programme ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
+                </div>
               </div>
             </CardContent>
           </Card>
