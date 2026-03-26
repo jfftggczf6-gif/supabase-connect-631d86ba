@@ -50,6 +50,7 @@ export default function ProgrammeCreatePage() {
   const [criteresSelection, setCriteresSelection] = useState<string[]>([]);
   const [conditionsSpecifiques, setConditionsSpecifiques] = useState<string[]>([]);
   const [newCritere, setNewCritere] = useState('');
+  const [newCritereType, setNewCritereType] = useState<'eligibilite' | 'selection' | 'condition'>('eligibilite');
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldType, setNewFieldType] = useState<FormField['type']>('text');
