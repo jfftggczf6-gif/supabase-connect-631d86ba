@@ -260,7 +260,10 @@ export async function runPipelineFromClient(
               resolve(res);
             };
 
-            // 1. Realtime listener — instant detection
+            // Track if memo pass 2 already triggered (avoid duplicates)
+            let memoPass2Triggered = false;
+
+            // 1. Realtime listener — instant detection on deliverables + enterprise_modules
             const channel = supabase
               .channel(`pipeline-wait-${step.type}-${Date.now()}`)
               .on('postgres_changes', {
@@ -277,6 +280,33 @@ export async function runPipelineFromClient(
                   settle({ success: false, error: newData.error || 'Erreur' });
                 } else if (newData.status !== 'processing' && typeof newData === 'object' && Object.keys(newData).length >= 5) {
                   settle({ success: true, score: newData.score });
+                }
+              })
+              .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'enterprise_modules',
+                filter: `enterprise_id=eq.${enterpriseId}`,
+              }, async (payload) => {
+                // Detect memo checkpoint or completion via Realtime
+                if (step.fn !== 'generate-investment-memo') return;
+                const modData = (payload.new as any)?.data;
+                if (!modData || typeof modData !== 'object') return;
+
+                if (modData.phase === 'part1_completed' && !memoPass2Triggered) {
+                  memoPass2Triggered = true;
+                  console.log('[pipeline] Memo checkpoint detected via Realtime, triggering pass 2...');
+                  onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name} — passe 2…` });
+                  const token2 = await getFreshToken();
+                  fetch(`${supabaseUrl}/functions/v1/${step.fn}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
+                    body: JSON.stringify({ enterprise_id: enterpriseId }),
+                  }).catch(() => {});
+                } else if (modData.phase === 'completed') {
+                  settle({ success: true, score: modData.score });
+                } else if (modData.phase === 'failed') {
+                  settle({ success: false, error: modData.error || 'Memo failed' });
                 }
               })
               .subscribe();
