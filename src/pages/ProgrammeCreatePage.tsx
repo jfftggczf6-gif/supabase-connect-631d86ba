@@ -359,6 +359,78 @@ export default function ProgrammeCreatePage() {
             </CardContent>
           </Card>
 
+          {/* Critères du programme */}
+          <Card className={cn((criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) && 'ring-2 ring-primary/30')}>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ListChecks className="h-4 w-4" /> Critères du programme
+                {prefilledFields.has('criteres_eligibilite') && <Badge variant="outline" className="text-[10px] text-primary">IA</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Éligibilité */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> Critères d'éligibilité
+                </Label>
+                <p className="text-xs text-muted-foreground">Conditions obligatoires pour candidater</p>
+                {criteresEligibilite.map((c, i) => (
+                  <div key={`elig-${i}`} className="flex items-start gap-2 p-2 border rounded-md bg-green-50/50 dark:bg-green-950/20">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                    <span className="text-sm flex-1">{c}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setCriteresEligibilite(cr => cr.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sélection */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> Critères de sélection
+                </Label>
+                <p className="text-xs text-muted-foreground">Critères de notation et classement</p>
+                {criteresSelection.map((c, i) => (
+                  <div key={`sel-${i}`} className="flex items-start gap-2 p-2 border rounded-md bg-amber-50/50 dark:bg-amber-950/20">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <span className="text-sm flex-1">{c}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setCriteresSelection(cr => cr.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Conditions spécifiques */}
+              {conditionsSpecifiques.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Conditions spécifiques</Label>
+                  {conditionsSpecifiques.map((c, i) => (
+                    <div key={`cond-${i}`} className="flex items-start gap-2 p-2 border rounded-md">
+                      <span className="text-sm flex-1">{c}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setConditionsSpecifiques(cr => cr.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ajouter un critère */}
+              <div className="flex gap-2">
+                <Input placeholder="Ajouter un critère..." value={newCritere} onChange={e => setNewCritere(e.target.value)} className="flex-1" />
+                <Select defaultValue="eligibilite">
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eligibilite">Éligibilité</SelectItem>
+                    <SelectItem value="selection">Sélection</SelectItem>
+                    <SelectItem value="condition">Condition</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => {
+                  if (!newCritere.trim()) return;
+                  setCriteresEligibilite(cr => [...cr, newCritere.trim()]);
+                  setNewCritere('');
+                }}><Plus className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Formulaire candidature */}
           <Card>
             <CardHeader><CardTitle className="text-base">Formulaire de candidature (champs personnalisés)</CardTitle></CardHeader>
