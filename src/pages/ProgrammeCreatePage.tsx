@@ -240,7 +240,7 @@ export default function ProgrammeCreatePage() {
       }
 
       // 2. Insert programme
-      const { data: prog, error: progErr } = await supabase.from('programmes').insert({
+      const insertData: any = {
         name: form.name,
         organization: form.organization || null,
         description: form.description || null,
@@ -253,13 +253,14 @@ export default function ProgrammeCreatePage() {
         end_date: form.end_date?.toISOString().split('T')[0] || null,
         programme_start: form.programme_start?.toISOString().split('T')[0] || null,
         programme_end: form.programme_end?.toISOString().split('T')[0] || null,
-        form_fields: formFields.length ? formFields : [],
+        form_fields: formFields.length ? JSON.parse(JSON.stringify(formFields)) : [],
         form_slug: slug,
         criteria_id: criteriaId || null,
         created_by: session.user.id,
         chef_programme_id: session.user.id,
-        status: publish ? 'open' : 'draft',
-      }).select('id').single();
+        status: publish ? 'open' as const : 'draft' as const,
+      };
+      const { data: prog, error: progErr } = await supabase.from('programmes').insert(insertData).select('id').single();
 
       if (progErr || !prog?.id) {
         throw new Error(progErr?.message || 'Impossible de créer le programme');
