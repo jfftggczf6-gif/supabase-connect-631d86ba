@@ -127,12 +127,7 @@ export default function ProgrammeCreatePage() {
 
       if (uploadError) throw new Error(uploadError.message);
 
-      // Call extraction function
-      const { data, error } = await supabase.functions.invoke('extract-programme-criteria', {
-        body: { storage_path: storagePath }
-      });
-
-      if (error) throw new Error(error.message);
+      const data = await invokeLong('extract-programme-criteria', { storage_path: storagePath });
 
       const extracted = data?.extracted;
       if (!extracted) throw new Error('Aucune donnée extraite');
