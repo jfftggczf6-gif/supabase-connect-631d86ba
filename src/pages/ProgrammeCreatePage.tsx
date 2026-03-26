@@ -415,7 +415,7 @@ export default function ProgrammeCreatePage() {
               {/* Ajouter un critère */}
               <div className="flex gap-2">
                 <Input placeholder="Ajouter un critère..." value={newCritere} onChange={e => setNewCritere(e.target.value)} className="flex-1" />
-                <Select defaultValue="eligibilite">
+                <Select value={newCritereType} onValueChange={v => setNewCritereType(v as typeof newCritereType)}>
                   <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="eligibilite">Éligibilité</SelectItem>
@@ -425,7 +425,9 @@ export default function ProgrammeCreatePage() {
                 </Select>
                 <Button variant="outline" onClick={() => {
                   if (!newCritere.trim()) return;
-                  setCriteresEligibilite(cr => [...cr, newCritere.trim()]);
+                  if (newCritereType === 'eligibilite') setCriteresEligibilite(cr => [...cr, newCritere.trim()]);
+                  else if (newCritereType === 'selection') setCriteresSelection(cr => [...cr, newCritere.trim()]);
+                  else setConditionsSpecifiques(cr => [...cr, newCritere.trim()]);
                   setNewCritere('');
                 }}><Plus className="h-4 w-4" /></Button>
               </div>
