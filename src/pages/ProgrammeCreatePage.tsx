@@ -35,6 +35,8 @@ export default function ProgrammeCreatePage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [prefilledFields, setPrefilledFields] = useState<Set<string>>(new Set());
+  const [extractingForm, setExtractingForm] = useState(false);
+  const [formDragOver, setFormDragOver] = useState(false);
   const [form, setForm] = useState({
     name: '', organization: '', description: '',
     budget: '', nb_places: '', currency: 'XOF',
@@ -438,6 +440,102 @@ export default function ProgrammeCreatePage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Formulaire de candidature (champs personnalisés)</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              {/* Drop zone for form template */}
+              <div
+                className={cn(
+                  'border-2 border-dashed rounded-lg p-5 text-center transition-colors cursor-pointer',
+                  formDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50',
+                  extractingForm && 'pointer-events-none opacity-60'
+                )}
+                onDragOver={e => { e.preventDefault(); setFormDragOver(true); }}
+                onDragLeave={() => setFormDragOver(false)}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setFormDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (!file) return;
+                  setExtractingForm(true);
+                  try {
+                    const reader = new FileReader();
+                    const base64: string = await new Promise((res, rej) => {
+                      reader.onload = () => res((reader.result as string).split(',')[1]);
+                      reader.onerror = rej;
+                      reader.readAsDataURL(file);
+                    });
+                    const { data, error } = await supabase.functions.invoke('extract-form-fields', {
+                      body: { file_base64: base64, file_name: file.name }
+                    });
+                    if (error) throw new Error(error.message);
+                    const fields = data?.form_fields || [];
+                    if (!fields.length) throw new Error('Aucun champ extrait');
+                    const newFields: FormField[] = fields.map((f: any, i: number) => ({
+                      id: `ext-${i}-${Date.now()}`,
+                      label: f.label || `Champ ${i + 1}`,
+                      type: (['text','number','select','textarea','date','file'].includes(f.type) ? f.type : 'text') as FormField['type'],
+                      required: !!f.required,
+                      options: f.options,
+                    }));
+                    setFormFields(prev => [...prev, ...newFields]);
+                    toast({ title: `✅ ${newFields.length} champs extraits depuis ${file.name}` });
+                  } catch (err: any) {
+                    toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
+                  } finally {
+                    setExtractingForm(false);
+                  }
+                }}
+                onClick={() => document.getElementById('form-template-input')?.click()}
+              >
+                <input id="form-template-input" type="file" className="hidden" accept=".pdf,.docx,.doc,.txt,.xlsx,.xls,.jpg,.jpeg,.png,.webp"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    e.target.value = '';
+                    // Trigger same logic via synthetic drop
+                    setExtractingForm(true);
+                    try {
+                      const reader = new FileReader();
+                      const base64: string = await new Promise((res, rej) => {
+                        reader.onload = () => res((reader.result as string).split(',')[1]);
+                        reader.onerror = rej;
+                        reader.readAsDataURL(file);
+                      });
+                      const { data, error } = await supabase.functions.invoke('extract-form-fields', {
+                        body: { file_base64: base64, file_name: file.name }
+                      });
+                      if (error) throw new Error(error.message);
+                      const fields = data?.form_fields || [];
+                      if (!fields.length) throw new Error('Aucun champ extrait');
+                      const newFields: FormField[] = fields.map((f: any, i: number) => ({
+                        id: `ext-${i}-${Date.now()}`,
+                        label: f.label || `Champ ${i + 1}`,
+                        type: (['text','number','select','textarea','date','file'].includes(f.type) ? f.type : 'text') as FormField['type'],
+                        required: !!f.required,
+                        options: f.options,
+                      }));
+                      setFormFields(prev => [...prev, ...newFields]);
+                      toast({ title: `✅ ${newFields.length} champs extraits depuis ${file.name}` });
+                    } catch (err: any) {
+                      toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
+                    } finally {
+                      setExtractingForm(false);
+                    }
+                  }}
+                />
+                {extractingForm ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <p className="text-sm font-medium">Extraction des champs en cours...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">📋 Glissez un modèle de formulaire existant ici</p>
+                    <p className="text-xs text-muted-foreground">(PDF, DOCX, XLSX, image — tous formats)</p>
+                    <p className="text-xs text-muted-foreground">L'IA extraira les champs automatiquement</p>
+                  </div>
+                )}
+              </div>
+
               <p className="text-xs text-muted-foreground">Les champs fixes (nom entreprise, contact, email, téléphone) sont toujours inclus. Ajoutez ici des champs personnalisés.</p>
               {formFields.map(f => (
                 <div key={f.id} className="flex items-center gap-2 p-2 border rounded-md">
