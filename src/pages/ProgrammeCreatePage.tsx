@@ -212,27 +212,6 @@ export default function ProgrammeCreatePage() {
   const handleSave = async (publish = false) => {
     if (!form.name.trim()) { toast({ title: 'Le nom est requis', variant: 'destructive' }); return; }
     setSaving(true);
-    const body: any = {
-      action: 'create',
-      name: form.name,
-      organization: form.organization || undefined,
-      description: form.description || undefined,
-      budget: form.budget ? Number(form.budget) : undefined,
-      nb_places: form.nb_places ? Number(form.nb_places) : undefined,
-      currency: form.currency,
-      country_filter: form.country_filter.length ? form.country_filter : undefined,
-      sector_filter: form.sector_filter.length ? form.sector_filter : undefined,
-      start_date: form.start_date?.toISOString() || undefined,
-      end_date: form.end_date?.toISOString() || undefined,
-      programme_start: form.programme_start?.toISOString() || undefined,
-      programme_end: form.programme_end?.toISOString() || undefined,
-      form_fields: formFields.length ? formFields : undefined,
-      custom_criteria: (criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) ? {
-        criteres_eligibilite: criteresEligibilite,
-        criteres_selection: criteresSelection,
-        conditions_specifiques: conditionsSpecifiques,
-      } : undefined,
-    };
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
