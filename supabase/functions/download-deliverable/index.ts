@@ -10,6 +10,27 @@ const corsHeaders = {
 // ===== RICH HTML TEMPLATES =====
 
 function htmlShell(title: string, score: number | null, body: string, enterprise: string, singlePage = false): string {
+  const singlePageCSS = singlePage ? `
+.page-single-page .hero{page-break-after:avoid;padding:24px 20px;margin-bottom:12px}
+.page-single-page .hero h1{font-size:18px}
+.page-single-page .hero .sub{font-size:10px}
+.page-single-page .hero .enterprise{font-size:13px}
+.page-single-page .score-circle{width:50px;height:50px;right:20px}
+.page-single-page .score-circle .num{font-size:20px}
+.page-single-page .card{padding:12px;margin-bottom:8px}
+.page-single-page .card h2{font-size:13px;margin-bottom:6px;padding-bottom:4px}
+.page-single-page .card h3{font-size:12px;margin:6px 0 4px}
+.page-single-page table{font-size:10px}
+.page-single-page table th,.page-single-page table td{padding:4px 6px}
+.page-single-page .metric .val{font-size:16px}
+.page-single-page .metric .lbl{font-size:9px}
+.page-single-page .metric{padding:8px}
+.page-single-page .grid-4{grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
+.page-single-page li{font-size:11px;margin-bottom:2px}
+.page-single-page .footer{margin-top:8px;padding:8px;font-size:9px}
+.page-single-page p,.page-single-page span{font-size:11px}
+` : '';
+  const pageClass = singlePage ? 'page page-single-page' : 'page';
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -67,30 +88,11 @@ table{page-break-inside:avoid}
 .metric{page-break-inside:avoid}
 .footer{page-break-before:avoid}
 }
-${singlePage ? `
-.page-single-page .hero{page-break-after:avoid;padding:24px 20px;margin-bottom:12px}
-.page-single-page .hero h1{font-size:18px}
-.page-single-page .hero .sub{font-size:10px}
-.page-single-page .hero .enterprise{font-size:13px}
-.page-single-page .score-circle{width:50px;height:50px;right:20px}
-.page-single-page .score-circle .num{font-size:20px}
-.page-single-page .card{padding:12px;margin-bottom:8px}
-.page-single-page .card h2{font-size:13px;margin-bottom:6px;padding-bottom:4px}
-.page-single-page .card h3{font-size:12px;margin:6px 0 4px}
-.page-single-page table{font-size:10px}
-.page-single-page table th,.page-single-page table td{padding:4px 6px}
-.page-single-page .metric .val{font-size:16px}
-.page-single-page .metric .lbl{font-size:9px}
-.page-single-page .metric{padding:8px}
-.page-single-page .grid-4{grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
-.page-single-page li{font-size:11px;margin-bottom:2px}
-.page-single-page .footer{margin-top:8px;padding:8px;font-size:9px}
-.page-single-page p,.page-single-page span{font-size:11px}
-` : ''}
+${singlePageCSS}
 </style>
 </head>
 <body>
-<div class="page${singlePage ? ' page-single-page' : ''}">
+<div class="${pageClass}">
 <div class="hero">
 <h1>${title}</h1>
 <p class="enterprise">${enterprise}</p>
