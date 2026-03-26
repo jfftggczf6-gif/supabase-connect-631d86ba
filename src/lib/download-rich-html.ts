@@ -58,14 +58,19 @@ export async function downloadRichPdf(
   navigate: any,
 ) {
   try {
-    toast.info('Génération du PDF en cours...');
-    // Same path as Memo/OnePager: fetch HTML then send directly to Railway
+    toast.info('Récupération du HTML...');
     const html = await fetchRichHtml(type, enterpriseId, authSession, navigate);
+
+    if (!html || html.length < 50) {
+      throw new Error(`HTML vide ou trop court (${html?.length || 0} caractères)`);
+    }
+
+    toast.info(`HTML reçu (${Math.round(html.length / 1024)}KB) — conversion PDF...`);
     const safeName = enterpriseName.replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `${safeName}_${type}_${new Date().toISOString().slice(0, 10)}.pdf`;
     await exportToPdf(html, filename);
     toast.success('PDF téléchargé');
   } catch (err: any) {
-    toast.error(err.message || 'Erreur PDF');
+    toast.error(`Erreur PDF (${type}) : ${err.message}`);
   }
 }
