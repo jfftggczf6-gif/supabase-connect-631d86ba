@@ -291,7 +291,7 @@ function extractBilan(bil: any): {
     stocks: safe(bil.stocks || actif.stocks),
     creances_clients: safe(bil.creances_clients || actif.creances_clients),
     dettes_fournisseurs: safe(bil.dettes_fournisseurs || passif.fournisseurs),
-    tresorerie: safe(bil.tresorerie || actif.tresorerie || bil.bfr?.tresorerie_depart),
+    tresorerie: safe(bil.tresorerie || bil.tresorerie_actif || actif.tresorerie || actif.tresorerie_actif || bil.bfr?.tresorerie_depart),
     immobilisations: safe(bil.immobilisations || actif.immobilisations),
   };
 }
@@ -1127,6 +1127,7 @@ export function computeFullPlan(
   country: string,
   currentYear: number,
   fiscalParams: { tva: number; is: number; devise: string; currency_iso: string; exchange_rate_eur: number },
+  employeesCount?: number,
 ): PlanFinancierComputed {
 
   const hyp: AIHypotheses = {
@@ -1309,7 +1310,8 @@ export function computeFullPlan(
     tresorerie: b.tresorerie || safe(inputs.bfr?.tresorerie_depart),
     effectif: safe(inputs.effectif_total
       || inputs.historique_3ans?.n?.nombre_employes
-      || (inputs.equipe || []).reduce((s, e) => s + safe(e.nombre), 0)),
+      || (inputs.equipe || []).reduce((s, e) => s + safe(e.nombre), 0)
+      || employeesCount),
   };
 
   // 10. Compte de résultat réel formaté

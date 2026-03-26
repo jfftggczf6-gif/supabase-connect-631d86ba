@@ -111,6 +111,7 @@ serve(async (req: Request) => {
       country,
       currentYear,
       { tva: fiscal.tva, is: fiscal.is, devise: fiscal.devise, currency_iso: fiscal.currency_iso, exchange_rate_eur: fiscal.exchange_rate_eur },
+      enterprise.employees_count || 0,
     );
 
     // ═══════════════════════════════════════════════════════════════
