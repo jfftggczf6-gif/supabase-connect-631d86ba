@@ -128,7 +128,7 @@ Produis l'analyse qualitative en JSON :
       preScreenContext += "\n";
     }
 
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.4);
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.3);
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {
