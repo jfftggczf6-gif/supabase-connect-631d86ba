@@ -125,30 +125,30 @@ export default function ProgrammeDetailPage() {
 
   const [coaches, setCoaches] = useState<{ id: string; name: string; count: number }[]>([]);
 
-  // Fetch coaches list
+  // Fetch coaches list once on mount
   useEffect(() => {
     (async () => {
-      const { data: coachRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'coach');
-      if (!coachRoles?.length) return;
-      const coachIds = coachRoles.map(r => r.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', coachIds);
-      const counts: Record<string, number> = {};
-      for (const c of candidatures) {
-        if (c.assigned_coach_id) counts[c.assigned_coach_id] = (counts[c.assigned_coach_id] || 0) + 1;
+      try {
+        const { data: coachRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'coach');
+        if (!coachRoles?.length) return;
+        const coachIds = coachRoles.map(r => r.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', coachIds);
+        setCoaches((profiles || []).map(p => ({
+          id: p.user_id,
+          name: p.full_name || p.user_id.slice(0, 8),
+          count: 0,
+        })));
+      } catch (e) {
+        console.error('[coaches] fetch error:', e);
       }
-      setCoaches((profiles || []).map(p => ({
-        id: p.user_id,
-        name: p.full_name || p.user_id.slice(0, 8),
-        count: counts[p.user_id] || 0,
-      })));
     })();
-  }, [candidatures]);
+  }, []);
 
   const candidatureUrl = programme?.form_slug ? `${window.location.origin}/candidature/${programme.form_slug}` : null;
 

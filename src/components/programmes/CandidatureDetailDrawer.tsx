@@ -33,15 +33,22 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   useEffect(() => {
     if (!candidatureId || !open) { setDetail(null); return; }
     setLoading(true);
-    supabase.functions.invoke('get-candidature-detail', { body: { candidature_id: candidatureId } })
-      .then(({ data, error }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-candidature-detail', { body: { candidature_id: candidatureId } });
         if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
         const cand = data?.candidature || data;
-        setDetail(cand);
+        console.log('[drawer] detail loaded:', cand?.company_name, 'screening:', !!cand?.screening_data);
+        setDetail(cand || null);
         setNotes(cand?.committee_notes || '');
         setSelectedCoach(cand?.assigned_coach_id || '');
-      })
-      .finally(() => setLoading(false));
+      } catch (e: any) {
+        console.error('[drawer] fetch error:', e);
+        toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [candidatureId, open]);
 
   const updateCandidature = async (action: string, extra: Record<string, any> = {}) => {
