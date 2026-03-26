@@ -212,42 +212,68 @@ export default function ProgrammeCreatePage() {
   const handleSave = async (publish = false) => {
     if (!form.name.trim()) { toast({ title: 'Le nom est requis', variant: 'destructive' }); return; }
     setSaving(true);
-    const body: any = {
-      action: 'create',
-      name: form.name,
-      organization: form.organization || undefined,
-      description: form.description || undefined,
-      budget: form.budget ? Number(form.budget) : undefined,
-      nb_places: form.nb_places ? Number(form.nb_places) : undefined,
-      currency: form.currency,
-      country_filter: form.country_filter.length ? form.country_filter : undefined,
-      sector_filter: form.sector_filter.length ? form.sector_filter : undefined,
-      start_date: form.start_date?.toISOString() || undefined,
-      end_date: form.end_date?.toISOString() || undefined,
-      programme_start: form.programme_start?.toISOString() || undefined,
-      programme_end: form.programme_end?.toISOString() || undefined,
-      form_fields: formFields.length ? formFields : undefined,
-      custom_criteria: (criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) ? {
-        criteres_eligibilite: criteresEligibilite,
-        criteres_selection: criteresSelection,
-        conditions_specifiques: conditionsSpecifiques,
-      } : undefined,
-    };
 
-    const { data, error } = await supabase.functions.invoke('manage-programme', { body });
-    if (error || !data?.id) {
-      toast({ title: 'Erreur', description: error?.message || 'Impossible de créer le programme', variant: 'destructive' });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Non authentifié');
+
+      // Build slug from name
+      const slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 60) + '-' + Date.now().toString(36);
+
+      // 1. Create programme_criteria if custom criteria exist
+      let criteriaId: string | undefined;
+      if (criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) {
+        const { data: crit, error: critErr } = await supabase.from('programme_criteria').insert({
+          name: form.name,
+          description: form.description || null,
+          created_by: session.user.id,
+          country_filter: form.country_filter,
+          sector_filter: form.sector_filter,
+          custom_criteria: {
+            criteres_eligibilite: criteresEligibilite,
+            criteres_selection: criteresSelection,
+            conditions_specifiques: conditionsSpecifiques,
+          },
+        }).select('id').single();
+        if (critErr) console.error('Criteria insert error:', critErr);
+        criteriaId = crit?.id;
+      }
+
+      // 2. Insert programme
+      const insertData: any = {
+        name: form.name,
+        organization: form.organization || null,
+        description: form.description || null,
+        budget: form.budget ? Number(form.budget) : null,
+        nb_places: form.nb_places ? Number(form.nb_places) : null,
+        currency: form.currency,
+        country_filter: form.country_filter,
+        sector_filter: form.sector_filter,
+        start_date: form.start_date?.toISOString().split('T')[0] || null,
+        end_date: form.end_date?.toISOString().split('T')[0] || null,
+        programme_start: form.programme_start?.toISOString().split('T')[0] || null,
+        programme_end: form.programme_end?.toISOString().split('T')[0] || null,
+        form_fields: formFields.length ? JSON.parse(JSON.stringify(formFields)) : [],
+        form_slug: slug,
+        criteria_id: criteriaId || null,
+        created_by: session.user.id,
+        chef_programme_id: session.user.id,
+        status: publish ? 'open' as const : 'draft' as const,
+      };
+      const { data: prog, error: progErr } = await supabase.from('programmes').insert(insertData).select('id').single();
+
+      if (progErr || !prog?.id) {
+        throw new Error(progErr?.message || 'Impossible de créer le programme');
+      }
+
+      toast({ title: publish ? '✅ Programme publié' : '✅ Brouillon enregistré' });
+      nav(`/programmes/${prog.id}`);
+    } catch (err: any) {
+      console.error('Programme creation error:', err);
+      toast({ title: 'Erreur', description: err.message || 'Impossible de créer le programme', variant: 'destructive' });
+    } finally {
       setSaving(false);
-      return;
     }
-
-    if (publish) {
-      await supabase.functions.invoke('manage-programme', { body: { action: 'publish', id: data.id } });
-    }
-
-    toast({ title: publish ? '✅ Programme publié' : '✅ Brouillon enregistré' });
-    nav(`/programmes/${data.id}`);
-    setSaving(false);
   };
 
   const DatePicker = ({ value, onChange, label }: { value: Date | undefined; onChange: (d: Date | undefined) => void; label: string }) => (
