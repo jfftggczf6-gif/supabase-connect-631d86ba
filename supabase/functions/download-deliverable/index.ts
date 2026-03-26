@@ -1915,13 +1915,26 @@ serve(async (req) => {
       if (!parserUrl) {
         return new Response(JSON.stringify({ error: "PARSER_URL not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      // Simplify CSS for WeasyPrint compatibility (remove gradients, radial-gradient, grid)
-      const pdfHtml = html
-        .replace(/background:linear-gradient\([^)]+\)/g, 'background:#1a2744')
-        .replace(/background:radial-gradient\([^)]+\)/g, '')
-        .replace(/display:grid[^}]*/g, 'display:block')
-        .replace(/grid-template-columns:[^;}]*/g, '')
-        .replace(/box-shadow:[^;}]*/g, '');
+      // Simplify CSS for WeasyPrint compatibility
+      const pdfCssOverride = `
+<style>
+/* WeasyPrint overrides */
+.hero{background:#1a2744 !important}
+.hero::after{display:none !important}
+.grid-2,.grid-4,.swot-grid{display:flex !important;flex-wrap:wrap !important;gap:8px !important}
+.grid-2>*{width:48% !important;flex:0 0 48% !important}
+.grid-4>*{width:23% !important;flex:0 0 23% !important}
+.swot-grid>*{width:48% !important;flex:0 0 48% !important}
+.card,.metric,.swot-box{page-break-inside:avoid !important;box-shadow:none !important}
+.hero{page-break-after:always !important}
+table{page-break-inside:avoid !important}
+.progress-bar{border:1px solid #ccc !important}
+.score-circle{position:static !important;transform:none !important;display:inline-flex !important;margin-top:12px !important}
+body{background:#fff !important;font-size:11pt !important}
+.page{max-width:100% !important;padding:0 !important}
+</style>
+`;
+      const pdfHtml = html.replace('</head>', pdfCssOverride + '</head>');
 
       const pdfFilename = `${safeName}_${deliverableType}_${new Date().toISOString().slice(0, 10)}.pdf`;
       console.log(`[download-deliverable] Sending ${pdfHtml.length} chars to ${parserUrl}/generate-pdf`);
