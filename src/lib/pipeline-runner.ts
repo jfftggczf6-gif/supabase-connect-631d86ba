@@ -57,7 +57,7 @@ export async function getPipelineState(enterpriseId: string): Promise<PipelineSt
   };
 
   // Check all pipeline types (excluding always-run steps)
-  const pipelineTypes = new Set(PIPELINE.filter(s => s.fn !== 'reconcile-plan-ovo' && s.fn !== 'generate-ovo-plan').map(s => s.type));
+  const pipelineTypes = new Set(PIPELINE.map(s => s.type));
   const delivMap = new Map(existing.map((d: any) => [d.type, d]));
 
   let hasMissing = false;
@@ -149,7 +149,7 @@ export async function runPipelineFromClient(
   let inputsScoreZero = false;
 
   // Financial steps that require real inputs data
-  const FINANCIAL_STEPS = new Set(['generate-framework', 'generate-plan-ovo']);
+  const FINANCIAL_STEPS = new Set(['generate-framework', 'generate-plan-financier']);
 
   for (let i = 0; i < PIPELINE.length; i++) {
     // Check if cancelled by user
@@ -168,11 +168,8 @@ export async function runPipelineFromClient(
       continue;
     }
 
-    // Never skip reconcile-plan-ovo or generate-ovo-plan — they must always run to sync data
-    const isAlwaysRun = step.fn === 'reconcile-plan-ovo' || step.fn === 'generate-ovo-plan';
-
     // Skip only if rich data exists AND it's more recent than source changes
-    if (!force && !isAlwaysRun) {
+    if (!force) {
       const status = delivStatus.get(step.type);
       if (status?.rich && status.upToDate) {
         results.push({ step: step.name, success: true, skipped: true });

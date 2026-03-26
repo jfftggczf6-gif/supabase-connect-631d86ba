@@ -856,7 +856,7 @@ export default function EntrepreneurDashboard({
 
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ovo-plan`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-plan-financier`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
