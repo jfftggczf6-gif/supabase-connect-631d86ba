@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, X, Loader2, Upload, FileText } from 'lucide-react';
+import { CalendarIcon, Plus, X, Loader2, Upload, FileText, CheckCircle2, AlertTriangle, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -46,6 +46,11 @@ export default function ProgrammeCreatePage() {
     programme_end: undefined as Date | undefined,
     min_revenue: '', min_margin: '',
   });
+  const [criteresEligibilite, setCriteresEligibilite] = useState<string[]>([]);
+  const [criteresSelection, setCriteresSelection] = useState<string[]>([]);
+  const [conditionsSpecifiques, setConditionsSpecifiques] = useState<string[]>([]);
+  const [newCritere, setNewCritere] = useState('');
+  const [newCritereType, setNewCritereType] = useState<'eligibilite' | 'selection' | 'condition'>('eligibilite');
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldType, setNewFieldType] = useState<FormField['type']>('text');
@@ -122,19 +127,19 @@ export default function ProgrammeCreatePage() {
         }
       }
 
-      // Build criteria form fields from extracted criteria
-      const newFields: FormField[] = [];
+      // Store criteria in dedicated sections (NOT as form fields)
       if (extracted.custom_criteria?.criteres_eligibilite?.length) {
-        extracted.custom_criteria.criteres_eligibilite.forEach((c: string, i: number) => {
-          newFields.push({ id: `elig-${i}`, type: 'text', label: `Éligibilité : ${c}`, required: true });
-        });
+        setCriteresEligibilite(extracted.custom_criteria.criteres_eligibilite);
+        filled.add('criteres_eligibilite');
       }
       if (extracted.custom_criteria?.criteres_selection?.length) {
-        extracted.custom_criteria.criteres_selection.forEach((c: string, i: number) => {
-          newFields.push({ id: `sel-${i}`, type: 'text', label: `Sélection : ${c}`, required: false });
-        });
+        setCriteresSelection(extracted.custom_criteria.criteres_selection);
+        filled.add('criteres_selection');
       }
-      if (newFields.length) { setFormFields(newFields); filled.add('formFields'); }
+      if (extracted.custom_criteria?.conditions_specifiques?.length) {
+        setConditionsSpecifiques(extracted.custom_criteria.conditions_specifiques);
+        filled.add('conditions_specifiques');
+      }
 
       // Pre-fill form
       setForm(f => {
@@ -191,6 +196,11 @@ export default function ProgrammeCreatePage() {
       programme_start: form.programme_start?.toISOString() || undefined,
       programme_end: form.programme_end?.toISOString() || undefined,
       form_fields: formFields.length ? formFields : undefined,
+      custom_criteria: (criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) ? {
+        criteres_eligibilite: criteresEligibilite,
+        criteres_selection: criteresSelection,
+        conditions_specifiques: conditionsSpecifiques,
+      } : undefined,
     };
 
     const { data, error } = await supabase.functions.invoke('manage-programme', { body });
@@ -346,6 +356,80 @@ export default function ProgrammeCreatePage() {
                 <div className={cn(prefilledFields.has('programme_end') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
                   <DatePicker label={`Fin programme ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Critères du programme */}
+          <Card className={cn((criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) && 'ring-2 ring-primary/30')}>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ListChecks className="h-4 w-4" /> Critères du programme
+                {prefilledFields.has('criteres_eligibilite') && <Badge variant="outline" className="text-[10px] text-primary">IA</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Éligibilité */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> Critères d'éligibilité
+                </Label>
+                <p className="text-xs text-muted-foreground">Conditions obligatoires pour candidater</p>
+                {criteresEligibilite.map((c, i) => (
+                  <div key={`elig-${i}`} className="flex items-start gap-2 p-2 border rounded-md bg-green-50/50 dark:bg-green-950/20">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                    <span className="text-sm flex-1">{c}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setCriteresEligibilite(cr => cr.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sélection */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> Critères de sélection
+                </Label>
+                <p className="text-xs text-muted-foreground">Critères de notation et classement</p>
+                {criteresSelection.map((c, i) => (
+                  <div key={`sel-${i}`} className="flex items-start gap-2 p-2 border rounded-md bg-amber-50/50 dark:bg-amber-950/20">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <span className="text-sm flex-1">{c}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setCriteresSelection(cr => cr.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Conditions spécifiques */}
+              {conditionsSpecifiques.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Conditions spécifiques</Label>
+                  {conditionsSpecifiques.map((c, i) => (
+                    <div key={`cond-${i}`} className="flex items-start gap-2 p-2 border rounded-md">
+                      <span className="text-sm flex-1">{c}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setConditionsSpecifiques(cr => cr.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ajouter un critère */}
+              <div className="flex gap-2">
+                <Input placeholder="Ajouter un critère..." value={newCritere} onChange={e => setNewCritere(e.target.value)} className="flex-1" />
+                <Select value={newCritereType} onValueChange={v => setNewCritereType(v as typeof newCritereType)}>
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eligibilite">Éligibilité</SelectItem>
+                    <SelectItem value="selection">Sélection</SelectItem>
+                    <SelectItem value="condition">Condition</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => {
+                  if (!newCritere.trim()) return;
+                  if (newCritereType === 'eligibilite') setCriteresEligibilite(cr => [...cr, newCritere.trim()]);
+                  else if (newCritereType === 'selection') setCriteresSelection(cr => [...cr, newCritere.trim()]);
+                  else setConditionsSpecifiques(cr => [...cr, newCritere.trim()]);
+                  setNewCritere('');
+                }}><Plus className="h-4 w-4" /></Button>
               </div>
             </CardContent>
           </Card>
