@@ -13,17 +13,45 @@ const ANALYSIS_PROMPT = `Tu es un analyste senior en valorisation d'entreprises,
 
 On te fournit les RÉSULTATS CALCULÉS d'une valorisation (DCF, multiples, décotes, synthèse). Les chiffres sont déjà calculés et corrects — NE LES MODIFIE PAS.
 
-Tu dois produire l'ANALYSE QUALITATIVE :
-1. Note méthodologique DCF — pourquoi ce WACC, hypothèses de croissance terminale
-2. Justification des multiples — comparables sectoriels, références transactions
-3. Justification des décotes/primes — profil de risque spécifique
-4. Note analyste — synthèse en 3-5 phrases, force de la valorisation, limites
-5. Implications investissement — pré-money, dilution si levée, scénarios de sortie
+Tu dois produire une ANALYSE QUALITATIVE DÉTAILLÉE et PÉDAGOGIQUE. Le lecteur est un coach ou un entrepreneur qui n'est pas forcément financier — il doit COMPRENDRE pourquoi l'entreprise vaut ce montant.
 
-IMPORTANT: 
+SECTIONS À PRODUIRE (chacune doit être un vrai paragraphe explicatif, pas juste une phrase) :
+
+1. Note méthodologique DCF (200+ mots)
+   - Explique en langage accessible ce qu'est le DCF et pourquoi on l'utilise ici
+   - Justifie le WACC retenu : décompose les composantes (taux sans risque, prime de risque pays, prime sectorielle)
+   - Explique les hypothèses de croissance terminale et leur impact sur la valeur
+   - Compare avec des WACC typiques pour le même profil pays/secteur
+
+2. Justification des multiples (200+ mots)
+   - Explique pourquoi on utilise les multiples EBITDA et CA en complément du DCF
+   - Cite des transactions comparables récentes en Afrique (fonds, montants, multiples réels)
+   - Explique pourquoi le multiple retenu est raisonnable (ou conservateur/agressif)
+   - Compare avec les ranges I&P (4-6x EBITDA PME Afrique), Partech, AfricInvest
+
+3. Justification des décotes/primes (150+ mots)
+   - Explique chaque décote/prime en langage simple ("on enlève X% parce que...")
+   - Relie chaque ajustement au profil spécifique de l'entreprise
+   - Donne des exemples concrets qui justifient l'ajustement
+
+4. Note analyste (300+ mots)
+   - Synthèse complète : que vaut l'entreprise et pourquoi
+   - Points de force de la valorisation (données solides, cohérence inter-méthodes)
+   - Limites et réserves (données manquantes, hypothèses fragiles)
+   - Recommandation : quelle fourchette est la plus crédible et pourquoi
+   - Ce qui pourrait faire monter ou baisser significativement la valeur
+
+5. Implications investissement
+   - Scénarios concrets : si un fonds investit 100M ou 500M, quelle dilution
+   - Multiple de sortie réaliste à 5-7 ans
+   - IRR investisseur estimé
+   - Comparaison avec les rendements typiques du marché PE Afrique
+
+IMPORTANT:
 - NE CHANGE PAS les chiffres calculés
 - Réponds UNIQUEMENT en JSON valide
-- Ton professionnel et factuel`;
+- Sois EXPLICATIF et PÉDAGOGIQUE — le lecteur doit comprendre, pas juste voir des chiffres
+- Utilise des analogies simples quand c'est utile`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -95,26 +123,27 @@ Synthèse : ${calcResult.synthese.valeur_basse.toLocaleString()} — ${calcResul
 ${getValuationBenchmarksPrompt()}
 
 ═══ INSTRUCTIONS ═══
-Produis l'analyse qualitative en JSON :
+Produis l'analyse qualitative en JSON. Chaque champ texte doit être un VRAI PARAGRAPHE détaillé et explicatif :
 {
-  "note_methodologique_dcf": "string — 2-3 phrases justifiant le WACC et les hypothèses",
-  "justification_multiples": "string — comparables, références transactions (I&P, Partech, Phatisa)",
-  "comparables_references": ["string — noms de transactions comparables"],
-  "justification_decotes": "string — profil de risque spécifique de cette entreprise",
-  "note_analyste": "string — 3-5 phrases de synthèse",
-  "methode_privilegiee_justification": "string — pourquoi DCF ou Multiples est plus fiable ici",
+  "note_methodologique_dcf": "string — 200+ mots : explication pédagogique du DCF, justification du WACC, hypothèses de croissance, comparaison avec WACC typiques du marché",
+  "justification_multiples": "string — 200+ mots : pourquoi ces multiples, transactions comparables citées avec noms de fonds et montants, positionnement du multiple retenu vs range marché",
+  "comparables_references": ["string — transactions réelles : 'I&P a investi dans X en 2023 à 5.2x EBITDA'"],
+  "justification_decotes": "string — 150+ mots : explication de chaque décote/prime en langage simple avec exemples concrets",
+  "note_analyste": "string — 300+ mots : synthèse complète, forces et limites de la valorisation, fourchette crédible, facteurs pouvant changer la valeur",
+  "methode_privilegiee_justification": "string — 100+ mots : pourquoi DCF ou Multiples est plus fiable ici, dans quel contexte on privilégierait l'autre",
   "implications_investissement": {
     "pre_money_estime": <number>,
-    "si_levee_100m": "string — dilution et valorisation post-money",
-    "si_levee_500m": "string",
-    "multiple_sortie_estime": "string",
-    "irr_investisseur_estime": "string"
+    "si_levee_100m": "string — dilution %, valorisation post-money, parts fondateur après levée",
+    "si_levee_500m": "string — idem pour un ticket plus gros",
+    "multiple_sortie_estime": "string — hypothèse de sortie à 5-7 ans avec justification",
+    "irr_investisseur_estime": "string — TRI brut et net estimé, comparaison avec rendements PE Afrique (15-25% typique)",
+    "scenario_sortie": "string — mécanismes de sortie possibles (cession stratégique, MBO, IPO régionale)"
   },
   "score": <0-100 — qualité et fiabilité de la valorisation>
 }`;
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext, 4096, undefined, 0.2);
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext, 8192, undefined, 0.4);
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {
@@ -143,7 +172,10 @@ Produis l'analyse qualitative en JSON :
       },
 
       // IA (qualitatif)
-      implications_investissement: aiAnalysis.implications_investissement || {},
+      implications_investissement: {
+        ...(aiAnalysis.implications_investissement || {}),
+        scenario_sortie: aiAnalysis.implications_investissement?.scenario_sortie || '',
+      },
 
       // Métadonnées
       _engine: {
