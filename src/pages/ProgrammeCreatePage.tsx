@@ -195,6 +195,11 @@ export default function ProgrammeCreatePage() {
       programme_start: form.programme_start?.toISOString() || undefined,
       programme_end: form.programme_end?.toISOString() || undefined,
       form_fields: formFields.length ? formFields : undefined,
+      custom_criteria: (criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) ? {
+        criteres_eligibilite: criteresEligibilite,
+        criteres_selection: criteresSelection,
+        conditions_specifiques: conditionsSpecifiques,
+      } : undefined,
     };
 
     const { data, error } = await supabase.functions.invoke('manage-programme', { body });
