@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,14 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ProgrammeStatusBadge from '@/components/programmes/ProgrammeStatusBadge';
 import CandidatureKanban from '@/components/programmes/CandidatureKanban';
 import CandidatureDetailDrawer from '@/components/programmes/CandidatureDetailDrawer';
+import ProgrammeDashboardTab from '@/components/programmes/ProgrammeDashboardTab';
+import ProgrammeComparatifTab from '@/components/programmes/ProgrammeComparatifTab';
+import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Copy, Bot, ExternalLink, BarChart3 } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function ProgrammeDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const nav = useNavigate();
   const [programme, setProgramme] = useState<any>(null);
   const [candidatures, setCandidatures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +33,7 @@ export default function ProgrammeDetailPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [starting, setStarting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchProgramme = useCallback(async () => {
     if (!id) return;
@@ -39,17 +44,45 @@ export default function ProgrammeDetailPage() {
 
   const fetchCandidatures = useCallback(async () => {
     if (!id) return;
-    const { data, error } = await supabase.functions.invoke('list-candidatures', { body: { programme_id: id, search: search || undefined, status: statusFilter !== 'all' ? statusFilter : undefined } });
+    const { data, error } = await supabase.functions.invoke('list-candidatures', {
+      body: { programme_id: id, search: search || undefined, status: statusFilter !== 'all' ? statusFilter : undefined }
+    });
     if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
     setCandidatures(data?.candidatures || data || []);
   }, [id, search, statusFilter]);
 
-  useEffect(() => { setLoading(true); Promise.all([fetchProgramme(), fetchCandidatures()]).finally(() => setLoading(false)); }, [fetchProgramme, fetchCandidatures]);
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([fetchProgramme(), fetchCandidatures()]).finally(() => setLoading(false));
+  }, [fetchProgramme, fetchCandidatures]);
+
+  // Realtime subscription for candidatures updates (screening scores)
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`candidatures-${id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'candidatures',
+        filter: `programme_id=eq.${id}`,
+      }, () => {
+        fetchCandidatures();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [id, fetchCandidatures]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   const handlePublish = async () => {
     setPublishing(true);
     const { error } = await supabase.functions.invoke('manage-programme', { body: { action: 'publish', id } });
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); }
+    if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     else { toast({ title: '✅ Programme publié' }); fetchProgramme(); }
     setPublishing(false);
   };
@@ -57,7 +90,7 @@ export default function ProgrammeDetailPage() {
   const handleStart = async () => {
     setStarting(true);
     const { error } = await supabase.functions.invoke('manage-programme', { body: { action: 'start', id } });
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); }
+    if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     else { toast({ title: '✅ Programme démarré' }); fetchProgramme(); }
     setStarting(false);
   };
@@ -65,12 +98,20 @@ export default function ProgrammeDetailPage() {
   const handleScreen = async () => {
     setScreening(true);
     const { error } = await supabase.functions.invoke('screen-candidatures', { body: { programme_id: id } });
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: '🤖 Screening IA lancé', description: 'Les scores arriveront progressivement.' }); }
-    setScreening(false);
-    // Poll for updates
-    const poll = setInterval(async () => { await fetchCandidatures(); }, 5000);
-    setTimeout(() => clearInterval(poll), 120000);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      setScreening(false);
+      return;
+    }
+    toast({ title: '🤖 Screening IA lancé', description: 'Les scores arriveront progressivement via Realtime.' });
+    
+    // Also poll as fallback (in case Realtime not enabled)
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => { await fetchCandidatures(); }, 5000);
+    setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setScreening(false);
+    }, 120000);
   };
 
   const openDetail = (cId: string) => { setSelectedCandidature(cId); setDrawerOpen(true); };
@@ -83,14 +124,13 @@ export default function ProgrammeDetailPage() {
   const status = programme.status;
   const fmt = (d: string | null) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
 
-  const tabs: string[] = [];
-  tabs.push('apercu');
+  const tabs: string[] = ['apercu'];
   if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
   if (status === 'open') tabs.push('diffusion');
   if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
   tabs.push('parametres');
 
-  const coaches: { id: string; name: string; count: number }[] = []; // TODO: fetch coaches
+  const coaches: { id: string; name: string; count: number }[] = [];
 
   return (
     <DashboardLayout title={programme.name} subtitle={programme.organization || ''}>
@@ -102,14 +142,9 @@ export default function ProgrammeDetailPage() {
 
       <Tabs defaultValue="apercu">
         <TabsList className="flex-wrap">
-          {tabs.includes('apercu') && <TabsTrigger value="apercu">Aperçu</TabsTrigger>}
-          {tabs.includes('candidatures') && <TabsTrigger value="candidatures">Candidatures</TabsTrigger>}
-          {tabs.includes('kanban') && <TabsTrigger value="kanban">Kanban</TabsTrigger>}
-          {tabs.includes('diffusion') && <TabsTrigger value="diffusion">Diffusion</TabsTrigger>}
-          {tabs.includes('dashboard') && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
-          {tabs.includes('comparatif') && <TabsTrigger value="comparatif">Comparatif</TabsTrigger>}
-          {tabs.includes('reporting') && <TabsTrigger value="reporting">Reporting</TabsTrigger>}
-          {tabs.includes('parametres') && <TabsTrigger value="parametres">Paramètres</TabsTrigger>}
+          {tabs.map(t => <TabsTrigger key={t} value={t}>{
+            { apercu: 'Aperçu', candidatures: 'Candidatures', kanban: 'Kanban', diffusion: 'Diffusion', dashboard: 'Dashboard', comparatif: 'Comparatif', reporting: 'Reporting', parametres: 'Paramètres' }[t]
+          }</TabsTrigger>)}
         </TabsList>
 
         {/* Aperçu */}
@@ -135,7 +170,7 @@ export default function ProgrammeDetailPage() {
         {/* Candidatures */}
         <TabsContent value="candidatures">
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <Input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Statut" /></SelectTrigger>
@@ -150,12 +185,13 @@ export default function ProgrammeDetailPage() {
                 </SelectContent>
               </Select>
               <Button variant="outline" className="gap-2" onClick={handleScreen} disabled={screening}>
-                {screening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />} Screening IA
+                {screening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                {screening ? 'Screening en cours...' : 'Screening IA'}
               </Button>
             </div>
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Entreprise</TableHead><TableHead>Contact</TableHead><TableHead>Email</TableHead><TableHead>Score IA</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead>
+                <TableHead>Entreprise</TableHead><TableHead>Contact</TableHead><TableHead>Email</TableHead><TableHead>Score IA</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead></TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {candidatures.map(c => (
@@ -166,9 +202,16 @@ export default function ProgrammeDetailPage() {
                     <TableCell>{c.screening_score != null ? <Badge variant="outline">{c.screening_score}</Badge> : '—'}</TableCell>
                     <TableCell><ProgrammeStatusBadge status={c.status} /></TableCell>
                     <TableCell className="text-xs">{fmt(c.submitted_at)}</TableCell>
+                    <TableCell>
+                      {c.enterprise_id && (
+                        <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); nav(`/programmes/${id}/enterprise/${c.enterprise_id}`); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
-                {candidatures.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucune candidature</TableCell></TableRow>}
+                {candidatures.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Aucune candidature</TableCell></TableRow>}
               </TableBody>
             </Table>
           </div>
@@ -190,17 +233,11 @@ export default function ProgrammeDetailPage() {
                   <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(candidatureUrl); toast({ title: '📋 Lien copié' }); }}><Copy className="h-4 w-4" /></Button>
                   <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
                 </div>
-
-                {/* QR Code */}
                 <div className="flex items-center gap-4">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`}
-                    alt="QR Code candidature"
-                    className="w-32 h-32 border rounded-lg p-1"
-                  />
+                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`} alt="QR Code" className="w-32 h-32 border rounded-lg p-1" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">QR Code</p>
-                    <p className="text-xs text-muted-foreground">Scannez pour accéder au formulaire de candidature</p>
+                    <p className="text-xs text-muted-foreground">Scannez pour accéder au formulaire</p>
                     <Button variant="outline" size="sm" onClick={() => {
                       const link = document.createElement('a');
                       link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
@@ -209,7 +246,6 @@ export default function ProgrammeDetailPage() {
                     }}>Télécharger le QR</Button>
                   </div>
                 </div>
-
                 <div className="text-sm text-muted-foreground">
                   <strong>Embed :</strong>
                   <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
@@ -222,29 +258,17 @@ export default function ProgrammeDetailPage() {
 
         {/* Dashboard */}
         <TabsContent value="dashboard">
-          <Card><CardContent className="p-8 text-center">
-            <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">📊 Dashboard en cours de développement</p>
-            <p className="text-sm text-muted-foreground mt-1">Les données seront disponibles prochainement.</p>
-          </CardContent></Card>
+          <ProgrammeDashboardTab programmeId={id!} />
         </TabsContent>
 
         {/* Comparatif */}
         <TabsContent value="comparatif">
-          <Card><CardContent className="p-8 text-center">
-            <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">📊 Comparatif en cours de développement</p>
-            <p className="text-sm text-muted-foreground mt-1">Les données seront disponibles prochainement.</p>
-          </CardContent></Card>
+          <ProgrammeComparatifTab programmeId={id!} />
         </TabsContent>
 
         {/* Reporting */}
         <TabsContent value="reporting">
-          <Card><CardContent className="p-8 text-center">
-            <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">📊 Reporting en cours de développement</p>
-            <p className="text-sm text-muted-foreground mt-1">Les données seront disponibles prochainement.</p>
-          </CardContent></Card>
+          <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} />
         </TabsContent>
 
         {/* Paramètres */}
@@ -268,7 +292,7 @@ export default function ProgrammeDetailPage() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         coaches={coaches}
-        onUpdated={() => { fetchCandidatures(); }}
+        onUpdated={fetchCandidatures}
       />
     </DashboardLayout>
   );

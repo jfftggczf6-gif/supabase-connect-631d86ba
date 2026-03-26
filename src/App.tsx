@@ -20,6 +20,7 @@ import DataRoomPublic from "./pages/DataRoomPublic";
 import ProgrammeListPage from "./pages/ProgrammeListPage";
 import ProgrammeCreatePage from "./pages/ProgrammeCreatePage";
 import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
+import ProgrammeEnterprisePage from "./pages/ProgrammeEnterprisePage";
 import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import NotFound from "./pages/NotFound";
 
@@ -52,6 +53,9 @@ const App = () => (
             } />
             <Route path="/programmes/:id" element={
               <ProtectedRoute><ProgrammeDetailPage /></ProtectedRoute>
+            } />
+            <Route path="/programmes/:id/enterprise/:enterpriseId" element={
+              <ProtectedRoute><ProgrammeEnterprisePage /></ProtectedRoute>
             } />
             <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
             <Route path="/livrables" element={

@@ -20,6 +20,7 @@ interface SidebarProps {
   generating: boolean;
   generationProgress?: { current: number; total: number; name: string } | null;
   globalScore: number;
+  hideActions?: boolean;
 }
 
 const DELIV_TYPE_MAP: Record<string, string> = {
@@ -33,6 +34,7 @@ const DELIV_TYPE_MAP: Record<string, string> = {
 export default function DashboardSidebar({
   enterprise, deliverables, modules, selectedModule, onSelectModule,
   onGenerateAll, onStopGeneration, generating, generationProgress, globalScore,
+  hideActions = false,
 }: SidebarProps) {
   const collapsed = false;
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -220,6 +222,7 @@ export default function DashboardSidebar({
       </div>
 
       {/* Generate / Stop buttons */}
+      {!hideActions && (
       <div className="p-3 border-t border-border space-y-2">
         {generating ? (
           <>
@@ -266,6 +269,7 @@ export default function DashboardSidebar({
           </Button>
         )}
       </div>
+      )}
     </div>
   );
 
