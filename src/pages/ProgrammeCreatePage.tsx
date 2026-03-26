@@ -126,19 +126,19 @@ export default function ProgrammeCreatePage() {
         }
       }
 
-      // Build criteria form fields from extracted criteria
-      const newFields: FormField[] = [];
+      // Store criteria in dedicated sections (NOT as form fields)
       if (extracted.custom_criteria?.criteres_eligibilite?.length) {
-        extracted.custom_criteria.criteres_eligibilite.forEach((c: string, i: number) => {
-          newFields.push({ id: `elig-${i}`, type: 'text', label: `Éligibilité : ${c}`, required: true });
-        });
+        setCriteresEligibilite(extracted.custom_criteria.criteres_eligibilite);
+        filled.add('criteres_eligibilite');
       }
       if (extracted.custom_criteria?.criteres_selection?.length) {
-        extracted.custom_criteria.criteres_selection.forEach((c: string, i: number) => {
-          newFields.push({ id: `sel-${i}`, type: 'text', label: `Sélection : ${c}`, required: false });
-        });
+        setCriteresSelection(extracted.custom_criteria.criteres_selection);
+        filled.add('criteres_selection');
       }
-      if (newFields.length) { setFormFields(newFields); filled.add('formFields'); }
+      if (extracted.custom_criteria?.conditions_specifiques?.length) {
+        setConditionsSpecifiques(extracted.custom_criteria.conditions_specifiques);
+        filled.add('conditions_specifiques');
+      }
 
       // Pre-fill form
       setForm(f => {
