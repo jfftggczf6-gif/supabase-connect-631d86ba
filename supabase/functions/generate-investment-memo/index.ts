@@ -314,7 +314,10 @@ ${MEMO_SCHEMA_PART2}`;
         started_at: startedAt,
       }, 10, "in_progress");
 
-      const prompt1 = `${contextBlock}
+      // Run Pass 1 in background via EdgeRuntime.waitUntil (avoids 150s proxy timeout)
+      const asyncWork = async () => {
+        try {
+          const prompt1 = `${contextBlock}
 
 ══════ INSTRUCTIONS — PASSE 1/2 ══════
 Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
@@ -324,41 +327,35 @@ Chaque section narrative doit faire au minimum 200 mots.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
-      try {
-        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
-      } catch (e: any) {
-        await updateMemoModuleState(ctx.enterprise_id, {
-          phase: "failed",
-          error: e.message || "Pass 1 failed",
-          failed_at: new Date().toISOString(),
-        }, 0, "not_started");
-        throw e;
-      }
+          const part1Result = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
+          const score = part1Result.resume_executif?.score_ir || 0;
 
-      const score = part1.resume_executif?.score_ir || 0;
+          console.log("Investment Memo — Pass 1 done, saving checkpoint...");
+          await updateMemoModuleState(ctx.enterprise_id, {
+            phase: "part1_completed",
+            part1: part1Result,
+            score,
+            part1_completed_at: new Date().toISOString(),
+            request_id: requestId,
+          }, 50, "in_progress");
+          console.log("Investment Memo — Checkpoint saved.");
+        } catch (e: any) {
+          console.error("Investment Memo — Pass 1 failed:", e.message);
+          await updateMemoModuleState(ctx.enterprise_id, {
+            phase: "failed",
+            error: e.message || "Pass 1 failed",
+            failed_at: new Date().toISOString(),
+          }, 0, "not_started");
+        }
+      };
 
-      // Save checkpoint IMMEDIATELY after AI call — before HTTP return
-      // This is critical: the HTTP connection may already be dead at this point
-      console.log("Investment Memo — Pass 1 AI done, saving checkpoint NOW...");
-      try {
-        await updateMemoModuleState(ctx.enterprise_id, {
-          phase: "part1_completed",
-          part1,
-          score,
-          part1_completed_at: new Date().toISOString(),
-          request_id: requestId,
-        }, 50, "in_progress");
-        console.log("Investment Memo — Checkpoint saved successfully.");
-      } catch (checkpointErr: any) {
-        console.error("Investment Memo — CRITICAL: checkpoint save failed:", checkpointErr.message);
-      }
+      // @ts-ignore
+      EdgeRuntime.waitUntil(asyncWork());
 
-      console.log("Investment Memo — Returning 202 (client may have disconnected, frontend will poll).");
       return new Response(JSON.stringify({
-        success: true,
+        accepted: true,
         processing: true,
-        phase: "part1_completed",
-        score,
+        phase: "part1",
         request_id: requestId,
       }), {
         status: 202,
