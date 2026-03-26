@@ -137,7 +137,33 @@ export default function ProgrammeDetailPage() {
   if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
   tabs.push('parametres');
 
-  const coaches: { id: string; name: string; count: number }[] = [];
+  const [coaches, setCoaches] = useState<{ id: string; name: string; count: number }[]>([]);
+
+  // Fetch coaches list
+  useEffect(() => {
+    (async () => {
+      const { data: coachRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'coach');
+      if (!coachRoles?.length) return;
+      const coachIds = coachRoles.map(r => r.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', coachIds);
+      // Count enterprises per coach from candidatures
+      const counts: Record<string, number> = {};
+      for (const c of candidatures) {
+        if (c.assigned_coach_id) counts[c.assigned_coach_id] = (counts[c.assigned_coach_id] || 0) + 1;
+      }
+      setCoaches((profiles || []).map(p => ({
+        id: p.user_id,
+        name: p.full_name || p.user_id.slice(0, 8),
+        count: counts[p.user_id] || 0,
+      })));
+    })();
+  }, [candidatures]);
 
   // Extract criteria details
   const customCriteria = criteria?.custom_criteria || {};

@@ -9,12 +9,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 const COLUMNS = [
-  { id: 'submitted', label: 'Reçues', color: 'bg-blue-50 border-blue-200' },
+  { id: 'received', label: 'Reçues', color: 'bg-blue-50 border-blue-200' },
   { id: 'in_review', label: 'En revue', color: 'bg-amber-50 border-amber-200' },
   { id: 'pre_selected', label: 'Pré-sélectionnées', color: 'bg-violet-50 border-violet-200' },
   { id: 'rejected', label: 'Rejetées', color: 'bg-red-50 border-red-200' },
   { id: 'selected', label: 'Sélectionnées', color: 'bg-emerald-50 border-emerald-200' },
-  { id: 'waitlist', label: "Liste d'attente", color: 'bg-gray-50 border-gray-200' },
+  { id: 'waitlisted', label: "Liste d'attente", color: 'bg-gray-50 border-gray-200' },
 ];
 
 interface Candidature {
@@ -88,10 +88,13 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const moveCard = async (id: string, newStatus: string) => {
-    const { error } = await supabase.functions.invoke('update-candidature', {
-      body: { id, status: newStatus }
+    const { data, error } = await supabase.functions.invoke('update-candidature', {
+      body: { candidature_id: id, action: 'move', new_status: newStatus }
     });
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
+    if (error || data?.error) {
+      toast({ title: 'Erreur', description: data?.error || error?.message || 'Erreur inconnue', variant: 'destructive' });
+      return;
+    }
     toast({ title: '✅ Statut mis à jour' });
     onRefresh();
   };
