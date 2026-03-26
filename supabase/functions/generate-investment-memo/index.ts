@@ -28,6 +28,11 @@ EXIGENCES QUALITÉ :
 - La recommandation finale doit être COHÉRENTE avec le score et les risques
 - Minimum 200 mots par section narrative
 
+FORMAT :
+- Sépare analyse qualitative et chiffres : les textes narratifs expliquent le POURQUOI, les chiffres vont dans des listes/tableaux
+- Ne noie PAS les chiffres dans des paragraphes — cite-les entre parenthèses ou en fin de section
+- Structure chaque section : constat → analyse → recommandation
+
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
 const MEMO_SCHEMA_PART1 = `{
