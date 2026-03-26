@@ -16,7 +16,7 @@ import ProgrammeComparatifTab from '@/components/programmes/ProgrammeComparatifT
 import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Copy, Bot, ExternalLink, Eye } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -24,6 +24,7 @@ export default function ProgrammeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const [programme, setProgramme] = useState<any>(null);
+  const [criteria, setCriteria] = useState<any>(null);
   const [candidatures, setCandidatures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [screening, setScreening] = useState(false);
@@ -37,18 +38,24 @@ export default function ProgrammeDetailPage() {
 
   const fetchProgramme = useCallback(async () => {
     if (!id) return;
-    const { data, error } = await supabase.functions.invoke('manage-programme', { body: { action: 'get', id } });
+    const { data, error } = await supabase.from('programmes').select('*').eq('id', id).single();
     if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
     setProgramme(data);
+    // Fetch criteria if linked
+    if (data?.criteria_id) {
+      const { data: crit } = await supabase.from('programme_criteria').select('*').eq('id', data.criteria_id).single();
+      setCriteria(crit);
+    }
   }, [id]);
 
   const fetchCandidatures = useCallback(async () => {
     if (!id) return;
-    const { data, error } = await supabase.functions.invoke('list-candidatures', {
-      body: { programme_id: id, search: search || undefined, status: statusFilter !== 'all' ? statusFilter : undefined }
-    });
+    let query = supabase.from('candidatures').select('*').eq('programme_id', id).order('submitted_at', { ascending: false });
+    if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+    if (search) query = query.or(`company_name.ilike.%${search}%,contact_name.ilike.%${search}%,contact_email.ilike.%${search}%`);
+    const { data, error } = await query;
     if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
-    setCandidatures(data?.candidatures || data || []);
+    setCandidatures(data || []);
   }, [id, search, statusFilter]);
 
   useEffect(() => {
@@ -81,7 +88,7 @@ export default function ProgrammeDetailPage() {
 
   const handlePublish = async () => {
     setPublishing(true);
-    const { error } = await supabase.functions.invoke('manage-programme', { body: { action: 'publish', id } });
+    const { error } = await supabase.from('programmes').update({ status: 'open' }).eq('id', id!);
     if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     else { toast({ title: '✅ Programme publié' }); fetchProgramme(); }
     setPublishing(false);
@@ -89,7 +96,7 @@ export default function ProgrammeDetailPage() {
 
   const handleStart = async () => {
     setStarting(true);
-    const { error } = await supabase.functions.invoke('manage-programme', { body: { action: 'start', id } });
+    const { error } = await supabase.from('programmes').update({ status: 'in_progress' }).eq('id', id!);
     if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     else { toast({ title: '✅ Programme démarré' }); fetchProgramme(); }
     setStarting(false);
@@ -105,7 +112,7 @@ export default function ProgrammeDetailPage() {
     }
     toast({ title: '🤖 Screening IA lancé', description: 'Les scores arriveront progressivement via Realtime.' });
     
-    // Also poll as fallback (in case Realtime not enabled)
+    // Also poll as fallback
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => { await fetchCandidatures(); }, 5000);
     setTimeout(() => {
@@ -131,6 +138,12 @@ export default function ProgrammeDetailPage() {
   tabs.push('parametres');
 
   const coaches: { id: string; name: string; count: number }[] = [];
+
+  // Extract criteria details
+  const customCriteria = criteria?.custom_criteria || {};
+  const eligibilite: string[] = customCriteria.criteres_eligibilite || [];
+  const selection: string[] = customCriteria.criteres_selection || [];
+  const conditions: string[] = customCriteria.conditions_specifiques || [];
 
   return (
     <DashboardLayout title={programme.name} subtitle={programme.organization || ''}>
@@ -165,6 +178,60 @@ export default function ProgrammeDetailPage() {
               {programme.description && <><h3 className="font-semibold pt-2">Description</h3><p className="text-sm text-muted-foreground">{programme.description}</p></>}
             </CardContent></Card>
           </div>
+
+          {/* Critères d'éligibilité, sélection, conditions */}
+          {(eligibilite.length > 0 || selection.length > 0 || conditions.length > 0) && (
+            <div className="grid md:grid-cols-3 gap-4 mt-4">
+              {eligibilite.length > 0 && (
+                <Card><CardContent className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    <h3 className="font-semibold">Critères d'éligibilité</h3>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {eligibilite.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <span className="text-emerald-500 mt-0.5">✓</span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent></Card>
+              )}
+              {selection.length > 0 && (
+                <Card><CardContent className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-blue-500" />
+                    <h3 className="font-semibold">Critères de sélection</h3>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {selection.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <span className="text-blue-500 mt-0.5">◆</span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent></Card>
+              )}
+              {conditions.length > 0 && (
+                <Card><CardContent className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    <h3 className="font-semibold">Conditions spécifiques</h3>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {conditions.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <span className="text-amber-500 mt-0.5">⚠</span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent></Card>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         {/* Candidatures */}
@@ -278,7 +345,7 @@ export default function ProgrammeDetailPage() {
             <p className="text-sm text-muted-foreground">La modification des paramètres sera disponible prochainement.</p>
             {['in_progress', 'closed'].includes(status) && (
               <Button variant="destructive" onClick={async () => {
-                const { error } = await supabase.functions.invoke('manage-programme', { body: { action: 'close', id } });
+                const { error } = await supabase.from('programmes').update({ status: 'completed' }).eq('id', id!);
                 if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
                 else { toast({ title: '✅ Programme clôturé' }); fetchProgramme(); }
               }}>Clôturer le programme</Button>
