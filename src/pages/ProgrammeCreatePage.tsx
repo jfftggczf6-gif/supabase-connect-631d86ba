@@ -34,6 +34,7 @@ export default function ProgrammeCreatePage() {
   const [extracting, setExtracting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [prefilledFields, setPrefilledFields] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({
     name: '', organization: '', description: '',
     budget: '', nb_places: '', currency: 'XOF',
