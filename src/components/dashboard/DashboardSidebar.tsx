@@ -222,6 +222,7 @@ export default function DashboardSidebar({
       </div>
 
       {/* Generate / Stop buttons */}
+      {!hideActions && (
       <div className="p-3 border-t border-border space-y-2">
         {generating ? (
           <>
@@ -268,6 +269,7 @@ export default function DashboardSidebar({
           </Button>
         )}
       </div>
+      )}
     </div>
   );
 
