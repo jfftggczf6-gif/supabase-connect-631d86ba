@@ -92,7 +92,7 @@ serve(async (req: Request) => {
       + knowledgeContext + ragContext;
 
     // Sonnet pour tools/calculatrice (Opus timeout avec tool_use loop dans edge functions)
-    const aiAnalysis = await callAIWithCalculator(systemPrompt, userPrompt, 16384, "claude-sonnet-4-20250514");
+    const aiAnalysis = await callAIWithCalculator(systemPrompt, userPrompt, 16384, "claude-sonnet-4-20250514", 0.2);
 
     // ═══════════════════════════════════════════════════════════════
     // 3. Calculs déterministes
@@ -309,7 +309,7 @@ CONTRAINTE DE COHÉRENCE ABSOLUE :
 RÈGLES :
 1. Tu ANALYSES, tu ne CALCULES PAS de tête (utilise les outils)
 2. Chaque chiffre cité DOIT référencer sa source précise
-3. Croissance max 30%/an les 3 premières années, 15-20% ensuite
+3. Croissance max ${guardrails.croissance_max_annuelle}%/an pour ce secteur — ajuste selon l'historique réel de l'entreprise
 4. JAMAIS de valeur arbitraire
 5. Le pays est ${country}. CAPEX uniquement pour ${country}.
 
@@ -532,7 +532,7 @@ PRODUIS LE JSON SUIVANT (toutes les clés sont obligatoires) :
 
 {
   "synthese": {
-    "avis": "3-5 lignes d'analyse. Citer les chiffres réels. Identifier le problème principal et le potentiel.",
+    "avis": "PARAGRAPHE DÉTAILLÉ (8-12 lignes) : analyse complète de la situation financière, forces et faiblesses, comparaison aux benchmarks sectoriels, potentiel de croissance, risques principaux, et recommandations. Citer les chiffres réels avec sources.",
     "tags": ["tag1", "tag2", "tag3", "tag4"],
     "score_investissabilite": 48,
     "verdict": "Investissable | Conditionnel | Non investissable"
@@ -547,14 +547,20 @@ PRODUIS LE JSON SUIVANT (toutes les clés sont obligatoires) :
     { "niveau": "ok | warning | erreur", "texte": "..." }
   ],
   "hypotheses": {
-    "taux_croissance_ca": [0.20, 0.20, 0.20, 0.15, 0.15],
-    "taux_croissance_prix": 0.03,
-    "taux_croissance_opex": 0.08,
-    "taux_croissance_salariale": 0.05,
-    "taux_cogs_cible": [0.72, 0.71, 0.70, 0.70, 0.70],
-    "inflation": 0.03,
-    "justification": "Texte expliquant le choix des taux..."
+    "taux_croissance_ca": [<5 valeurs décimales — CALCULÉES selon l'historique et le secteur, PAS copiées>],
+    "taux_croissance_prix": <décimale — basée sur l'inflation du pays + positionnement prix>,
+    "taux_croissance_opex": <décimale — cohérente avec la croissance CA>,
+    "taux_croissance_salariale": <décimale — basée sur le marché du travail local>,
+    "taux_cogs_cible": [<5 valeurs — basées sur la marge brute actuelle et les économies d'échelle>],
+    "inflation": <décimale — inflation réelle du pays, pas un défaut>,
+    "justification": "OBLIGATOIRE — 3-5 phrases expliquant POURQUOI ces taux spécifiques pour CETTE entreprise. Cite l'historique de croissance, le secteur, le pays, les contraintes identifiées."
   },
+  ⚠️ HYPOTHÈSES — NE PAS COPIER L'EXEMPLE CI-DESSUS :
+  - Si l'entreprise a un historique (CA N-2 → N-1 → N), CALCULER le taux de croissance historique et l'utiliser comme base
+  - Si le CA a BAISSÉ dans l'historique, les taux doivent refléter un scénario de redressement progressif (pas 20%/an immédiatement)
+  - Si le secteur a une croissance max de X%/an (voir benchmarks), ne pas dépasser
+  - L'inflation doit être celle du PAYS réel (pas 3% par défaut)
+  - Les taux COGS doivent refléter la marge brute ACTUELLE de l'entreprise, pas une valeur générique
   "produits": [
     {
       "nom": "Nom du produit",

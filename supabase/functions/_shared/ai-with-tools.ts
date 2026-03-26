@@ -15,6 +15,7 @@ export async function callAIWithCalculator(
   userPrompt: string,
   maxTokens: number = 16384,
   model: string = "claude-sonnet-4-20250514",  // Sonnet 4 — 4.6 gets stuck in tool loops
+  temperature: number = 0,
 ): Promise<Record<string, any>> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
@@ -35,7 +36,7 @@ export async function callAIWithCalculator(
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        temperature: 0,
+        temperature,
         system: systemPrompt,
         messages,
         tools: CALCULATOR_TOOLS,
