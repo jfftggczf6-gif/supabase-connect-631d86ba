@@ -259,8 +259,8 @@ ${ragContext}`;
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 
     if (hasCheckpoint) {
-      // ═══════ CAS A: Resume from checkpoint — run Pass 2 only ═══════
-      console.log("Investment Memo — Resuming from checkpoint, running Pass 2/2...");
+      // ═══════ CAS A: Resume from checkpoint — run Pass 2 in background ═══════
+      console.log("Investment Memo — Resuming from checkpoint, launching Pass 2/2 in background...");
       part1 = moduleData!.part1;
 
       await updateMemoModuleState(ctx.enterprise_id, {
@@ -271,13 +271,15 @@ ${ragContext}`;
         last_update_at: new Date().toISOString(),
       }, 60, "in_progress");
 
-      const part1Summary = JSON.stringify({
-        recommandation: part1.resume_executif?.recommandation_preliminaire,
-        score: part1.resume_executif?.score_ir,
-        valorisation: part1.valorisation?.fourchette_valorisation,
-      });
+      const asyncWork2 = async () => {
+        try {
+          const part1Summary = JSON.stringify({
+            recommandation: part1.resume_executif?.recommandation_preliminaire,
+            score: part1.resume_executif?.score_ir,
+            valorisation: part1.valorisation?.fourchette_valorisation,
+          });
 
-      const prompt2 = `${contextBlock}
+          const prompt2 = `${contextBlock}
 
 ══════ RÉSUMÉ PASSE 1 ══════
 ${part1Summary}
@@ -290,19 +292,40 @@ Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-      const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
+          const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.3);
 
-      const mergedMemo = { ...part1, ...part2 };
-      mergedMemo.score = part1.resume_executif?.score_ir || 0;
+          const mergedMemo = { ...part1, ...part2 };
+          mergedMemo.score = part1.resume_executif?.score_ir || 0;
 
-      await saveDeliverable(ctx.supabase, ctx.enterprise_id, "investment_memo", mergedMemo, "investment_memo");
+          await saveDeliverable(ctx.supabase, ctx.enterprise_id, "investment_memo", mergedMemo, "investment_memo");
 
-      await updateMemoModuleState(ctx.enterprise_id, {
-        phase: "completed",
-        completed_at: new Date().toISOString(),
-      }, 100, "completed");
+          await updateMemoModuleState(ctx.enterprise_id, {
+            phase: "completed",
+            completed_at: new Date().toISOString(),
+          }, 100, "completed");
+          console.log("Investment Memo — Pass 2 done, deliverable saved.");
+        } catch (e: any) {
+          console.error("Investment Memo — Pass 2 failed:", e.message);
+          await updateMemoModuleState(ctx.enterprise_id, {
+            phase: "failed",
+            error: e.message || "Pass 2 failed",
+            failed_at: new Date().toISOString(),
+          }, 0, "not_started");
+        }
+      };
 
-      return jsonResponse({ success: true, data: mergedMemo, score: mergedMemo.score || 0 });
+      // @ts-ignore
+      EdgeRuntime.waitUntil(asyncWork2());
+
+      return new Response(JSON.stringify({
+        accepted: true,
+        processing: true,
+        phase: "part2",
+        request_id: requestId,
+      }), {
+        status: 202,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
 
     } else {
       // ═══════ CAS B: First call — run Pass 1, checkpoint, return 202 ═══════
