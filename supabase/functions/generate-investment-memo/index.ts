@@ -226,14 +226,14 @@ serve(async (req) => {
     );
 
     const delivSummary: string[] = [];
-    if (bmcData) delivSummary.push(`BMC:\n${JSON.stringify(bmcData).substring(0, 4000)}`);
-    if (sicData) delivSummary.push(`SIC:\n${JSON.stringify(sicData).substring(0, 3000)}`);
-    if (inputsData) delivSummary.push(`INPUTS:\n${JSON.stringify(inputsData).substring(0, 5000)}`);
-    if (frameworkData) delivSummary.push(`FRAMEWORK:\n${JSON.stringify(frameworkData).substring(0, 5000)}`);
-    if (planOvoData) delivSummary.push(`PLAN OVO:\n${JSON.stringify(planOvoData).substring(0, 8000)}`);
-    if (valuationData) delivSummary.push(`VALORISATION:\n${JSON.stringify(valuationData).substring(0, 5000)}`);
-    if (oddData) delivSummary.push(`ODD:\n${JSON.stringify(oddData).substring(0, 3000)}`);
-    if (diagnosticData) delivSummary.push(`DIAGNOSTIC:\n${JSON.stringify(diagnosticData).substring(0, 3000)}`);
+    if (bmcData) delivSummary.push(`BMC:\n${JSON.stringify(bmcData).substring(0, 2000)}`);
+    if (sicData) delivSummary.push(`SIC:\n${JSON.stringify(sicData).substring(0, 1500)}`);
+    if (inputsData) delivSummary.push(`INPUTS:\n${JSON.stringify(inputsData).substring(0, 3000)}`);
+    if (frameworkData) delivSummary.push(`FRAMEWORK:\n${JSON.stringify(frameworkData).substring(0, 2000)}`);
+    if (planOvoData) delivSummary.push(`PLAN OVO:\n${JSON.stringify(planOvoData).substring(0, 3000)}`);
+    if (valuationData) delivSummary.push(`VALORISATION:\n${JSON.stringify(valuationData).substring(0, 3000)}`);
+    if (oddData) delivSummary.push(`ODD:\n${JSON.stringify(oddData).substring(0, 1500)}`);
+    if (diagnosticData) delivSummary.push(`DIAGNOSTIC:\n${JSON.stringify(diagnosticData).substring(0, 1500)}`);
 
     const contextBlock = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
