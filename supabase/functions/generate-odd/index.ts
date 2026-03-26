@@ -149,6 +149,7 @@ serve(async (req) => {
   try {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+    const requestId = crypto.randomUUID();
 
     const bmcData = ctx.deliverableMap["bmc_analysis"] || ctx.deliverableMap["bmc"] || null;
     const sicData = ctx.deliverableMap["sic_analysis"] || ctx.deliverableMap["sic"] || null;
@@ -158,6 +159,19 @@ serve(async (req) => {
         "Le Business Model Canvas (BMC) ou le Social Impact Canvas (SIC) est requis pour générer l'évaluation ODD.",
         400
       );
+    }
+
+    // Mark as processing (async pattern)
+    const existingDeliv = ctx.deliverableMap["odd_analysis"];
+    if (existingDeliv) {
+      await ctx.supabase.from("deliverables").update({
+        data: { ...existingDeliv, _processing: true, _request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "odd_analysis");
+    } else {
+      await ctx.supabase.from("deliverables").upsert({
+        enterprise_id: ctx.enterprise_id, type: "odd_analysis",
+        data: { status: "processing", request_id: requestId, started_at: new Date().toISOString() },
+      }, { onConflict: "enterprise_id,type" });
     }
 
     // RAG: enrichir avec données ODD
@@ -285,7 +299,9 @@ serve(async (req) => {
       console.warn("[generate-odd] Excel non-bloquant:", (xlsxErr as Error)?.message);
     }
 
-    return jsonResponse({ success: true, data, excel_generated: excelGenerated });
+    return new Response(JSON.stringify({ accepted: true, request_id: requestId, success: true, data, excel_generated: excelGenerated }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (e: unknown) {
     console.error("generate-odd error:", e);
