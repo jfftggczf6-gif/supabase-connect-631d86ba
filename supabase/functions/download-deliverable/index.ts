@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // ===== RICH HTML TEMPLATES =====
 
-function htmlShell(title: string, score: number | null, body: string, enterprise: string): string {
+function htmlShell(title: string, score: number | null, body: string, enterprise: string, singlePage = false): string {
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -54,11 +54,43 @@ ul{padding-left:18px}li{font-size:13px;margin-bottom:5px;color:#475569}
 .footer{text-align:center;margin-top:40px;padding:20px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0}
 .toc{background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #e2e8f0}
 .toc h3{font-size:14px;font-weight:700;margin-bottom:8px}.toc li{font-size:13px;margin-bottom:3px}
-@media print{body{background:#fff}.page{padding:16px}.hero{page-break-after:avoid}}
+@page{size:A4;margin:18mm 15mm 20mm 15mm}
+@media print{
+body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{padding:0;max-width:100%}
+.hero{page-break-after:always}
+.card{page-break-inside:avoid;margin-bottom:12px}
+table{page-break-inside:avoid}
+.card h2{page-break-after:avoid}
+.swot-grid{page-break-inside:avoid}
+.grid-2,.grid-4{page-break-inside:avoid}
+.metric{page-break-inside:avoid}
+.footer{page-break-before:avoid}
+}
+${singlePage ? `
+.page-single-page .hero{page-break-after:avoid;padding:24px 20px;margin-bottom:12px}
+.page-single-page .hero h1{font-size:18px}
+.page-single-page .hero .sub{font-size:10px}
+.page-single-page .hero .enterprise{font-size:13px}
+.page-single-page .score-circle{width:50px;height:50px;right:20px}
+.page-single-page .score-circle .num{font-size:20px}
+.page-single-page .card{padding:12px;margin-bottom:8px}
+.page-single-page .card h2{font-size:13px;margin-bottom:6px;padding-bottom:4px}
+.page-single-page .card h3{font-size:12px;margin:6px 0 4px}
+.page-single-page table{font-size:10px}
+.page-single-page table th,.page-single-page table td{padding:4px 6px}
+.page-single-page .metric .val{font-size:16px}
+.page-single-page .metric .lbl{font-size:9px}
+.page-single-page .metric{padding:8px}
+.page-single-page .grid-4{grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
+.page-single-page li{font-size:11px;margin-bottom:2px}
+.page-single-page .footer{margin-top:8px;padding:8px;font-size:9px}
+.page-single-page p,.page-single-page span{font-size:11px}
+` : ''}
 </style>
 </head>
 <body>
-<div class="page">
+<div class="page${singlePage ? ' page-single-page' : ''}">
 <div class="hero">
 <h1>${title}</h1>
 <p class="enterprise">${enterprise}</p>
@@ -1378,6 +1410,52 @@ function preScreeningHTML(data: any, ent: string): string {
   return htmlShell('Diagnostic initial', score, body, ent);
 }
 
+// ===== ONE-PAGER HTML (single page) =====
+function onepagerHTML(data: any, ent: string): string {
+  const d = data || {};
+  const score = d.score ?? 0;
+  const kpis = d.kpis_financiers || d.traction_finances || {};
+  const impact = d.impact || d.impact_odd || {};
+
+  const body = `
+    <div class="card">
+      <h2>Présentation</h2>
+      <p>${d.presentation_entreprise || d.apercu_projet || d.description || '—'}</p>
+    </div>
+    ${d.proposition_valeur || d.probleme_solution ? `<div class="card"><h2>Proposition de valeur</h2><p>${d.proposition_valeur || d.probleme_solution || ''}</p></div>` : ''}
+    <div class="grid-2">
+      <div class="card">
+        <h2>Marché</h2>
+        <p>${d.marche || d.potentiel_marche || '—'}</p>
+      </div>
+      <div class="card">
+        <h2>Équipe</h2>
+        <p>${typeof d.equipe === 'string' ? d.equipe : d.equipe_gouvernance || d.equipe?.description || '—'}</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Chiffres clés</h2>
+      ${typeof kpis === 'object' && !Array.isArray(kpis) ? `<div class="grid-4">${Object.entries(kpis).filter(([_, v]) => v != null && v !== '').slice(0, 8).map(([k, v]) =>
+        `<div class="metric"><div class="lbl">${String(k).replace(/_/g, ' ')}</div><div class="val">${v}</div></div>`
+      ).join('')}</div>` : `<p>${kpis.plan_croissance || JSON.stringify(kpis).slice(0, 300)}</p>`}
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Impact</h2>
+        <p>${typeof impact === 'string' ? impact : impact.description || impact.social || JSON.stringify(impact).slice(0, 200)}</p>
+      </div>
+      <div class="card">
+        <h2>Financement</h2>
+        <p>${typeof d.besoin_financement === 'string' ? d.besoin_financement : d.besoin_financement?.montant || d.demande_financement || '—'}</p>
+        ${d.valorisation_indicative ? `<p style="margin-top:6px;font-weight:600">Valorisation : ${typeof d.valorisation_indicative === 'string' ? d.valorisation_indicative : d.valorisation_indicative.valeur || JSON.stringify(d.valorisation_indicative)}</p>` : ''}
+      </div>
+    </div>
+    ${d.contact ? `<div class="card"><h2>Contact</h2><p>${typeof d.contact === 'string' ? d.contact : [d.contact.nom, d.contact.email, d.contact.telephone].filter(Boolean).join(' — ')}</p></div>` : ''}
+  `;
+
+  return htmlShell('One-Pager Investisseur', score, body, ent, true);
+}
+
 // ===== VALUATION HTML =====
 function valuationHTML(data: any, ent: string): string {
   const score = data.score ?? data.confidence_score ?? 0;
@@ -1822,7 +1900,7 @@ serve(async (req) => {
       bmc_analysis: bmcHTML, sic_analysis: sicHTML, inputs_data: inputsHTML,
       framework_data: frameworkHTML, diagnostic_data: diagnosticHTML,
       plan_ovo: planOvoHTML, business_plan: businessPlanHTML, odd_analysis: oddHTML,
-      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML,
+      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML, onepager: onepagerHTML,
     };
 
     const generator = richGenerators[deliverableType];
