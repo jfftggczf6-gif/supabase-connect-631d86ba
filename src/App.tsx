@@ -20,6 +20,7 @@ import DataRoomPublic from "./pages/DataRoomPublic";
 import ProgrammeListPage from "./pages/ProgrammeListPage";
 import ProgrammeCreatePage from "./pages/ProgrammeCreatePage";
 import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
+import ProgrammeEnterprisePage from "./pages/ProgrammeEnterprisePage";
 import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import NotFound from "./pages/NotFound";
 
