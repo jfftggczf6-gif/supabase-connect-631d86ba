@@ -8,6 +8,19 @@
 
 // ─── TYPES ─────────────────────────────────────────────────────────
 
+interface HistoriqueAnnee {
+  annee?: number;
+  ca_total?: number;
+  couts_variables?: number;
+  charges_fixes?: number;
+  resultat_exploitation?: number;
+  resultat_net?: number;
+  tresorerie?: number;
+  nombre_employes?: number;
+  nombre_clients?: number;
+  ca_par_produit?: Array<{ nom: string; ca: number }>;
+}
+
 export interface InputsData {
   compte_resultat?: {
     chiffre_affaires?: number; ca?: number;
@@ -64,6 +77,11 @@ export interface InputsData {
   };
   revenue?: number;
   effectif_total?: number;
+  historique_3ans?: {
+    n?: HistoriqueAnnee;
+    n_moins_1?: HistoriqueAnnee;
+    n_moins_2?: HistoriqueAnnee;
+  };
 }
 
 export interface AIHypotheses {
@@ -222,6 +240,13 @@ export interface PlanFinancierComputed {
   financing: Record<string, number[]>;
   working_capital: { stock_days: number[]; receivable_days: number[]; payable_days: number[] };
   scenarios: Record<string, number[]>;
+
+  // Frontend fields
+  rentabilite_par_activite: Array<{ activite: string; ca: number; pct_ca: number; couts_directs: number; marge_brute: number; marge_pct: number; ebe: number }>;
+  opex_categories: Array<{ poste: string; montant: number; pct: number }>;
+  opex_detail: Array<{ categorie: string; sous_poste: string; montant_cy: number; montant_y5: number }>;
+  echeancier: Array<{ label: string; is_total?: boolean; is_dscr?: boolean; dim?: boolean; annees: Array<{ annee: number; valeur: string }> }>;
+  bfr_detail: { delai_clients_jours: number; delai_fournisseurs_jours: number; stock_moyen_jours: number; bfr_montant: number; bfr_jours: number; variation_bfr: number } | null;
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────
@@ -245,6 +270,32 @@ const roundK = (v: number): number => Math.round(v / 1000) * 1000;
 
 const YEAR_LABELS = ["YEAR-2", "YEAR-1", "CURRENT YEAR", "YEAR2", "YEAR3", "YEAR4", "YEAR5", "YEAR6"];
 
+// ─── EXTRACTEUR BILAN UNIVERSEL (plat ET imbriqué actif/passif) ───
+function extractBilan(bil: any): {
+  total_actif: number; capitaux_propres: number; dettes: number;
+  actif_circulant: number; passif_circulant: number; stocks: number;
+  creances_clients: number; dettes_fournisseurs: number;
+  tresorerie: number; immobilisations: number;
+} {
+  if (!bil) return { total_actif: 0, capitaux_propres: 0, dettes: 0, actif_circulant: 0, passif_circulant: 0, stocks: 0, creances_clients: 0, dettes_fournisseurs: 0, tresorerie: 0, immobilisations: 0 };
+
+  const actif = bil.actif || {};
+  const passif = bil.passif || {};
+
+  return {
+    total_actif: safe(bil.total_actif || actif.total_actif || passif.total_passif),
+    capitaux_propres: safe(bil.capitaux_propres || passif.capitaux_propres),
+    dettes: safe(bil.dettes_totales || bil.dettes || (safe(passif.dettes_lt) + safe(passif.dettes_ct))),
+    actif_circulant: safe(bil.actif_circulant || (safe(actif.stocks) + safe(actif.creances_clients) + safe(actif.tresorerie))),
+    passif_circulant: safe(bil.passif_circulant || passif.dettes_ct),
+    stocks: safe(bil.stocks || actif.stocks),
+    creances_clients: safe(bil.creances_clients || actif.creances_clients),
+    dettes_fournisseurs: safe(bil.dettes_fournisseurs || passif.fournisseurs),
+    tresorerie: safe(bil.tresorerie || actif.tresorerie || bil.bfr?.tresorerie_depart),
+    immobilisations: safe(bil.immobilisations || actif.immobilisations),
+  };
+}
+
 // ─── RATIOS (situation actuelle) ───────────────────────────────────
 
 export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
@@ -264,15 +315,16 @@ export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
 
   const MB = CA - achats;
   const EBITDA = MB - charges_personnel - charges_externes;
-  const total_actif = safe(bil.total_actif);
-  const CP = safe(bil.capitaux_propres);
-  const dettes = safe(bil.dettes_totales || bil.dettes);
-  const AC = safe(bil.actif_circulant);
-  const PC = safe(bil.passif_circulant);
-  const stocks = safe(bil.stocks);
-  const creances = safe(bil.creances_clients);
-  const fournisseurs = safe(bil.dettes_fournisseurs);
-  const tresorerie = safe(bil.tresorerie);
+  const bx = extractBilan(bil);
+  const total_actif = bx.total_actif;
+  const CP = bx.capitaux_propres;
+  const dettes = bx.dettes;
+  const AC = bx.actif_circulant;
+  const PC = bx.passif_circulant;
+  const stocks = bx.stocks;
+  const creances = bx.creances_clients;
+  const fournisseurs = bx.dettes_fournisseurs;
+  const tresorerie = bx.tresorerie;
   const effectif = safe(inputs.effectif_total || (inputs.equipe || []).reduce((s, e) => s + safe(e.nombre), 0));
 
   // Charges mensuelles pour runway
@@ -335,21 +387,16 @@ export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
 export function computeSeuilRentabilite(inputs: InputsData): SeuilRentabilite {
   const cr = inputs.compte_resultat || {};
   const CA = safe(cr.chiffre_affaires || cr.ca || inputs.revenue);
-  const achats = safe(cr.achats_matieres || cr.achats);
 
-  // Coûts variables = achats matières + transport (approximation)
-  let couts_variables = achats;
-  if (inputs.couts_variables) {
-    couts_variables = inputs.couts_variables.reduce((s, c) => s + safe(c.montant_annuel || (c.montant_mensuel || 0) * 12), 0);
-  }
+  // Coûts variables = achats matières (TOUJOURS depuis le CdR)
+  const couts_variables = safe(cr.achats_matieres || cr.achats);
 
-  // Coûts fixes = charges personnel + charges externes + amortissements
-  let couts_fixes = safe(cr.charges_personnel || cr.salaires) + safe(cr.charges_externes) + safe(cr.dotations_amortissements);
-  if (inputs.couts_fixes) {
-    couts_fixes = inputs.couts_fixes.reduce((s, c) => s + safe(c.montant_annuel || (c.montant_mensuel || 0) * 12), 0);
-  }
+  // Coûts fixes = charges personnel + charges externes + amortissements (TOUJOURS depuis le CdR)
+  const couts_fixes = safe(cr.charges_personnel || cr.salaires)
+    + safe(cr.charges_externes)
+    + safe(cr.dotations_amortissements);
 
-  const taux_cv = CA > 0 ? couts_variables / CA : 0.72;
+  const taux_cv = CA > 0 ? couts_variables / CA : 0.5;
   const seuil = taux_cv < 1 ? couts_fixes / (1 - taux_cv) : 0;
 
   return {
@@ -359,14 +406,257 @@ export function computeSeuilRentabilite(inputs: InputsData): SeuilRentabilite {
   };
 }
 
+// ─── RENTABILITÉ PAR ACTIVITÉ ─────────────────────────────────────
+
+export function computeRentabiliteParActivite(
+  produits: ProductProjection[],
+  services: ProductProjection[],
+  opexTotal: number,
+  CA: number,
+): Array<{ activite: string; ca: number; pct_ca: number; couts_directs: number; marge_brute: number; marge_pct: number; ebe: number }> {
+  const allProducts = [...produits, ...services];
+  if (allProducts.length === 0) return [];
+
+  return allProducts.map(p => {
+    const cy = p.par_annee?.find(a => a.annee === "CURRENT YEAR") || p.par_annee?.[2];
+    if (!cy) return null;
+    const ca_prod = cy.ca || 0;
+    const cogs = cy.cogs_total || 0;
+    const marge = ca_prod - cogs;
+    const pct_ca = CA > 0 ? (ca_prod / CA) * 100 : 0;
+    const marge_pct = ca_prod > 0 ? (marge / ca_prod) * 100 : 0;
+    const opex_alloue = CA > 0 ? opexTotal * (ca_prod / CA) : 0;
+    const ebe = marge - opex_alloue;
+    return {
+      activite: p.nom,
+      ca: round(ca_prod),
+      pct_ca: round(pct_ca, 1),
+      couts_directs: round(cogs),
+      marge_brute: round(marge),
+      marge_pct: round(marge_pct, 1),
+      ebe: round(ebe),
+    };
+  }).filter(Boolean) as any[];
+}
+
+// ─── RATIOS VS BENCHMARKS ────────────────────────────────────────
+
+export function computeRatiosVsBenchmarks(
+  ratios: RatiosSanteFinanciere,
+  guardrails: { marge_brute_min: number; marge_brute_max: number; marge_ebitda_min: number; marge_ebitda_max: number; ratio_personnel_ca_min: number; ratio_personnel_ca_max: number },
+  chargesPersonnel: number,
+  CA: number,
+): Array<{ label: string; valeur: string; benchmark: string; statut: string }> {
+  const result: Array<{ label: string; valeur: string; benchmark: string; statut: string }> = [];
+
+  const mb = ratios.rentabilite.marge_brute_pct;
+  result.push({
+    label: "Marge brute",
+    valeur: `${mb}%`,
+    benchmark: `${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%`,
+    statut: mb >= guardrails.marge_brute_min ? (mb <= guardrails.marge_brute_max ? "ok" : "attention") : (mb < guardrails.marge_brute_min * 0.7 ? "critique" : "sous"),
+  });
+
+  const ebitda = ratios.rentabilite.marge_ebitda_pct;
+  result.push({
+    label: "Marge EBITDA",
+    valeur: `${ebitda}%`,
+    benchmark: `${guardrails.marge_ebitda_min}-${guardrails.marge_ebitda_max}%`,
+    statut: ebitda >= guardrails.marge_ebitda_min ? "ok" : (ebitda < guardrails.marge_ebitda_min * 0.5 ? "critique" : "sous"),
+  });
+
+  const ratioPerso = CA > 0 ? round((chargesPersonnel / CA) * 100, 1) : 0;
+  result.push({
+    label: "Charges personnel / CA",
+    valeur: `${ratioPerso}%`,
+    benchmark: `${guardrails.ratio_personnel_ca_min}-${guardrails.ratio_personnel_ca_max}%`,
+    statut: ratioPerso <= guardrails.ratio_personnel_ca_max ? "ok" : (ratioPerso > guardrails.ratio_personnel_ca_max * 1.3 ? "critique" : "attention"),
+  });
+
+  const dscr = ratios.solvabilite.dscr;
+  if (dscr != null) {
+    result.push({
+      label: "DSCR",
+      valeur: `${dscr}x`,
+      benchmark: "≥ 1.5x",
+      statut: dscr >= 1.5 ? "ok" : (dscr < 1.2 ? "critique" : "attention"),
+    });
+  }
+
+  const endettement = ratios.solvabilite.endettement_pct;
+  if (endettement > 0) {
+    result.push({
+      label: "Endettement / Actif",
+      valeur: `${endettement}%`,
+      benchmark: "< 60%",
+      statut: endettement <= 60 ? "ok" : (endettement > 80 ? "critique" : "attention"),
+    });
+  }
+
+  return result;
+}
+
+// ─── OPEX CATEGORIES ─────────────────────────────────────────────
+
+export function computeOpexCategories(
+  opex: Record<string, Record<string, number[]>>,
+): Array<{ poste: string; montant: number; pct: number }> {
+  const LABELS: Record<string, string> = {
+    marketing: "Marketing & Communication",
+    taxes_on_staff: "Taxes sur salaires",
+    office: "Locaux & bureaux",
+    other: "Autres charges",
+    travel: "Déplacements",
+    insurance: "Assurances",
+    maintenance: "Maintenance",
+    third_parties: "Tiers & sous-traitance",
+  };
+
+  const categories: Array<{ poste: string; montant: number }> = [];
+  for (const [cat, subs] of Object.entries(opex)) {
+    let totalCY = 0;
+    for (const [, values] of Object.entries(subs)) {
+      if (Array.isArray(values) && values.length >= 4) {
+        totalCY += (values[2] || 0) + (values[3] || 0);
+      }
+    }
+    if (totalCY > 0) {
+      categories.push({ poste: LABELS[cat] || cat, montant: Math.round(totalCY) });
+    }
+  }
+
+  const total = categories.reduce((s, c) => s + c.montant, 0) || 1;
+  return categories.map(c => ({
+    poste: c.poste,
+    montant: c.montant,
+    pct: round((c.montant / total) * 100, 1),
+  })).sort((a, b) => b.montant - a.montant);
+}
+
+// ─── OPEX DETAIL ─────────────────────────────────────────────────
+
+export function computeOpexDetail(
+  opex: Record<string, Record<string, number[]>>,
+): Array<{ categorie: string; sous_poste: string; montant_cy: number; montant_y5: number }> {
+  const detail: Array<{ categorie: string; sous_poste: string; montant_cy: number; montant_y5: number }> = [];
+  for (const [cat, subs] of Object.entries(opex)) {
+    for (const [subKey, values] of Object.entries(subs)) {
+      if (Array.isArray(values) && values.length >= 9) {
+        const cy = (values[2] || 0) + (values[3] || 0);
+        const y5 = values[8] || 0;
+        if (cy > 0 || y5 > 0) {
+          detail.push({
+            categorie: cat,
+            sous_poste: subKey.replace(/_/g, " "),
+            montant_cy: Math.round(cy),
+            montant_y5: Math.round(y5),
+          });
+        }
+      }
+    }
+  }
+  return detail;
+}
+
+// ─── ECHEANCIER DETTE ────────────────────────────────────────────
+
+export function computeEcheancier(
+  loans: { ovo: { amount: number; rate: number; term_years: number }; family: { amount: number; rate: number; term_years: number }; bank: { amount: number; rate: number; term_years: number } },
+  projections: Projection[],
+  currentYear: number,
+): Array<{ label: string; is_total?: boolean; is_dscr?: boolean; dim?: boolean; annees: Array<{ annee: number; valeur: string }> }> {
+  if (loans.ovo.amount === 0 && loans.bank.amount === 0 && loans.family.amount === 0) return [];
+
+  const years = [currentYear + 1, currentYear + 2, currentYear + 3, currentYear + 4, currentYear + 5];
+  const rows: any[] = [];
+  const totalServiceByYear = years.map(() => 0);
+
+  const allLoans = [
+    { name: "Prêt OVO", ...loans.ovo },
+    { name: "Prêt bancaire", ...loans.bank },
+    { name: "Prêt famille", ...loans.family },
+  ].filter(l => l.amount > 0);
+
+  for (const loan of allLoans) {
+    const annuity = loan.term_years > 0 ? loan.amount / loan.term_years : 0;
+    const annees = years.map((y, i) => {
+      const remaining = Math.max(0, loan.term_years - i);
+      if (remaining <= 0) return { annee: y, valeur: "—" };
+      const capital = Math.round(annuity);
+      const interest = Math.round(loan.amount * loan.rate * Math.max(0, 1 - i / loan.term_years));
+      const total = capital + interest;
+      totalServiceByYear[i] += total;
+      return { annee: y, valeur: `${Math.round(total / 1000000)}M` };
+    });
+    rows.push({ label: loan.name, dim: true, annees });
+  }
+
+  rows.push({
+    label: "Service dette total",
+    is_total: true,
+    annees: years.map((y, i) => ({ annee: y, valeur: `${Math.round(totalServiceByYear[i] / 1000000)}M` })),
+  });
+
+  const projectedYears = projections.filter(p => !p.is_reel);
+  rows.push({
+    label: "DSCR",
+    is_dscr: true,
+    annees: years.map((y, i) => {
+      const proj = projectedYears[i];
+      const service = totalServiceByYear[i];
+      const dscr = service > 0 && proj ? round(proj.ebitda / service, 1) : 0;
+      return { annee: y, valeur: dscr > 0 ? `${dscr}x` : "—" };
+    }),
+  });
+
+  return rows;
+}
+
+// ─── BFR DETAIL ──────────────────────────────────────────────────
+
+export function computeBfrDetail(
+  inputs: InputsData,
+  projections: Projection[],
+): { delai_clients_jours: number; delai_fournisseurs_jours: number; stock_moyen_jours: number; bfr_montant: number; bfr_jours: number; variation_bfr: number } | null {
+  const bfr = inputs.bfr;
+  if (!bfr) return null;
+
+  const dso = safe(bfr.delai_clients_jours) || 30;
+  const dpo = safe(bfr.delai_fournisseurs_jours) || 45;
+  const dio = safe(bfr.stock_moyen_jours) || 30;
+  const bfrJours = dso + dio - dpo;
+
+  const cy = projections.find(p => p.annee === "CURRENT YEAR");
+  const ca_mensuel = cy ? cy.ca / 12 : 0;
+  const bfr_montant = Math.round(ca_mensuel * bfrJours / 30);
+
+  const ym1 = projections.find(p => p.annee === "YEAR-1");
+  const ca_mens_ym1 = ym1 ? ym1.ca / 12 : 0;
+  const bfr_ym1 = Math.round(ca_mens_ym1 * bfrJours / 30);
+  const variation = bfr_montant - bfr_ym1;
+
+  return {
+    delai_clients_jours: dso,
+    delai_fournisseurs_jours: dpo,
+    stock_moyen_jours: dio,
+    bfr_montant,
+    bfr_jours: bfrJours,
+    variation_bfr: variation,
+  };
+}
+
 // ─── PROJECTIONS 8 ANS ────────────────────────────────────────────
 
 export function computeProjections(
   inputs: InputsData,
   hyp: AIHypotheses,
   currentYear: number,
+  taxRate: number = 0.25,
 ): Projection[] {
   const cr = inputs.compte_resultat || {};
+  const hist = inputs.historique_3ans || {};
+
+  // ═══ ANNÉE COURANTE : toujours depuis le CdR ═══
   const CA_reel = safe(cr.chiffre_affaires || cr.ca || inputs.revenue);
   const achats_reel = safe(cr.achats_matieres || cr.achats);
   const charges_pers_reel = safe(cr.charges_personnel || cr.salaires);
@@ -374,71 +664,109 @@ export function computeProjections(
   const amort_reel = safe(cr.dotations_amortissements);
   const charges_fin_reel = safe(cr.charges_financieres);
   const impots_reel = safe(cr.impots);
+  const RE_reel = safe(cr.resultat_exploitation);
   const RN_reel = safe(cr.resultat_net);
-
-  const MB_reel = CA_reel - achats_reel;
   const OPEX_reel = charges_pers_reel + charges_ext_reel;
-  const EBITDA_reel = MB_reel - OPEX_reel;
-  const RE_reel = EBITDA_reel - amort_reel;
 
-  // Build 8-year projections
-  const projections: Projection[] = [];
+  // ═══ ANNÉE DE BASE : depuis l'historique, PAS new Date() ═══
+  const baseYear = safe(hist.n?.annee) || currentYear;
+
   const yearNums = [
-    currentYear - 2, currentYear - 1, currentYear,
-    currentYear + 1, currentYear + 2, currentYear + 3, currentYear + 4, currentYear + 5,
+    baseYear - 2, baseYear - 1, baseYear,
+    baseYear + 1, baseYear + 2, baseYear + 3, baseYear + 4, baseYear + 5,
   ];
 
-  // For historical years (Y-2, Y-1), we'd need historical data
-  // For now, we estimate backwards from current year
-  const taux_hist = 0.15; // average historical growth assumption
+  const projections: Projection[] = [];
 
   for (let i = 0; i < 8; i++) {
     const label = YEAR_LABELS[i];
     const yearNum = yearNums[i];
-    const isReel = i <= 2; // Y-2, Y-1, CY are "real" (or reconstructed)
+    const isReel = i <= 2;
 
     let ca: number, cogs: number, opex: number, amort: number, charges_fin: number, impots_y: number;
 
     if (i === 2) {
-      // CURRENT YEAR — données réelles
+      // ═══ CY : DONNÉES RÉELLES DU COMPTE DE RÉSULTAT ═══
       ca = CA_reel;
       cogs = achats_reel;
       opex = OPEX_reel;
       amort = amort_reel;
       charges_fin = charges_fin_reel;
-      impots_y = impots_reel;
-    } else if (i < 2) {
-      // HISTORICAL — reconstruit
-      const yearsBack = 2 - i;
-      ca = roundK(CA_reel / Math.pow(1 + taux_hist, yearsBack));
-      const cogsRate = achats_reel / (CA_reel || 1);
-      cogs = roundK(ca * cogsRate);
-      opex = roundK(OPEX_reel / Math.pow(1 + hyp.taux_croissance_opex, yearsBack));
-      amort = roundK(amort_reel * 0.9);
-      charges_fin = roundK(charges_fin_reel);
-      impots_y = roundK(impots_reel / Math.pow(1.1, yearsBack));
+      impots_y = impots_reel || (RE_reel > RN_reel ? RE_reel - RN_reel - charges_fin_reel : 0);
+
+    } else if (i === 1) {
+      // ═══ Y-1 : DONNÉES RÉELLES historique_3ans.n_moins_1 ═══
+      const h = hist.n_moins_1;
+      if (h?.ca_total) {
+        ca = safe(h.ca_total);
+        cogs = safe(h.couts_variables);
+        opex = safe(h.charges_fixes);
+        amort = 0;
+        charges_fin = 0;
+        const re_h = safe(h.resultat_exploitation);
+        const rn_h = safe(h.resultat_net);
+        impots_y = re_h > rn_h ? re_h - rn_h : 0;
+      } else {
+        // Fallback : estimer prudemment depuis CY
+        ca = roundK(CA_reel * 0.92);
+        cogs = roundK(ca * (achats_reel / (CA_reel || 1)));
+        opex = roundK(OPEX_reel * 0.90);
+        amort = 0; charges_fin = 0; impots_y = 0;
+      }
+
+    } else if (i === 0) {
+      // ═══ Y-2 : DONNÉES RÉELLES historique_3ans.n_moins_2 ═══
+      const h = hist.n_moins_2;
+      if (h?.ca_total) {
+        ca = safe(h.ca_total);
+        cogs = safe(h.couts_variables);
+        opex = safe(h.charges_fixes);
+        amort = 0;
+        charges_fin = 0;
+        const re_h = safe(h.resultat_exploitation);
+        const rn_h = safe(h.resultat_net);
+        impots_y = re_h > rn_h ? re_h - rn_h : 0;
+      } else {
+        // Fallback : estimer depuis Y-1 ou CY
+        const ym1Ca = hist.n_moins_1?.ca_total || CA_reel * 0.92;
+        ca = roundK(safe(ym1Ca) * 0.90);
+        cogs = roundK(ca * (achats_reel / (CA_reel || 1)));
+        opex = roundK(OPEX_reel * 0.80);
+        amort = 0; charges_fin = 0; impots_y = 0;
+      }
+
     } else {
-      // PROJECTED (Y+1 to Y+5)
+      // ═══ PROJECTIONS Y+1 à Y+5 ═══
       const projIdx = i - 3; // 0,1,2,3,4
       const prevProj = projections[i - 1];
 
       const growthCa = hyp.taux_croissance_ca[Math.min(projIdx, hyp.taux_croissance_ca.length - 1)] || 0.15;
-      const cogsRate = hyp.taux_cogs_cible[Math.min(projIdx, hyp.taux_cogs_cible.length - 1)] || 0.70;
+      const cogsRate = hyp.taux_cogs_cible[Math.min(projIdx, hyp.taux_cogs_cible.length - 1)] || (achats_reel / (CA_reel || 1));
 
       ca = roundK(prevProj.ca * (1 + growthCa));
       cogs = roundK(ca * cogsRate);
       opex = roundK(prevProj.opex_total * (1 + hyp.taux_croissance_opex));
-      amort = roundK(amort_reel * (1 + 0.05 * (projIdx + 1))); // slow growth
-      charges_fin = roundK(charges_fin_reel * Math.max(0.5, 1 - projIdx * 0.15)); // decreasing as loans repaid
-      const re = (ca - cogs) - opex - amort - charges_fin;
-      impots_y = re > 0 ? roundK(re * 0.25) : 0; // IS 25% simplified
+      amort = roundK(amort_reel * (1 + 0.05 * (projIdx + 1)));
+      charges_fin = roundK(charges_fin_reel * Math.max(0.3, 1 - projIdx * 0.15));
+      const re_proj = (ca - cogs) - opex - amort - charges_fin;
+      impots_y = re_proj > 0 ? roundK(re_proj * taxRate) : 0;
     }
 
-    const mb = ca - cogs;
-    const ebitda = mb - opex;
-    const re = ebitda - amort;
-    const rn = re - charges_fin - impots_y;
-    const cf = rn + amort;
+    let mb = ca - cogs;
+    let ebitda = mb - opex;
+    let re = ebitda - amort;
+    let rn = re - charges_fin - impots_y;
+    let cf = rn + amort;
+
+    // P7 — Pour CY, overrider RE et RN avec les valeurs RÉELLES du CdR
+    if (i === 2) {
+      if (RE_reel > 0) re = RE_reel;
+      if (RN_reel > 0) {
+        rn = RN_reel;
+        impots_y = RE_reel > 0 ? RE_reel - RN_reel - charges_fin : Math.max(0, re - rn - charges_fin);
+      }
+      cf = rn + amort;
+    }
 
     projections.push({
       annee: label,
@@ -551,7 +879,15 @@ export function computeProductProjections(
   }>,
   currentYear: number,
   inflation: number = 0.03,
+  historique?: InputsData['historique_3ans'],
 ): ProductProjection[] {
+  // P9 — Scale factor for historical years using real CA
+  const ca_total_cy = aiProducts.reduce((s, p) => s + (p.prix_unitaire || 0) * (p.volume_annuel || 0), 0);
+  const ca_hist_ym1 = safe(historique?.n_moins_1?.ca_total);
+  const ca_hist_ym2 = safe(historique?.n_moins_2?.ca_total);
+  const scale_ym1 = ca_total_cy > 0 && ca_hist_ym1 > 0 ? ca_hist_ym1 / ca_total_cy : 1;
+  const scale_ym2 = ca_total_cy > 0 && ca_hist_ym2 > 0 ? ca_hist_ym2 / ca_total_cy : 1;
+
   return aiProducts.map(p => {
     const pg = p.taux_croissance_prix || inflation;
     const g = p.taux_croissance_volume;
@@ -561,8 +897,13 @@ export function computeProductProjections(
     const mixCh1 = (cf[0] || 0) / totalCh;
     const mixCh2 = (cf[1] || 0) / totalCh;
 
-    const volYM2 = p.volume_ym2 || (p.volume_annuel > 0 ? Math.round(p.volume_annuel / Math.pow(1 + g, 2)) : 0);
-    const volYM1 = p.volume_ym1 || (p.volume_annuel > 0 ? Math.round(p.volume_annuel / (1 + g)) : 0);
+    // Use historique scaling if available, otherwise fallback to growth-based extrapolation
+    const volYM2 = p.volume_ym2 || (ca_hist_ym2 > 0
+      ? Math.round(p.volume_annuel * scale_ym2)
+      : (p.volume_annuel > 0 ? Math.round(p.volume_annuel / Math.pow(1 + g, 2)) : 0));
+    const volYM1 = p.volume_ym1 || (ca_hist_ym1 > 0
+      ? Math.round(p.volume_annuel * scale_ym1)
+      : (p.volume_annuel > 0 ? Math.round(p.volume_annuel / (1 + g)) : 0));
 
     const yearConfigs = [
       { label: "YEAR-2", yearNum: currentYear - 2, volume: volYM2, priceMul: 1 / ((1 + pg) * (1 + pg)) },
@@ -576,8 +917,10 @@ export function computeProductProjections(
     ];
 
     const par_annee: YearProductData[] = yearConfigs.map(yc => {
-      const price = roundK(p.prix_unitaire * yc.priceMul);
-      const cogsUnit = roundK(p.cout_unitaire * yc.priceMul);
+      const rawPrice = p.prix_unitaire * yc.priceMul;
+      const price = rawPrice < 1000 ? round(rawPrice) : roundK(rawPrice);
+      const rawCogs = p.cout_unitaire * yc.priceMul;
+      const cogsUnit = rawCogs < 1000 ? round(rawCogs) : roundK(rawCogs);
       const vol = yc.volume;
       const q1 = Math.round(vol * 0.22);
       const q2 = Math.round(vol * 0.25);
@@ -795,29 +1138,151 @@ export function computeFullPlan(
     inflation: aiAnalysis.hypotheses?.inflation || 0.03,
   };
 
+  // 0. Base year from historique
+  const baseYearEarly = safe(inputs.historique_3ans?.n?.annee) || currentYear;
+
   // 1. Ratios situation actuelle
   const ratios = computeRatios(inputs);
   const seuil = computeSeuilRentabilite(inputs);
 
   // 2. Projections 8 ans
-  const projections = computeProjections(inputs, hyp, currentYear);
+  const projections = computeProjections(inputs, hyp, baseYearEarly, fiscalParams.is / 100);
 
   // 3. Investissement total (depuis CAPEX IA)
   const capexItems = aiAnalysis.capex || [];
-  const investissement_total = capexItems.reduce((s: number, c: any) => s + safe(c.montant || c.acquisition_value), 0);
+  const capex_total = capexItems.reduce((s: number, c: any) => s + safe(c.montant || c.acquisition_value), 0);
+
+  // Investissement total = prêts + capital (PAS les CAPEX IA qui peuvent être incomplets)
+  const prets_total = (inputs.financement?.prets || []).reduce((s, p) => s + safe(p.montant), 0);
+  const capital_apport = safe(inputs.financement?.apports_capital);
+  const investissement_total = prets_total + capital_apport || capex_total || 1;
 
   // 4. Indicateurs de décision
-  const indicateurs = computeIndicateurs(projections, investissement_total);
+  // WACC simplifié par zone monétaire
+  const WACC_PAR_ZONE: Record<string, number> = {
+    'XOF': 0.18, 'XAF': 0.20, 'CDF': 0.25, 'GNF': 0.22,
+  };
+  const taux_actualisation = WACC_PAR_ZONE[fiscalParams.currency_iso] || 0.18;
+
+  const indicateurs = computeIndicateurs(projections, investissement_total, taux_actualisation);
   // Merge cycle_tresorerie and runway from ratios
   indicateurs.cycle_tresorerie = ratios.cycle_exploitation.cycle_tresorerie;
   indicateurs.runway_mois = ratios.liquidite.runway_mois;
 
-  // 5. Produits projetés
-  const produits = computeProductProjections(aiAnalysis.produits || [], currentYear, hyp.inflation);
-  const services = computeProductProjections(aiAnalysis.services || [], currentYear, hyp.inflation);
+  // 5. Produits projetés — ESTIMATION CASCADE BIDIRECTIONNELLE
+  const inputsProducts = (inputs as any).produits_services || [];
+  const cr_for_enrich = inputs.compte_resultat || {};
+  const CA_total = safe(cr_for_enrich.chiffre_affaires || cr_for_enrich.ca || inputs.revenue);
+
+  // Phase 1: Match AI products with inputs_data products
+  const aiProds = (aiAnalysis.produits || []).map((p: any) => {
+    const match = inputsProducts.find((ip: any) =>
+      ip.nom && p.nom && (ip.nom.toLowerCase().includes(p.nom.toLowerCase().slice(0, 10)) || p.nom.toLowerCase().includes(ip.nom.toLowerCase().slice(0, 10)))
+    );
+    if (match) {
+      p._inputCA = safe(match.ca_estime || match.ca_annuel);
+      p._inputVol = safe(match.volume_annuel);
+      p._inputPrix = safe(match.prix_unitaire);
+      p._inputPart = safe(match.part_ca_pct) / 100;
+      p._inputMarge = safe(match.marge_pct) || 30;
+    }
+    return p;
+  });
+
+  // Phase 2: DESCENDANT — CA total → CA par produit via parts
+  for (const p of aiProds) {
+    if (!p._inputCA && p._inputPart > 0 && CA_total > 0) {
+      p._inputCA = Math.round(CA_total * p._inputPart);
+      console.log(`[cascade↓] ${p.nom}: CA=${p._inputCA} from part=${p._inputPart}`);
+    }
+  }
+
+  // Phase 3: RÉSIDUEL — CA restant = CA_total - Σ connus
+  const knownCA = aiProds.reduce((s: number, p: any) => s + (p._inputCA || 0), 0);
+  const unknownProds = aiProds.filter((p: any) => !p._inputCA || p._inputCA === 0);
+  if (unknownProds.length > 0 && CA_total > knownCA) {
+    const residualCA = CA_total - knownCA;
+    const perProd = Math.round(residualCA / unknownProds.length);
+    for (const p of unknownProds) {
+      // Only assign residual if product has no CA at all
+      if (safe(p.prix_unitaire) > 0) {
+        // Has prix, estimate CA as 1-5% of total
+        p._inputCA = Math.round(CA_total * 0.02);
+      }
+      console.log(`[cascade↓] ${p.nom}: residual CA=${p._inputCA || 0}`);
+    }
+  }
+
+  // Phase 4: CROISÉ + MONTANT — derive prix/vol from CA
+  for (const p of aiProds) {
+    const ca = p._inputCA || 0;
+    let prix = safe(p.prix_unitaire) || safe(p._inputPrix);
+    let vol = safe(p.volume_annuel) || safe(p._inputVol);
+    const marge = p._inputMarge || 30;
+
+    // Derive missing values
+    if (ca > 0 && prix > 0 && vol === 0) {
+      vol = Math.round(ca / prix);
+    } else if (ca > 0 && vol > 0 && prix === 0) {
+      prix = Math.round(ca / vol);
+    } else if (ca > 0 && prix === 0 && vol === 0) {
+      // Both missing: estimate prix as median for sector, derive vol
+      prix = Math.max(1000, Math.round(ca / 10000));
+      vol = Math.round(ca / prix);
+    } else if (ca === 0 && prix > 0 && vol === 0) {
+      // Startup: estimate minimal volume (1% CA / prix)
+      const startupCA = Math.round(CA_total * 0.01);
+      vol = Math.max(100, Math.round(startupCA / prix));
+      console.log(`[cascade↑] ${p.nom}: startup vol=${vol} from 1% CA`);
+    }
+
+    // Apply
+    if (prix > 0) p.prix_unitaire = prix;
+    if (vol > 0) p.volume_annuel = vol;
+    if (!safe(p.cout_unitaire) && prix > 0) {
+      p.cout_unitaire = Math.round(prix * (1 - marge / 100));
+    }
+    if (ca > 0) p.part_ca = ca / (CA_total || 1);
+
+    console.log(`[cascade✓] ${p.nom}: prix=${p.prix_unitaire} vol=${p.volume_annuel} cout=${p.cout_unitaire} CA≈${(p.prix_unitaire||0)*(p.volume_annuel||0)}`);
+  }
+
+  // Phase 5: COMPLÉTION — ajouter les produits de inputs_data que l'IA a ignorés
+  const aiProdNames = new Set(aiProds.map((p: any) => p.nom?.toLowerCase().slice(0, 15)));
+  for (const ip of inputsProducts) {
+    const ipKey = ip.nom?.toLowerCase().slice(0, 15);
+    if (ipKey && !aiProdNames.has(ipKey)) {
+      // Check if any AI product matches this input product (fuzzy)
+      const alreadyMatched = aiProds.some((p: any) =>
+        p.nom && ip.nom && (p.nom.toLowerCase().includes(ipKey) || ipKey.includes(p.nom.toLowerCase().slice(0, 10)))
+      );
+      if (!alreadyMatched) {
+        const ca = safe(ip.ca_estime || ip.ca_annuel);
+        const prix = safe(ip.prix_unitaire) || (ca > 0 ? Math.max(1000, Math.round(ca / 10000)) : 1000);
+        const vol = safe(ip.volume_annuel) || (ca > 0 && prix > 0 ? Math.round(ca / prix) : Math.max(100, Math.round(CA_total * 0.01 / prix)));
+        const marge = safe(ip.marge_pct) || 30;
+        const newProd = {
+          nom: ip.nom,
+          prix_unitaire: prix,
+          cout_unitaire: Math.round(prix * (1 - marge / 100)),
+          volume_annuel: vol,
+          taux_croissance_volume: 0.15,
+          taux_croissance_prix: 0.03,
+          part_ca: ca > 0 ? ca / (CA_total || 1) : 0.01,
+          range_flags: [1, 0, 0],
+          channel_flags: [0, 1],
+        };
+        aiProds.push(newProd);
+        console.log(`[cascade+] Added missing product: ${ip.nom} prix=${prix} vol=${vol}`);
+      }
+    }
+  }
+
+  const produits = computeProductProjections(aiProds, baseYearEarly, hyp.inflation, inputs.historique_3ans);
+  const services = computeProductProjections(aiAnalysis.services || [], baseYearEarly, hyp.inflation, inputs.historique_3ans);
 
   // 6. Staff projeté
-  const staff = computeStaffProjections(aiAnalysis.staff || [], currentYear, hyp.taux_croissance_salariale);
+  const staff = computeStaffProjections(aiAnalysis.staff || [], baseYearEarly, hyp.taux_croissance_salariale);
 
   // 7. OPEX expanded
   const opex = computeOpexExpanded(aiAnalysis.opex || {});
@@ -835,11 +1300,16 @@ export function computeFullPlan(
   // 9. KPIs
   const cr = inputs.compte_resultat || {};
   const bil = inputs.bilan || {};
+  const b = extractBilan(bil);
+  const baseYear = safe(inputs.historique_3ans?.n?.annee) || currentYear;
+
   const kpis = {
     ca: safe(cr.chiffre_affaires || cr.ca || inputs.revenue),
     resultat_net: safe(cr.resultat_net),
-    tresorerie: safe(bil.tresorerie),
-    effectif: safe(inputs.effectif_total || (inputs.equipe || []).reduce((s, e) => s + safe(e.nombre), 0)),
+    tresorerie: b.tresorerie || safe(inputs.bfr?.tresorerie_depart),
+    effectif: safe(inputs.effectif_total
+      || inputs.historique_3ans?.n?.nombre_employes
+      || (inputs.equipe || []).reduce((s, e) => s + safe(e.nombre), 0)),
   };
 
   // 10. Compte de résultat réel formaté
@@ -864,11 +1334,11 @@ export function computeFullPlan(
   const total_fix = couts_fix.reduce((s, c) => s + c.montant, 0);
   const total_couts = total_var + total_fix || 1;
 
-  // 12. Years mapping
+  // 12. Years mapping (use baseYear from historique_3ans)
   const years: Record<string, number> = {
-    year_minus_2: currentYear - 2, year_minus_1: currentYear - 1, current_year: currentYear,
-    year2: currentYear + 1, year3: currentYear + 2, year4: currentYear + 3,
-    year5: currentYear + 4, year6: currentYear + 5,
+    year_minus_2: baseYear - 2, year_minus_1: baseYear - 1, current_year: baseYear,
+    year2: baseYear + 1, year3: baseYear + 2, year4: baseYear + 3,
+    year5: baseYear + 4, year6: baseYear + 5,
   };
 
   // 13. Loans
@@ -879,7 +1349,26 @@ export function computeFullPlan(
   const loansFamily = findLoan('fam');
   const loansBank = findLoan('ban');
 
-  // 14. CAPEX formatted for Excel
+  // 14. Rentabilité par activité
+  const opexReel = safe(cr.charges_personnel || cr.salaires) + safe(cr.charges_externes);
+  const rentabiliteParActivite = computeRentabiliteParActivite(produits, services, opexReel, CA);
+
+  // 15. OPEX catégories & détail
+  const opexCategories = computeOpexCategories(opex);
+  const opexDetail = computeOpexDetail(opex);
+
+  // 16. Échéancier dette
+  const loansForEcheancier = {
+    ovo: { amount: safe(loansOvo.montant), rate: safe(loansOvo.taux_pct) / 100 || 0.07, term_years: safe(loansOvo.duree_mois) / 12 || 5 },
+    family: { amount: safe(loansFamily.montant), rate: safe(loansFamily.taux_pct) / 100 || 0.10, term_years: safe(loansFamily.duree_mois) / 12 || 3 },
+    bank: { amount: safe(loansBank.montant), rate: safe(loansBank.taux_pct) / 100 || 0.12, term_years: safe(loansBank.duree_mois) / 12 || 2 },
+  };
+  const echeancier = computeEcheancier(loansForEcheancier, projections, currentYear);
+
+  // 17. BFR détaillé
+  const bfrDetail = computeBfrDetail(inputs, projections);
+
+  // 18. CAPEX formatted for Excel
   const capexFormatted = capexItems.map((c: any, i: number) => ({
     type: (c.categorie || "other").toUpperCase(),
     slot: i + 1,
@@ -899,7 +1388,7 @@ export function computeFullPlan(
     inflation_rate: hyp.inflation,
     tax_regime_1: 0.04,
     tax_regime_2: fiscalParams.is / 100,
-    current_year: currentYear,
+    current_year: baseYearEarly,
     years,
     kpis,
     compte_resultat_reel,
@@ -931,5 +1420,12 @@ export function computeFullPlan(
       payable_days: Array(10).fill(ratios.cycle_exploitation.dpo),
     },
     scenarios: scenariosCalc,
+
+    // Champs additionnels pour le frontend
+    rentabilite_par_activite: rentabiliteParActivite,
+    opex_categories: opexCategories,
+    opex_detail: opexDetail,
+    echeancier,
+    bfr_detail: bfrDetail,
   };
 }

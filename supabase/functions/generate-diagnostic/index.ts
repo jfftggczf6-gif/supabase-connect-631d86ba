@@ -6,7 +6,7 @@ import {
   getFiscalParams, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent
 } from "../_shared/helpers_v5.ts";
 import { normalizeDiagnostic, getFinancialTruth } from "../_shared/normalizers.ts";
-import { getValidationRulesPrompt, getSectorKnowledgePrompt } from "../_shared/financial-knowledge.ts";
+import { getValidationRulesPrompt, getSectorKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { detectRisks, buildRiskBlock } from "../_shared/risk-detector.ts";
 
@@ -192,7 +192,7 @@ serve(async (req) => {
       sic:           ctx.deliverableMap["sic_analysis"]   || null,
       inputs:        ctx.deliverableMap["inputs_data"]    || null,
       framework:     ctx.deliverableMap["framework_data"] || null,
-      plan_ovo:      ctx.deliverableMap["plan_ovo"]       || null,
+      plan_ovo:      ctx.deliverableMap["plan_financier"] || ctx.deliverableMap["plan_ovo"] || null,
       business_plan: ctx.deliverableMap["business_plan"]  || null,
       odd:           ctx.deliverableMap["odd_analysis"]   || null,
     };
@@ -258,6 +258,7 @@ Indique lesquels sont levés et lesquels persistent.
     const kbContext = await getKnowledgeForAgent(ctx.supabase, pays, secteur, "diagnostic");
     const validationRules = getValidationRulesPrompt();
     const sectorBenchmarks = getSectorKnowledgePrompt(secteur);
+    const contextBenchmarks = getContextualBenchmarks(pays, secteur);
 
     // Risk detection
     let riskBlock = "";
@@ -283,8 +284,9 @@ Indique lesquels sont levés et lesquels persistent.
       buildUserPrompt(ent.name, secteur, pays, agentDocs, livrables, truthBlock, progressionBlock) + coachingContext
         + riskBlock
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
-        + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}`
-        + ragContext + kbContext
+        + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}`
+        + ragContext + kbContext,
+      16384, "claude-sonnet-4-20250514"
     );
 
     const data = normalizeDiagnostic(rawData);

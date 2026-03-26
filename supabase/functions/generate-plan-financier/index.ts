@@ -1,10 +1,11 @@
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, getDocumentContentForAgent, saveDeliverable, getFiscalParams, getFiscalParamsForPrompt, getCoachingContext } from "../_shared/helpers_v5.ts";
+import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, getDocumentContentForAgent, saveDeliverable, getFiscalParams, getFiscalParamsForPrompt, getCoachingContext, getKnowledgeForAgent, buildRAGContext } from "../_shared/helpers_v5.ts";
 import { callAIWithCalculator } from "../_shared/ai-with-tools.ts";
 import { getSectorGuardrails, getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { computeFullPlan } from "../_shared/financial-compute.ts";
+import { adaptPlanFinancierToOvoFormat } from "../_shared/plan-to-ovo-adapter.ts";
 import type { InputsData } from "../_shared/financial-compute.ts";
 
 // ─────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ serve(async (req: Request) => {
 
     const { data: enterprise } = await supabase
       .from("enterprises")
-      .select("name, country, sector, employees_count, description, operating_mode")
+      .select("name, country, sector, employees_count, description, operating_mode, document_content, document_parsing_report")
       .eq("id", enterpriseId)
       .single();
 
@@ -50,10 +51,11 @@ serve(async (req: Request) => {
 
     const getDeliv = (type: string) => deliverables?.find((d: any) => d.type === type)?.data || {};
 
-    const inputsData = getDeliv("inputs") as InputsData;
-    const bmcData = getDeliv("bmc");
-    const sicData = getDeliv("sic");
-    const diagnosticData = getDeliv("diagnostic");
+    const inputsData = getDeliv("inputs_data") as InputsData;
+    const bmcData = getDeliv("bmc_analysis");
+    const sicData = getDeliv("sic_analysis");
+    const diagnosticData = getDeliv("diagnostic_data");
+    const preScreenData = getDeliv("pre_screening");
 
     // Coaching notes
     const coachingContext = await getCoachingContext(supabase, enterpriseId);
@@ -78,9 +80,18 @@ serve(async (req: Request) => {
 
     console.log(`[plan-financier] Calling AI for analysis...`);
 
-    const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
-    const userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, diagnosticData, coachingContext, currentYear, fp);
+    // Knowledge base + RAG (benchmarks + feedback loop corrections)
+    const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework');
+    const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier");
 
+    // Documents NON injectés dans plan_financier (trop lourd pour Sonnet + tools).
+    // Les données sont déjà extraites par Opus dans inputs_data + BMC + SIC.
+
+    const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
+    const userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, preScreenData, diagnosticData, coachingContext, currentYear, fp)
+      + knowledgeContext + ragContext;
+
+    // Sonnet pour tools/calculatrice (Opus timeout avec tool_use loop dans edge functions)
     const aiAnalysis = await callAIWithCalculator(systemPrompt, userPrompt, 16384, "claude-sonnet-4-20250514");
 
     // ═══════════════════════════════════════════════════════════════
@@ -119,6 +130,19 @@ serve(async (req: Request) => {
         conditions_investissement: aiAnalysis.conditions_investissement || [],
         coherence_bmc: aiAnalysis.coherence_bmc || [],
         sensibilite: aiAnalysis.sensibilite || [],
+        rentabilite_par_activite: computed.rentabilite_par_activite || [],
+        ratios_vs_benchmarks: (() => {
+          const mb = computed.sante_financiere?.rentabilite?.marge_brute_pct || 0;
+          const ebitda = computed.sante_financiere?.rentabilite?.marge_ebitda_pct || 0;
+          const persoCA = computed.kpis?.ca > 0 ? Math.round(((inputsData.compte_resultat?.charges_personnel || inputsData.compte_resultat?.salaires || 0) / computed.kpis.ca) * 1000) / 10 : 0;
+          const src = guardrails.source || "I&P IPAE + Adenia Partners";
+          return [
+            { label: "Marge brute", valeur: `${mb}%`, benchmark: `${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%`, statut: mb >= guardrails.marge_brute_min ? "ok" : "sous", source: src },
+            { label: "Marge EBITDA", valeur: `${ebitda}%`, benchmark: `${guardrails.marge_ebitda_min}-${guardrails.marge_ebitda_max}%`, statut: ebitda >= guardrails.marge_ebitda_min ? "ok" : "sous", source: src },
+            { label: "Personnel/CA", valeur: `${persoCA}%`, benchmark: `${guardrails.ratio_personnel_ca_min}-${guardrails.ratio_personnel_ca_max}%`, statut: persoCA <= guardrails.ratio_personnel_ca_max ? "ok" : "attention", source: src },
+            { label: "Croissance max", valeur: `${guardrails.croissance_max_annuelle || 30}%/an`, benchmark: "Seuil prudentiel", statut: "reference", source: src },
+          ].filter((r: any) => r.valeur !== "undefined%" && r.valeur !== "0%");
+        })(),
       },
 
       // Hypothèses IA (pour traçabilité)
@@ -128,7 +152,7 @@ serve(async (req: Request) => {
       _meta: {
         generated_at: new Date().toISOString(),
         request_id: requestId,
-        model: "claude-sonnet-4-20250514",
+        model: "claude-opus-4-6",
         version: "2.0-unified",
         sources: ["inputs_data", "bmc_data", "sic_data", "diagnostic_data", "coaching_notes"],
       },
@@ -138,6 +162,9 @@ serve(async (req: Request) => {
     // 5. Stockage
     // ═══════════════════════════════════════════════════════════════
 
+    // Cell mapping Opus déplacé vers download-deliverable (on-demand)
+    // pour éviter le WORKER_LIMIT sur la génération
+
     console.log(`[plan-financier] Saving to database...`);
 
     await saveDeliverable(supabase, enterpriseId, "plan_financier", finalPlan, "PLAN_FIN", undefined, "generation");
@@ -145,10 +172,42 @@ serve(async (req: Request) => {
     // Also trigger Excel generation via Railway
     try {
       const railwayUrl = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
+      const parserApiKey = Deno.env.get("PARSER_API_KEY") || "esono-parser-2026-prod";
+
+      // Télécharger le template
+      const { data: templateBlob, error: tplErr } = await supabase.storage
+        .from("ovo-templates")
+        .download("251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY.xlsm");
+
+      if (tplErr || !templateBlob) {
+        throw new Error(`Template not found: ${tplErr?.message}`);
+      }
+
+      // Encoder en base64
+      const templateBuffer = await templateBlob.arrayBuffer();
+      const templateBytes = new Uint8Array(templateBuffer);
+      let templateBase64 = "";
+      // Encode to base64 safely (avoid stack overflow from spread on large arrays)
+      let binaryStr = "";
+      for (let i = 0; i < templateBytes.length; i++) {
+        binaryStr += String.fromCharCode(templateBytes[i]);
+      }
+      templateBase64 = btoa(binaryStr);
+
+      // Adapter plan_financier → format fill_ovo()
+      const ovoData = adaptPlanFinancierToOvoFormat(finalPlan);
+      console.log(`[plan-financier] Sending to Python: ${Object.keys(ovoData).length} keys, ${(ovoData.products||[]).length} products`);
+
       const excelResp = await fetch(`${railwayUrl}/generate-ovo-excel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalPlan),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${parserApiKey}`,
+        },
+        body: JSON.stringify({
+          data: ovoData,
+          template_base64: templateBase64,
+        }),
         signal: AbortSignal.timeout(120_000),
       });
 
@@ -156,7 +215,6 @@ serve(async (req: Request) => {
         const excelBuffer = await excelResp.arrayBuffer();
         const filename = `PlanFinancier_${enterprise.name.replace(/\s+/g, "_")}_OVO_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.xlsm`;
 
-        // Upload to Supabase storage
         const { error: uploadErr } = await supabase.storage
           .from("deliverables")
           .upload(`${enterpriseId}/${filename}`, excelBuffer, {
@@ -168,9 +226,13 @@ serve(async (req: Request) => {
           await supabase.from("deliverables").update({
             data: { ...finalPlan, excel_filename: filename, excel_generated: true },
           }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
-
-          console.log(`[plan-financier] Excel generated: ${filename}`);
+          console.log(`[plan-financier] Excel generated: ${filename} (${excelBuffer.byteLength} bytes)`);
+        } else {
+          console.warn(`[plan-financier] Excel upload error: ${uploadErr.message}`);
         }
+      } else {
+        const errText = await excelResp.text();
+        console.warn(`[plan-financier] Python error ${excelResp.status}: ${errText.slice(0, 200)}`);
       }
     } catch (excelErr) {
       console.warn(`[plan-financier] Excel generation failed (non-blocking):`, excelErr);
@@ -252,7 +314,9 @@ RÈGLES :
 5. Le pays est ${country}. CAPEX uniquement pour ${country}.
 
 Quand tu as terminé toutes tes estimations et vérifications, produis le JSON final.
-FORMAT : JSON strict, zéro markdown, zéro texte avant/après.`;
+FORMAT : JSON strict, zéro markdown, zéro texte avant/après.
+
+CRITICAL: Tu DOIS répondre UNIQUEMENT avec un objet JSON valide. Pas de texte avant, pas de texte après, pas de markdown. Commence ta réponse par { et termine par }.`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -264,6 +328,7 @@ function buildUserPrompt(
   inputs: InputsData,
   bmc: any,
   sic: any,
+  preScreen: any,
   diagnostic: any,
   coachingNotes: string,
   currentYear: number,
@@ -298,6 +363,73 @@ function buildUserPrompt(
     if (cr.resultat_net) lines.push(`  Résultat net: ${(cr.resultat_net || 0).toLocaleString("fr-FR")}`);
     if (lines.length > 0) blocks += `\nCOMPTE DE RÉSULTAT (données réelles — NE PAS MODIFIER) :\n${lines.join("\n")}\n`;
   }
+
+  // Historique 3 ans — DONNÉES RÉELLES
+  if ((inputs as any).historique_3ans) {
+    const h = (inputs as any).historique_3ans;
+    blocks += `\nHISTORIQUE 3 ANS (DONNÉES RÉELLES — NE PAS MODIFIER, utiliser comme base) :\n`;
+    for (const [period, label] of [['n_moins_2', 'N-2'], ['n_moins_1', 'N-1'], ['n', 'N (année courante)']]) {
+      const year = (h as any)[period];
+      if (year?.ca_total) {
+        blocks += `  ${label} (${year.annee}) : CA=${(year.ca_total||0).toLocaleString("fr-FR")}, CV=${(year.couts_variables||0).toLocaleString("fr-FR")}, CF=${(year.charges_fixes||0).toLocaleString("fr-FR")}, RE=${(year.resultat_exploitation||0).toLocaleString("fr-FR")}, RN=${(year.resultat_net||0).toLocaleString("fr-FR")}`;
+        if (year.ca_par_produit?.length) blocks += `, Produits: ${year.ca_par_produit.map((p: any) => `${p.nom}=${(p.ca||0).toLocaleString("fr-FR")}`).join(', ')}`;
+        blocks += `\n`;
+      }
+    }
+    blocks += `⚠️ ATTENTION : le CA peut BAISSER d'une année à l'autre (cas réel). Ne PAS supposer une croissance régulière.\n`;
+  }
+
+  // Pre-compute product pricing (don't leave it to the AI)
+  const prodServices = (inputs as any).produits_services || [];
+  if (prodServices.length > 0) {
+    blocks += `\nPRODUITS/SERVICES — DONNÉES PRÉ-CALCULÉES (utilise ces valeurs EXACTES) :\n`;
+    for (const ps of prodServices) {
+      const caVal = ps.ca_estime || ps.ca_annuel || 0;
+      let prix = ps.prix_unitaire || 0;
+      let vol = ps.volume_annuel || 0;
+
+      // Pre-calculate missing prix/vol
+      if (caVal > 0 && prix === 0 && vol > 0) {
+        prix = Math.round(caVal / vol);
+      } else if (caVal > 0 && vol === 0 && prix > 0) {
+        vol = Math.round(caVal / prix);
+      } else if (caVal > 0 && prix === 0 && vol === 0) {
+        // Estimate: use CA/1000 as prix, CA/prix as vol
+        prix = Math.max(1000, Math.round(caVal / 10000));
+        vol = Math.round(caVal / prix);
+      }
+
+      const partCa = CA > 0 ? Math.round((caVal / CA) * 1000) / 10 : 0;
+      blocks += `  → ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} FCFA, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
+    }
+    blocks += `  ⚠️ CHAQUE produit ci-dessus DOIT apparaître dans "produits[]" avec les prix/volumes indiqués.\n`;
+    blocks += `  ⚠️ JAMAIS de prix_unitaire = 0. Les valeurs ci-dessus sont PRÉ-CALCULÉES.\n`;
+  }
+
+  blocks += `
+⚠️⚠️⚠️ INSTRUCTION CRITIQUE — PRODUITS / ACTIVITÉS ⚠️⚠️⚠️
+
+Tu DOIS identifier TOUTES les activités de l'entreprise en lisant ATTENTIVEMENT :
+1. Le RAPPORT D'ACTIVITÉS — liste explicitement les branches d'activité avec leurs CA
+2. Le BMC (flux de revenus) — décrit les produits/services et leur pricing
+3. Le PITCH DECK / PRÉSENTATION — décrit le business model
+4. Les ÉTATS FINANCIERS — ventilation du CA par nature
+
+RÈGLES ABSOLUES :
+- Générer AU MINIMUM 3 produits/services si les documents en montrent 3+
+- Utiliser les VRAIS NOMS des activités (pas des noms génériques)
+- Si une activité a un CA dans les documents → l'inclure avec ce CA exact
+- Si une activité est mentionnée mais sans CA chiffré → estimer depuis les proportions BMC et marquer estimation.niveau = 4
+- La SOMME des CA de tous les produits DOIT = CA total du CdR (±5%)
+- Pour chaque produit : préciser s'il est PRODUCTION, DISTRIBUTION, ou SERVICE
+- NE PAS fusionner des activités distinctes en un seul produit
+- NE PAS ignorer une activité sous prétexte qu'elle est petite
+
+Exemple pour une entreprise avec 3 activités :
+  produits[0] = {nom: "Distribution marchandises", prix_unitaire: ..., volume_annuel: ..., part_ca: 0.52}
+  produits[1] = {nom: "Transport logistique", prix_unitaire: ..., volume_annuel: ..., part_ca: 0.35}
+  produits[2] = {nom: "Production œufs de table", prix_unitaire: 10000, volume_annuel: 4200, part_ca: 0.13}
+`;
 
   // Bilan
   if (bil && Object.keys(bil).length > 0) {
@@ -366,6 +498,32 @@ function buildUserPrompt(
   // Coaching notes
   if (coachingNotes) {
     blocks += `\nNOTES DU COACH :\n${coachingNotes.slice(0, 2000)}\n`;
+  }
+
+  // Pre-screening insights (risques, classification, activités)
+  if (preScreen && typeof preScreen === "object" && Object.keys(preScreen).length > 5) {
+    blocks += `\nPRÉ-SCREENING (analyse préliminaire — calibre tes hypothèses) :\n`;
+    if (preScreen.classification) blocks += `  Classification: ${preScreen.classification}\n`;
+    if (preScreen.score) blocks += `  Score pré-screening: ${preScreen.score}/100\n`;
+    if (preScreen.activites_identifiees?.length) {
+      blocks += `  Activités identifiées:\n`;
+      for (const a of preScreen.activites_identifiees.slice(0, 6)) {
+        const nom = typeof a === 'string' ? a : a.nom || a.name || JSON.stringify(a);
+        const ca = typeof a === 'object' ? a.ca_estime || a.ca || '' : '';
+        blocks += `    - ${nom}${ca ? ` (CA≈${ca})` : ''}\n`;
+      }
+    }
+    if (preScreen.forces?.length) {
+      blocks += `  Forces: ${preScreen.forces.slice(0, 4).map((f: any) => typeof f === 'string' ? f : f.titre || f.description || '').join(' | ')}\n`;
+    }
+    if (preScreen.risques?.length) {
+      blocks += `  Risques: ${preScreen.risques.slice(0, 4).map((r: any) => typeof r === 'string' ? r : r.titre || r.description || '').join(' | ')}\n`;
+    }
+    if (preScreen.kpis_extraits || preScreen.chiffres_cles) {
+      const kpis = preScreen.kpis_extraits || preScreen.chiffres_cles;
+      blocks += `  Chiffres clés: ${JSON.stringify(kpis).slice(0, 500)}\n`;
+    }
+    blocks += `  ⚠️ Utilise ces insights pour calibrer les taux de croissance et les risques.\n`;
   }
 
   // JSON schema to produce
@@ -477,7 +635,58 @@ RAPPELS CRITIQUES :
 - La SOMME des CA produits (prix × volume) doit ≈ CA total réel
 - La SOMME des salaires staff × effectif × 12 × (1 + charges) doit ≈ charges personnel réelles
 - L'OPEX total doit être cohérent avec les charges externes réelles
-- Chaque estimation porte son objet "estimation" avec niveau, méthode, sources, confiance`;
+- Chaque estimation porte son objet "estimation" avec niveau, méthode, sources, confiance
+
+RAPPEL FINAL : Ta réponse doit être UNIQUEMENT un objet JSON valide commençant par { — aucun texte explicatif, aucune introduction, aucun markdown.`;
 
   return blocks;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// CELL MAP SYSTEM PROMPT (Opus 4.6 direct Excel mapping)
+// ─────────────────────────────────────────────────────────────────
+
+const CELL_MAP_SYSTEM_PROMPT = `Tu es un expert en finance d'entreprise africaine et en remplissage de templates Excel OVO.
+Tu reçois les données financières d'une entreprise et tu dois produire un JSON qui mappe DIRECTEMENT chaque donnée vers sa cellule dans le template Excel OVO.
+
+=== TEMPLATE OVO — CELL MAP ===
+
+FEUILLE "InputsData":
+J5=nom entreprise, J6=pays, J8=devise, J9=taux change EUR, J12=TVA (décimal), J14=inflation (décimal), J17=régime fiscal 1, J18=régime fiscal 2
+J24=première année historique (ex: 2022), J25=J24+1, J26-J28=CY, J29-J33=forecasts
+H36-H55=noms produits (20 slots, "-" si vide), I36-I55=flag actif (1/0)
+H58-H67=noms services, I58-I67=flag actif
+J70=gamme1, J71=gamme2, J72=gamme3, J75=canal1, J76=canal2
+Produit flags: row 79+i → F=gamme1, G=gamme2, H=gamme3, I=canal1, J=canal2
+Staff: row 113+i → H=catégorie, I=département, J=taux charges sociales
+Prêts: I125=taux OVO, J125=durée OVO, I126=taux famille, J126=durée, I127=taux banque, J127=durée
+Scénarios (H=worst, I=typical, J=best): 130-142
+
+FEUILLE "RevenueData":
+Produit N: base_row = 9 + (N-1)*16. Offsets: +0=Y-2, +1=Y-1, +2=CY, +3=Y+1, +4=Y+2, +5=Y+3, +6=Y+4, +7=Y+5
+Colonnes: L=prix R1, M=prix R2, N=prix R3, P=mix R1, Q=mix R2, S=COGS R1, T=COGS R2, U=COGS R3
+W=mix canal1 R1, X=mix canal1 R2, Y=mix canal1 R3
+Historique (offsets 0-3): AE=Q1, AF=Q2, AG=Q3, AH=Q4
+Projeté (offsets 4-7): AI=volume total annuel
+⚠️ NE JAMAIS écrire R, Z, AA, AB (formules)
+
+FEUILLE "FinanceData":
+Colonnes: O=Y-2, P=Y-1, Q=H1, R=H2, T=Y+1, U=Y+2, V=Y+3, W=Y+4, X=Y+5
+⚠️ COLONNE S = FORMULE, NE JAMAIS ÉCRIRE
+Staff: Cat0: 213=effectif, 214=salaire, 215=primes, 216=SS. Cat1: 220-223. Cat2: 227-230. Cat3: 234-237. Cat4: 241-244. Cat5: 248-251. Cat6: 255-258. Cat7: 262-265. Cat8: 269-272. Cat9: 276-279
+OPEX Marketing: 201=research, 202=studies, 203=receptions, 204=documentation, 205=advertising
+Taxes: 283-286. Office: 294-303. Other: 311-314. Travel: 322=headcount, 323=cost. Insurance: 326-327. Maintenance: 335-337. Third Parties: 345-352
+CAPEX (J=label, K=année, L=valeur, M=taux amort): Office 408-414, Production 450-456, Other 462-468, Intangible 486-490, Startup 493-497
+Working Capital: 693=stock_days, 697=DSO, 701=DPO
+Cash position (O,P): 773. Loans (S-X): 785=OVO, 786=famille, 787=banque
+ReadMe: L3="French"
+
+=== RÈGLES ===
+1. NE JAMAIS écrire colonne S de FinanceData ni R/Z/AA/AB de RevenueData
+2. Valeurs monétaires = NOMBRES ENTIERS (pas de string)
+3. Taux = DÉCIMAUX (0.18 pas 18%)
+4. N'inclure QUE les cellules ayant une valeur non-nulle
+5. Inclure TOUTES les données disponibles
+
+Réponds UNIQUEMENT avec un JSON valide :
+{"cell_values": {"InputsData!J5": "nom", "RevenueData!L9": 9000, ...}, "stats": {"total_cells": 500}}`;

@@ -551,8 +551,10 @@ export function normalizeDiagnostic(raw: any): any {
 
   const d = { ...raw };
 
-  // Score
-  d.score_global = toNumber(pick(d, 'score_global', 'score', 'score_investment_readiness'), 0);
+  // Score — fallback to verdict_readiness.score if root score is 0
+  const rootScore = toNumber(pick(d, 'score_global', 'score', 'score_investment_readiness'), 0);
+  const verdictScore = toNumber(d.verdict_readiness?.score, 0);
+  d.score_global = rootScore > 0 ? rootScore : verdictScore;
   d.score = d.score_global;
 
   // Palier: only auto-calculate if AI didn't provide one

@@ -8,13 +8,13 @@
 
 import { CALCULATOR_TOOLS, executeCalculatorTool } from "./financial-calculator-tools.ts";
 
-const MAX_TOOL_ROUNDS = 25; // Safety: max 25 allers-retours
+const MAX_TOOL_ROUNDS = 10; // Reduced: Sonnet 4.6 is thorough, 10 rounds is plenty
 
 export async function callAIWithCalculator(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number = 16384,
-  model: string = "claude-sonnet-4-20250514",
+  model: string = "claude-sonnet-4-20250514",  // Sonnet 4 — 4.6 gets stuck in tool loops
 ): Promise<Record<string, any>> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
@@ -51,6 +51,13 @@ export async function callAIWithCalculator(
     const result = await response.json();
     const stopReason = result.stop_reason;
     const content = result.content || [];
+
+    // Token tracking
+    const usage = result.usage;
+    if (usage) {
+      const cost = ((usage.input_tokens || 0) * 3 + (usage.output_tokens || 0) * 15) / 1_000_000;
+      console.log(`[cost] tool-round ${round}: ${usage.input_tokens || 0} in + ${usage.output_tokens || 0} out = $${cost.toFixed(4)}`);
+    }
 
     // Add assistant response to conversation
     messages.push({ role: "assistant", content });
@@ -101,6 +108,11 @@ export async function callAIWithCalculator(
 
       // Add tool results to conversation
       messages.push({ role: "user", content: toolResults });
+
+      // Force completion when approaching limit
+      if (round >= MAX_TOOL_ROUNDS - 2) {
+        messages.push({ role: "user", content: [{ type: "text", text: "Tu as fait suffisamment de calculs. Produis maintenant le JSON final avec toutes les données collectées. NE FAIS PLUS d'appels outils." }] });
+      }
     }
   }
 

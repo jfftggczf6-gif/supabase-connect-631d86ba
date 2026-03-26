@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
 import { normalizeInputs } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
-import { getExtractionKnowledgePrompt } from "../_shared/financial-knowledge.ts";
+import { getExtractionKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 
 /* ───── Financial document detection ───── */
@@ -77,6 +77,12 @@ function buildEmptyInputs(name: string, sector: string, country: string, devise:
     kpis: { marge_brute_pct: "N/A", marge_nette_pct: "N/A", ratio_endettement_pct: "N/A" },
     donnees_manquantes: ["Aucun document financier uploadé — veuillez uploader le template Analyse Financière Excel"],
     hypotheses: [],
+    // Champs enrichis (extraction profonde)
+    concurrents_mentionnes: [],
+    certifications_normes: [],
+    partenariats_contrats: [],
+    organigramme: { dirigeant: "", nb_cadres: 0, nb_employes: 0, departements: [] },
+    contexte_marche: { taille_estimee: "", croissance: "", positionnement: "" },
   };
 }
 
@@ -84,18 +90,46 @@ function buildEmptyInputs(name: string, sector: string, country: string, devise:
 
 const buildSystemPrompt = (devise: string) => `Tu es un analyste financier expert certifié SYSCOHADA révisé (2017), spécialisé PME africaines (zones UEMOA/CEMAC).
 
-MISSION: EXTRAIRE les données financières HISTORIQUES des documents fournis (comptes de résultat, bilans, états financiers, templates Excel multi-feuilles).
-Tu NE FAIS PAS de projections, PAS de scénarios, PAS de plan d'action.
+MISSION: EXTRAIRE les données financières HISTORIQUES des documents fournis (comptes de résultat, bilans, états financiers, templates Excel multi-feuilles), puis ESTIMER les données manquantes.
+Tu NE FAIS PAS de projections futures, PAS de scénarios, PAS de plan d'action.
 
-ATTENTION CRITIQUE: Si les documents fournis sont des questionnaires BMC, des canvas d'impact social, ou tout document NON FINANCIER (pas de compte de résultat, pas de bilan, pas de P&L, pas de template Excel financier), retourne TOUTES les valeurs numériques à 0 et score à 0. N'invente AUCUN chiffre à partir de descriptions narratives.
+═══ HIÉRARCHIE DES SOURCES (par ordre de fiabilité) ═══
+
+NIVEAU 1 — EXTRACTION DIRECTE (source: "état_financier")
+  Chiffres extraits des CdR, bilans, relevés bancaires, déclarations fiscales.
+  Fiabilité maximale. À utiliser en priorité absolue.
+
+NIVEAU 2 — CALCUL CROISÉ (source: "calcul_croisé")
+  Déduction logique depuis d'autres données extraites.
+  Ex: masse salariale = effectif × salaire moyen extrait
+  Ex: marge brute = CA - achats (les 2 extraits du CdR)
+  Ex: CA par produit = CA total × part déclarée dans le rapport d'activités
+
+NIVEAU 3 — ESTIMATION SECTORIELLE (source: "estimation_sectorielle")
+  Quand une donnée est absente ET non déductible, estimer depuis les benchmarks du secteur.
+  Ex: pas de charges externes documentées → estimer 10-15% du CA (benchmark PME Afrique)
+  Ex: pas de BFR documenté → DSO=30j, DPO=45j, stock=30j (défauts sectoriels)
+  Ex: pas de prix unitaire → benchmark du secteur + position concurrentielle
+
+NIVEAU 4 — INCONNU (valeur: 0, source: "non_documenté")
+  UNIQUEMENT quand aucune estimation n'est possible (ex: dette financière sans aucun document).
+  Ajouter une note expliquant ce qui manque.
+
+═══ RÈGLE ABSOLUE : JAMAIS DE 0 SILENCIEUX ═══
+Si une valeur est 0, tu DOIS indiquer pourquoi dans "source":
+- "état_financier" → le document dit explicitement 0
+- "non_documenté" → pas de source, impossible d'estimer
+INTERDIT de mettre 0 sans explication. Les agents en aval (BMC, SIC, Framework)
+lisent ces données — un 0 silencieux casse toute l'analyse.
 
 RÈGLES D'EXTRACTION:
-1. Analyse CHAQUE feuille/section/onglet du document uploadé. Ne te limite pas à un résumé — extrais toutes les données structurées disponibles.
-2. Extrais UNIQUEMENT les chiffres présents dans les documents uploadés.
-3. Si une donnée n'est pas dans les documents, mets 0 (ne l'invente PAS).
-4. Vérifie la cohérence: Total Actif = Total Passif, Résultat net cohérent.
-5. Tous les montants en ${devise} sans séparateurs de milliers dans les champs numériques.
-6. Le score reflète la COMPLÉTUDE des données extraites (100 = toutes les données trouvées).
+1. Analyse CHAQUE feuille/section/onglet du document uploadé.
+2. NIVEAU 1 d'abord : extrais les chiffres présents dans les documents.
+3. NIVEAU 2 ensuite : déduis par calcul croisé ce qui manque.
+4. NIVEAU 3 enfin : estime depuis les benchmarks sectoriels les postes manquants.
+5. Vérifie la cohérence: Total Actif = Total Passif, Résultat net cohérent.
+6. Tous les montants en ${devise} sans séparateurs de milliers.
+7. Le score reflète : 90-100 = niveau 1 complet, 60-89 = niveaux 1+2, 30-59 = niveaux 1+2+3, 0-29 = presque tout estimé.
 
 DEVISE :
 - Détecte la devise utilisée dans les documents fournis (USD, EUR, FCFA/XOF, XAF, CDF, GNF, MGA, etc.)
@@ -122,6 +156,33 @@ FEUILLES À ANALYSER SYSTÉMATIQUEMENT (si présentes):
 - Hypothèses de croissance / Projections → hypotheses_croissance
 
 ${getExtractionKnowledgePrompt()}
+
+═══ CROISEMENT OBLIGATOIRE DES SOURCES ═══
+
+Pour chaque section, tu DOIS croiser TOUTES les sources disponibles :
+
+PRODUITS_SERVICES — MÉTHODE DE CROISEMENT :
+1. ÉTATS FINANCIERS (CdR) → postes comptables : "Ventes de marchandises", "Travaux, services vendus", "Production vendue"
+2. RAPPORT D'ACTIVITÉS → branches d'activité avec leurs CA détaillés par ligne de métier
+3. BMC flux_revenus → produit principal, prix moyen, volume estimé, CA mensuel
+4. PITCH DECK / PRÉSENTATION → description des activités et leur contribution
+
+RÈGLE : Si le rapport d'activités mentionne une activité avec un CA chiffré (même partiel),
+elle DOIT apparaître dans produits_services avec son CA. Même si le CdR ne la ventile pas.
+
+Exemple de croisement :
+- CdR dit "Ventes marchandises = 238M" (poste agrégé)
+- Rapport dit "Distribution = 653M (commissions 157M + distribution 331M + ventes 106M + prestations 59M)"
+- Rapport dit "Oeufs = 140 plaquettes/jour à 10 000 FCFA" → CA ≈ 140 × 365 × 10 000 × 0.7 (taux occupation) = 358M (2025)
+- BMC dit "CA mensuel agriculture = 39M" → CA annuel ≈ 468M
+→ Résultat : 3 produits_services avec CA estimé pour chacun
+
+HISTORIQUE ca_par_produit — MÉTHODE DE CROISEMENT :
+- Pour chaque année historique, ventiler le CA total entre les activités
+- Utiliser les proportions du rapport d'activités si disponibles
+- Si une activité était en démarrage (ex: œufs commencés en 2024 avec 22 plaquettes/jour),
+  estimer son CA pour cette année : 22 × 365 × 10 000 × 0.5 (demi-année) = ~40M
+- La somme des ca_par_produit DOIT ≈ ca_total (±5%)
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
@@ -197,23 +258,35 @@ Analyse CHAQUE feuille/section du document. Extrais et retourne ce JSON COMPLET:
 
   "produits_services": [
     {
-      "nom": "<nom exact du produit/service tel que dans le document>",
+      "nom": "<nom réel de l'activité — JAMAIS de nom générique>",
       "type": "Produit|Service",
-      "prix_unitaire": <number exact du document, ou 0 si absent>,
-      "cout_unitaire": <number exact du document, ou estimé via marge sectorielle>,
-      "unite": "<unité telle que dans le document (unité, kg, m³, prestation, etc.)>",
-      "marge_pct": <number calculé ou estimé via benchmark sectoriel>,
-      "volume_annuel": <number si disponible dans le document, sinon 0>,
-      "source": "<document|estimé_sectoriel>"
+      "prix_unitaire": <number — JAMAIS 0. Croiser: CdR CA÷vol, BMC flux_revenus prix_moyen, rapport d'activités, benchmark sectoriel>,
+      "cout_unitaire": <number — JAMAIS 0. Croiser: CdR achats÷vol, BMC structure_couts, marge sectorielle × prix>,
+      "unite": "<unité: plaquette, article, prestation, commande, lot, etc.>",
+      "marge_pct": <number — calculé = (prix - cout) / prix × 100>,
+      "volume_annuel": <number — JAMAIS 0. Croiser: CA÷prix, rapport d'activités (volumes, nb clients × fréquence), BMC volume_estime>,
+      "ca_estime": <number — JAMAIS 0. = prix × volume. Si pas dans CdR, estimer depuis rapport d'activités ou BMC>,
+      "ca_annuel": <number — idem>,
+      "part_ca_pct": <number — = ca_estime ÷ CA_total × 100>,
+      "taux_croissance_historique": <number — ex: 0.15 si +15%/an. Calculer depuis historique si disponible>,
+      "source": "<état_financier|rapport_activite|bmc|estimé_croisement>"
     }
   ],
+
+  ⚠️ RÈGLE PRODUITS ABSOLUE :
+  - CHAQUE produit DOIT avoir prix_unitaire > 0, volume_annuel > 0, ca_estime > 0
+  - Si le CdR ne ventile pas par produit → utiliser le rapport d'activités ou le BMC
+  - Si aucune source ne donne le prix → estimer depuis benchmark sectoriel et marquer source="estimé_croisement"
+  - La SOMME des ca_estime de tous les produits DOIT ≈ CA total du CdR (±10%)
+  - Si une activité est en démarrage (CA petit) → l'inclure quand même avec le CA estimé
 
   "equipe": [
     {
       "poste": "<intitulé du poste>",
       "nombre": <number>,
-      "salaire_mensuel": <number si disponible, sinon 0>,
-      "charges_sociales_pct": <number si disponible, sinon 0>
+      "salaire_mensuel": <number — si pas documenté: SMIG local × coefficient poste>,
+      "charges_sociales_pct": <number — si pas documenté: 18% UEMOA, 5.5% RDC>,
+      "source": "état_financier | estimation_sectorielle"
     }
   ],
 
@@ -221,23 +294,35 @@ Analyse CHAQUE feuille/section du document. Extrais et retourne ce JSON COMPLET:
     {
       "poste": "<ex: matières premières, logistique, emballages, commissions>",
       "montant_mensuel": <number>,
-      "montant_annuel": <number>
+      "montant_annuel": <number>,
+      "source": "état_financier | calcul_croisé | estimation_sectorielle"
     }
   ],
+  ⚠️ Si aucun coût variable documenté mais CA > 0 → estimer depuis marge brute sectorielle :
+  - Agro-industrie: coûts variables ≈ 50-65% du CA
+  - Commerce: ≈ 75-85% du CA
+  - Services: ≈ 30-45% du CA
+  - BTP: ≈ 60-75% du CA
 
   "couts_fixes": [
     {
       "poste": "<ex: loyer, électricité, eau, maintenance, marketing, admin, assurances>",
       "montant_mensuel": <number>,
-      "montant_annuel": <number>
+      "montant_annuel": <number>,
+      "source": "état_financier | calcul_croisé | estimation_sectorielle"
     }
   ],
+  ⚠️ Si aucun coût fixe documenté mais effectif > 0 → estimer au minimum :
+  - Loyer bureau: 100K-500K FCFA/mois selon ville
+  - Électricité/eau: 50K-200K FCFA/mois
+  - Télécom/internet: 30K-100K FCFA/mois
+  - Assurances: 1-2% du CA/an
 
   "bfr": {
-    "delai_clients_jours": <number>,
-    "delai_fournisseurs_jours": <number>,
-    "stock_moyen_jours": <number>,
-    "tresorerie_depart": <number>
+    "delai_clients_jours": <number — défaut: 30j services, 0j commerce détail, 60j BTP>,
+    "delai_fournisseurs_jours": <number — défaut: 45j>,
+    "stock_moyen_jours": <number — défaut: 30j industrie, 15j commerce, 0j services>,
+    "tresorerie_depart": <number — si bilan disponible: trésorerie actif, sinon 0>
   },
 
   "investissements": [
@@ -286,7 +371,26 @@ Analyse CHAQUE feuille/section du document. Extrais et retourne ce JSON COMPLET:
   },
 
   "donnees_manquantes": ["<donnée non trouvée dans les documents>"],
-  "hypotheses": ["<hypothèse utilisée pour compléter>"]
+  "hypotheses": ["<hypothèse utilisée pour compléter>"],
+
+  "concurrents_mentionnes": [
+    {"nom": "<nom du concurrent mentionné dans les documents>", "positionnement": "<description>", "source": "<document>"}
+  ],
+  "certifications_normes": ["<HACCP, ISO, OHADA, label qualité, etc. mentionnés>"],
+  "partenariats_contrats": [
+    {"partenaire": "<nom>", "type": "<fournisseur|client|financier|technique>", "detail": "<description>", "source": "<document>"}
+  ],
+  "organigramme": {
+    "dirigeant": "<nom du dirigeant/DG>",
+    "nb_cadres": <number>,
+    "nb_employes": <number>,
+    "departements": ["<liste des départements/services mentionnés>"]
+  },
+  "contexte_marche": {
+    "taille_estimee": "<taille marché mentionnée dans les documents>",
+    "croissance": "<taux croissance mentionné>",
+    "positionnement": "<Leader/Challenger/Niche/Nouvel entrant>"
+  }
 }
 
 RÈGLES PRODUITS/SERVICES :
@@ -447,11 +551,30 @@ EXEMPLES :
     }
 
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "inputs");
+
+    // Inject pre_screening insights if available (activities, risks, scores)
+    let preScreenContext = "";
+    const preScreen = ctx.deliverableMap["pre_screening"];
+    if (preScreen && typeof preScreen === "object" && Object.keys(preScreen).length > 5) {
+      const ps = preScreen;
+      preScreenContext = `\n\n══════ PRÉ-SCREENING (analyse préliminaire — UTILISE CES INSIGHTS) ══════\n`;
+      if (ps.classification) preScreenContext += `Classification: ${ps.classification}\n`;
+      if (ps.activites_identifiees?.length) preScreenContext += `Activités identifiées: ${ps.activites_identifiees.map((a: any) => typeof a === 'string' ? a : a.nom || a.name).join(', ')}\n`;
+      if (ps.chiffres_cles) preScreenContext += `Chiffres clés: ${JSON.stringify(ps.chiffres_cles)}\n`;
+      if (ps.forces?.length) preScreenContext += `Forces: ${ps.forces.slice(0, 5).map((f: any) => typeof f === 'string' ? f : f.titre || f).join(' | ')}\n`;
+      if (ps.risques?.length) preScreenContext += `Risques: ${ps.risques.slice(0, 5).map((r: any) => typeof r === 'string' ? r : r.titre || r).join(' | ')}\n`;
+      preScreenContext += `⚠️ Utilise ces informations pour identifier TOUTES les activités et estimer les CA par produit.\n`;
+    }
+
+    const benchmarks = getContextualBenchmarks(ent.country || "Côte d'Ivoire", ent.sector || "services_b2b");
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData, fiscalParams.devise
-    ) + mergeInstruction + ragContext + kbContext + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`;
+    ) + mergeInstruction + ragContext + kbContext + preScreenContext
+      + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`
+      + `\n\n${benchmarks}`;
 
-    const rawData = await callAI(injectGuardrails(buildSystemPrompt(fiscalParams.devise)), enrichedPrompt, 16384);
+    const rawData = await callAI(injectGuardrails(buildSystemPrompt(fiscalParams.devise)), enrichedPrompt, 16384, "claude-opus-4-6");
     const normalized = normalizeInputs(rawData);
     const data = validateAndEnrich(normalized, ent.country, ent.sector);
 

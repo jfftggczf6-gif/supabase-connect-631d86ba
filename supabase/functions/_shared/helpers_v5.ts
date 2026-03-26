@@ -254,7 +254,7 @@ export function getDocumentContentForAgent(
   return reordered.trim() || fullContent.substring(0, maxChars);
 }
 
-export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-20250514", temperature = 0) {
+export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-6", temperature = 0) {
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
   const doCall = async (mt: number): Promise<string> => {
@@ -290,6 +290,13 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
     const aiResult = await aiResponse.json();
     if (aiResult.stop_reason === "max_tokens") {
       console.warn(`AI response truncated (max_tokens=${mt} reached)`);
+    }
+    // Token tracking
+    const usage = aiResult.usage;
+    if (usage) {
+      const inputCost = (usage.input_tokens || 0) * (model.includes("opus") ? 15 : 3) / 1_000_000;
+      const outputCost = (usage.output_tokens || 0) * (model.includes("opus") ? 75 : 15) / 1_000_000;
+      console.log(`[cost] ${model.slice(0,20)}: ${usage.input_tokens || 0} in + ${usage.output_tokens || 0} out = $${(inputCost + outputCost).toFixed(4)}`);
     }
     return aiResult.content?.[0]?.text || "";
   };
@@ -465,7 +472,7 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     enterprise_id,
     type,
     data,
-    score: data.score || data.score_global || null,
+    score: data.score ?? data.score_global ?? data.verdict_readiness?.score ?? null,
     html_content: htmlContent || null,
     ai_generated: true,
     version: newVersion,
@@ -830,6 +837,33 @@ Ratio personnel/CA: ${b.ratio_personnel_ca_min}-${b.ratio_personnel_ca_max}%
 Croissance CA max raisonnable: ${b.croissance_ca_max}%/an
 Multiples EBITDA: ${b.multiple_ebitda_min}-${b.multiple_ebitda_max}×
 Multiples CA: ${b.multiple_ca_min}-${b.multiple_ca_max}×`);
+
+    // CAPEX typiques du secteur
+    if (b.capex_typiques && typeof b.capex_typiques === 'object' && Object.keys(b.capex_typiques).length > 0) {
+      let capexLines = `══ CAPEX TYPIQUES SECTEUR (${b.secteur}) ══\n`;
+      for (const [item, detail] of Object.entries(b.capex_typiques as Record<string, any>)) {
+        capexLines += `${item}: ${detail.min?.toLocaleString('fr-FR')}-${detail.max?.toLocaleString('fr-FR')} ${detail.devise || 'XOF'} (amort ${detail.amort_ans} ans)\n`;
+      }
+      capexLines += `⚠️ Utiliser comme référence pour valider les CAPEX de l'entreprise`;
+      parts.push(capexLines);
+    }
+
+    // Structure OPEX du secteur
+    if (b.opex_structure && typeof b.opex_structure === 'object' && Object.keys(b.opex_structure).length > 0) {
+      let opexLines = `══ STRUCTURE OPEX SECTEUR (${b.secteur}) ══\n`;
+      for (const [poste, detail] of Object.entries(b.opex_structure as Record<string, any>)) {
+        opexLines += `${poste}: ${detail.min}-${detail.max}% CA${detail.detail ? ` (${detail.detail})` : ''}\n`;
+      }
+      parts.push(opexLines);
+    }
+
+    // BFR typique du secteur
+    if (b.bfr_typique && typeof b.bfr_typique === 'object' && Object.keys(b.bfr_typique).length > 0) {
+      const bfr = b.bfr_typique as Record<string, any>;
+      parts.push(`══ BFR TYPIQUE SECTEUR (${b.secteur}) ══
+DSO: ${bfr.dso_jours}j | DPO: ${bfr.dpo_jours}j | DIO: ${bfr.dio_jours}j
+${bfr.notes || ''}`);
+    }
   }
 
   if (ctx.riskParams) {
@@ -853,6 +887,54 @@ IS: ${c.taux_is}% | TVA: ${c.taux_tva}% | Cotis. sociales: ${c.cotisations_socia
 SMIG: ${c.salaire_minimum?.toLocaleString('fr-FR')} ${c.devise}/mois
 Salaire dirigeant PME: ${c.salaire_dirigeant_pme_min?.toLocaleString('fr-FR')}-${c.salaire_dirigeant_pme_max?.toLocaleString('fr-FR')} ${c.devise}/mois
 Taux emprunt PME: ${c.taux_emprunt_pme}% | Accès crédit: ${c.acces_credit_pme_pct}%`);
+
+    // Charges sociales détaillées
+    if (c.charges_sociales_detail) {
+      const cs = c.charges_sociales_detail;
+      let csBlock = `══ CHARGES SOCIALES DÉTAILLÉES (${c.pays}) ══\nPatronal total: ${cs.total_patronal || c.cotisations_sociales_pct}%\nSalarial total: ${cs.total_salarial || 0}%\nBase: ${cs.base || 'Salaire brut'}`;
+      if (cs.cnps_patronal) csBlock += `\nCNPS patronal: ${cs.cnps_patronal.taux}% (${cs.cnps_patronal.detail})`;
+      if (cs.cnps_salarial) csBlock += `\nCNPS salarial: ${cs.cnps_salarial.taux}% (${cs.cnps_salarial.detail})`;
+      if (cs.fdfp) csBlock += `\nFDFP: ${cs.fdfp.taux}% (${cs.fdfp.detail})`;
+      csBlock += `\n⚠️ Utiliser ces taux pour calculer le coût RÉEL d'un employé = brut × (1 + patronal)`;
+      parts.push(csBlock);
+    }
+
+    // Fiscalité détaillée
+    if (c.fiscalite_detail) {
+      const f = c.fiscalite_detail;
+      let fBlock = `══ FISCALITÉ DÉTAILLÉE (${c.pays}) ══\nIS standard: ${f.is_standard}%`;
+      if (f.is_pme) fBlock += ` | IS PME: ${f.is_pme}% (seuil CA < ${f.seuil_pme_ca?.toLocaleString('fr-FR') || 'N/A'})`;
+      fBlock += `\nTVA standard: ${f.tva_standard}%`;
+      if (f.tva_reduit) fBlock += ` | TVA réduit: ${f.tva_reduit}%`;
+      if (f.minimum_fiscal) fBlock += `\nMinimum fiscal: ${f.minimum_fiscal}`;
+      if (f.patente) fBlock += `\nPatente: ${f.patente}`;
+      if (f.retenue_source) fBlock += `\nRetenue source prestataires: ${f.retenue_source}%`;
+      fBlock += `\n⚠️ Appliquer le TAUX IS DU PAYS dans les projections (pas 25% par défaut)`;
+      parts.push(fBlock);
+    }
+
+    // Coûts de référence (OPEX)
+    if (c.opex_benchmarks && typeof c.opex_benchmarks === 'object' && Object.keys(c.opex_benchmarks).length > 0) {
+      let opexLines = `══ COÛTS DE RÉFÉRENCE (${c.pays}) ══\n`;
+      for (const [key, val] of Object.entries(c.opex_benchmarks as Record<string, any>)) {
+        if (typeof val === 'object' && val !== null) {
+          opexLines += `${key}: ${JSON.stringify(val)}\n`;
+        } else {
+          opexLines += `${key}: ${val} ${c.devise || ''}\n`;
+        }
+      }
+      opexLines += `⚠️ Utiliser ces coûts pour valider les OPEX de l'entreprise`;
+      parts.push(opexLines);
+    }
+
+    // Amortissements standard par pays
+    if (c.duree_amort_immeubles_ans) {
+      parts.push(`══ DURÉES AMORTISSEMENT (${c.pays}, SYSCOHADA) ══
+Immeubles: ${c.duree_amort_immeubles_ans} ans | Véhicules: ${c.duree_amort_vehicules_ans} ans
+Matériel industriel: ${c.duree_amort_materiel_ans} ans | Mobilier: ${c.duree_amort_mobilier_ans} ans
+Informatique: ${c.duree_amort_informatique_ans} ans | Équipement agricole: ${c.duree_amort_equipement_agri_ans} ans
+⚠️ Utiliser ces durées pour calculer les dotations aux amortissements des CAPEX`);
+    }
   }
 
   if (ctx.riskFactors?.length) {

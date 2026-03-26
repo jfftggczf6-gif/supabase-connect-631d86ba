@@ -175,7 +175,7 @@ serve(async (req) => {
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     console.log("[generate-odd] Calling Claude API via callAI (max_tokens: 16384)...");
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt + coachingContext, 16384);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt + coachingContext, 16384, "claude-sonnet-4-20250514");
     const data = normalizeOdd(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "odd_analysis", data, "odd");

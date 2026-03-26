@@ -138,7 +138,7 @@ ${donorCriteria}
     const coachName = coachProfile?.full_name || coachProfile?.email || "Coach";
     const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
-    const systemPrompt = `Tu rédiges un RAPPORT FINAL DE COACHING professionnel. Le rapport est destiné au chef de programme et aux bailleurs de fonds.
+    const systemPrompt = `Tu es un expert en accompagnement de PME en Afrique subsaharienne (UEMOA/CEMAC). Tu rédiges un RAPPORT FINAL DE COACHING professionnel. Le rapport est destiné au chef de programme et aux bailleurs de fonds (GIZ, AFD, I&P, Proparco). Tu connais les normes SYSCOHADA, la fiscalité locale et les benchmarks sectoriels africains.
 
 STRUCTURE EXACTE (respecter cet ordre) :
 

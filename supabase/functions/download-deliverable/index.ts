@@ -1458,6 +1458,328 @@ function onepagerHTML(data: any, ent: string): string {
   return htmlShell('One-Pager Investisseur', score, body, ent, true);
 }
 
+// ===== PLAN FINANCIER HTML =====
+function planFinancierHTML(data: any, ent: string): string {
+  const d = data || {};
+  const kpis = d.kpis || {};
+  const analyse = d.analyse || {};
+  const sante = d.sante_financiere || {};
+  const indicateurs = d.indicateurs_decision || {};
+  const seuil = d.seuil_rentabilite || {};
+  const hypotheses = d.hypotheses_ia || {};
+  const projections: any[] = d.projections || [];
+  const scenarios = d.scenarios || {};
+  const produits: any[] = d.produits || [];
+  const services: any[] = d.services || [];
+  const staff: any[] = d.staff || [];
+  const capex: any[] = d.capex || [];
+  const loans: any[] = d.loans || [];
+  const financing = d.financing || {};
+  const echeancier: any[] = d.echeancier || [];
+  const opexCats: any[] = d.opex_categories || [];
+  const compteResultat = d.compte_resultat_reel || {};
+  const structureCouts = d.structure_couts || {};
+  const devise = d.currency || 'XOF';
+
+  const fmtM = (n: any) => {
+    const v = Number(n); if (!v && v !== 0) return '—';
+    if (Math.abs(v) >= 1e9) return `${(v / 1e9).toFixed(1)}Mrd`;
+    if (Math.abs(v) >= 1e6) return `${(v / 1e6).toFixed(0)}M`;
+    if (Math.abs(v) >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+    return fmt(v);
+  };
+  const pct = (n: any) => { const v = Number(n); return isNaN(v) ? '—' : `${v.toFixed(1)}%`; };
+
+  // --- Header info ---
+  let body = `<div class="card"><h2>Informations générales</h2>
+<div class="grid-4">
+  <div class="metric"><div class="val">${d.company || '—'}</div><div class="lbl">Entreprise</div></div>
+  <div class="metric"><div class="val">${d.country || '—'}</div><div class="lbl">Pays</div></div>
+  <div class="metric"><div class="val">${devise}</div><div class="lbl">Devise</div></div>
+  <div class="metric"><div class="val">${d.current_year || '—'}</div><div class="lbl">Année en cours</div></div>
+</div></div>`;
+
+  // --- KPIs ---
+  body += `<div class="card"><h2>Indicateurs clés (KPIs)</h2>
+<div class="grid-4">
+  <div class="metric"><div class="val">${fmtM(kpis.ca)}</div><div class="lbl">Chiffre d'affaires</div></div>
+  <div class="metric"><div class="val">${fmtM(kpis.marge_brute)}</div><div class="lbl">Marge brute</div></div>
+  <div class="metric"><div class="val">${fmtM(kpis.ebitda)}</div><div class="lbl">EBITDA</div></div>
+  <div class="metric"><div class="val">${fmtM(kpis.resultat_net)}</div><div class="lbl">Résultat net</div></div>
+</div>
+<div class="grid-4" style="margin-top:12px">
+  <div class="metric"><div class="val">${fmtM(kpis.tresorerie)}</div><div class="lbl">Trésorerie</div></div>
+  <div class="metric"><div class="val">${kpis.roi != null ? `${kpis.roi}%` : '—'}</div><div class="lbl">ROI</div></div>
+  <div class="metric"><div class="val">${kpis.effectif || '—'}</div><div class="lbl">Effectif</div></div>
+  <div class="metric"><div class="val">${analyse.score_investissabilite != null ? `${analyse.score_investissabilite}/100` : '—'}</div><div class="lbl">Score investissabilité</div></div>
+</div></div>`;
+
+  // --- Santé financière ---
+  if (sante && Object.keys(sante).length > 0) {
+    const rent = sante.rentabilite || {};
+    const solv = sante.solvabilite || {};
+    const cycle = sante.cycle_exploitation || {};
+    body += `<div class="card"><h2>Santé financière</h2>
+<h3>Rentabilité</h3>
+<div class="grid-4">
+  <div class="metric"><div class="val">${pct(rent.marge_brute_pct)}</div><div class="lbl">Marge brute %</div></div>
+  <div class="metric"><div class="val">${pct(rent.ebitda_pct)}</div><div class="lbl">EBITDA %</div></div>
+  <div class="metric"><div class="val">${pct(rent.resultat_net_pct)}</div><div class="lbl">Résultat net %</div></div>
+  <div class="metric"><div class="val">${fmtM(rent.ca_par_employe)}</div><div class="lbl">CA / employé</div></div>
+</div>
+<h3>Solvabilité</h3>
+<div class="grid-4">
+  <div class="metric"><div class="val">${solv.dscr != null ? `${solv.dscr}x` : '—'}</div><div class="lbl">DSCR</div></div>
+  <div class="metric"><div class="val">${pct(solv.ratio_endettement)}</div><div class="lbl">Ratio endettement</div></div>
+  <div class="metric"><div class="val">${solv.autonomie_financiere != null ? pct(solv.autonomie_financiere) : '—'}</div><div class="lbl">Autonomie financière</div></div>
+  <div class="metric"><div class="val">${fmtM(cycle.ca_par_employe)}</div><div class="lbl">CA/employé (cycle)</div></div>
+</div></div>`;
+  }
+
+  // --- Indicateurs de décision ---
+  if (indicateurs && Object.keys(indicateurs).length > 0) {
+    body += `<div class="card"><h2>Indicateurs de décision</h2>
+<div class="grid-4">
+  <div class="metric"><div class="val">${indicateurs.van != null ? fmtM(indicateurs.van) : '—'}</div><div class="lbl">VAN</div></div>
+  <div class="metric"><div class="val">${indicateurs.tri != null ? `${indicateurs.tri}%` : '—'}</div><div class="lbl">TRI</div></div>
+  <div class="metric"><div class="val">${indicateurs.payback_years != null ? `${indicateurs.payback_years} ans` : '—'}</div><div class="lbl">Payback</div></div>
+  <div class="metric"><div class="val">${indicateurs.dscr_moyen != null ? `${indicateurs.dscr_moyen}x` : '—'}</div><div class="lbl">DSCR moyen</div></div>
+</div>
+<div class="grid-4" style="margin-top:12px">
+  <div class="metric"><div class="val">${indicateurs.roi != null ? `${indicateurs.roi}%` : '—'}</div><div class="lbl">ROI</div></div>
+  <div class="metric"><div class="val">${indicateurs.couverture_interets != null ? `${indicateurs.couverture_interets}x` : '—'}</div><div class="lbl">Couverture intérêts</div></div>
+  <div class="metric"><div class="val">${indicateurs.cycle_tresorerie != null ? `${indicateurs.cycle_tresorerie}j` : '—'}</div><div class="lbl">Cycle trésorerie</div></div>
+  <div class="metric"><div class="val">${indicateurs.runway_mois != null ? `${indicateurs.runway_mois} mois` : '—'}</div><div class="lbl">Runway</div></div>
+</div></div>`;
+  }
+
+  // --- Seuil de rentabilité ---
+  if (seuil.seuil_annuel || seuil.ca_actuel) {
+    body += `<div class="card"><h2>Seuil de rentabilité</h2>
+<div class="grid-4">
+  <div class="metric"><div class="val">${fmtM(seuil.seuil_annuel)}</div><div class="lbl">Seuil annuel</div></div>
+  <div class="metric"><div class="val">${fmtM(seuil.ca_actuel)}</div><div class="lbl">CA actuel</div></div>
+  <div class="metric"><div class="val">${seuil.marge_securite_pct != null ? `+${seuil.marge_securite_pct}%` : '—'}</div><div class="lbl">Marge de sécurité</div></div>
+  <div class="metric"><div class="val">${seuil.seuil_mensuel ? fmtM(seuil.seuil_mensuel) : '—'}</div><div class="lbl">Seuil mensuel</div></div>
+</div></div>`;
+  }
+
+  // --- Compte de résultat réel ---
+  if (compteResultat && Object.keys(compteResultat).length > 0) {
+    const rows = compteResultat.lignes || compteResultat.rows || [];
+    if (rows.length > 0) {
+      body += `<div class="card"><h2>Compte de résultat réel</h2><table>
+<tr><th>Poste</th><th class="amount">Montant (${devise})</th></tr>`;
+      for (const r of rows) {
+        const label = r.poste || r.label || r.libelle || '—';
+        const montant = r.montant ?? r.valeur ?? r.value ?? '';
+        const bold = r.bold || r.is_total || false;
+        body += `<tr><td${bold ? ' style="font-weight:700"' : ''}>${label}</td><td class="amount"${bold ? ' style="font-weight:700"' : ''}>${fmt(montant)}</td></tr>`;
+      }
+      body += `</table></div>`;
+    } else if (typeof compteResultat === 'object') {
+      // Flat key-value shape
+      const entries = Object.entries(compteResultat).filter(([k]) => !['_meta', '_metadata'].includes(k));
+      if (entries.length > 0) {
+        body += `<div class="card"><h2>Compte de résultat réel</h2><table>
+<tr><th>Poste</th><th class="amount">Montant (${devise})</th></tr>`;
+        for (const [k, v] of entries) {
+          body += `<tr><td>${k.replace(/_/g, ' ')}</td><td class="amount">${fmt(v)}</td></tr>`;
+        }
+        body += `</table></div>`;
+      }
+    }
+  }
+
+  // --- Structure des coûts ---
+  if (structureCouts && (structureCouts.variables?.length || structureCouts.fixes?.length)) {
+    body += `<div class="card"><h2>Structure des coûts</h2><div class="grid-2">`;
+    if (structureCouts.variables?.length) {
+      body += `<div><h3>Coûts variables (${structureCouts.pct_variables || 0}%)</h3><table>
+<tr><th>Poste</th><th class="amount">Montant</th></tr>`;
+      for (const c of structureCouts.variables) body += `<tr><td>${c.poste || '—'}</td><td class="amount">${fmt(c.montant)}</td></tr>`;
+      body += `</table></div>`;
+    }
+    if (structureCouts.fixes?.length) {
+      body += `<div><h3>Coûts fixes (${(100 - (structureCouts.pct_variables || 0)).toFixed(0)}%)</h3><table>
+<tr><th>Poste</th><th class="amount">Montant</th></tr>`;
+      for (const c of structureCouts.fixes) body += `<tr><td>${c.poste || '—'}</td><td class="amount">${fmt(c.montant)}</td></tr>`;
+      body += `</table></div>`;
+    }
+    body += `</div></div>`;
+  }
+
+  // --- Hypothèses IA ---
+  if (hypotheses && Object.keys(hypotheses).length > 0) {
+    const croissCA = Array.isArray(hypotheses.taux_croissance_ca) ? hypotheses.taux_croissance_ca.map((t: number) => `${(t * 100).toFixed(0)}%`).join(' → ') : '—';
+    body += `<div class="card"><h2>Hypothèses de projection (IA)</h2><table>
+<tr><th>Paramètre</th><th>Valeur</th></tr>
+<tr><td>Croissance CA</td><td>${croissCA}</td></tr>
+<tr><td>Croissance prix</td><td>${pct((hypotheses.taux_croissance_prix || 0) * 100)}</td></tr>
+<tr><td>Croissance OPEX</td><td>${pct((hypotheses.taux_croissance_opex || 0) * 100)}</td></tr>
+<tr><td>Croissance salariale</td><td>${pct((hypotheses.taux_croissance_salariale || 0) * 100)}</td></tr>
+<tr><td>Inflation</td><td>${pct((hypotheses.inflation || 0.03) * 100)}</td></tr>
+</table>`;
+    if (hypotheses.justification) body += `<p style="font-size:12px;color:#64748b;margin-top:12px;border-left:3px solid #e2e8f0;padding-left:12px;font-style:italic">${hypotheses.justification}</p>`;
+    body += `</div>`;
+  }
+
+  // --- Projections ---
+  if (projections.length > 0) {
+    body += `<div class="card"><h2>Projections pluriannuelles</h2><table>
+<tr><th>Poste</th>${projections.map((p: any) => `<th class="amount">${p.annee_num || p.annee || '—'}</th>`).join('')}</tr>`;
+    const projRows = [
+      { label: "Chiffre d'affaires", key: 'ca', bold: true },
+      { label: "COGS", key: 'cogs' },
+      { label: "Marge brute", key: 'marge_brute', bold: true },
+      { label: "Masse salariale", key: 'masse_salariale' },
+      { label: "Charges externes", key: 'charges_externes' },
+      { label: "OPEX total", key: 'opex_total' },
+      { label: "EBITDA", key: 'ebitda', bold: true },
+      { label: "Amortissements", key: 'amortissement' },
+      { label: "Charges financières", key: 'charges_financieres' },
+      { label: "Impôts", key: 'impots' },
+      { label: "Résultat net", key: 'resultat_net', bold: true },
+      { label: "Cash-flow libre", key: 'free_cashflow' },
+      { label: "Trésorerie cumulée", key: 'tresorerie_cumulee' },
+    ];
+    for (const row of projRows) {
+      if (!projections.some((p: any) => p[row.key] != null)) continue;
+      const bld = row.bold ? ' style="font-weight:700;background:#f8fafc"' : '';
+      body += `<tr${bld}><td${bld}>${row.label}</td>${projections.map((p: any) => `<td class="amount"${bld}>${fmtM(p[row.key])}</td>`).join('')}</tr>`;
+    }
+    body += `</table></div>`;
+  }
+
+  // --- Scénarios ---
+  if (Object.keys(scenarios).length > 0) {
+    body += `<div class="card"><h2>Scénarios</h2><div class="grid-4" style="grid-template-columns:1fr 1fr 1fr">`;
+    for (const s of ['pessimiste', 'realiste', 'optimiste']) {
+      const vals = scenarios[s] || [];
+      const caFinal = vals[vals.length - 1] || 0;
+      const bg = s === 'pessimiste' ? '#fef2f2' : s === 'realiste' ? '#f0fdf4' : '#eff6ff';
+      const color = s === 'pessimiste' ? '#991b1b' : s === 'realiste' ? '#166534' : '#1e40af';
+      body += `<div class="metric" style="background:${bg};text-align:center">
+  <div class="val" style="color:${color}">${fmtM(caFinal)}</div>
+  <div class="lbl" style="color:${color};text-transform:capitalize">${s} — CA An ${vals.length || '5'}</div>
+</div>`;
+    }
+    body += `</div></div>`;
+  }
+
+  // --- Produits ---
+  if (produits.length > 0) {
+    body += `<div class="card"><h2>Produits</h2><table>
+<tr><th>Nom</th><th class="amount">Prix unitaire (${devise})</th><th class="amount">Volume annuel</th><th class="amount">CA annuel</th><th>Croissance vol.</th></tr>`;
+    for (const p of produits) {
+      const ca = (p.prix_unitaire || 0) * (p.volume_annuel || 0);
+      body += `<tr><td>${p.nom || '—'}</td><td class="amount">${fmt(p.prix_unitaire)}</td><td class="amount">${fmt(p.volume_annuel)}</td><td class="amount">${fmt(ca)}</td><td>${pct((p.taux_croissance_volume || 0) * 100)}</td></tr>`;
+    }
+    body += `</table></div>`;
+  }
+
+  // --- Services ---
+  if (services.length > 0) {
+    body += `<div class="card"><h2>Services</h2><table>
+<tr><th>Nom</th><th class="amount">Prix unitaire (${devise})</th><th class="amount">Volume annuel</th><th class="amount">CA annuel</th><th>Croissance vol.</th></tr>`;
+    for (const s of services) {
+      const ca = (s.prix_unitaire || 0) * (s.volume_annuel || 0);
+      body += `<tr><td>${s.nom || '—'}</td><td class="amount">${fmt(s.prix_unitaire)}</td><td class="amount">${fmt(s.volume_annuel)}</td><td class="amount">${fmt(ca)}</td><td>${pct((s.taux_croissance_volume || 0) * 100)}</td></tr>`;
+    }
+    body += `</table></div>`;
+  }
+
+  // --- Staff ---
+  if (staff.length > 0) {
+    body += `<div class="card"><h2>Ressources humaines</h2><table>
+<tr><th>Poste</th><th class="amount">Effectif</th><th class="amount">Salaire mensuel (${devise})</th><th class="amount">Coût annuel</th></tr>`;
+    let totalStaff = 0;
+    for (const s of staff) {
+      const cout = (s.salaire_mensuel || 0) * (s.effectif || 1) * 12;
+      totalStaff += cout;
+      body += `<tr><td>${s.poste || s.nom || '—'}</td><td class="amount">${s.effectif || 1}</td><td class="amount">${fmt(s.salaire_mensuel)}</td><td class="amount">${fmt(cout)}</td></tr>`;
+    }
+    body += `<tr style="font-weight:700;background:#f8fafc"><td>Total masse salariale</td><td></td><td></td><td class="amount">${fmt(totalStaff)}</td></tr>`;
+    body += `</table></div>`;
+  }
+
+  // --- OPEX categories ---
+  if (opexCats.length > 0) {
+    body += `<div class="card"><h2>Répartition OPEX</h2><table>
+<tr><th>Poste</th><th class="amount">Montant (${devise})</th><th class="amount">%</th></tr>`;
+    for (const op of opexCats) {
+      body += `<tr><td>${op.poste || '—'}</td><td class="amount">${fmtM(op.montant)}</td><td class="amount">${pct(op.pct)}</td></tr>`;
+    }
+    const totalOpex = opexCats.reduce((s: number, o: any) => s + (o.montant || 0), 0);
+    body += `<tr style="font-weight:700;background:#f8fafc"><td>Total</td><td class="amount">${fmtM(totalOpex)}</td><td class="amount">100%</td></tr>`;
+    body += `</table></div>`;
+  }
+
+  // --- CAPEX ---
+  if (capex.length > 0) {
+    body += `<div class="card"><h2>Investissements (CAPEX)</h2><table>
+<tr><th>Désignation</th><th class="amount">Montant (${devise})</th><th>Année</th><th>Durée amort.</th></tr>`;
+    let totalCapex = 0;
+    for (const c of capex) {
+      const m = c.acquisition_value || c.montant || 0;
+      totalCapex += m;
+      body += `<tr><td>${c.designation || c.nom || '—'}</td><td class="amount">${fmt(m)}</td><td>${c.annee_acquisition || c.annee || '—'}</td><td>${c.duree_amortissement ? `${c.duree_amortissement} ans` : '—'}</td></tr>`;
+    }
+    body += `<tr style="font-weight:700;background:#f8fafc"><td>Total CAPEX</td><td class="amount">${fmt(totalCapex)}</td><td></td><td></td></tr>`;
+    body += `</table></div>`;
+  }
+
+  // --- Loans & Financing ---
+  if (loans.length > 0 || (financing && Object.keys(financing).length > 0)) {
+    body += `<div class="card"><h2>Financement</h2>`;
+    if (financing.besoin_financement || financing.fonds_propres || financing.dette) {
+      body += `<div class="grid-4" style="margin-bottom:16px">
+  <div class="metric"><div class="val">${fmtM(financing.besoin_financement)}</div><div class="lbl">Besoin total</div></div>
+  <div class="metric"><div class="val">${fmtM(financing.fonds_propres)}</div><div class="lbl">Fonds propres</div></div>
+  <div class="metric"><div class="val">${fmtM(financing.dette)}</div><div class="lbl">Dette</div></div>
+  <div class="metric"><div class="val">${financing.ratio_dette_fp != null ? `${financing.ratio_dette_fp}x` : '—'}</div><div class="lbl">Ratio dette/FP</div></div>
+</div>`;
+    }
+    if (loans.length > 0) {
+      body += `<h3>Emprunts</h3><table>
+<tr><th>Nom</th><th class="amount">Montant</th><th>Taux</th><th>Durée</th></tr>`;
+      for (const l of loans) {
+        body += `<tr><td>${l.nom || l.label || '—'}</td><td class="amount">${fmt(l.montant)}</td><td>${l.taux != null ? `${l.taux}%` : '—'}</td><td>${l.duree ? `${l.duree} ans` : '—'}</td></tr>`;
+      }
+      body += `</table>`;
+    }
+    body += `</div>`;
+  }
+
+  // --- Échéancier ---
+  if (echeancier.length > 0) {
+    body += `<div class="card"><h2>Échéancier de remboursement</h2><table>
+<tr><th>Année</th><th class="amount">Capital</th><th class="amount">Intérêts</th><th class="amount">Total</th></tr>`;
+    for (const e of echeancier) {
+      body += `<tr><td>${e.annee || '—'}</td><td class="amount">${fmt(e.capital)}</td><td class="amount">${fmt(e.interets)}</td><td class="amount">${fmt(e.total || ((e.capital || 0) + (e.interets || 0)))}</td></tr>`;
+    }
+    body += `</table></div>`;
+  }
+
+  // --- Analyse IA (avis, risques, conditions) ---
+  if (analyse.avis) {
+    body += `<div class="card"><h2>Avis de l'IA</h2><p style="font-size:13px;color:#475569;line-height:1.7">${analyse.avis}</p>`;
+    if (analyse.tags?.length > 0) body += `<div style="margin-top:12px">${analyse.tags.map((t: string) => `<span class="tag">${t}</span>`).join('')}</div>`;
+    body += `</div>`;
+  }
+  if (analyse.risques?.length > 0) {
+    body += `<div class="card"><h2>Risques clés</h2><table>
+<tr><th>Risque</th><th>Description</th><th>Impact</th></tr>`;
+    for (const r of analyse.risques) {
+      const badgeCls = r.impact === 'critique' ? 'badge-red' : r.impact === 'élevé' ? 'badge-yellow' : 'badge-green';
+      body += `<tr><td style="font-weight:600">${r.titre || '—'}</td><td>${r.description || '—'}</td><td><span class="badge ${badgeCls}">${r.impact || '—'}</span></td></tr>`;
+    }
+    body += `</table></div>`;
+  }
+
+  return htmlShell('Plan Financier', null, body, ent);
+}
+
 // ===== VALUATION HTML =====
 function valuationHTML(data: any, ent: string): string {
   const score = data.score ?? data.confidence_score ?? 0;
@@ -2012,7 +2334,7 @@ serve(async (req) => {
       bmc_analysis: bmcHTML, sic_analysis: sicHTML, inputs_data: inputsHTML,
       framework_data: frameworkHTML, diagnostic_data: diagnosticHTML,
       plan_ovo: planOvoHTML, business_plan: businessPlanHTML, odd_analysis: oddHTML,
-      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML, onepager: onepagerHTML, plan_financier: planOvoHTML,
+      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML, onepager: onepagerHTML, plan_financier: planFinancierHTML,
     };
 
     const generator = richGenerators[deliverableType];

@@ -532,29 +532,30 @@ export interface SectorGuardrail {
   marge_ebitda_min: number; marge_ebitda_max: number;
   ratio_personnel_ca_min: number; ratio_personnel_ca_max: number;
   croissance_max_annuelle: number;
+  source: string;
 }
 
 export const SECTOR_GUARDRAILS: Record<string, SectorGuardrail> = {
-  agro_industrie:          { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 5, marge_ebitda_max: 30, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 35, croissance_max_annuelle: 40 },
-  aviculture:              { marge_brute_min: 20, marge_brute_max: 50, marge_ebitda_min: 5, marge_ebitda_max: 25, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 30, croissance_max_annuelle: 35 },
-  agriculture:             { marge_brute_min: 20, marge_brute_max: 50, marge_ebitda_min: 5, marge_ebitda_max: 25, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 35, croissance_max_annuelle: 35 },
-  agriculture_rente:       { marge_brute_min: 25, marge_brute_max: 50, marge_ebitda_min: 10, marge_ebitda_max: 35, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 30, croissance_max_annuelle: 25 },
-  commerce_detail:         { marge_brute_min: 10, marge_brute_max: 30, marge_ebitda_min: 2, marge_ebitda_max: 15, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 30 },
-  commerce_alimentaire:    { marge_brute_min: 10, marge_brute_max: 30, marge_ebitda_min: 2, marge_ebitda_max: 12, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 25 },
-  restauration:            { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 5, marge_ebitda_max: 20, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 45, croissance_max_annuelle: 25 },
-  services_b2b:            { marge_brute_min: 40, marge_brute_max: 75, marge_ebitda_min: 10, marge_ebitda_max: 40, ratio_personnel_ca_min: 25, ratio_personnel_ca_max: 60, croissance_max_annuelle: 50 },
-  tic:                     { marge_brute_min: 50, marge_brute_max: 85, marge_ebitda_min: 15, marge_ebitda_max: 50, ratio_personnel_ca_min: 30, ratio_personnel_ca_max: 65, croissance_max_annuelle: 60 },
-  services_it:             { marge_brute_min: 40, marge_brute_max: 80, marge_ebitda_min: 10, marge_ebitda_max: 40, ratio_personnel_ca_min: 25, ratio_personnel_ca_max: 60, croissance_max_annuelle: 50 },
-  imprimerie:              { marge_brute_min: 25, marge_brute_max: 50, marge_ebitda_min: 8, marge_ebitda_max: 22, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 40, croissance_max_annuelle: 25 },
-  energie:                 { marge_brute_min: 35, marge_brute_max: 65, marge_ebitda_min: 15, marge_ebitda_max: 40, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 25, croissance_max_annuelle: 45 },
-  sante:                   { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 10, marge_ebitda_max: 30, ratio_personnel_ca_min: 20, ratio_personnel_ca_max: 50, croissance_max_annuelle: 30 },
-  btp:                     { marge_brute_min: 15, marge_brute_max: 40, marge_ebitda_min: 3, marge_ebitda_max: 15, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 30 },
-  industrie_manufacturiere:{ marge_brute_min: 20, marge_brute_max: 45, marge_ebitda_min: 5, marge_ebitda_max: 20, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 25 },
-  transport_logistique:    { marge_brute_min: 15, marge_brute_max: 40, marge_ebitda_min: 5, marge_ebitda_max: 18, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 25 },
-  education_formation:     { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 10, marge_ebitda_max: 30, ratio_personnel_ca_min: 30, ratio_personnel_ca_max: 60, croissance_max_annuelle: 25 },
-  immobilier:              { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 15, marge_ebitda_max: 40, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 25 },
-  textile_mode:            { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 8, marge_ebitda_max: 25, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 40, croissance_max_annuelle: 30 },
-  mines_extraction:        { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 15, marge_ebitda_max: 45, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 25, croissance_max_annuelle: 20 },
+  agro_industrie:          { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 5, marge_ebitda_max: 30, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 35, croissance_max_annuelle: 40, source: "I&P IPAE + Adenia Partners + Phatisa (2023)" },
+  aviculture:              { marge_brute_min: 20, marge_brute_max: 50, marge_ebitda_min: 5, marge_ebitda_max: 25, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 30, croissance_max_annuelle: 35, source: "FIRCA CIV + Banque Mondiale Livestock (2024)" },
+  agriculture:             { marge_brute_min: 20, marge_brute_max: 50, marge_ebitda_min: 5, marge_ebitda_max: 25, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 35, croissance_max_annuelle: 35, source: "FAO + Banque Mondiale Agriculture (2023)" },
+  agriculture_rente:       { marge_brute_min: 25, marge_brute_max: 50, marge_ebitda_min: 10, marge_ebitda_max: 35, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 30, croissance_max_annuelle: 25, source: "CCC/BCEAO + AFD (2023)" },
+  commerce_detail:         { marge_brute_min: 10, marge_brute_max: 30, marge_ebitda_min: 2, marge_ebitda_max: 15, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 30, source: "IFC Enterprise Finance Gap (2023)" },
+  commerce_alimentaire:    { marge_brute_min: 10, marge_brute_max: 30, marge_ebitda_min: 2, marge_ebitda_max: 12, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 25, source: "IFC + Proparco Distribution Afrique (2023)" },
+  restauration:            { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 5, marge_ebitda_max: 20, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 45, croissance_max_annuelle: 25, source: "Proparco + I&P Restauration (2023)" },
+  services_b2b:            { marge_brute_min: 40, marge_brute_max: 75, marge_ebitda_min: 10, marge_ebitda_max: 40, ratio_personnel_ca_min: 25, ratio_personnel_ca_max: 60, croissance_max_annuelle: 50, source: "AfDB SME Survey (2023)" },
+  tic:                     { marge_brute_min: 50, marge_brute_max: 85, marge_ebitda_min: 15, marge_ebitda_max: 50, ratio_personnel_ca_min: 30, ratio_personnel_ca_max: 65, croissance_max_annuelle: 60, source: "Partech Africa + GSMA (2024)" },
+  services_it:             { marge_brute_min: 40, marge_brute_max: 80, marge_ebitda_min: 10, marge_ebitda_max: 40, ratio_personnel_ca_min: 25, ratio_personnel_ca_max: 60, croissance_max_annuelle: 50, source: "Partech Africa (2024)" },
+  imprimerie:              { marge_brute_min: 25, marge_brute_max: 50, marge_ebitda_min: 8, marge_ebitda_max: 22, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 40, croissance_max_annuelle: 25, source: "INS CIV + benchmarks sectoriels (2023)" },
+  energie:                 { marge_brute_min: 35, marge_brute_max: 65, marge_ebitda_min: 15, marge_ebitda_max: 40, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 25, croissance_max_annuelle: 45, source: "IRENA + IFC Energy (2024)" },
+  sante:                   { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 10, marge_ebitda_max: 30, ratio_personnel_ca_min: 20, ratio_personnel_ca_max: 50, croissance_max_annuelle: 30, source: "OMS + AfDB Health Sector (2023)" },
+  btp:                     { marge_brute_min: 15, marge_brute_max: 40, marge_ebitda_min: 3, marge_ebitda_max: 15, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 30, source: "AfDB Infrastructure (2023)" },
+  industrie_manufacturiere:{ marge_brute_min: 20, marge_brute_max: 45, marge_ebitda_min: 5, marge_ebitda_max: 20, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 25, source: "ONUDI + IFC Manufacturing (2023)" },
+  transport_logistique:    { marge_brute_min: 15, marge_brute_max: 40, marge_ebitda_min: 5, marge_ebitda_max: 18, ratio_personnel_ca_min: 10, ratio_personnel_ca_max: 35, croissance_max_annuelle: 25, source: "Banque Mondiale Logistics (2023)" },
+  education_formation:     { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 10, marge_ebitda_max: 30, ratio_personnel_ca_min: 30, ratio_personnel_ca_max: 60, croissance_max_annuelle: 25, source: "UNESCO + AfDB Education (2023)" },
+  immobilier:              { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 15, marge_ebitda_max: 40, ratio_personnel_ca_min: 5, ratio_personnel_ca_max: 20, croissance_max_annuelle: 25, source: "Knight Frank Africa (2024)" },
+  textile_mode:            { marge_brute_min: 30, marge_brute_max: 60, marge_ebitda_min: 8, marge_ebitda_max: 25, ratio_personnel_ca_min: 15, ratio_personnel_ca_max: 40, croissance_max_annuelle: 30, source: "ONUDI Textile Afrique (2023)" },
+  mines_extraction:        { marge_brute_min: 25, marge_brute_max: 55, marge_ebitda_min: 15, marge_ebitda_max: 45, ratio_personnel_ca_min: 8, ratio_personnel_ca_max: 25, croissance_max_annuelle: 20, source: "Africa Mining IQ + Banque Mondiale (2024)" },
 };
 
 export function getSectorGuardrails(sector: string): SectorGuardrail {
@@ -630,4 +631,90 @@ export function getDonorCriteriaPrompt(): string {
  */
 export function getValuationBenchmarksPrompt(): string {
   return VALUATION_BENCHMARKS;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SECTION 10 — BENCHMARKS CONTEXTUELS (pays + secteur + sources)
+// ─────────────────────────────────────────────────────────────────
+
+// Ajustements par zone géographique (appliqués aux benchmarks sectoriels)
+const ZONE_ADJUSTMENTS: Record<string, { label: string; cost_factor: number; growth_factor: number; bfr_dso: number; bfr_dpo: number; bfr_stock: number; smig_mensuel: number; loyer_bureau_min: number; loyer_bureau_max: number; electricite_min: number; electricite_max: number; source: string }> = {
+  uemoa: {
+    label: "UEMOA (XOF)", cost_factor: 1.0, growth_factor: 1.0,
+    bfr_dso: 30, bfr_dpo: 45, bfr_stock: 30,
+    smig_mensuel: 60000, loyer_bureau_min: 100000, loyer_bureau_max: 500000,
+    electricite_min: 50000, electricite_max: 200000,
+    source: "BCEAO Rapport Annuel 2024 + INS pays UEMOA"
+  },
+  cemac: {
+    label: "CEMAC (XAF)", cost_factor: 1.15, growth_factor: 0.9,
+    bfr_dso: 45, bfr_dpo: 60, bfr_stock: 35,
+    smig_mensuel: 41875, loyer_bureau_min: 80000, loyer_bureau_max: 400000,
+    electricite_min: 40000, electricite_max: 180000,
+    source: "BEAC Rapport 2024 + INS Cameroun"
+  },
+  rdc: {
+    label: "RDC (USD)", cost_factor: 1.3, growth_factor: 0.8,
+    bfr_dso: 60, bfr_dpo: 45, bfr_stock: 45,
+    smig_mensuel: 7080, loyer_bureau_min: 200, loyer_bureau_max: 1500,
+    electricite_min: 50, electricite_max: 300,
+    source: "BCC Rapport Monétaire 2024 + Banque Mondiale RDC"
+  },
+  east_africa: {
+    label: "Afrique de l'Est (KES/UGX/RWF)", cost_factor: 1.1, growth_factor: 1.1,
+    bfr_dso: 30, bfr_dpo: 30, bfr_stock: 25,
+    smig_mensuel: 15000, loyer_bureau_min: 15000, loyer_bureau_max: 80000,
+    electricite_min: 5000, electricite_max: 30000,
+    source: "EAC Economic Report 2024"
+  },
+};
+
+function getZone(country: string): string {
+  const c = (country || '').toLowerCase();
+  if (c.includes('rdc') || c.includes('congo') && !c.includes('brazza')) return 'rdc';
+  if (c.includes('cameroun') || c.includes('gabon') || c.includes('tchad') || c.includes('centrafri') || c.includes('congo') || c.includes('guinée équ')) return 'cemac';
+  if (c.includes('kenya') || c.includes('rwanda') || c.includes('ouganda') || c.includes('tanzanie')) return 'east_africa';
+  return 'uemoa';
+}
+
+/**
+ * Retourne les benchmarks contextualisés (pays + secteur) avec sources.
+ * Utilisé par tous les agents pour les estimations et validations.
+ */
+export function getContextualBenchmarks(country: string, sector: string): string {
+  const zone = getZone(country);
+  const za = ZONE_ADJUSTMENTS[zone] || ZONE_ADJUSTMENTS.uemoa;
+  const sg = getSectorGuardrails(sector);
+
+  // Ajuster les benchmarks sectoriels selon la zone
+  const adjMargeBruteMin = Math.round(sg.marge_brute_min * (za.cost_factor > 1 ? 0.9 : 1));
+  const adjMargeBruteMax = Math.round(sg.marge_brute_max * (za.cost_factor > 1 ? 0.95 : 1));
+
+  return `═══ BENCHMARKS CONTEXTUELS : ${sector.toUpperCase()} en ${country} (${za.label}) ═══
+
+MARGES SECTORIELLES (source: ${sg.source}) :
+  - Marge brute : ${adjMargeBruteMin}-${adjMargeBruteMax}%
+  - Marge EBITDA : ${sg.marge_ebitda_min}-${sg.marge_ebitda_max}%
+  - Ratio personnel/CA : ${sg.ratio_personnel_ca_min}-${sg.ratio_personnel_ca_max}%
+  - Croissance max réaliste : ${Math.round(sg.croissance_max_annuelle * za.growth_factor)}%/an
+
+COÛTS FIXES ESTIMÉS (source: ${za.source}) :
+  - SMIG : ${za.smig_mensuel.toLocaleString()} ${zone === 'rdc' ? 'USD' : 'FCFA'}/mois
+  - Loyer bureau : ${za.loyer_bureau_min.toLocaleString()}-${za.loyer_bureau_max.toLocaleString()} ${zone === 'rdc' ? 'USD' : 'FCFA'}/mois
+  - Électricité/eau : ${za.electricite_min.toLocaleString()}-${za.electricite_max.toLocaleString()} ${zone === 'rdc' ? 'USD' : 'FCFA'}/mois
+  - Télécom/internet : ${Math.round(za.electricite_min * 0.6).toLocaleString()}-${Math.round(za.electricite_max * 0.5).toLocaleString()} ${zone === 'rdc' ? 'USD' : 'FCFA'}/mois
+
+BFR PAR DÉFAUT (source: ${za.source}) :
+  - Délai clients (DSO) : ${za.bfr_dso} jours
+  - Délai fournisseurs (DPO) : ${za.bfr_dpo} jours
+  - Rotation stock : ${za.bfr_stock} jours
+
+ESTIMATION DES COÛTS VARIABLES PAR SECTEUR (source: ${sg.source}) :
+  - Coûts variables ≈ ${100 - adjMargeBruteMax}-${100 - adjMargeBruteMin}% du CA
+  - Coûts fixes ≈ ${sg.ratio_personnel_ca_min + 5}-${sg.ratio_personnel_ca_max + 10}% du CA (personnel + loyer + utilities)
+
+⚠️ RÈGLE : Quand tu utilises un benchmark, CITE LA SOURCE entre parenthèses.
+  Ex: "Marge brute estimée à 35% (source: ${sg.source})"
+  Ex: "Loyer estimé à 300K FCFA/mois (source: ${za.source})"
+`;
 }

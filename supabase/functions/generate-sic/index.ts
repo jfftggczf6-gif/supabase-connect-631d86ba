@@ -4,9 +4,15 @@ import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, 
 import { normalizeSic } from "../_shared/normalizers.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 
-const SYSTEM_PROMPT = `Tu es un expert en Impact Investing et évaluation ESG (Environnement, Social, Gouvernance) spécialisé dans les PME en Afrique de l'Ouest (UEMOA / Côte d'Ivoire).
+const SYSTEM_PROMPT = `Tu es un expert en Impact Investing et évaluation ESG spécialisé dans les PME en Afrique de l'Ouest (UEMOA).
 
-MISSION : Analyser le Social Impact Canvas de cet entrepreneur et produire un JSON d'analyse scoré.
+MISSION : Analyser le Social Impact Canvas et produire un JSON scoré.
+
+STYLE : ÉQUILIBRÉ — informatif mais lisible, pas de pavés de texte.
+- Chaque champ texte = 3-5 phrases avec explications claires
+- Listes = 4-6 éléments, chacun en 1 phrase explicative
+- Scores chiffrés avec justification en 1-2 phrases
+- Cite la source entre parenthèses quand pertinent
 
 ══════════════════════════════════════
 SCORING — 5 DIMENSIONS
@@ -186,23 +192,81 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
     const bmcData = ctx.deliverableMap["bmc_analysis"] || ctx.moduleMap["bmc"] || {};
+    const requestId = crypto.randomUUID();
+
+    // Mark as processing
+    const { data: existingDeliv } = await ctx.supabase.from("deliverables")
+      .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "sic_analysis").maybeSingle();
+    if (existingDeliv?.data && Object.keys(existingDeliv.data).length > 5) {
+      await ctx.supabase.from("deliverables").update({
+        data: { ...existingDeliv.data, _processing: true, _request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "sic_analysis");
+    } else {
+      await ctx.supabase.from("deliverables").upsert({
+        enterprise_id: ctx.enterprise_id, type: "sic_analysis",
+        data: { status: "processing", request_id: requestId, started_at: new Date().toISOString() },
+      }, { onConflict: "enterprise_id,type" });
+    }
+
+    const asyncWork = async () => {
+    try {
 
     // RAG: enrichir avec données ODD et impact social
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["odd", "bailleurs", "secteurs"], "sic_analysis");
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "sic");
 
-    const agentDocs = getDocumentContentForAgent(ent, "sic", 80_000);
+    const agentDocs = getDocumentContentForAgent(ent, "sic", 20_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+
+    // Inject inputs + pre-screening for richer impact analysis
+    let impactContext = "";
+    const inputsData = ctx.deliverableMap["inputs_data"];
+    if (inputsData && typeof inputsData === "object") {
+      if (inputsData.equipe?.length) {
+        const totalEmployees = inputsData.equipe.reduce((s: number, e: any) => s + (e.nombre || 0), 0);
+        impactContext += `\nEMPLOIS DIRECTS: ${totalEmployees} employés\n`;
+        impactContext += inputsData.equipe.map((e: any) => `  - ${e.poste}: ${e.nombre} pers.`).join("\n") + "\n";
+      }
+      if (inputsData.compte_resultat?.chiffre_affaires) {
+        impactContext += `CA: ${inputsData.compte_resultat.chiffre_affaires.toLocaleString("fr-FR")} FCFA\n`;
+      }
+      if (inputsData.produits_services?.length) {
+        impactContext += `Activités: ${inputsData.produits_services.map((p: any) => p.nom).join(", ")}\n`;
+      }
+    }
+    const preScreen = ctx.deliverableMap["pre_screening"];
+    if (preScreen && typeof preScreen === "object") {
+      if (preScreen.impact_social) impactContext += `\nImpact social (pré-screening): ${JSON.stringify(preScreen.impact_social).slice(0, 500)}\n`;
+      if (preScreen.activites_identifiees?.length) impactContext += `Activités identifiées: ${preScreen.activites_identifiees.map((a: any) => typeof a === 'string' ? a : a.nom || a).join(", ")}\n`;
+    }
+    if (impactContext) impactContext = `\n══════ DONNÉES STRUCTURÉES (pour calibrer l'impact) ══════\n${impactContext}`;
+
     const rawAiData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData
-    ) + ragContext + kbContext + coachingContext);
+    ) + ragContext + kbContext + coachingContext + impactContext, 16384, "claude-sonnet-4-20250514", 0.3);
 
     // Normalize AI response
     const sicData = normalizeSic(rawAiData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "sic_analysis", sicData, "sic");
 
-    return jsonResponse({ success: true, data: sicData, score: sicData.score_global || sicData.score });
+    console.log(`[sic] ✅ DONE ${requestId}`);
+    } catch (innerErr: any) {
+      console.error("[sic] Background error:", innerErr);
+      const { data: curr } = await ctx.supabase.from("deliverables")
+        .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "sic_analysis").maybeSingle();
+      const safeData = (curr?.data && Object.keys(curr.data).length > 5)
+        ? { ...curr.data, _error: innerErr.message?.slice(0, 500), _request_id: requestId }
+        : { status: "error", error: innerErr.message?.slice(0, 500), request_id: requestId };
+      await ctx.supabase.from("deliverables").update({ data: safeData })
+        .eq("enterprise_id", ctx.enterprise_id).eq("type", "sic_analysis");
+    }
+    };
+    // @ts-ignore
+    EdgeRuntime.waitUntil(asyncWork());
+    return new Response(JSON.stringify({ accepted: true, request_id: requestId }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e: any) {
     console.error("generate-sic error:", e);
     return errorResponse(e.message || "Erreur inconnue", e.status || 500);

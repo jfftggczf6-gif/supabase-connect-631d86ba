@@ -20,14 +20,20 @@ Ce diagnostic répond à 3 questions :
 
 ═══ TON APPROCHE ═══
 
-1. LIRE CHAQUE DOCUMENT EN PROFONDEUR
-   - Extrais les chiffres EXACTS — pas des approximations
-   - Si un document contient un bilan, un CR, un BMC, des infos RH, légales → extrais TOUT
-   - Le coach veut savoir que TU AS TOUT LU
+⚠️ EFFICACITÉ : Analyse approfondie mais synthétique. Pas de recopie de documents.
+- Lis chaque document et extrais les informations clés avec les chiffres exacts
+- 4-6 phrases par section — assez pour comprendre, pas assez pour noyer
+- Cite les sources entre parenthèses (ex: "rapport activités 2025 section 3")
+- L'extraction détaillée des chiffres comptables est faite par generate-inputs — toi tu analyses le contexte business
+
+1. ANALYSER CHAQUE DOCUMENT POUR LE CONTEXTE BUSINESS
+   - Chiffres structurants : CA par activité, évolution, effectif, nombre de clients, investissements
+   - Modèle économique : comment l'entreprise gagne de l'argent, ses canaux, ses partenaires
+   - Risques et opportunités identifiés dans les documents
+   - Gouvernance, certifications, cadre légal
 
 2. ANALYSER EN CONSULTANT, PAS EN COMPTABLE
-   - "Le CA passe de 462M à 759M (+64%) puis chute à 460M (-39%)" c'est comptable
-   - "L'entreprise a connu une année exceptionnelle (+64%) probablement liée à un contrat ponctuel, mais n'a pas su capitaliser : la chute de 39% suggère une dépendance client" c'est consultant
+   - "Le CA passe de 462M à 759M (+64%) puis chute à 460M : diversification insuffisante, dépendance probable à un contrat ponctuel" — 2 phrases d'analyse
    - TOUJOURS expliquer le POURQUOI, pas juste le QUOI
 
 3. REGROUPER LES CONSTATS PAR SCOPE
@@ -267,6 +273,24 @@ serve(async (req) => {
 
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+    const requestId = crypto.randomUUID();
+
+    // Mark as processing WITHOUT overwriting existing data
+    const { data: existingDeliv } = await ctx.supabase.from("deliverables")
+      .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "pre_screening").maybeSingle();
+    if (existingDeliv?.data && Object.keys(existingDeliv.data).length > 5) {
+      await ctx.supabase.from("deliverables").update({
+        data: { ...existingDeliv.data, _processing: true, _request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "pre_screening");
+    } else {
+      await ctx.supabase.from("deliverables").upsert({
+        enterprise_id: ctx.enterprise_id, type: "pre_screening",
+        data: { status: "processing", request_id: requestId, started_at: new Date().toISOString() },
+      }, { onConflict: "enterprise_id,type" });
+    }
+
+    const asyncWork = async () => {
+    try {
 
     const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
     const donorCriteria = getDonorCriteriaPrompt();
@@ -383,7 +407,7 @@ ${PRE_SCREENING_SCHEMA}`;
         riskBlock = buildRiskBlock(flags);
       }
     } catch (e) { console.warn("[pre-screening] risk detection non-blocking:", e); }
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 32768);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 24576);
     const normalizedData = normalizePreScreening(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 
@@ -396,7 +420,24 @@ ${PRE_SCREENING_SCHEMA}`;
       }).eq("id", ctx.enterprise_id);
     }
 
-    return jsonResponse({ success: true, data: normalizedData });
+    console.log(`[pre-screening] ✅ DONE ${requestId}`);
+    } catch (innerErr: any) {
+      console.error("[pre-screening] Background error:", innerErr);
+      const { data: curr } = await ctx.supabase.from("deliverables")
+        .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "pre_screening").maybeSingle();
+      const safeData = (curr?.data && Object.keys(curr.data).length > 5)
+        ? { ...curr.data, _error: innerErr.message?.slice(0, 500), _request_id: requestId }
+        : { status: "error", error: innerErr.message?.slice(0, 500), request_id: requestId };
+      await ctx.supabase.from("deliverables").update({ data: safeData })
+        .eq("enterprise_id", ctx.enterprise_id).eq("type", "pre_screening");
+    }
+    };
+    // @ts-ignore
+    EdgeRuntime.waitUntil(asyncWork());
+    return new Response(JSON.stringify({ accepted: true, request_id: requestId }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   } catch (e: any) {
     console.error("generate-pre-screening error:", e);
     return errorResponse(e.message || "Erreur", e.status || 500);

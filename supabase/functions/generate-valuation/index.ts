@@ -17,41 +17,16 @@ Tu dois produire une ANALYSE QUALITATIVE DÉTAILLÉE et PÉDAGOGIQUE. Le lecteur
 
 SECTIONS À PRODUIRE (chacune doit être un vrai paragraphe explicatif, pas juste une phrase) :
 
-1. Note méthodologique DCF (200+ mots)
-   - Explique en langage accessible ce qu'est le DCF et pourquoi on l'utilise ici
-   - Justifie le WACC retenu : décompose les composantes (taux sans risque, prime de risque pays, prime sectorielle)
-   - Explique les hypothèses de croissance terminale et leur impact sur la valeur
-   - Compare avec des WACC typiques pour le même profil pays/secteur
-
-2. Justification des multiples (200+ mots)
-   - Explique pourquoi on utilise les multiples EBITDA et CA en complément du DCF
-   - Cite des transactions comparables récentes en Afrique (fonds, montants, multiples réels)
-   - Explique pourquoi le multiple retenu est raisonnable (ou conservateur/agressif)
-   - Compare avec les ranges I&P (4-6x EBITDA PME Afrique), Partech, AfricInvest
-
-3. Justification des décotes/primes (150+ mots)
-   - Explique chaque décote/prime en langage simple ("on enlève X% parce que...")
-   - Relie chaque ajustement au profil spécifique de l'entreprise
-   - Donne des exemples concrets qui justifient l'ajustement
-
-4. Note analyste (300+ mots)
-   - Synthèse complète : que vaut l'entreprise et pourquoi
-   - Points de force de la valorisation (données solides, cohérence inter-méthodes)
-   - Limites et réserves (données manquantes, hypothèses fragiles)
-   - Recommandation : quelle fourchette est la plus crédible et pourquoi
-   - Ce qui pourrait faire monter ou baisser significativement la valeur
-
-5. Implications investissement
-   - Scénarios concrets : si un fonds investit 100M ou 500M, quelle dilution
-   - Multiple de sortie réaliste à 5-7 ans
-   - IRR investisseur estimé
-   - Comparaison avec les rendements typiques du marché PE Afrique
+1. Note méthodologique DCF (200+ mots) — explique le DCF en langage accessible, justifie le WACC, compare avec le marché
+2. Justification des multiples (200+ mots) — cite des transactions comparables récentes en Afrique, explique le multiple retenu
+3. Justification des décotes/primes (150+ mots) — explique chaque ajustement en langage simple
+4. Note analyste (300+ mots) — synthèse complète, forces et limites, fourchette crédible, facteurs de variation
+5. Implications investissement — scénarios concrets de levée, sortie, IRR
 
 IMPORTANT:
 - NE CHANGE PAS les chiffres calculés
 - Réponds UNIQUEMENT en JSON valide
-- Sois EXPLICATIF et PÉDAGOGIQUE — le lecteur doit comprendre, pas juste voir des chiffres
-- Utilise des analogies simples quand c'est utile`;
+- Sois EXPLICATIF et PÉDAGOGIQUE — le lecteur doit comprendre, pas juste voir des chiffres`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -66,7 +41,7 @@ serve(async (req) => {
       .eq("enterprise_id", ctx.enterprise_id);
 
     const getDeliv = (type: string) => deliverables?.find((d: any) => d.type === type)?.data || null;
-    const planOvo = getDeliv("plan_ovo");
+    const planOvo = getDeliv("plan_financier") || getDeliv("plan_ovo");
     const inputsData = getDeliv("inputs_data");
     const frameworkData = getDeliv("framework_data");
 
@@ -123,27 +98,37 @@ Synthèse : ${calcResult.synthese.valeur_basse.toLocaleString()} — ${calcResul
 ${getValuationBenchmarksPrompt()}
 
 ═══ INSTRUCTIONS ═══
-Produis l'analyse qualitative en JSON. Chaque champ texte doit être un VRAI PARAGRAPHE détaillé et explicatif :
+Produis l'analyse qualitative en JSON :
 {
-  "note_methodologique_dcf": "string — 200+ mots : explication pédagogique du DCF, justification du WACC, hypothèses de croissance, comparaison avec WACC typiques du marché",
-  "justification_multiples": "string — 200+ mots : pourquoi ces multiples, transactions comparables citées avec noms de fonds et montants, positionnement du multiple retenu vs range marché",
+  "note_methodologique_dcf": "string — 200+ mots : explication pédagogique du DCF, justification du WACC, comparaison marché",
+  "justification_multiples": "string — 200+ mots : transactions comparables avec noms de fonds et montants",
   "comparables_references": ["string — transactions réelles : 'I&P a investi dans X en 2023 à 5.2x EBITDA'"],
-  "justification_decotes": "string — 150+ mots : explication de chaque décote/prime en langage simple avec exemples concrets",
-  "note_analyste": "string — 300+ mots : synthèse complète, forces et limites de la valorisation, fourchette crédible, facteurs pouvant changer la valeur",
-  "methode_privilegiee_justification": "string — 100+ mots : pourquoi DCF ou Multiples est plus fiable ici, dans quel contexte on privilégierait l'autre",
+  "justification_decotes": "string — 150+ mots : explication de chaque décote/prime en langage simple",
+  "note_analyste": "string — 300+ mots : synthèse complète, forces et limites, fourchette crédible",
+  "methode_privilegiee_justification": "string — 100+ mots : pourquoi DCF ou Multiples est plus fiable ici",
   "implications_investissement": {
     "pre_money_estime": <number>,
-    "si_levee_100m": "string — dilution %, valorisation post-money, parts fondateur après levée",
+    "si_levee_100m": "string — dilution %, valorisation post-money, parts fondateur",
     "si_levee_500m": "string — idem pour un ticket plus gros",
     "multiple_sortie_estime": "string — hypothèse de sortie à 5-7 ans avec justification",
-    "irr_investisseur_estime": "string — TRI brut et net estimé, comparaison avec rendements PE Afrique (15-25% typique)",
-    "scenario_sortie": "string — mécanismes de sortie possibles (cession stratégique, MBO, IPO régionale)"
+    "irr_investisseur_estime": "string — TRI brut et net, comparaison rendements PE Afrique (15-25%)",
+    "scenario_sortie": "string — mécanismes de sortie possibles (cession, MBO, IPO régionale)"
   },
   "score": <0-100 — qualité et fiabilité de la valorisation>
 }`;
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext, 8192, undefined, 0.4);
+
+    // Pre-screening insights for risk calibration
+    let preScreenContext = "";
+    const preScreen = ctx.deliverableMap["pre_screening"];
+    if (preScreen && typeof preScreen === "object" && preScreen.score) {
+      preScreenContext = `\nPré-screening: score=${preScreen.score}, classification=${preScreen.classification || "N/A"}`;
+      if (preScreen.risques?.length) preScreenContext += `, risques: ${preScreen.risques.slice(0,3).map((r: any) => typeof r === 'string' ? r : r.titre || r).join("; ")}`;
+      preScreenContext += "\n";
+    }
+
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.4);
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {

@@ -4,7 +4,7 @@ import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, 
 import { syncBusinessPlanWithPlanOvo } from "../_shared/normalizers.ts";
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "https://esm.sh/docx@8.5.0";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "npm:docx@8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 
@@ -13,7 +13,18 @@ const OPUS_MODEL = "claude-sonnet-4-20250514";
 // ── SYSTEM PROMPT ──────────────────────────────────────────────────────
 const BP_SYSTEM_PROMPT = `Tu es un consultant senior en business plan avec 20+ ans d'expérience auprès de PME africaines. Tu rédiges des business plans professionnels pour OVO.
 Tu connais les normes SYSCOHADA, la fiscalité UEMOA/CEMAC, et les critères des bailleurs de fonds (Enabel, GIZ, BAD, AFD, IFC, OVO).
-Tu génères UNIQUEMENT du JSON structuré. Pas de markdown, pas de texte autour. Rédige en français. Sois précis, factuel, stratégique. JAMAIS de contenu générique.`;
+Tu génères UNIQUEMENT du JSON structuré. Pas de markdown, pas de texte autour. Rédige en français. Sois précis, factuel, stratégique. JAMAIS de contenu générique.
+
+SECTION analyse_marche — INSTRUCTIONS SPÉCIALES :
+1. Estimer la taille du marché (TAM/SAM/SOM) avec des CHIFFRES en FCFA et la SOURCE
+2. Identifier au minimum 3 concurrents RÉELS ou catégories de concurrents du pays
+3. Pour chaque concurrent : positionnement, forces, faiblesses, taille estimée
+4. Identifier les barrières à l'entrée SPÉCIFIQUES au secteur et au pays
+5. Donner le positionnement de l'entreprise (Leader/Challenger/Niche/Nouvel entrant)
+6. Croiser : BMC (proposition valeur, canaux), SIC (impact), inputs (CA, marge), notes coaching
+7. Si tu as des données web (fournies dans le contexte), les utiliser avec la source
+8. Toujours citer la source de chaque estimation (rapport AFD, Banque Mondiale, INS, estimation IA, etc.)
+9. Les champs marche_potentiel, competitivite, tendances_marche doivent être des SYNTHÈSES de analyse_marche`;
 
 // ── SPLIT SCHEMAS ──────────────────────────────────────────────────────
 const SCHEMA_PART1 = `{
@@ -44,9 +55,39 @@ const SCHEMA_PART1 = `{
   "modele_clients": "string",
   "modele_revenus_depenses": "string",
   "modele_activites_ressources": "string",
-  "marche_potentiel": "string — TAM/SAM/SOM",
-  "competitivite": "string",
-  "tendances_marche": "string"
+  "marche_potentiel": "string — synthèse TAM/SAM/SOM (rétrocompat)",
+  "competitivite": "string — synthèse positionnement (rétrocompat)",
+  "tendances_marche": "string — synthèse tendances (rétrocompat)",
+  "analyse_marche": {
+    "taille_marche": {
+      "tam": "string — Taille totale du marché adressable (chiffres + source)",
+      "sam": "string — Segment accessible (chiffres + source)",
+      "som": "string — Part réaliste à 3 ans",
+      "source": "string — d'où viennent ces chiffres"
+    },
+    "dynamique": {
+      "croissance_annuelle": "string — ex: +8% par an",
+      "facteurs_porteurs": ["string × 3-4"],
+      "barrieres_entree": ["string × 2-3"],
+      "reglementation": "string — normes requises (HACCP, OHADA, etc.)"
+    },
+    "concurrents": [
+      {
+        "nom": "string",
+        "positionnement": "string",
+        "forces": ["string × 2-3"],
+        "faiblesses": ["string × 2-3"],
+        "taille_estimee": "string — CA estimé ou catégorie PME/ETI/Groupe",
+        "source": "string — BMC, pitch, web, coach, knowledge base"
+      }
+    ],
+    "positionnement_entreprise": {
+      "position": "Leader | Challenger | Niche | Nouvel entrant",
+      "avantages_concurrentiels": ["string × 3-4"],
+      "differenciation": "string — proposition valeur unique vs concurrents",
+      "parts_marche_estimee": "string"
+    }
+  }
 }`;
 
 const SCHEMA_PART2 = `{
@@ -86,7 +127,7 @@ function buildContextBlock(ctx: any): string {
   const fw = dm["framework_data"] || {};
   const sic = dm["sic_analysis"] || {};
   const diag = dm["diagnostic_data"] || {};
-  const plan = dm["plan_ovo"] || {};
+  const plan = dm["plan_financier"] || dm["plan_ovo"] || {};
 
   return `ENTREPRISE :
 - Nom : ${ent.name || "N/A"}
@@ -565,18 +606,66 @@ async function generateWordDoc(bp: any): Promise<Uint8Array> {
         ...multiPara(bp.modele_activites_ressources),
         spacer(),
 
-        // Section 8
+        // Section 8 — Enrichie avec analyse_marche structurée + rétrocompat
         h2("8. Marché, concurrence et environnement :"),
+
+        // A: Taille du marché
         italic("A : Marché et potentiel de marché :"),
         guideText("Quelle est la taille de votre marché (TAM/SAM/SOM) ? Quel est le potentiel de croissance ?"),
-        ...multiPara(bp.marche_potentiel),
+        ...(bp.analyse_marche?.taille_marche ? [
+          para(`TAM (Marché total adressable) : ${bp.analyse_marche.taille_marche.tam}`),
+          para(`SAM (Segment accessible) : ${bp.analyse_marche.taille_marche.sam}`),
+          para(`SOM (Part réaliste à 3 ans) : ${bp.analyse_marche.taille_marche.som}`),
+          bp.analyse_marche.taille_marche.source ? new Paragraph({ children: [new TextRun({ text: `Source : ${bp.analyse_marche.taille_marche.source}`, italics: true, size: 18, color: "666666", font: "Calibri" })] }) : null,
+          spacer(),
+          bp.analyse_marche.dynamique?.croissance_annuelle ? para(`Croissance annuelle estimée : ${bp.analyse_marche.dynamique.croissance_annuelle}`) : null,
+          ...(bp.analyse_marche.dynamique?.facteurs_porteurs || []).map((f: string, i: number) => para(`  ${i + 1}. ${f}`)),
+          bp.analyse_marche.dynamique?.reglementation ? para(`Réglementation : ${bp.analyse_marche.dynamique.reglementation}`) : null,
+        ].filter(Boolean) : multiPara(bp.marche_potentiel)),
         spacer(),
-        italic("B : Compétitivité :"),
-        guideText("Qui sont vos concurrents ? Quels sont vos avantages compétitifs ? Comment vous positionnez-vous ?"),
-        ...multiPara(bp.competitivite),
+
+        // B: Concurrence
+        italic("B : Analyse concurrentielle :"),
+        guideText("Qui sont vos concurrents ? Comment vous positionnez-vous ?"),
+        ...(bp.analyse_marche?.concurrents?.length ? [
+          // Tableau concurrents
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: ["Concurrent", "Positionnement", "Forces", "Faiblesses", "Taille"].map(h =>
+                  new TableCell({
+                    children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 18, font: "Calibri", color: "FFFFFF" })] })],
+                    shading: { fill: "1a2744", type: ShadingType.SOLID, color: "1a2744" },
+                  })
+                ),
+              }),
+              ...bp.analyse_marche.concurrents.map((c: any) => new TableRow({
+                children: [
+                  c.nom || "", c.positionnement || "",
+                  (c.forces || []).join(", "), (c.faiblesses || []).join(", "),
+                  c.taille_estimee || "N/A"
+                ].map((text: string) => new TableCell({
+                  children: [new Paragraph({ children: [new TextRun({ text, size: 18, font: "Calibri" })] })],
+                })),
+              })),
+            ],
+          }),
+          spacer(),
+          bp.analyse_marche.positionnement_entreprise?.position ? para(`Positionnement : ${bp.analyse_marche.positionnement_entreprise.position}`) : null,
+          bp.analyse_marche.positionnement_entreprise?.differenciation ? para(`Différenciation : ${bp.analyse_marche.positionnement_entreprise.differenciation}`) : null,
+          ...(bp.analyse_marche.positionnement_entreprise?.avantages_concurrentiels || []).map((a: string, i: number) => para(`  Avantage ${i + 1} : ${a}`)),
+        ].filter(Boolean) : multiPara(bp.competitivite)),
         spacer(),
+
+        // C: Tendances + Barrières
         italic("C : Analyses et tendances du marché :"),
         guideText("Quelles sont les tendances de votre secteur ? Comment évoluent les besoins des clients ?"),
+        ...(bp.analyse_marche?.dynamique?.barrieres_entree?.length ? [
+          new Paragraph({ children: [new TextRun({ text: "Barrières à l'entrée :", bold: true, size: 20, font: "Calibri" })] }),
+          ...(bp.analyse_marche.dynamique.barrieres_entree).map((b: string, i: number) => para(`  ${i + 1}. ${b}`)),
+          spacer(),
+        ] : []),
         ...multiPara(bp.tendances_marche),
         spacer(),
 
@@ -706,6 +795,23 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
     (ctx as any)._agentDocs = getDocumentContentForAgent(ent, "business_plan", 100_000);
+    const requestId = crypto.randomUUID();
+
+    const { data: existingDeliv } = await ctx.supabase.from("deliverables")
+      .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "business_plan").maybeSingle();
+    if (existingDeliv?.data && Object.keys(existingDeliv.data).length > 5) {
+      await ctx.supabase.from("deliverables").update({
+        data: { ...existingDeliv.data, _processing: true, _request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "business_plan");
+    } else {
+      await ctx.supabase.from("deliverables").upsert({
+        enterprise_id: ctx.enterprise_id, type: "business_plan",
+        data: { status: "processing", request_id: requestId, started_at: new Date().toISOString() },
+      }, { onConflict: "enterprise_id,type" });
+    }
+
+    const asyncWork = async () => {
+    try {
 
     console.log("[BP] Generating Business Plan for:", ent.name);
 
@@ -725,17 +831,54 @@ serve(async (req) => {
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "business_plan");
     const guardedPrompt = injectGuardrails(BP_SYSTEM_PROMPT);
 
+    // PRE-STEP: Web search for market analysis
+    let webMarketContext = "";
+    try {
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+      const country = ent.country || "Côte d'Ivoire";
+      const sector = ent.sector || "agro-industrie";
+      const countryCode = country.includes("Ivoire") ? "CI" : country.includes("négal") ? "SN" : country.includes("ameroun") ? "CM" : country.includes("Congo") ? "CD" : "CI";
+
+      console.log("[BP] Web search for market analysis...");
+      const webResp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": anthropicKey, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5,
+            user_location: { type: "approximate", country: countryCode, region: country } }],
+          messages: [{ role: "user", content: `Recherche marché pour "${ent.name}" secteur "${sector}" en ${country}. Trouve: 1) Taille marché (TAM en FCFA + source), 2) 3-5 concurrents réels avec positionnement/forces/faiblesses, 3) Croissance annuelle %, 4) Réglementation (HACCP, normes), 5) Barrières entrée. Réponds en JSON: {"taille_marche":{"tam":"...","sam":"...","source":"..."},"croissance":"...","concurrents":[{"nom":"...","positionnement":"...","forces":["..."],"faiblesses":["..."],"taille_estimee":"..."}],"barrieres":["..."],"reglementation":"..."}` }],
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+
+      if (webResp.ok) {
+        const webData = await webResp.json();
+        const textBlocks = (webData.content || []).filter((b: any) => b.type === "text");
+        const jsonText = textBlocks.map((b: any) => b.text).join("");
+        const cleaned = jsonText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        try {
+          const parsed = JSON.parse(cleaned);
+          webMarketContext = `\n\n══════ DONNÉES MARCHÉ (RECHERCHE WEB — à intégrer dans analyse_marche) ══════\n${JSON.stringify(parsed, null, 2)}\nUtilise ces données pour enrichir la section analyse_marche. Cite les sources.\n`;
+          console.log(`[BP] ✅ Web search: ${parsed.concurrents?.length || 0} competitors found`);
+        } catch { webMarketContext = `\n\n══════ DONNÉES MARCHÉ (WEB) ══════\n${cleaned.slice(0, 2000)}\n`; }
+      }
+    } catch (e: any) {
+      console.warn("[BP] Web search failed (non-blocking):", e?.message?.slice(0, 100));
+    }
+
     // PART 1: Sections 1-8
     console.log("[BP] AI Call 1/2: Sections 1-8...");
-    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, OPUS_MODEL, 0.3);
+    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext + coachingContext + webMarketContext, 16384, OPUS_MODEL, 0.5);
     console.log("[BP] Part 1 OK, keys:", Object.keys(part1).length);
 
     // Build summary of part1 for context in part2
-    const part1Summary = `Entreprise: ${part1.company_name}, SWOT: ${(part1.swot?.forces || []).length} forces, Marché: ${(part1.marche_potentiel || "").substring(0, 100)}`;
+    const part1Summary = `Entreprise: ${part1.company_name}, SWOT: ${(part1.swot?.forces || []).length} forces, Marché: ${(part1.analyse_marche?.taille_marche?.tam || part1.marche_potentiel || "").substring(0, 150)}, Concurrents: ${part1.analyse_marche?.concurrents?.length || 0}`;
 
     // PART 2: Sections 9-14
     console.log("[BP] AI Call 2/2: Sections 9-14...");
-    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, OPUS_MODEL, 0.3);
+    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, OPUS_MODEL, 0.5);
     console.log("[BP] Part 2 OK, keys:", Object.keys(part2).length);
 
     // Merge
@@ -744,7 +887,7 @@ serve(async (req) => {
     bpJson.company_name = bpJson.company_name || ent.name;
 
     // Sync financial table with Plan OVO synchronized data
-    const planOvoData = ctx.deliverableMap["plan_ovo"];
+    const planOvoData = ctx.deliverableMap["plan_financier"] || ctx.deliverableMap["plan_ovo"];
     if (planOvoData?.revenue) {
       console.log("[BP] Syncing financier_tableau with Plan OVO data...");
       syncBusinessPlanWithPlanOvo(bpJson, planOvoData);
@@ -799,13 +942,20 @@ serve(async (req) => {
 
     console.log("[BP] SUCCESS:", fileName);
 
-    return jsonResponse({
-      success: true,
-      data: bpJson,
-      score: bpJson.score,
-      fileName,
-      downloadUrl,
+    console.log(`[BP] ✅ DONE ${requestId}`);
+    } catch (innerErr: any) {
+      console.error("[BP] Background error:", innerErr);
+      await ctx.supabase.from("deliverables").update({
+        data: { status: "error", error: innerErr.message?.slice(0, 500), request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "business_plan");
+    }
+    };
+    // @ts-ignore
+    EdgeRuntime.waitUntil(asyncWork());
+    return new Response(JSON.stringify({ accepted: true, request_id: requestId }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e: any) {
     console.error("[BP] ERROR:", e);
     return errorResponse(e.message || "Erreur inconnue", e.status || 500);

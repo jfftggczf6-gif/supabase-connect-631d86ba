@@ -2,12 +2,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { normalizeBmc } from "../_shared/normalizers.ts";
-import { getSectorKnowledgePrompt } from "../_shared/financial-knowledge.ts";
+import { getSectorKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 
-const BMC_SYSTEM_PROMPT = `Tu es un expert en analyse de business models pour les PME africaines. Tu produis des analyses BMC (Business Model Canvas) professionnelles et détaillées.
+const BMC_SYSTEM_PROMPT = `Tu es un expert en analyse de business models pour les PME africaines. Tu produis des analyses BMC (Business Model Canvas) professionnelles.
 
-IMPORTANT: Tu dois TOUJOURS répondre avec un JSON valide, sans texte avant ou après. Pas de markdown, pas de commentaires.`;
+STYLE : ÉQUILIBRÉ — ni trop court ni trop long. Informatif mais lisible.
+- "detail" d'un bloc canvas : 3-5 phrases avec explications claires. Cite la source entre parenthèses.
+- "items" d'un bloc : 4-6 éléments, chacun en 1 phrase courte explicative
+- "element_critique" : 1-2 phrases avec justification
+- structure_couts.postes : montant en NOMBRE ENTIER (devise locale). JAMAIS coller le montant avec l'année.
+- flux_revenus : chiffres précis avec contexte (ex: "10 000 XOF par plaquette de 30 œufs")
+- diagnostic/recommandations : 2-3 phrases par point, avec la raison et l'action proposée
+
+IMPORTANT: Réponds UNIQUEMENT en JSON valide, sans texte, sans markdown.`;
 
 const BMC_USER_PROMPT = (name: string, sector: string, country: string, city: string, docs: string) => `
 Analyse l'entreprise "${name}" (Secteur: ${sector || "non spécifié"}, Pays: ${country || "non spécifié"}, Ville: ${city || "non spécifié"}) et génère un Business Model Canvas complet.
@@ -114,17 +122,61 @@ serve(async (req) => {
   try {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+    const requestId = crypto.randomUUID();
+
+    // Mark as processing
+    const { data: existingDeliv } = await ctx.supabase.from("deliverables")
+      .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "bmc_analysis").maybeSingle();
+    if (existingDeliv?.data && Object.keys(existingDeliv.data).length > 5) {
+      await ctx.supabase.from("deliverables").update({
+        data: { ...existingDeliv.data, _processing: true, _request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "bmc_analysis");
+    } else {
+      await ctx.supabase.from("deliverables").upsert({
+        enterprise_id: ctx.enterprise_id, type: "bmc_analysis",
+        data: { status: "processing", request_id: requestId, started_at: new Date().toISOString() },
+      }, { onConflict: "enterprise_id,type" });
+    }
+
+    // Return 202 immediately, work in background
+    const asyncWork = async () => {
+    try {
 
     // RAG: enrichir avec benchmarks sectoriels
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "secteurs"], "bmc_analysis");
 
     const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
+    const contextBenchmarks = getContextualBenchmarks(ent.country || "Côte d'Ivoire", ent.sector || "services_b2b");
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "bmc");
-    const agentDocs = getDocumentContentForAgent(ent, "bmc", 100_000);
+    const agentDocs = getDocumentContentForAgent(ent, "bmc", 20_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+
+    // Inject structured data from upstream deliverables
+    let upstreamContext = "";
+    const inputsData = ctx.deliverableMap["inputs_data"];
+    if (inputsData && typeof inputsData === "object" && Object.keys(inputsData).length > 5) {
+      upstreamContext += `\n\n══════ DONNÉES FINANCIÈRES EXTRAITES (inputs_data) ══════\n`;
+      if (inputsData.produits_services?.length) {
+        upstreamContext += `Produits/Services:\n${inputsData.produits_services.map((p: any) => `  - ${p.nom}: CA=${(p.ca_estime||0).toLocaleString("fr-FR")}, part=${p.part_ca_pct||0}%`).join("\n")}\n`;
+      }
+      if (inputsData.compte_resultat?.chiffre_affaires) {
+        upstreamContext += `CA total: ${inputsData.compte_resultat.chiffre_affaires.toLocaleString("fr-FR")} FCFA\n`;
+      }
+      if (inputsData.equipe?.length) {
+        upstreamContext += `Équipe: ${inputsData.equipe.map((e: any) => `${e.poste}(${e.nombre})`).join(", ")}\n`;
+      }
+    }
+    const preScreen = ctx.deliverableMap["pre_screening"];
+    if (preScreen && typeof preScreen === "object" && Object.keys(preScreen).length > 5) {
+      upstreamContext += `\n══════ PRÉ-SCREENING ══════\n`;
+      if (preScreen.activites_identifiees?.length) upstreamContext += `Activités: ${preScreen.activites_identifiees.map((a: any) => typeof a === 'string' ? a : a.nom || a).join(", ")}\n`;
+      if (preScreen.forces?.length) upstreamContext += `Forces: ${preScreen.forces.slice(0,4).map((f: any) => typeof f === 'string' ? f : f.titre || f).join(" | ")}\n`;
+      if (preScreen.classification) upstreamContext += `Classification: ${preScreen.classification}\n`;
+    }
+
     const rawBmcData = await callAI(injectGuardrails(BMC_SYSTEM_PROMPT), BMC_USER_PROMPT(
       ent.name, ent.sector || "", ent.country || "", ent.city || "", agentDocs
-    ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}` + ragContext + kbContext + coachingContext, 32768, undefined, 0.2);
+    ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}` + ragContext + kbContext + coachingContext + upstreamContext, 32768, "claude-sonnet-4-20250514", 0.3);
 
     // Normalize AI response
     const bmcData = normalizeBmc(rawBmcData);
@@ -141,7 +193,24 @@ serve(async (req) => {
       version: 1,
     }, { onConflict: "enterprise_id,type" });
 
-    return jsonResponse({ success: true, data: bmcData, score: bmcData.score_global || bmcData.score });
+    console.log(`[bmc] ✅ DONE ${requestId}`);
+    } catch (innerErr: any) {
+      console.error("[bmc] Background error:", innerErr);
+      // Preserve existing data, just add error flag
+      const { data: curr } = await ctx.supabase.from("deliverables")
+        .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "bmc_analysis").maybeSingle();
+      const safeData = (curr?.data && Object.keys(curr.data).length > 5)
+        ? { ...curr.data, _error: innerErr.message?.slice(0, 500), _request_id: requestId }
+        : { status: "error", error: innerErr.message?.slice(0, 500), request_id: requestId };
+      await ctx.supabase.from("deliverables").update({ data: safeData })
+        .eq("enterprise_id", ctx.enterprise_id).eq("type", "bmc_analysis");
+    }
+    };
+    // @ts-ignore
+    EdgeRuntime.waitUntil(asyncWork());
+    return new Response(JSON.stringify({ accepted: true, request_id: requestId }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e: any) {
     console.error("generate-bmc error:", e);
     return errorResponse(e.message || "Erreur inconnue", e.status || 500);

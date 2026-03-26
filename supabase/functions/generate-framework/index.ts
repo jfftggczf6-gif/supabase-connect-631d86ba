@@ -7,7 +7,7 @@ import { fillFrameworkExcelTemplate } from "../_shared/framework-excel-template.
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 
-const OPUS_MODEL = "claude-opus-4-20250514";
+const OPUS_MODEL = "claude-opus-4-6";
 
 const SYSTEM_PROMPT = `Tu es un expert financier senior de niveau CFO/analyste institutionnel, certifié SYSCOHADA révisé (2017), spécialisé dans l'analyse et la modélisation financière des PME africaines (zones UEMOA/CEMAC). Tu produis des analyses financières institutionnelles de type "Framework d'Analyse Financière PME" sans aucune erreur de calcul.
 
@@ -298,6 +298,25 @@ serve(async (req) => {
   try {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+    const requestId = crypto.randomUUID();
+
+    // Mark as processing immediately
+    const { data: existingDeliv } = await ctx.supabase.from("deliverables")
+      .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "framework_data").maybeSingle();
+    if (existingDeliv?.data && Object.keys(existingDeliv.data).length > 5) {
+      await ctx.supabase.from("deliverables").update({
+        data: { ...existingDeliv.data, _processing: true, _request_id: requestId },
+      }).eq("enterprise_id", ctx.enterprise_id).eq("type", "framework_data");
+    } else {
+      await ctx.supabase.from("deliverables").upsert({
+        enterprise_id: ctx.enterprise_id, type: "framework_data",
+        data: { status: "processing", request_id: requestId, started_at: new Date().toISOString() },
+      }, { onConflict: "enterprise_id,type" });
+    }
+
+    // Return 202 immediately, continue work in background
+    const asyncWork = async () => {
+    try {
     const inputsData = ctx.deliverableMap["inputs_data"] || ctx.moduleMap["inputs"] || {};
     const bmcData = ctx.deliverableMap["bmc_analysis"] || ctx.moduleMap["bmc"] || null;
 
@@ -457,9 +476,21 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
 
     const agentDocs = getDocumentContentForAgent(ent, "framework", 100_000);
     const devise = inputsData?.devise || fiscalParams.devise;
+
+    // Pre-screening insights
+    let preScreenBlock = "";
+    const preScreen = ctx.deliverableMap["pre_screening"];
+    if (preScreen && typeof preScreen === "object" && Object.keys(preScreen).length > 5) {
+      preScreenBlock = `\n\n══════ PRÉ-SCREENING (insights pour calibrer l'analyse) ══════\n`;
+      if (preScreen.score) preScreenBlock += `Score: ${preScreen.score}/100 | Classification: ${preScreen.classification || "N/A"}\n`;
+      if (preScreen.activites_identifiees?.length) preScreenBlock += `Activités: ${preScreen.activites_identifiees.map((a: any) => typeof a === 'string' ? a : a.nom || a).join(", ")}\n`;
+      if (preScreen.forces?.length) preScreenBlock += `Forces: ${preScreen.forces.slice(0, 4).map((f: any) => typeof f === 'string' ? f : f.titre || f).join(" | ")}\n`;
+      if (preScreen.risques?.length) preScreenBlock += `Risques: ${preScreen.risques.slice(0, 4).map((r: any) => typeof r === 'string' ? r : r.titre || r).join(" | ")}\n`;
+    }
+
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", agentDocs, inputsData, bmcData, devise
-    ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
+    ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + preScreenBlock + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework");
     const enrichedSystemPrompt = injectGuardrails(SYSTEM_PROMPT + "\n\n" + knowledgeBase);
@@ -501,7 +532,26 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
       console.warn("[generate-framework] Excel filling failed (non-blocking):", xlsxErr?.message);
     }
 
-    return jsonResponse({ success: true, data, score: data.score, excel_generated: excelGenerated });
+    console.log(`[generate-framework] ✅ DONE ${requestId}`);
+    } catch (innerErr: any) {
+      console.error("[generate-framework] Background error:", innerErr);
+      const { data: curr } = await ctx.supabase.from("deliverables")
+        .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "framework_data").maybeSingle();
+      const safeData = (curr?.data && Object.keys(curr.data).length > 5)
+        ? { ...curr.data, _error: innerErr.message?.slice(0, 500), _request_id: requestId }
+        : { status: "error", error: innerErr.message?.slice(0, 500), request_id: requestId };
+      await ctx.supabase.from("deliverables").update({ data: safeData })
+        .eq("enterprise_id", ctx.enterprise_id).eq("type", "framework_data");
+    }
+    }; // end asyncWork
+
+    // @ts-ignore — Deno edge runtime
+    EdgeRuntime.waitUntil(asyncWork());
+
+    return new Response(JSON.stringify({
+      accepted: true, request_id: requestId, message: "Generation started. Poll deliverables for status.",
+    }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   } catch (e: any) {
     console.error("generate-framework error:", e);
     return errorResponse(e.message || "Erreur inconnue", e.status || 500);
