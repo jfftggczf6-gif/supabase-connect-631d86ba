@@ -41,6 +41,16 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
             <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium capitalize">
               {role}
             </span>
+            {showProgrammes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('gap-1.5 text-xs', location.pathname.startsWith('/programmes') && 'bg-muted')}
+                onClick={() => navigate('/programmes')}
+              >
+                <ClipboardList className="h-4 w-4" /> Programmes
+              </Button>
+            )}
           </div>
 
           <DropdownMenu>
