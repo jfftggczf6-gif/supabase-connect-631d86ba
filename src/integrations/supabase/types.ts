@@ -606,6 +606,7 @@ export type Database = {
           country: string | null
           created_at: string
           creation_date: string | null
+          data_changed_at: string | null
           data_room_enabled: boolean | null
           data_room_slug: string | null
           description: string | null
@@ -637,6 +638,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           creation_date?: string | null
+          data_changed_at?: string | null
           data_room_enabled?: boolean | null
           data_room_slug?: string | null
           description?: string | null
@@ -668,6 +670,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           creation_date?: string | null
+          data_changed_at?: string | null
           data_room_enabled?: boolean | null
           data_room_slug?: string | null
           description?: string | null
