@@ -17,6 +17,9 @@ export default function Dashboard() {
 
   if (!role) return <Navigate to="/select-role" replace />;
 
+  // Chef de programme → redirige vers /programmes
+  if (role === 'chef_programme') return <Navigate to="/programmes" replace />;
+
   if (role === 'super_admin') return <SuperAdminDashboard />;
   return role === 'coach' ? <CoachDashboard /> : <EntrepreneurDashboard />;
 }
