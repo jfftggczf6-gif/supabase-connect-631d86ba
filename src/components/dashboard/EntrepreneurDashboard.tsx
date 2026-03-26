@@ -992,7 +992,7 @@ export default function EntrepreneurDashboard({
   const handleDownloadPdf = async (type: string, filename: string) => {
     if (!enterprise) return;
     try {
-      toast.info('Génération du PDF en cours...');
+      toast.info('Étape 1/2 : récupération HTML...');
       const token = await getValidAccessToken(authSession, navigate);
       const ts = Date.now();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterprise.id}&format=html&_ts=${ts}`;
@@ -1000,8 +1000,10 @@ export default function EntrepreneurDashboard({
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
-      if (!response.ok) throw new Error('Erreur de téléchargement HTML');
+      if (!response.ok) throw new Error(`HTML erreur ${response.status}`);
       const htmlContent = await response.text();
+      if (!htmlContent || htmlContent.length < 50) throw new Error(`HTML vide (${htmlContent?.length || 0} chars)`);
+      toast.info(`Étape 2/2 : conversion PDF (${Math.round(htmlContent.length / 1024)}KB)...`);
       await exportToPdf(htmlContent, filename);
       toast.success('PDF téléchargé');
     } catch (err: any) {
