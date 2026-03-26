@@ -67,8 +67,9 @@ export default function ProgrammeCreatePage() {
 
   const handleFileUpload = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!['pdf', 'docx', 'txt', 'md'].includes(ext || '')) {
-      toast({ title: 'Format non supporté', description: 'Utilisez PDF, DOCX ou TXT.', variant: 'destructive' });
+    const ACCEPTED = ['pdf', 'docx', 'doc', 'txt', 'md', 'xlsx', 'xls', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'];
+    if (!ACCEPTED.includes(ext || '')) {
+      toast({ title: 'Format non supporté', description: 'Formats acceptés : PDF, DOCX, XLSX, images, TXT.', variant: 'destructive' });
       return;
     }
 
