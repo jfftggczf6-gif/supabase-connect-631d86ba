@@ -26,13 +26,14 @@ export type PipelineState = 'generate' | 'update' | 'up_to_date';
 
 export async function getPipelineState(enterpriseId: string): Promise<PipelineState> {
   const [{ data: ent }, { data: existing }] = await Promise.all([
-    supabase.from('enterprises').select('updated_at').eq('id', enterpriseId).single(),
+    supabase.from('enterprises').select('updated_at, data_changed_at').eq('id', enterpriseId).single(),
     supabase.from('deliverables').select('type, updated_at, data').eq('enterprise_id', enterpriseId),
   ]);
 
   if (!existing || existing.length === 0) return 'generate';
 
-  const sourceDate = new Date(ent?.updated_at || 0).getTime();
+  // Use data_changed_at (pipeline-impactful changes only), fallback to updated_at
+  const sourceDate = new Date(ent?.data_changed_at || ent?.updated_at || 0).getTime();
 
   const toNumber = (v: any) => {
     const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
@@ -106,13 +107,15 @@ export async function runPipelineFromClient(
     return initialToken; // fallback
   };
 
-  // Fetch enterprise updated_at and existing deliverables
-  const [{ data: ent }, { data: existing }] = await Promise.all([
-    supabase.from('enterprises').select('updated_at').eq('id', enterpriseId).single(),
-    supabase.from('deliverables').select('type, data, updated_at').eq('enterprise_id', enterpriseId),
+  // Fetch enterprise data_changed_at and existing deliverables + corrections
+  const [{ data: ent }, { data: existing }, { data: corrections }] = await Promise.all([
+    supabase.from('enterprises').select('updated_at, data_changed_at').eq('id', enterpriseId).single(),
+    supabase.from('deliverables').select('id, type, data, score, version, updated_at').eq('enterprise_id', enterpriseId),
+    supabase.from('deliverable_corrections').select('deliverable_id, field_path, corrected_value').eq('enterprise_id', enterpriseId),
   ]);
 
-  const sourceDate = new Date(ent?.updated_at || 0).getTime();
+  // Use data_changed_at (pipeline-impactful changes only), fallback to updated_at
+  const sourceDate = new Date(ent?.data_changed_at || ent?.updated_at || 0).getTime();
 
   const toNumber = (v: any) => {
     const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
@@ -180,6 +183,26 @@ export async function runPipelineFromClient(
     }
 
     onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}…` });
+
+    // P2: Snapshot current deliverable before regeneration (protect coach corrections)
+    const existingDeliv = existing?.find((d: any) => d.type === step.type);
+    if (existingDeliv?.data) {
+      await supabase.from('deliverable_versions').insert({
+        enterprise_id: enterpriseId,
+        deliverable_id: existingDeliv.id,
+        type: step.type,
+        data: existingDeliv.data,
+        version: existingDeliv.version || 1,
+        score: existingDeliv.score || null,
+        trigger_reason: force ? 'force_regeneration' : 'pipeline_update',
+        generated_by: 'pipeline_snapshot',
+      }).catch(() => {});
+    }
+
+    // Collect corrections for this deliverable type to re-apply after generation
+    const delivCorrections = (corrections || []).filter(
+      (c: any) => existingDeliv && c.deliverable_id === existingDeliv.id
+    );
 
     try {
       const controller = new AbortController();
@@ -267,6 +290,35 @@ export async function runPipelineFromClient(
               const err2 = await response2.json().catch(() => ({ error: 'Pass 2 failed' }));
               results.push({ step: step.name, success: false, error: err2.error });
               continue;
+            }
+          }
+
+          // P2: Re-apply coach corrections on the newly generated deliverable
+          if (delivCorrections.length > 0) {
+            const { data: freshDeliv } = await supabase
+              .from('deliverables')
+              .select('id, data')
+              .eq('enterprise_id', enterpriseId)
+              .eq('type', step.type)
+              .order('version', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (freshDeliv?.data && typeof freshDeliv.data === 'object') {
+              const mergedData = { ...(freshDeliv.data as any) };
+              for (const corr of delivCorrections) {
+                const parts = corr.field_path.split('.');
+                let ref = mergedData;
+                for (let p = 0; p < parts.length - 1; p++) {
+                  if (!ref[parts[p]] || typeof ref[parts[p]] !== 'object') ref[parts[p]] = {};
+                  ref = ref[parts[p]];
+                }
+                ref[parts[parts.length - 1]] = corr.corrected_value;
+              }
+              await supabase.from('deliverables')
+                .update({ data: mergedData })
+                .eq('id', freshDeliv.id)
+                .catch(() => {});
             }
           }
 

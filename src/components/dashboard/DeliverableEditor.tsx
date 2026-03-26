@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { PenLine, Check, X } from 'lucide-react';
+import { PenLine, Check, X, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { propagateCorrection, type PropagationResult } from '@/lib/field-propagation';
 
 interface Props {
   enterpriseId: string;
@@ -14,10 +15,11 @@ interface Props {
   fieldPath: string;
   currentValue: any;
   onSaved?: (newValue: any) => void;
+  onStaleTextsFound?: (staleTexts: PropagationResult['staleTexts']) => void;
 }
 
 export default function DeliverableEditor({
-  enterpriseId, deliverableId, deliverableType, fieldPath, currentValue, onSaved
+  enterpriseId, deliverableId, deliverableType, fieldPath, currentValue, onSaved, onStaleTextsFound,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(String(currentValue ?? ''));
@@ -83,6 +85,28 @@ export default function DeliverableEditor({
         });
       } catch (_) { /* non-blocking */ }
     }
+
+    // Propagate correction to related fields in other deliverables
+    try {
+      const propagation = await propagateCorrection(
+        enterpriseId, deliverableType, fieldPath, currentValue, parsed,
+      );
+
+      if (propagation.propagated.length > 0) {
+        toast.success(
+          `Correction propagée dans ${propagation.propagated.length} autre(s) livrable(s)`,
+          { icon: <ArrowRight className="h-4 w-4" /> },
+        );
+      }
+
+      if (propagation.staleTexts.length > 0) {
+        toast(
+          `${propagation.staleTexts.length} section(s) texte citent l'ancienne valeur — cliquez pour reformuler`,
+          { duration: 8000 },
+        );
+        onStaleTextsFound?.(propagation.staleTexts);
+      }
+    } catch (_) { /* propagation is best-effort */ }
 
     setSaving(false);
     setOpen(false);

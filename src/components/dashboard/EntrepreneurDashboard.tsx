@@ -400,7 +400,7 @@ export default function EntrepreneurDashboard({
         force,
         signal: controller.signal,
         onProgress: setGenerationProgress,
-        onStepComplete: () => fetchData(),
+        // No more onStepComplete polling — Realtime channel handles deliverable updates
       });
 
       if (pipelineResult.creditError && pipelineResult.completedCount === 0) {
@@ -420,10 +420,6 @@ export default function EntrepreneurDashboard({
       } else if (pipelineResult.skippedCount > 0 && failedSteps.length === 0) {
         toast.info(`Tous les livrables sont déjà à jour (${pipelineResult.skippedCount} modules). Utilisez "Régénération complète" pour forcer le recalcul.`);
       }
-
-      await fetchData();
-
-      // generate-ovo-plan is already called by the pipeline — no need to auto-trigger again
     } catch (err: any) {
       if (err.name !== 'AbortError' && !controller.signal.aborted) {
         toast.error(err.message || 'Erreur de génération');
@@ -432,6 +428,7 @@ export default function EntrepreneurDashboard({
       abortControllerRef.current = null;
       setGenerating(false);
       setGenerationProgress(null);
+      // Single fetchData at the end for non-realtime data (scores, uploads)
       await fetchData();
     }
   };
@@ -626,16 +623,35 @@ export default function EntrepreneurDashboard({
     if (!enterprise || !editName.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('enterprises').update({
+      // Detect if pipeline-impactful fields changed
+      const dataImpactfulChanged =
+        (editSector.trim() || null) !== (enterprise.sector || null) ||
+        (editCountry.trim() || null) !== (enterprise.country || null) ||
+        (editDescription.trim() || null) !== (enterprise.description || null);
+
+      const updatePayload: any = {
         name: editName.trim(),
         sector: editSector.trim() || null,
         country: editCountry.trim() || null,
         city: editCity.trim() || null,
         legal_form: editLegalForm.trim() || null,
         description: editDescription.trim() || null,
-      }).eq('id', enterprise.id);
+      };
+
+      // Only bump data_changed_at when data-impactful fields changed
+      if (dataImpactfulChanged) {
+        updatePayload.data_changed_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase.from('enterprises')
+        .update(updatePayload)
+        .eq('id', enterprise.id);
       if (error) throw error;
-      toast.success('Entreprise mise à jour !');
+
+      const msg = dataImpactfulChanged
+        ? 'Entreprise mise à jour ! Les livrables seront recalculés.'
+        : 'Entreprise mise à jour (pas de recalcul nécessaire).';
+      toast.success(msg);
       setShowEdit(false);
       fetchData();
     } catch (err: any) {
