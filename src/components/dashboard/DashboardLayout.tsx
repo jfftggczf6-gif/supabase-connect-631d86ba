@@ -3,8 +3,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LogOut, User, ClipboardList } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,6 +16,8 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const showProgrammes = role === 'super_admin' || role === 'chef_programme';
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -38,6 +41,16 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
             <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium capitalize">
               {role}
             </span>
+            {showProgrammes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('gap-1.5 text-xs', location.pathname.startsWith('/programmes') && 'bg-muted')}
+                onClick={() => navigate('/programmes')}
+              >
+                <ClipboardList className="h-4 w-4" /> Programmes
+              </Button>
+            )}
           </div>
 
           <DropdownMenu>
