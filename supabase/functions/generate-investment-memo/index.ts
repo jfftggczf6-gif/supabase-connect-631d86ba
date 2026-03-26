@@ -311,8 +311,8 @@ ${MEMO_SCHEMA_PART2}`;
       return jsonResponse({ success: true, data: mergedMemo, score: mergedMemo.score || 0 });
 
     } else {
-      // ═══════ CAS B: First call — run Pass 1, checkpoint, return 202 ═══════
-      console.log("Investment Memo — Pass 1/2...");
+      // ═══════ CAS B: First call — return 202 immediately, run Pass 1 in background ═══════
+      console.log("Investment Memo — Launching Pass 1/2 in background...");
 
       await updateMemoModuleState(ctx.enterprise_id, {
         phase: "part1",
@@ -320,51 +320,48 @@ ${MEMO_SCHEMA_PART2}`;
         started_at: startedAt,
       }, 10, "in_progress");
 
-      const prompt1 = `${contextBlock}
+      // Background work via EdgeRuntime.waitUntil (same pattern as BMC, SIC, etc.)
+      const asyncWork = async () => {
+        try {
+          const prompt1 = `${contextBlock}
 
 ══════ INSTRUCTIONS — PASSE 1/2 ══════
 Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
 La section valorisation doit CITER les résultats de l'agent Valuation, pas recalculer.
-Sois EFFICACE : chaque champ resume = 2-3 phrases. Les détails dans les tableaux structurés.
+Chaque section narrative doit faire au minimum 200 mots. Les chiffres dans les tableaux structurés, les analyses dans les champs texte.
 
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
-      try {
-        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 10000, SONNET_MODEL, 0.3);
-      } catch (e: any) {
-        await updateMemoModuleState(ctx.enterprise_id, {
-          phase: "failed",
-          error: e.message || "Pass 1 failed",
-          failed_at: new Date().toISOString(),
-        }, 0, "not_started");
-        throw e;
-      }
+          const part1Result = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
+          const score = part1Result.resume_executif?.score_ir || 0;
 
-      const score = part1.resume_executif?.score_ir || 0;
+          console.log("Investment Memo — Pass 1 done, saving checkpoint...");
+          await updateMemoModuleState(ctx.enterprise_id, {
+            phase: "part1_completed",
+            part1: part1Result,
+            score,
+            part1_completed_at: new Date().toISOString(),
+            request_id: requestId,
+          }, 50, "in_progress");
+          console.log("Investment Memo — Checkpoint saved. Frontend will trigger Pass 2.");
+        } catch (e: any) {
+          console.error("Investment Memo — Pass 1 failed:", e.message);
+          await updateMemoModuleState(ctx.enterprise_id, {
+            phase: "failed",
+            error: e.message || "Pass 1 failed",
+            failed_at: new Date().toISOString(),
+          }, 0, "not_started");
+        }
+      };
 
-      // Save checkpoint IMMEDIATELY after AI call — before HTTP return
-      // This is critical: the HTTP connection may already be dead at this point
-      console.log("Investment Memo — Pass 1 AI done, saving checkpoint NOW...");
-      try {
-        await updateMemoModuleState(ctx.enterprise_id, {
-          phase: "part1_completed",
-          part1,
-          score,
-          part1_completed_at: new Date().toISOString(),
-          request_id: requestId,
-        }, 50, "in_progress");
-        console.log("Investment Memo — Checkpoint saved successfully.");
-      } catch (checkpointErr: any) {
-        console.error("Investment Memo — CRITICAL: checkpoint save failed:", checkpointErr.message);
-      }
+      EdgeRuntime.waitUntil(asyncWork());
 
-      console.log("Investment Memo — Returning 202 (client may have disconnected, frontend will poll).");
+      console.log("Investment Memo — Returning 202 immediately.");
       return new Response(JSON.stringify({
-        success: true,
+        accepted: true,
         processing: true,
-        phase: "part1_completed",
-        score,
+        phase: "part1",
         request_id: requestId,
       }), {
         status: 202,
