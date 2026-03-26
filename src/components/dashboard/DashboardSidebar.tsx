@@ -20,6 +20,7 @@ interface SidebarProps {
   generating: boolean;
   generationProgress?: { current: number; total: number; name: string } | null;
   globalScore: number;
+  hideActions?: boolean;
 }
 
 const DELIV_TYPE_MAP: Record<string, string> = {
