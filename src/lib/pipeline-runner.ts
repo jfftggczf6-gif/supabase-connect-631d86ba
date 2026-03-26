@@ -187,16 +187,34 @@ export async function runPipelineFromClient(
     // P2: Snapshot current deliverable before regeneration (protect coach corrections)
     const existingDeliv = existing?.find((d: any) => d.type === step.type);
     if (existingDeliv?.data) {
-      await supabase.from('deliverable_versions').insert({
-        enterprise_id: enterpriseId,
-        deliverable_id: existingDeliv.id,
-        type: step.type,
-        data: existingDeliv.data,
-        version: existingDeliv.version || 1,
-        score: existingDeliv.score || null,
-        trigger_reason: force ? 'force_regeneration' : 'pipeline_update',
-        generated_by: 'pipeline_snapshot',
-      }).catch(() => {});
+      try {
+        const { error } = await supabase.from('deliverable_versions').insert({
+          enterprise_id: enterpriseId,
+          deliverable_id: existingDeliv.id,
+          type: step.type,
+          data: existingDeliv.data,
+          version: existingDeliv.version || 1,
+          score: existingDeliv.score || null,
+          trigger_reason: force ? 'force_regeneration' : 'pipeline_update',
+          generated_by: 'pipeline_snapshot',
+        });
+
+        if (error) {
+          console.warn('deliverable_versions snapshot failed', {
+            enterpriseId,
+            deliverableId: existingDeliv.id,
+            type: step.type,
+            error,
+          });
+        }
+      } catch (error) {
+        console.warn('deliverable_versions snapshot crashed', {
+          enterpriseId,
+          deliverableId: existingDeliv.id,
+          type: step.type,
+          error,
+        });
+      }
     }
 
     // Collect corrections for this deliverable type to re-apply after generation
