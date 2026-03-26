@@ -2,10 +2,12 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, CheckCircle } from "lucide-react";
 import MarketAnalysisSection from "./MarketAnalysisSection";
 import SectionEditButton from "./SectionEditButton";
+import EditableField from './EditableField';
 
 interface BusinessPlanPreviewProps {
   data: Record<string, any>;
   enterpriseId?: string;
+  deliverableId?: string;
   onUpdated?: () => void;
 }
 
@@ -107,13 +109,22 @@ function FinancierTable({ tableau }: { tableau: Record<string, Record<string, st
   );
 }
 
-export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: BusinessPlanPreviewProps) {
+export default function BusinessPlanPreview({ data, enterpriseId, deliverableId, onUpdated }: BusinessPlanPreviewProps) {
   const bp = data || {};
 
   const editBtn = (sectionPath: string, sectionTitle: string) =>
     enterpriseId && onUpdated ? (
       <SectionEditButton enterpriseId={enterpriseId} deliverableType="business_plan" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
     ) : null;
+
+  const editable = (fieldPath: string, value: any, mode: 'text' | 'number' = 'text', children: React.ReactNode) => {
+    if (!enterpriseId || !deliverableId) return <>{children}</>;
+    return (
+      <EditableField enterpriseId={enterpriseId} deliverableId={deliverableId} deliverableType="business_plan" fieldPath={fieldPath} currentValue={value} mode={mode}>
+        {children}
+      </EditableField>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -149,27 +160,27 @@ export default function BusinessPlanPreview({ data, enterpriseId, onUpdated }: B
       </Section>
 
       <Section title="2. Résumé de la gestion" editBtn={editBtn('resume_gestion', 'Résumé de Gestion')}>
-        <MultiText text={bp.resume_gestion} />
+        {editable('resume_gestion', bp.resume_gestion, 'text', <MultiText text={bp.resume_gestion} />)}
       </Section>
 
       <Section title="3. Revue historique" editBtn={editBtn('historique', 'Historique')}>
-        <MultiText text={bp.historique} />
+        {editable('historique', bp.historique, 'text', <MultiText text={bp.historique} />)}
       </Section>
 
       <Section title="4. Vision, mission et valeurs" editBtn={editBtn('vision', 'Vision')}>
         <p className="font-medium text-muted-foreground mb-1">Vision</p>
-        <MultiText text={bp.vision} />
+        {editable('vision', bp.vision, 'text', <MultiText text={bp.vision} />)}
         <p className="font-medium text-muted-foreground mt-3 mb-1">Mission</p>
-        <MultiText text={bp.mission} />
+        {editable('mission', bp.mission, 'text', <MultiText text={bp.mission} />)}
         <p className="font-medium text-muted-foreground mt-3 mb-1">Valeurs</p>
         <BulletList items={bp.valeurs} />
       </Section>
 
       <Section title="5. L'entreprise">
         <p className="font-medium text-muted-foreground mb-1">Description générale</p>
-        <MultiText text={bp.description_generale} />
+        {editable('description_generale', bp.description_generale, 'text', <MultiText text={bp.description_generale} />)}
         <p className="font-medium text-muted-foreground mt-3 mb-1">L'avenir</p>
-        <MultiText text={bp.avenir} />
+        {editable('avenir', bp.avenir, 'text', <MultiText text={bp.avenir} />)}
       </Section>
 
       <Section title="6. SWOT & Gestion des risques">

@@ -9,6 +9,7 @@ import { generateMemoHtml } from '@/lib/memo-html-generator';
 import { exportToPdf } from '@/lib/export-pdf';
 import { supabase } from '@/integrations/supabase/client';
 import SectionEditButton from './SectionEditButton';
+import EditableField from './EditableField';
 
 const SLIDE_TITLES = [
   'Page de Garde',
@@ -34,6 +35,7 @@ interface Props {
   data: Record<string, any>;
   onRegenerate?: () => void;
   enterpriseId?: string;
+  deliverableId?: string;
   onUpdated?: () => void;
 }
 
@@ -63,7 +65,7 @@ const verdictColors: Record<string, string> = {
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : []);
 
-export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId, onUpdated }: Props) {
+export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId, deliverableId, onUpdated }: Props) {
   const [activeSection, setActiveSection] = useState('resume_executif');
   const [generatingPptx, setGeneratingPptx] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});

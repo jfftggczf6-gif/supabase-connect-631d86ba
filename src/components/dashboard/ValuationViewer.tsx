@@ -1,4 +1,5 @@
 import SectionEditButton from './SectionEditButton';
+import EditableField from './EditableField';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import ConfidenceIndicator from './ConfidenceIndicator';
 interface Props {
   data: Record<string, any>;
   enterpriseId?: string;
+  deliverableId?: string;
   enterpriseName?: string;
   onRegenerate?: () => void;
   onUpdated?: () => void;
@@ -26,7 +28,7 @@ const fmt = (n: any, devise = 'FCFA') => {
   return `${num.toLocaleString('fr-FR')} ${devise}`;
 };
 
-export default function ValuationViewer({ data, enterpriseId, enterpriseName, onRegenerate, onUpdated }: Props) {
+export default function ValuationViewer({ data, enterpriseId, deliverableId, enterpriseName, onRegenerate, onUpdated }: Props) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const devise = data.devise || 'FCFA';

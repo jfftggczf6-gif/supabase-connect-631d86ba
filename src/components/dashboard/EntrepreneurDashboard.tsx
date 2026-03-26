@@ -1680,21 +1680,21 @@ export default function EntrepreneurDashboard({
 
                 {/* Viewers */}
                 {selectedModule === 'bmc' ? (
-                  <BmcViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  <BmcViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 ) : selectedModule === 'sic' ? (
-                  <SicViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  <SicViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 ) : selectedModule === 'plan_financier' ? (
                   <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
                 ) : selectedModule === 'business_plan' ? (
-                  <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 ) : selectedModule === 'valuation' ? (
-                  <ValuationViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} enterpriseName={enterprise?.name} onRegenerate={() => handleGenerateModule('valuation')} onUpdated={fetchData} />
+                  <ValuationViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} enterpriseName={enterprise?.name} onRegenerate={() => handleGenerateModule('valuation')} onUpdated={fetchData} />
                 ) : selectedModule === 'onepager' ? (
-                  <OnePagerViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('onepager')} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  <OnePagerViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('onepager')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 ) : selectedModule === 'investment_memo' ? (
-                  <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 ) : (
-                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 )}
               </div>
             ) : selectedModule === 'investment_memo' ? (
