@@ -1,8 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import EntrepreneurDashboard from '@/components/dashboard/EntrepreneurDashboard';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 
 /**
  * Read-only enterprise view for chef_programme.

@@ -48,6 +48,7 @@ interface EntrepreneurDashboardProps {
   showBackButton?: boolean;
   onBack?: () => void;
   coachMode?: boolean;
+  readOnly?: boolean;
   onGeneratingChange?: (generating: boolean) => void;
 }
 
@@ -56,6 +57,7 @@ export default function EntrepreneurDashboard({
   showBackButton = false,
   onBack,
   coachMode = false,
+  readOnly = false,
   onGeneratingChange,
 }: EntrepreneurDashboardProps = {}) {
   const { user, profile, session: authSession, signOut } = useAuth();
