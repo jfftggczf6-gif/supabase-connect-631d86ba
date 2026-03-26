@@ -28,6 +28,40 @@ interface FormField {
   options?: string[];
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+/** fetch an edge function with a 120s timeout (avoids EarlyDrop on long-running functions) */
+async function invokeLong(fnName: string, body: Record<string, unknown>) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Non authentifié');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      let msg = `Status ${res.status}`;
+      try { const b = await res.json(); msg = b?.error || b?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+    return await res.json();
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error("L'extraction prend trop de temps (>2 min), réessayez");
+    throw err;
+  }
+}
+
 export default function ProgrammeCreatePage() {
   const nav = useNavigate();
   const [saving, setSaving] = useState(false);
