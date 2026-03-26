@@ -96,19 +96,64 @@ export default function ProgrammeCreatePage() {
       const extracted = data?.extracted;
       if (!extracted) throw new Error('Aucune donnée extraite');
 
-      // Pre-fill form with extracted data
-      setForm(f => ({
-        ...f,
-        name: extracted.name || f.name,
-        description: extracted.description || f.description,
-        country_filter: extracted.country_filter?.length ? extracted.country_filter : f.country_filter,
-        sector_filter: extracted.sector_filter?.length ? extracted.sector_filter : f.sector_filter,
-        min_revenue: extracted.min_revenue ? String(extracted.min_revenue) : f.min_revenue,
-        min_margin: extracted.min_margin ? String(extracted.min_margin) : f.min_margin,
-        budget: extracted.custom_criteria?.montant_financement ? f.budget : f.budget,
-      }));
+      const filled = new Set<string>();
 
-      toast({ title: '✅ Critères extraits', description: 'Les champs ont été pré-remplis. Vérifiez et modifiez si nécessaire.' });
+      // Parse dates from custom_criteria
+      let endDate: Date | undefined;
+      let progStart: Date | undefined;
+      let progEnd: Date | undefined;
+      
+      if (extracted.custom_criteria?.date_limite) {
+        try { endDate = new Date(extracted.custom_criteria.date_limite); if (isNaN(endDate.getTime())) endDate = undefined; } catch { /* ignore */ }
+      }
+      if (extracted.custom_criteria?.duree_programme) {
+        const dur = extracted.custom_criteria.duree_programme;
+        const monthsMatch = dur.match(/(\d+)\s*mois/i);
+        const yearsMatch = dur.match(/(\d+)\s*an/i);
+        if (monthsMatch || yearsMatch) {
+          const months = monthsMatch ? parseInt(monthsMatch[1]) : (yearsMatch ? parseInt(yearsMatch[1]) * 12 : 0);
+          if (months > 0) {
+            progStart = new Date();
+            progEnd = new Date();
+            progEnd.setMonth(progEnd.getMonth() + months);
+            filled.add('programme_start');
+            filled.add('programme_end');
+          }
+        }
+      }
+
+      // Build criteria form fields from extracted criteria
+      const newFields: FormField[] = [];
+      if (extracted.custom_criteria?.criteres_eligibilite?.length) {
+        extracted.custom_criteria.criteres_eligibilite.forEach((c: string, i: number) => {
+          newFields.push({ id: `elig-${i}`, type: 'text', label: `Éligibilité : ${c}`, required: true });
+        });
+      }
+      if (extracted.custom_criteria?.criteres_selection?.length) {
+        extracted.custom_criteria.criteres_selection.forEach((c: string, i: number) => {
+          newFields.push({ id: `sel-${i}`, type: 'text', label: `Sélection : ${c}`, required: false });
+        });
+      }
+      if (newFields.length) { setFormFields(newFields); filled.add('formFields'); }
+
+      // Pre-fill form
+      setForm(f => {
+        const updated = { ...f };
+        if (extracted.name) { updated.name = extracted.name; filled.add('name'); }
+        if (extracted.description) { updated.description = extracted.description; filled.add('description'); }
+        if (extracted.country_filter?.length) { updated.country_filter = extracted.country_filter; filled.add('country_filter'); }
+        if (extracted.sector_filter?.length) { updated.sector_filter = extracted.sector_filter; filled.add('sector_filter'); }
+        if (extracted.min_revenue) { updated.min_revenue = String(extracted.min_revenue); filled.add('min_revenue'); }
+        if (extracted.min_margin) { updated.min_margin = String(extracted.min_margin); filled.add('min_margin'); }
+        if (extracted.custom_criteria?.montant_financement) { updated.budget = extracted.custom_criteria.montant_financement.replace(/[^\d]/g, ''); filled.add('budget'); }
+        if (endDate) { updated.end_date = endDate; filled.add('end_date'); }
+        if (progStart) { updated.programme_start = progStart; }
+        if (progEnd) { updated.programme_end = progEnd; }
+        return updated;
+      });
+
+      setPrefilledFields(filled);
+      toast({ title: '✅ Critères extraits avec succès', description: `${filled.size} champs pré-remplis depuis ${file.name}. Vérifiez et ajustez avant de sauvegarder.` });
     } catch (err: any) {
       toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
     } finally {
