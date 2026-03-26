@@ -28,6 +28,40 @@ interface FormField {
   options?: string[];
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+/** fetch an edge function with a 120s timeout (avoids EarlyDrop on long-running functions) */
+async function invokeLong(fnName: string, body: Record<string, unknown>) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Non authentifié');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      let msg = `Status ${res.status}`;
+      try { const b = await res.json(); msg = b?.error || b?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+    return await res.json();
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error("L'extraction prend trop de temps (>2 min), réessayez");
+    throw err;
+  }
+}
+
 export default function ProgrammeCreatePage() {
   const nav = useNavigate();
   const [saving, setSaving] = useState(false);
@@ -93,12 +127,7 @@ export default function ProgrammeCreatePage() {
 
       if (uploadError) throw new Error(uploadError.message);
 
-      // Call extraction function
-      const { data, error } = await supabase.functions.invoke('extract-programme-criteria', {
-        body: { storage_path: storagePath }
-      });
-
-      if (error) throw new Error(error.message);
+      const data = await invokeLong('extract-programme-criteria', { storage_path: storagePath });
 
       const extracted = data?.extracted;
       if (!extracted) throw new Error('Aucune donnée extraite');
@@ -462,23 +491,8 @@ export default function ProgrammeCreatePage() {
                       reader.onerror = rej;
                       reader.readAsDataURL(file);
                     });
-                    const { data, error } = await supabase.functions.invoke('extract-form-fields', {
-                      body: { file_base64: base64, file_name: file.name }
-                    });
-                    if (error) {
-                      // Extract real error from FunctionsHttpError context
-                      let msg = error.message || 'Erreur inconnue';
-                      try {
-                        const ctx = (error as any).context;
-                        if (ctx && typeof ctx.json === 'function') {
-                          const body = await ctx.json();
-                          msg = body?.error || body?.message || msg;
-                        }
-                      } catch {}
-                      throw new Error(msg);
-                    }
-                    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-                    const fields = parsed?.form_fields || [];
+                    const data = await invokeLong('extract-form-fields', { file_base64: base64, file_name: file.name });
+                    const fields = data?.form_fields || [];
                     if (!fields.length) throw new Error('Aucun champ extrait du document');
                     const newFields: FormField[] = fields.map((f: any, i: number) => ({
                       id: `ext-${i}-${Date.now()}`,
@@ -512,22 +526,8 @@ export default function ProgrammeCreatePage() {
                         reader.onerror = rej;
                         reader.readAsDataURL(file);
                       });
-                      const { data, error } = await supabase.functions.invoke('extract-form-fields', {
-                        body: { file_base64: base64, file_name: file.name }
-                      });
-                      if (error) {
-                        let msg = error.message || 'Erreur inconnue';
-                        try {
-                          const ctx = (error as any).context;
-                          if (ctx && typeof ctx.json === 'function') {
-                            const body = await ctx.json();
-                            msg = body?.error || body?.message || msg;
-                          }
-                        } catch {}
-                        throw new Error(msg);
-                      }
-                      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-                      const fields = parsed?.form_fields || [];
+                      const data = await invokeLong('extract-form-fields', { file_base64: base64, file_name: file.name });
+                      const fields = data?.form_fields || [];
                       if (!fields.length) throw new Error('Aucun champ extrait du document');
                       const newFields: FormField[] = fields.map((f: any, i: number) => ({
                         id: `ext-${i}-${Date.now()}`,
