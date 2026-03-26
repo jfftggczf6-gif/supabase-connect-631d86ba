@@ -1237,6 +1237,7 @@ export default function EntrepreneurDashboard({
           generating={generating}
           generationProgress={generationProgress}
           globalScore={globalScore}
+          hideActions={readOnly}
         />
 
         {/* CENTER PANEL: Content */}
