@@ -46,6 +46,10 @@ export default function ProgrammeCreatePage() {
     programme_end: undefined as Date | undefined,
     min_revenue: '', min_margin: '',
   });
+  const [criteresEligibilite, setCriteresEligibilite] = useState<string[]>([]);
+  const [criteresSelection, setCriteresSelection] = useState<string[]>([]);
+  const [conditionsSpecifiques, setConditionsSpecifiques] = useState<string[]>([]);
+  const [newCritere, setNewCritere] = useState('');
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldType, setNewFieldType] = useState<FormField['type']>('text');
