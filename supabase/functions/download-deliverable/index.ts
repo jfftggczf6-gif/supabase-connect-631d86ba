@@ -1910,19 +1910,28 @@ serve(async (req) => {
 
     // PDF format — generate HTML then send to parser for PDF conversion
     if (format === "pdf") {
-      const parserUrl = Deno.env.get("PARSER_URL");
+      const parserUrl = Deno.env.get("PARSER_URL") || Deno.env.get("RAILWAY_URL");
       const parserApiKey = Deno.env.get("PARSER_API_KEY");
       if (!parserUrl) {
         return new Response(JSON.stringify({ error: "PARSER_URL not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      // Simplify CSS for WeasyPrint compatibility (remove gradients, radial-gradient, grid)
+      const pdfHtml = html
+        .replace(/background:linear-gradient\([^)]+\)/g, 'background:#1a2744')
+        .replace(/background:radial-gradient\([^)]+\)/g, '')
+        .replace(/display:grid[^}]*/g, 'display:block')
+        .replace(/grid-template-columns:[^;}]*/g, '')
+        .replace(/box-shadow:[^;}]*/g, '');
+
       const pdfFilename = `${safeName}_${deliverableType}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      console.log(`[download-deliverable] Sending ${pdfHtml.length} chars to ${parserUrl}/generate-pdf`);
       const pdfRes = await fetch(`${parserUrl}/generate-pdf`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(parserApiKey ? { "Authorization": `Bearer ${parserApiKey}` } : {}),
         },
-        body: JSON.stringify({ html, filename: pdfFilename }),
+        body: JSON.stringify({ html: pdfHtml, filename: pdfFilename }),
       });
       if (!pdfRes.ok) {
         const errText = await pdfRes.text();

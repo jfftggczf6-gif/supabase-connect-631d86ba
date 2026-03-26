@@ -992,65 +992,30 @@ export default function EntrepreneurDashboard({
   const handleDownloadPdf = async (type: string, filename: string) => {
     if (!enterprise) return;
     try {
-      // Get the deliverable data already loaded in memory
-      const deliv = getDeliverable(type);
-      if (!deliv?.data) throw new Error('Livrable non disponible');
-
-      // Generate simple HTML client-side (same approach as One-Pager/Memo that work)
-      const d = deliv.data as Record<string, any>;
-      const score = d.score ?? d.score_global ?? '';
-      const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;line-height:1.6;padding:32px;max-width:900px;margin:0 auto}
-h1{font-size:22px;font-weight:800;color:#1a2744;margin-bottom:8px}
-h2{font-size:16px;font-weight:700;color:#1a2744;margin:24px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
-h3{font-size:14px;font-weight:600;color:#334155;margin:16px 0 6px}
-p{font-size:13px;margin-bottom:8px}
-table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
-th{text-align:left;padding:8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-weight:600;font-size:11px;text-transform:uppercase}
-td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
-ul{padding-left:18px;margin:4px 0}li{font-size:13px;margin-bottom:4px}
-.score{font-size:36px;font-weight:900;color:#1a2744}
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534}
-.card{background:#f8fafc;border-radius:8px;padding:16px;margin:8px 0;border:1px solid #e2e8f0}
-.footer{text-align:center;margin-top:32px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
-</style></head><body>
-<h1>${enterprise.name} — ${type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</h1>
-${score ? `<p class="score">${score}<span style="font-size:14px;color:#64748b">/100</span></p>` : ''}
-${renderDataToHtml(d)}
-<div class="footer">ESONO Investment Readiness Platform — ${new Date().toLocaleDateString('fr-FR')}</div>
-</body></html>`;
-
-      await exportToPdf(html, filename);
+      toast.info('Génération du PDF...');
+      const token = await getValidAccessToken(authSession, navigate);
+      // Use edge function format=pdf (server-to-server, no CORS issues)
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterprise.id}&format=pdf&_ts=${Date.now()}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `Erreur ${res.status}` }));
+        throw new Error(err.error || `Erreur ${res.status}`);
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
       toast.success('PDF téléchargé');
     } catch (err: any) {
       toast.error(`Erreur PDF : ${err.message}`);
     }
-  };
-
-  /** Convert any deliverable data object to readable HTML */
-  const renderDataToHtml = (obj: any, depth = 0): string => {
-    if (!obj || typeof obj !== 'object') return `<p>${String(obj ?? '—')}</p>`;
-    if (Array.isArray(obj)) {
-      if (obj.length === 0) return '';
-      if (typeof obj[0] === 'string') return `<ul>${obj.map(i => `<li>${i}</li>`).join('')}</ul>`;
-      if (typeof obj[0] === 'object') {
-        const keys = Object.keys(obj[0]).filter(k => !k.startsWith('_'));
-        return `<table><thead><tr>${keys.map(k => `<th>${k.replace(/_/g, ' ')}</th>`).join('')}</tr></thead><tbody>${obj.map(row => `<tr>${keys.map(k => `<td>${typeof row[k] === 'object' ? JSON.stringify(row[k]) : row[k] ?? '—'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-      }
-      return `<ul>${obj.map(i => `<li>${String(i)}</li>`).join('')}</ul>`;
-    }
-    const tag = depth === 0 ? 'h2' : 'h3';
-    return Object.entries(obj)
-      .filter(([k]) => !k.startsWith('_') && k !== 'score' && k !== 'metadata')
-      .map(([k, v]) => {
-        const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        if (typeof v === 'string') return `<${tag}>${label}</${tag}><p>${v}</p>`;
-        if (typeof v === 'number') return `<${tag}>${label}</${tag}><p><strong>${v}</strong></p>`;
-        if (Array.isArray(v) || (typeof v === 'object' && v)) return `<${tag}>${label}</${tag}>${renderDataToHtml(v, depth + 1)}`;
-        return '';
-      }).join('');
   };
 
   const handleDownloadBpWord = async () => {

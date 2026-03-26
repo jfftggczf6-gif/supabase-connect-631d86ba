@@ -1,5 +1,4 @@
 import { getValidAccessToken } from './getValidAccessToken';
-import { exportToPdf } from './export-pdf';
 import { toast } from 'sonner';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -58,19 +57,29 @@ export async function downloadRichPdf(
   navigate: any,
 ) {
   try {
-    toast.info('Récupération du HTML...');
-    const html = await fetchRichHtml(type, enterpriseId, authSession, navigate);
-
-    if (!html || html.length < 50) {
-      throw new Error(`HTML vide ou trop court (${html?.length || 0} caractères)`);
+    toast.info('Génération du PDF...');
+    const token = await getValidAccessToken(authSession, navigate);
+    // Use edge function format=pdf (server-to-server Railway call, no CORS)
+    const url = `${SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterpriseId}&format=pdf&_ts=${Date.now()}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `Erreur ${res.status}` }));
+      throw new Error(err.error || `Erreur ${res.status}`);
     }
-
-    toast.info(`HTML reçu (${Math.round(html.length / 1024)}KB) — conversion PDF...`);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
     const safeName = enterpriseName.replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `${safeName}_${type}_${new Date().toISOString().slice(0, 10)}.pdf`;
-    await exportToPdf(html, filename);
+    a.download = `${safeName}_${type}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
     toast.success('PDF téléchargé');
   } catch (err: any) {
-    toast.error(`Erreur PDF (${type}) : ${err.message}`);
+    toast.error(`Erreur PDF : ${err.message}`);
   }
 }
