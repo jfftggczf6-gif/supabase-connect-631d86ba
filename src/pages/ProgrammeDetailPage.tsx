@@ -268,12 +268,12 @@ export default function ProgrammeDetailPage() {
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Statut" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous</SelectItem>
-                  <SelectItem value="submitted">Reçues</SelectItem>
+                  <SelectItem value="received">Reçues</SelectItem>
                   <SelectItem value="in_review">En revue</SelectItem>
                   <SelectItem value="pre_selected">Pré-sélectionnées</SelectItem>
                   <SelectItem value="selected">Sélectionnées</SelectItem>
                   <SelectItem value="rejected">Rejetées</SelectItem>
-                  <SelectItem value="waitlist">Liste d'attente</SelectItem>
+                  <SelectItem value="waitlisted">Liste d'attente</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" className="gap-2" onClick={handleScreen} disabled={screening}>

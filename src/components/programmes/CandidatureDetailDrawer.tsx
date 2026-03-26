@@ -54,7 +54,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   };
 
   const screening = detail?.screening_data;
-  const dimensions = screening?.dimensions || screening?.scores_dimensions;
+  const dimensions = screening?.diagnostic_dimensions || screening?.dimensions || screening?.scores_dimensions;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -107,10 +107,19 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
             {screening?.matching_criteres && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm">Matching critères</h4>
-                {(Array.isArray(screening.matching_criteres) ? screening.matching_criteres : Object.entries(screening.matching_criteres).map(([k, v]: any) => ({ critere: k, ...v }))).map((c: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span>{c.status === 'ok' || c.match ? '✅' : c.status === 'partial' ? '⚠️' : '❌'}</span>
-                    <span>{c.critere || c.label || c.name}</span>
+                {(screening.matching_criteres.criteres_ok || []).map((c: any, i: number) => (
+                  <div key={`ok-${i}`} className="flex items-center gap-2 text-xs">
+                    <span>✅</span><span>{c.critere || c.label}</span>
+                  </div>
+                ))}
+                {(screening.matching_criteres.criteres_partiels || []).map((c: any, i: number) => (
+                  <div key={`part-${i}`} className="flex items-center gap-2 text-xs">
+                    <span>⚠️</span><span>{c.critere || c.label} — {c.manque || ''}</span>
+                  </div>
+                ))}
+                {(screening.matching_criteres.criteres_ko || []).map((c: any, i: number) => (
+                  <div key={`ko-${i}`} className="flex items-center gap-2 text-xs">
+                    <span>❌</span><span>{c.critere || c.label}</span>
                   </div>
                 ))}
               </div>
@@ -147,12 +156,22 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
             )}
 
             {/* Recommandation */}
-            {screening?.recommandation && (
-              <div className="p-3 rounded-lg bg-muted text-sm space-y-1">
-                <h4 className="font-semibold">Recommandation</h4>
-                <p>{typeof screening.recommandation === 'string' ? screening.recommandation : screening.recommandation.justification}</p>
-              </div>
-            )}
+            {(screening?.recommandation_accompagnement || screening?.recommandation) && (() => {
+              const reco = screening.recommandation_accompagnement || screening.recommandation;
+              return (
+                <div className="p-3 rounded-lg bg-muted text-sm space-y-2">
+                  <h4 className="font-semibold">Recommandation</h4>
+                  {reco.verdict && <Badge variant="outline">{reco.verdict}</Badge>}
+                  <p>{reco.justification || (typeof reco === 'string' ? reco : '')}</p>
+                  {reco.priorites_si_selectionnee?.length > 0 && (
+                    <div>
+                      <p className="font-medium text-xs mt-1">Si sélectionnée :</p>
+                      <ul className="text-xs list-disc pl-4">{reco.priorites_si_selectionnee.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Résumé comité */}
             {screening?.resume_comite && (
