@@ -190,6 +190,26 @@ export default function ProgrammeDetailPage() {
                   <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(candidatureUrl); toast({ title: '📋 Lien copié' }); }}><Copy className="h-4 w-4" /></Button>
                   <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
                 </div>
+
+                {/* QR Code */}
+                <div className="flex items-center gap-4">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`}
+                    alt="QR Code candidature"
+                    className="w-32 h-32 border rounded-lg p-1"
+                  />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">QR Code</p>
+                    <p className="text-xs text-muted-foreground">Scannez pour accéder au formulaire de candidature</p>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
+                      link.download = `qr-${programme.form_slug}.png`;
+                      link.click();
+                    }}>Télécharger le QR</Button>
+                  </div>
+                </div>
+
                 <div className="text-sm text-muted-foreground">
                   <strong>Embed :</strong>
                   <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
