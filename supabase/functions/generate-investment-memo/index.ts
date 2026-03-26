@@ -325,13 +325,13 @@ ${MEMO_SCHEMA_PART2}`;
 ══════ INSTRUCTIONS — PASSE 1/2 ══════
 Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
 La section valorisation doit CITER les résultats de l'agent Valuation, pas recalculer.
-Chaque section narrative doit faire au minimum 200 mots.
+Sois EFFICACE : chaque champ resume = 2-3 phrases. Les détails dans les tableaux structurés.
 
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
       try {
-        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
+        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 10000, SONNET_MODEL, 0.3);
       } catch (e: any) {
         await updateMemoModuleState(ctx.enterprise_id, {
           phase: "failed",
