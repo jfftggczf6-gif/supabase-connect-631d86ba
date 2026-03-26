@@ -67,8 +67,9 @@ export default function ProgrammeCreatePage() {
 
   const handleFileUpload = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!['pdf', 'docx', 'txt', 'md'].includes(ext || '')) {
-      toast({ title: 'Format non supporté', description: 'Utilisez PDF, DOCX ou TXT.', variant: 'destructive' });
+    const ACCEPTED = ['pdf', 'docx', 'doc', 'txt', 'md', 'xlsx', 'xls', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'];
+    if (!ACCEPTED.includes(ext || '')) {
+      toast({ title: 'Format non supporté', description: 'Formats acceptés : PDF, DOCX, XLSX, images, TXT.', variant: 'destructive' });
       return;
     }
 
@@ -202,7 +203,7 @@ export default function ProgrammeCreatePage() {
                   id="file-upload-input"
                   type="file"
                   className="hidden"
-                  accept=".pdf,.docx,.txt,.md"
+                  accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff"
                   onChange={onFileInput}
                 />
                 {extracting ? (
@@ -223,8 +224,8 @@ export default function ProgrammeCreatePage() {
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm font-medium">Glissez un PDF ou DOCX ici</p>
-                    <p className="text-xs text-muted-foreground">ou cliquez pour parcourir — les critères seront extraits automatiquement</p>
+                    <p className="text-sm font-medium">📄 Glissez votre fiche programme ici</p>
+                    <p className="text-xs text-muted-foreground">(PDF, DOCX, XLSX, image — tous formats acceptés) · L'IA extraira automatiquement les critères</p>
                   </div>
                 )}
               </div>
