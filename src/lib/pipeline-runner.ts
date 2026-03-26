@@ -248,37 +248,86 @@ export async function runPipelineFromClient(
         const isAsync = response.status === 202 || result.accepted;
 
         if (isAsync) {
-          // Async mode — poll deliverables table until ready
-          console.log(`[pipeline] ${step.name} accepted async (202), polling…`);
-          let completed = false;
-          for (let p = 0; p < 72; p++) {
-            await new Promise(r => setTimeout(r, 5000));
-            const { data: deliv } = await supabase
-              .from('deliverables')
-              .select('data, version')
-              .eq('enterprise_id', enterpriseId)
-              .eq('type', step.type)
-              .single();
-            if (deliv?.data) {
-              const dd = deliv.data as Record<string, any>;
-              if (dd.status === 'error') {
-                results.push({ step: step.name, success: false, error: dd.error || 'Erreur' });
-                completed = true;
-                break;
-              }
-              if (dd.status !== 'processing' && Object.keys(dd).length >= 5) {
-                results.push({ step: step.name, success: true, score: dd.score });
-                completedCount++;
-                onStepComplete?.();
-                completed = true;
-                break;
-              }
+          // Async mode — wait via Realtime (instant) with polling fallback
+          console.log(`[pipeline] ${step.name} accepted async (202), waiting via Realtime…`);
+
+          const asyncResult = await new Promise<{ success: boolean; score?: number; error?: string }>((resolve) => {
+            let settled = false;
+            const settle = (res: { success: boolean; score?: number; error?: string }) => {
+              if (settled) return;
+              settled = true;
+              supabase.removeChannel(channel);
+              resolve(res);
+            };
+
+            // 1. Realtime listener — instant detection
+            const channel = supabase
+              .channel(`pipeline-wait-${step.type}-${Date.now()}`)
+              .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'deliverables',
+                filter: `enterprise_id=eq.${enterpriseId}`,
+              }, (payload) => {
+                const newData = (payload.new as any)?.data;
+                const newType = (payload.new as any)?.type;
+                if (newType !== step.type || !newData) return;
+
+                if (newData.status === 'error') {
+                  settle({ success: false, error: newData.error || 'Erreur' });
+                } else if (newData.status !== 'processing' && typeof newData === 'object' && Object.keys(newData).length >= 5) {
+                  settle({ success: true, score: newData.score });
+                }
+              })
+              .subscribe();
+
+            // 2. Polling fallback — check every 10s in case Realtime misses it
+            let pollCount = 0;
+            const pollInterval = setInterval(async () => {
+              pollCount++;
+              onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}… (${Math.min(95, pollCount * 5)}%)` });
+              try {
+                const { data: deliv } = await supabase
+                  .from('deliverables')
+                  .select('data')
+                  .eq('enterprise_id', enterpriseId)
+                  .eq('type', step.type)
+                  .single();
+                if (deliv?.data) {
+                  const dd = deliv.data as Record<string, any>;
+                  if (dd.status === 'error') {
+                    clearInterval(pollInterval);
+                    settle({ success: false, error: dd.error || 'Erreur' });
+                  } else if (dd.status !== 'processing' && Object.keys(dd).length >= 5) {
+                    clearInterval(pollInterval);
+                    settle({ success: true, score: dd.score });
+                  }
+                }
+              } catch (_) { /* non-blocking */ }
+            }, 10000);
+
+            // 3. Timeout — 6 min max
+            setTimeout(() => {
+              clearInterval(pollInterval);
+              settle({ success: false, error: 'Timeout (6 min)' });
+            }, 360000);
+
+            // 4. Abort support
+            if (signal) {
+              signal.addEventListener('abort', () => {
+                clearInterval(pollInterval);
+                settle({ success: false, error: 'Interrompu' });
+              }, { once: true });
             }
-            onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}… (${Math.round((p / 72) * 100)}%)` });
+          });
+
+          if (asyncResult.success) {
+            results.push({ step: step.name, success: true, score: asyncResult.score });
+            completedCount++;
+          } else {
+            results.push({ step: step.name, success: false, error: asyncResult.error });
           }
-          if (!completed) {
-            results.push({ step: step.name, success: false, error: 'Timeout polling (6 min)' });
-          }
+
           // Detect empty inputs
           if (step.fn === 'generate-inputs') {
             const { data: chk } = await supabase.from('deliverables').select('data').eq('enterprise_id', enterpriseId).eq('type', 'inputs_data').single();
