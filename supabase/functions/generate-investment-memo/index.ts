@@ -26,7 +26,16 @@ EXIGENCES QUALITÉ :
 - La thèse d'investissement doit être HONNÊTE
 - Les projections financières citent le scénario réaliste du Plan OVO
 - La recommandation finale doit être COHÉRENTE avec le score et les risques
-- Minimum 200 mots par section narrative
+
+EXIGENCES DE FORMAT (TRÈS IMPORTANT) :
+- Ce memo est un document de COMITÉ D'INVESTISSEMENT — il doit être DÉTAILLÉ, EXPLICATIF et ARGUMENTÉ
+- Chaque section narrative ("resume", "synthese", "explication") doit être RICHE en analyse — 2-4 phrases complètes, pas des mots-clés
+- Les "arguments" et "explications" doivent être des VRAIS PARAGRAPHES avec du contexte et des preuves
+- MAIS séparer le TEXTE des CHIFFRES : les analyses qualitatives dans les champs texte, les données quantitatives dans les tableaux structurés
+- Les chiffres ne doivent JAMAIS être noyés au milieu d'un paragraphe — ils vont dans les objets structurés dédiés (tableau, indicateurs, chiffres_cles)
+- Chaque champ "resume" = analyse qualitative détaillée SANS chiffres
+- Chaque tableau = données quantitatives avec sources
+- Le résultat doit être LISIBLE : un lecteur qui ne lit que les "resume" comprend le dossier, un lecteur qui veut les détails va dans les tableaux
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
@@ -38,109 +47,196 @@ const MEMO_SCHEMA_PART1 = `{
     "version": "string — v1.0"
   },
   "resume_executif": {
-    "synthese": "string — 500+ mots, résumé complet du dossier",
-    "points_cles": ["string — 5-8 points clés"],
+    "synthese": "string — 3-4 phrases de synthèse qualitative SANS chiffres",
+    "points_cles": ["string — 5-8 points clés, 1 phrase chacun"],
+    "chiffres_cles": [
+      {"label": "string — ex: CA dernier exercice", "valeur": "string — ex: 150M FCFA", "evolution": "string — ex: +22% vs N-1", "source": "string"}
+    ],
     "recommandation_preliminaire": "INVESTIR | APPROFONDIR | DECLINER",
-    "score_ir": <0-100>
+    "score_ir": "<0-100>"
   },
   "presentation_entreprise": {
-    "historique": "string — 200+ mots",
-    "activites": "string — description détaillée des activités",
-    "positionnement": "string — positionnement marché",
-    "gouvernance": "string — structure de gouvernance, actionnariat",
-    "effectifs": "string — organisation et RH"
+    "resume": "string — 2-3 phrases de présentation générale",
+    "historique": {
+      "resume": "string — 2 phrases sur le parcours",
+      "jalons": [{"annee": "string", "evenement": "string"}]
+    },
+    "activites": {
+      "resume": "string — 2 phrases sur l'activité principale",
+      "produits_services": [{"nom": "string", "description": "string", "part_ca": "string"}]
+    },
+    "positionnement": "string — 2-3 phrases",
+    "gouvernance": {
+      "resume": "string — 2 phrases",
+      "actionnariat": [{"nom": "string", "part": "string", "role": "string"}]
+    },
+    "effectifs": {
+      "total": "string",
+      "repartition": [{"departement": "string", "nombre": "string"}]
+    }
   },
   "analyse_marche": {
-    "contexte_macro": "string — environnement économique du pays",
-    "taille_marche": "string — TAM/SAM/SOM avec sources",
-    "dynamiques": "string — tendances, croissance, réglementation",
-    "concurrence": "string — paysage concurrentiel",
-    "positionnement": "string — avantages compétitifs"
+    "resume": "string — 2-3 phrases de synthèse marché",
+    "contexte_macro": {
+      "resume": "string — 2 phrases sur l'environnement économique",
+      "indicateurs": [{"label": "string — ex: PIB", "valeur": "string", "source": "string"}]
+    },
+    "taille_marche": {
+      "tam": {"valeur": "string", "source": "string"},
+      "sam": {"valeur": "string", "source": "string"},
+      "som": {"valeur": "string", "source": "string"}
+    },
+    "dynamiques": {
+      "croissance": "string — 1-2 phrases",
+      "tendances": ["string — tendance clé"],
+      "reglementation": "string — 1-2 phrases"
+    },
+    "concurrence": {
+      "resume": "string — 2 phrases sur le paysage",
+      "principaux_concurrents": [{"nom": "string", "positionnement": "string", "taille": "string"}]
+    },
+    "avantages_competitifs": ["string — 1 avantage par item"]
   },
   "modele_economique": {
-    "proposition_valeur": "string",
-    "sources_revenus": "string — détail des flux de revenus",
-    "structure_couts": "string",
+    "resume": "string — 2-3 phrases",
+    "proposition_valeur": "string — 2 phrases",
+    "sources_revenus": [{"source": "string", "description": "string", "part_ca": "string"}],
+    "structure_couts": {
+      "resume": "string — 2 phrases",
+      "postes_principaux": [{"poste": "string", "montant": "string", "part": "string"}]
+    },
     "avantages_competitifs": ["string"],
-    "scalabilite": "string — potentiel de croissance"
+    "scalabilite": "string — 2-3 phrases"
   },
   "analyse_financiere": {
-    "historique": "string — analyse des 2-3 dernières années",
-    "projections": "string — résumé des projections 5 ans",
-    "ratios_cles": "string — marge, EBITDA, ROE, DSCR",
-    "besoins_financement": "string — BFR, CAPEX, dette",
-    "qualite_donnees": "string — fiabilité des données disponibles"
+    "resume": "string — 2-3 phrases de synthèse financière SANS chiffres",
+    "historique": {
+      "commentaire": "string — 2 phrases d'analyse qualitative",
+      "tableau": [
+        {"annee": "string", "ca": "string", "marge_brute": "string", "ebitda": "string", "resultat_net": "string"}
+      ]
+    },
+    "projections": {
+      "commentaire": "string — 2 phrases sur les hypothèses",
+      "tableau": [
+        {"annee": "string", "ca": "string", "marge_brute": "string", "ebitda": "string", "resultat_net": "string"}
+      ]
+    },
+    "ratios_cles": [
+      {"ratio": "string — ex: Marge brute", "valeur": "string — ex: 42%", "benchmark": "string — ex: 35-45% secteur", "verdict": "string — Bon | Moyen | Faible"}
+    ],
+    "besoins_financement": {
+      "bfr": "string", "capex": "string", "dette": "string"
+    },
+    "qualite_donnees": "string — 2 phrases"
   },
   "valorisation": {
+    "resume": "string — 2-3 phrases de synthèse SANS chiffres",
     "methodes_utilisees": ["DCF", "Multiples EBITDA", "Multiples CA"],
+    "resultats": [
+      {"methode": "string", "valeur_basse": "string", "valeur_haute": "string", "valeur_retenue": "string"}
+    ],
     "fourchette_valorisation": "string",
     "valeur_mediane": "string",
-    "wacc_utilise": "string",
-    "multiple_ebitda_retenu": "string",
-    "decotes_appliquees": "string",
-    "note_valorisation": "string — 200-300 mots",
-    "sensitivity_summary": "string"
+    "parametres": [
+      {"parametre": "string — ex: WACC", "valeur": "string", "justification": "string"}
+    ],
+    "note_valorisation": "string — analyse qualitative, 3-4 phrases",
+    "sensitivity_summary": "string — 2 phrases"
   }
 }`;
 
 const MEMO_SCHEMA_PART2 = `{
   "besoins_financement": {
+    "resume": "string — 2-3 phrases expliquant le besoin global",
     "montant_recherche": "string",
-    "utilisation_fonds": [{"poste": "string", "montant": "string", "pourcentage": "string", "source": "string"}],
-    "calendrier_deploiement": "string",
-    "retour_attendu": "string"
+    "utilisation_fonds": [{"poste": "string", "montant": "string", "pourcentage": "string", "justification": "string"}],
+    "calendrier_deploiement": {
+      "resume": "string — 2 phrases sur le calendrier",
+      "phases": [{"phase": "string", "periode": "string", "montant": "string", "objectif": "string"}]
+    },
+    "retour_attendu": "string — 2-3 phrases sur le ROI attendu"
   },
   "equipe_et_gouvernance": {
-    "fondateurs": "string — profils détaillés",
-    "management": "string — équipe de direction",
-    "conseil_administration": "string",
-    "points_forts_equipe": ["string"],
-    "gaps_identifies": ["string"]
+    "resume": "string — 2-3 phrases d'évaluation globale de l'équipe",
+    "fondateurs": [{"nom": "string", "role": "string", "parcours": "string — 2-3 phrases de background", "apport_cle": "string"}],
+    "management": {
+      "resume": "string — 2 phrases",
+      "postes_cles": [{"poste": "string", "nom": "string", "experience": "string"}]
+    },
+    "conseil_administration": "string — 2 phrases",
+    "points_forts_equipe": ["string — 1 point fort par item, phrase complète explicative"],
+    "gaps_identifies": ["string — 1 gap par item, avec recommandation"]
   },
   "esg_impact": {
-    "odd_alignement": ["string — ODD avec description"],
-    "impact_social": "string — emplois, inclusion, formation",
-    "impact_environnemental": "string — empreinte carbone, pratiques",
-    "conformite_ifc_ps": "string — Performance Standards 1-8",
-    "plan_esg": "string — actions prévues"
+    "resume": "string — 2-3 phrases de synthèse impact",
+    "odd_alignement": [{"odd_numero": "string", "odd_titre": "string", "contribution": "string — 2 phrases explicatives", "indicateur": "string"}],
+    "impact_social": {
+      "resume": "string — 2-3 phrases",
+      "indicateurs": [{"label": "string", "valeur": "string", "cible": "string"}]
+    },
+    "impact_environnemental": {
+      "resume": "string — 2 phrases",
+      "indicateurs": [{"label": "string", "valeur": "string"}]
+    },
+    "conformite_ifc_ps": "string — 2-3 phrases",
+    "plan_esg": ["string — action ESG concrète planifiée"]
   },
   "analyse_risques": {
+    "resume": "string — 2-3 phrases de synthèse du profil de risque global",
     "risques_identifies": [
       {
-        "categorie": "string",
-        "description": "string",
+        "categorie": "string — Marché | Opérationnel | Financier | Réglementaire | ESG | Gouvernance",
+        "titre": "string — nom court du risque",
+        "description": "string — 2-3 phrases explicatives",
         "probabilite": "faible | moyenne | elevee",
         "impact": "faible | moyen | fort",
-        "mitigation": "string",
+        "mitigation": "string — 2-3 phrases de mesures",
         "source": "string"
       }
     ],
-    "matrice_risque_synthese": "string — résumé global"
+    "matrice_risque_synthese": "string — 3-4 phrases de synthèse : profil de risque global, risques deal-breakers, risques gérables"
   },
   "these_investissement": {
-    "these_positive": "string — 300+ mots, pourquoi investir",
-    "these_negative": "string — 200+ mots, pourquoi ne pas investir",
-    "facteurs_cles_succes": ["string"],
-    "catalyseurs": ["string — événements qui déclencheraient la croissance"],
-    "scenarios_sortie": "string — options de sortie à 5-7 ans"
+    "resume": "string — 2-3 phrases : pourquoi ce dossier mérite attention",
+    "these_positive": {
+      "synthese": "string — 3-4 phrases résumant la thèse positive",
+      "arguments": [{"argument": "string — titre court", "explication": "string — 2-3 phrases détaillées avec preuves"}]
+    },
+    "these_negative": {
+      "synthese": "string — 2-3 phrases résumant les réserves",
+      "arguments": [{"argument": "string — titre court", "explication": "string — 2-3 phrases détaillées"}]
+    },
+    "facteurs_cles_succes": ["string — 1 facteur par item, phrase complète"],
+    "catalyseurs": ["string — événement concret qui déclencherait la croissance"],
+    "scenarios_sortie": {
+      "resume": "string — 2 phrases",
+      "options": [{"type": "string — Cession stratégique | MBO | IPO | Secondaire", "horizon": "string", "multiple_sortie": "string", "commentaire": "string"}]
+    }
   },
   "structure_proposee": {
-    "instrument": "string — equity, dette mezzanine, convertible, etc.",
+    "resume": "string — 2-3 phrases résumant la structure recommandée",
+    "instrument": "string",
     "montant": "string",
     "dilution_estimee": "string",
-    "droits_investisseur": ["string — gouvernance, anti-dilution, etc."],
-    "conditions_precedentes": ["string — conditions avant closing"]
+    "droits_investisseur": [{"droit": "string", "detail": "string"}],
+    "conditions_precedentes": [{"condition": "string", "justification": "string"}]
   },
   "recommandation_finale": {
     "verdict": "INVESTIR | APPROFONDIR | DECLINER",
-    "justification": "string — 300+ mots",
-    "conditions": ["string — conditions pour que le verdict soit valide"],
-    "prochaines_etapes": ["string — actions immédiates recommandées"]
+    "resume": "string — 2-3 phrases de recommandation directe",
+    "justification": {
+      "arguments_pour": ["string — argument clé en faveur"],
+      "arguments_contre": ["string — réserve importante"],
+      "facteur_decisif": "string — 2-3 phrases : ce qui fait pencher la balance"
+    },
+    "conditions": ["string — condition pour que le verdict soit valide"],
+    "prochaines_etapes": [{"etape": "string", "responsable": "string", "delai": "string"}]
   },
   "annexes": {
-    "sources_donnees": ["string — liste des documents analysés"],
-    "hypotheses_cles": ["string — hypothèses de projection"],
-    "glossaire": ["string — termes techniques utilisés"]
+    "sources_donnees": ["string — document analysé"],
+    "hypotheses_cles": [{"hypothese": "string", "base": "string — sur quoi elle repose"}],
+    "glossaire": [{"terme": "string", "definition": "string"}]
   }
 }`;
 
