@@ -266,7 +266,7 @@ export async function runPipelineFromClient(
                 completed = true;
                 break;
               }
-              if (dd.status !== 'processing' && Object.keys(dd).length > 10) {
+              if (dd.status !== 'processing' && Object.keys(dd).length >= 5) {
                 results.push({ step: step.name, success: true, score: dd.score });
                 completedCount++;
                 onStepComplete?.();
