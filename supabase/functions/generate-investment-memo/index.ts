@@ -28,12 +28,6 @@ EXIGENCES QUALITÉ :
 - La recommandation finale doit être COHÉRENTE avec le score et les risques
 - Minimum 200 mots par section narrative
 
-EXIGENCES DE FORMAT :
-- Séparer le TEXTE des CHIFFRES : analyses qualitatives dans les champs texte, données quantitatives dans les tableaux structurés
-- Les chiffres ne doivent JAMAIS être noyés dans des paragraphes — ils vont dans les objets dédiés
-- Chaque champ "resume" = analyse qualitative détaillée
-- Chaque tableau = données quantitatives avec sources
-
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
 const MEMO_SCHEMA_PART1 = `{
@@ -44,19 +38,17 @@ const MEMO_SCHEMA_PART1 = `{
     "version": "string — v1.0"
   },
   "resume_executif": {
-    "synthese": "string — 3-4 phrases de synthèse qualitative SANS chiffres",
-    "points_cles": ["string — 5-8 points clés, 1 phrase chacun"],
-    "chiffres_cles": [{"label": "string", "valeur": "string", "evolution": "string", "source": "string"}],
+    "synthese": "string — 500+ mots, résumé complet du dossier",
+    "points_cles": ["string — 5-8 points clés"],
     "recommandation_preliminaire": "INVESTIR | APPROFONDIR | DECLINER",
     "score_ir": <0-100>
   },
   "presentation_entreprise": {
-    "resume": "string — 2-3 phrases",
-    "historique": {"resume": "string — 200+ mots", "jalons": [{"annee": "string", "evenement": "string"}]},
-    "activites": {"resume": "string", "produits_services": [{"nom": "string", "description": "string", "part_ca": "string"}]},
-    "positionnement": "string — 200+ mots",
-    "gouvernance": {"resume": "string", "actionnariat": [{"nom": "string", "part": "string", "role": "string"}]},
-    "effectifs": {"total": "string", "repartition": [{"departement": "string", "nombre": "string"}]}
+    "historique": "string — 200+ mots",
+    "activites": "string — description détaillée des activités",
+    "positionnement": "string — positionnement marché",
+    "gouvernance": "string — structure de gouvernance, actionnariat",
+    "effectifs": "string — organisation et RH"
   },
   "analyse_marche": {
     "contexte_macro": "string — environnement économique du pays",
@@ -73,12 +65,11 @@ const MEMO_SCHEMA_PART1 = `{
     "scalabilite": "string — potentiel de croissance"
   },
   "analyse_financiere": {
-    "resume": "string — 2-3 phrases SANS chiffres",
-    "historique": {"commentaire": "string — 200+ mots", "tableau": [{"annee": "string", "ca": "string", "marge_brute": "string", "ebitda": "string", "resultat_net": "string"}]},
-    "projections": {"commentaire": "string", "tableau": [{"annee": "string", "ca": "string", "marge_brute": "string", "ebitda": "string", "resultat_net": "string"}]},
-    "ratios_cles": [{"ratio": "string", "valeur": "string", "benchmark": "string", "verdict": "Bon | Moyen | Faible"}],
-    "besoins_financement": {"bfr": "string", "capex": "string", "dette": "string"},
-    "qualite_donnees": "string"
+    "historique": "string — analyse des 2-3 dernières années",
+    "projections": "string — résumé des projections 5 ans",
+    "ratios_cles": "string — marge, EBITDA, ROE, DSCR",
+    "besoins_financement": "string — BFR, CAPEX, dette",
+    "qualite_donnees": "string — fiabilité des données disponibles"
   },
   "valorisation": {
     "methodes_utilisees": ["DCF", "Multiples EBITDA", "Multiples CA"],
@@ -127,12 +118,11 @@ const MEMO_SCHEMA_PART2 = `{
     "matrice_risque_synthese": "string — résumé global"
   },
   "these_investissement": {
-    "resume": "string — 2-3 phrases",
-    "these_positive": {"synthese": "string — 300+ mots", "arguments": [{"argument": "string", "explication": "string — 2-3 phrases"}]},
-    "these_negative": {"synthese": "string — 200+ mots", "arguments": [{"argument": "string", "explication": "string"}]},
+    "these_positive": "string — 300+ mots, pourquoi investir",
+    "these_negative": "string — 200+ mots, pourquoi ne pas investir",
     "facteurs_cles_succes": ["string"],
-    "catalyseurs": ["string"],
-    "scenarios_sortie": {"resume": "string", "options": [{"type": "string", "horizon": "string", "multiple_sortie": "string", "commentaire": "string"}]}
+    "catalyseurs": ["string — événements qui déclencheraient la croissance"],
+    "scenarios_sortie": "string — options de sortie à 5-7 ans"
   },
   "structure_proposee": {
     "instrument": "string — equity, dette mezzanine, convertible, etc.",
@@ -143,10 +133,9 @@ const MEMO_SCHEMA_PART2 = `{
   },
   "recommandation_finale": {
     "verdict": "INVESTIR | APPROFONDIR | DECLINER",
-    "resume": "string — 2-3 phrases",
-    "justification": {"arguments_pour": ["string"], "arguments_contre": ["string"], "facteur_decisif": "string — 2-3 phrases"},
-    "conditions": ["string"],
-    "prochaines_etapes": [{"etape": "string", "responsable": "string", "delai": "string"}]
+    "justification": "string — 300+ mots",
+    "conditions": ["string — conditions pour que le verdict soit valide"],
+    "prochaines_etapes": ["string — actions immédiates recommandées"]
   },
   "annexes": {
     "sources_donnees": ["string — liste des documents analysés"],
@@ -311,8 +300,8 @@ ${MEMO_SCHEMA_PART2}`;
       return jsonResponse({ success: true, data: mergedMemo, score: mergedMemo.score || 0 });
 
     } else {
-      // ═══════ CAS B: First call — return 202 immediately, run Pass 1 in background ═══════
-      console.log("Investment Memo — Launching Pass 1/2 in background...");
+      // ═══════ CAS B: First call — run Pass 1, checkpoint, return 202 ═══════
+      console.log("Investment Memo — Pass 1/2...");
 
       await updateMemoModuleState(ctx.enterprise_id, {
         phase: "part1",
@@ -320,48 +309,51 @@ ${MEMO_SCHEMA_PART2}`;
         started_at: startedAt,
       }, 10, "in_progress");
 
-      // Background work via EdgeRuntime.waitUntil (same pattern as BMC, SIC, etc.)
-      const asyncWork = async () => {
-        try {
-          const prompt1 = `${contextBlock}
+      const prompt1 = `${contextBlock}
 
 ══════ INSTRUCTIONS — PASSE 1/2 ══════
 Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
 La section valorisation doit CITER les résultats de l'agent Valuation, pas recalculer.
-Chaque section narrative doit faire au minimum 200 mots. Les chiffres dans les tableaux structurés, les analyses dans les champs texte.
+Chaque section narrative doit faire au minimum 200 mots.
 
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
-          const part1Result = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
-          const score = part1Result.resume_executif?.score_ir || 0;
+      try {
+        part1 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.3);
+      } catch (e: any) {
+        await updateMemoModuleState(ctx.enterprise_id, {
+          phase: "failed",
+          error: e.message || "Pass 1 failed",
+          failed_at: new Date().toISOString(),
+        }, 0, "not_started");
+        throw e;
+      }
 
-          console.log("Investment Memo — Pass 1 done, saving checkpoint...");
-          await updateMemoModuleState(ctx.enterprise_id, {
-            phase: "part1_completed",
-            part1: part1Result,
-            score,
-            part1_completed_at: new Date().toISOString(),
-            request_id: requestId,
-          }, 50, "in_progress");
-          console.log("Investment Memo — Checkpoint saved. Frontend will trigger Pass 2.");
-        } catch (e: any) {
-          console.error("Investment Memo — Pass 1 failed:", e.message);
-          await updateMemoModuleState(ctx.enterprise_id, {
-            phase: "failed",
-            error: e.message || "Pass 1 failed",
-            failed_at: new Date().toISOString(),
-          }, 0, "not_started");
-        }
-      };
+      const score = part1.resume_executif?.score_ir || 0;
 
-      EdgeRuntime.waitUntil(asyncWork());
+      // Save checkpoint IMMEDIATELY after AI call — before HTTP return
+      // This is critical: the HTTP connection may already be dead at this point
+      console.log("Investment Memo — Pass 1 AI done, saving checkpoint NOW...");
+      try {
+        await updateMemoModuleState(ctx.enterprise_id, {
+          phase: "part1_completed",
+          part1,
+          score,
+          part1_completed_at: new Date().toISOString(),
+          request_id: requestId,
+        }, 50, "in_progress");
+        console.log("Investment Memo — Checkpoint saved successfully.");
+      } catch (checkpointErr: any) {
+        console.error("Investment Memo — CRITICAL: checkpoint save failed:", checkpointErr.message);
+      }
 
-      console.log("Investment Memo — Returning 202 immediately.");
+      console.log("Investment Memo — Returning 202 (client may have disconnected, frontend will poll).");
       return new Response(JSON.stringify({
-        accepted: true,
+        success: true,
         processing: true,
-        phase: "part1",
+        phase: "part1_completed",
+        score,
         request_id: requestId,
       }), {
         status: 202,
