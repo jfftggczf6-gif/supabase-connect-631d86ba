@@ -282,9 +282,15 @@ export default function ProgrammeCreatePage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Identité</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div><Label>Nom du programme *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Programme Pilote GIZ 2026" /></div>
+              <div className={cn(prefilledFields.has('name') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label>Nom du programme * {prefilledFields.has('name') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Programme Pilote GIZ 2026" />
+              </div>
               <div><Label>Organisation</Label><Input value={form.organization} onChange={e => setForm(f => ({ ...f, organization: e.target.value }))} placeholder="Ex: GIZ, AFD, I&P" /></div>
-              <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Description du programme..." /></div>
+              <div className={cn(prefilledFields.has('description') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label>Description {prefilledFields.has('description') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
+                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Description du programme..." />
+              </div>
             </CardContent>
           </Card>
 
@@ -293,7 +299,10 @@ export default function ProgrammeCreatePage() {
             <CardHeader><CardTitle className="text-base">Paramètres</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <div><Label>Budget</Label><Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} /></div>
+                <div className={cn(prefilledFields.has('budget') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <Label>Budget {prefilledFields.has('budget') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
+                  <Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} />
+                </div>
                 <div><Label>Nb places</Label><Input type="number" value={form.nb_places} onChange={e => setForm(f => ({ ...f, nb_places: e.target.value }))} /></div>
                 <div>
                   <Label>Devise</Label>
@@ -303,16 +312,16 @@ export default function ProgrammeCreatePage() {
                   </Select>
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Pays éligibles</Label>
+              <div className={cn(prefilledFields.has('country_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label className="text-xs">Pays éligibles {prefilledFields.has('country_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {COUNTRIES.map(c => (
                     <Badge key={c} variant={form.country_filter.includes(c) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('country_filter', c)}>{c}</Badge>
                   ))}
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Secteurs éligibles</Label>
+              <div className={cn(prefilledFields.has('sector_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
+                <Label className="text-xs">Secteurs éligibles {prefilledFields.has('sector_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {SECTORS.map(s => (
                     <Badge key={s} variant={form.sector_filter.includes(s) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('sector_filter', s)}>{s}</Badge>
@@ -328,9 +337,15 @@ export default function ProgrammeCreatePage() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <DatePicker label="Début candidatures" value={form.start_date} onChange={d => setForm(f => ({ ...f, start_date: d }))} />
-                <DatePicker label="Fin candidatures" value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
-                <DatePicker label="Début programme" value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
-                <DatePicker label="Fin programme" value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
+                <div className={cn(prefilledFields.has('end_date') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <DatePicker label={`Fin candidatures ${prefilledFields.has('end_date') ? '(IA)' : ''}`} value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
+                </div>
+                <div className={cn(prefilledFields.has('programme_start') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <DatePicker label={`Début programme ${prefilledFields.has('programme_start') ? '(IA)' : ''}`} value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
+                </div>
+                <div className={cn(prefilledFields.has('programme_end') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                  <DatePicker label={`Fin programme ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
+                </div>
               </div>
             </CardContent>
           </Card>
