@@ -145,10 +145,22 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
         return (
           <div className="space-y-4">
             <p className="text-sm leading-relaxed">{d.synthese}</p>
+            {arr(d.chiffres_cles).length > 0 && (
+              <div className="grid grid-cols-3 gap-3">
+                {arr(d.chiffres_cles).map((c: any, i: number) => (
+                  <div key={i} className="p-3 rounded-lg bg-muted/50 border">
+                    <p className="text-[10px] text-muted-foreground uppercase">{c.label}</p>
+                    <p className="text-lg font-bold">{c.valeur}</p>
+                    {c.evolution && <p className="text-xs text-emerald-600">{c.evolution}</p>}
+                    {c.source && <p className="text-[9px] text-muted-foreground italic">{c.source}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
             {d.points_cles && (
               <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-4">
                 <p className="text-xs font-semibold mb-2">Points Clés</p>
-                <ul className="space-y-1.5">{d.points_cles.map((p: string, i: number) => (
+                <ul className="space-y-1.5">{arr(d.points_cles).map((p: string, i: number) => (
                   <li key={i} className="text-sm flex items-start gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 flex-none" />{p}</li>
                 ))}</ul>
               </div>
@@ -165,17 +177,135 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
       case 'presentation_entreprise':
         return (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/50 p-4 border">
-              {d.raison_sociale && <InfoField label="Raison sociale" value={d.raison_sociale || d.nom} />}
-              {d.forme_juridique && <InfoField label="Forme juridique" value={d.forme_juridique} />}
-              {d.date_creation && <InfoField label="Date de création" value={d.date_creation} />}
-              {(d.siege_social || d.ville) && <InfoField label="Siège social" value={d.siege_social || d.ville} />}
-              {d.secteur && <InfoField label="Secteur" value={d.secteur} />}
-              {d.effectif && <InfoField label="Effectif" value={d.effectif} />}
-            </div>
-            {d.historique && <TextBlock title="Historique" text={d.historique} />}
-            {(d.description || d.activite) && <TextBlock title="Activités" text={d.description || d.activite} />}
-            {d.positionnement && <TextBlock title="Positionnement" text={d.positionnement} />}
+            {d.resume && <p className="text-sm leading-relaxed">{d.resume}</p>}
+            {/* Historique — structured or string */}
+            {d.historique && (typeof d.historique === 'string' ? (
+              <TextBlock title="Historique" text={d.historique} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Historique</p>
+                {d.historique.resume && <p className="text-sm leading-relaxed mb-3">{d.historique.resume}</p>}
+                {arr(d.historique.jalons).length > 0 && (
+                  <div className="relative pl-6 border-l-2 border-primary/20 space-y-3">
+                    {arr(d.historique.jalons).map((j: any, i: number) => (
+                      <div key={i} className="relative">
+                        <div className="absolute -left-[25px] w-3 h-3 rounded-full bg-primary border-2 border-white" />
+                        <span className="text-xs font-bold text-primary">{j.annee}</span>
+                        <p className="text-sm text-muted-foreground">{j.evenement}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Activités — structured or string */}
+            {(d.activites || d.description || d.activite) && (typeof (d.activites || d.description) === 'string' ? (
+              <TextBlock title="Activités" text={d.activites || d.description || d.activite} />
+            ) : d.activites && (
+              <div>
+                <p className="text-xs font-semibold mb-2">Activités</p>
+                {d.activites.resume && <p className="text-sm leading-relaxed mb-2">{d.activites.resume}</p>}
+                {arr(d.activites.produits_services).length > 0 && (
+                  <table className="w-full text-xs border-collapse"><thead><tr className="bg-muted"><th className="text-left px-3 py-2 border-b font-semibold">Produit/Service</th><th className="text-left px-3 py-2 border-b font-semibold">Description</th><th className="text-right px-3 py-2 border-b font-semibold">Part CA</th></tr></thead>
+                  <tbody>{arr(d.activites.produits_services).map((p: any, i: number) => (
+                    <tr key={i} className="hover:bg-muted/30"><td className="px-3 py-2 border-b font-medium">{p.nom}</td><td className="px-3 py-2 border-b text-muted-foreground">{p.description}</td><td className="px-3 py-2 border-b text-right">{p.part_ca}</td></tr>
+                  ))}</tbody></table>
+                )}
+              </div>
+            ))}
+            {d.positionnement && <TextBlock title="Positionnement" text={typeof d.positionnement === 'string' ? d.positionnement : d.positionnement.resume || JSON.stringify(d.positionnement)} />}
+            {/* Gouvernance — structured or string */}
+            {d.gouvernance && (typeof d.gouvernance === 'string' ? (
+              <TextBlock title="Gouvernance" text={d.gouvernance} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Gouvernance</p>
+                {d.gouvernance.resume && <p className="text-sm leading-relaxed mb-2">{d.gouvernance.resume}</p>}
+                {arr(d.gouvernance.actionnariat).length > 0 && (
+                  <table className="w-full text-xs border-collapse"><thead><tr className="bg-muted"><th className="text-left px-3 py-2 border-b font-semibold">Actionnaire</th><th className="text-right px-3 py-2 border-b font-semibold">Part</th><th className="text-left px-3 py-2 border-b font-semibold">Rôle</th></tr></thead>
+                  <tbody>{arr(d.gouvernance.actionnariat).map((a: any, i: number) => (
+                    <tr key={i}><td className="px-3 py-2 border-b font-medium">{a.nom}</td><td className="px-3 py-2 border-b text-right">{a.part}</td><td className="px-3 py-2 border-b text-muted-foreground">{a.role}</td></tr>
+                  ))}</tbody></table>
+                )}
+              </div>
+            ))}
+            {/* Effectifs — structured or string */}
+            {d.effectifs && (typeof d.effectifs === 'string' ? (
+              <TextBlock title="Effectifs" text={d.effectifs} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-1">Effectifs : {d.effectifs.total || '—'}</p>
+                {arr(d.effectifs.repartition).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1">{arr(d.effectifs.repartition).map((r: any, i: number) => (
+                    <Badge key={i} variant="outline">{r.departement} : {r.nombre}</Badge>
+                  ))}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'analyse_marche':
+        return (
+          <div className="space-y-4">
+            {d.resume && <p className="text-sm leading-relaxed">{d.resume}</p>}
+            {/* Contexte macro — structured or string */}
+            {(d.contexte_macro || d.contexte_macroeconomique) && (typeof (d.contexte_macro || d.contexte_macroeconomique) === 'string' ? (
+              <TextBlock title="Contexte macro" text={d.contexte_macro || d.contexte_macroeconomique} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Contexte macroéconomique</p>
+                {d.contexte_macro?.resume && <p className="text-sm leading-relaxed mb-2">{d.contexte_macro.resume}</p>}
+                {arr(d.contexte_macro?.indicateurs).length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">{arr(d.contexte_macro.indicateurs).map((ind: any, i: number) => (
+                    <div key={i} className="p-2 rounded bg-muted/50 border"><p className="text-[10px] text-muted-foreground uppercase">{ind.label}</p><p className="text-sm font-semibold">{ind.valeur}</p>{ind.source && <p className="text-[9px] text-muted-foreground italic">{ind.source}</p>}</div>
+                  ))}</div>
+                )}
+              </div>
+            ))}
+            {/* Taille marché — structured or string */}
+            {d.taille_marche && (typeof d.taille_marche === 'string' ? (
+              <KpiCard icon={<Target className="h-4 w-4" />} label="Taille du marché" value={d.taille_marche} />
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {['tam', 'sam', 'som'].map(k => d.taille_marche[k] && (
+                  <div key={k} className="p-3 rounded-lg bg-muted/50 border">
+                    <p className="text-[10px] text-muted-foreground uppercase">{k}</p>
+                    <p className="text-sm font-bold">{d.taille_marche[k].valeur || d.taille_marche[k]}</p>
+                    {d.taille_marche[k].source && <p className="text-[9px] text-muted-foreground italic">{d.taille_marche[k].source}</p>}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {/* Dynamiques — structured or string */}
+            {d.dynamiques && (typeof d.dynamiques === 'string' ? (
+              <TextBlock title="Dynamiques" text={d.dynamiques} />
+            ) : (
+              <div>
+                {d.dynamiques.croissance && <p className="text-sm mb-2"><span className="font-medium">Croissance :</span> {d.dynamiques.croissance}</p>}
+                {arr(d.dynamiques.tendances).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">{arr(d.dynamiques.tendances).map((t: string, i: number) => (
+                    <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full">{t}</span>
+                  ))}</div>
+                )}
+                {d.dynamiques.reglementation && <p className="text-sm text-muted-foreground">{d.dynamiques.reglementation}</p>}
+              </div>
+            ))}
+            {/* Concurrence — structured or string */}
+            {(d.concurrence || arr(d.concurrents).length > 0) && (typeof d.concurrence === 'string' ? (
+              <TextBlock title="Concurrence" text={d.concurrence} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Concurrence</p>
+                {d.concurrence?.resume && <p className="text-sm leading-relaxed mb-2">{d.concurrence.resume}</p>}
+                {arr(d.concurrence?.principaux_concurrents || d.concurrents).length > 0 && (
+                  <table className="w-full text-xs border-collapse"><thead><tr className="bg-muted"><th className="text-left px-3 py-2 border-b font-semibold">Concurrent</th><th className="text-left px-3 py-2 border-b font-semibold">Positionnement</th><th className="text-left px-3 py-2 border-b font-semibold">Taille</th></tr></thead>
+                  <tbody>{arr(d.concurrence?.principaux_concurrents || d.concurrents).map((c: any, i: number) => (
+                    <tr key={i}><td className="px-3 py-2 border-b font-medium">{typeof c === 'string' ? c : c.nom}</td><td className="px-3 py-2 border-b text-muted-foreground">{c.positionnement || '—'}</td><td className="px-3 py-2 border-b">{c.taille || '—'}</td></tr>
+                  ))}</tbody></table>
+                )}
+              </div>
+            ))}
             {arr(d.avantages_competitifs).length > 0 && (
               <div>
                 <p className="text-xs font-semibold mb-1">Avantages compétitifs</p>
@@ -184,30 +314,6 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
                 ))}</ul>
               </div>
             )}
-          </div>
-        );
-
-      case 'analyse_marche':
-        return (
-          <div className="space-y-4">
-            {d.contexte_macroeconomique && <TextBlock title="Contexte macro" text={d.contexte_macroeconomique} />}
-            <div className="grid grid-cols-2 gap-3">
-              {d.taille_marche && <KpiCard icon={<Target className="h-4 w-4" />} label="Taille du marché" value={d.taille_marche} />}
-              {d.croissance && <KpiCard icon={<TrendingUp className="h-4 w-4" />} label="Croissance" value={d.croissance} />}
-            </div>
-            {d.tendances && <TextBlock title="Tendances" text={d.tendances} />}
-            {d.positionnement_concurrentiel && <TextBlock title="Positionnement concurrentiel" text={d.positionnement_concurrentiel} />}
-            {arr(d.concurrents).length > 0 && (
-              <div>
-                <p className="text-xs font-semibold mb-1">Concurrents</p>
-                <ul className="space-y-1">{arr(d.concurrents).map((c: any, i: number) => (
-                  <li key={i} className="text-sm text-muted-foreground">• {typeof c === 'string' ? c : c.nom || JSON.stringify(c)}</li>
-                ))}</ul>
-              </div>
-            )}
-            {d.opportunites && <Callout type="green" title="Opportunités" text={d.opportunites} />}
-            {d.menaces && <Callout type="amber" title="Menaces" text={d.menaces} />}
-            {renderGenericFields(d, ['contexte_macroeconomique', 'taille_marche', 'croissance', 'tendances', 'positionnement_concurrentiel', 'concurrents', 'opportunites', 'menaces'])}
           </div>
         );
 
@@ -235,43 +341,67 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
         );
 
       case 'analyse_financiere': {
-        const ca = d.chiffre_affaires || d.ca || d.revenue || d.ca_annee_n || d.kpis?.chiffre_affaires || d.kpis?.ca || '—';
-        const margeBrute = d.marge_brute || d.kpis?.marge_brute || '—';
-        const ebitda = d.ebitda || d.kpis?.ebitda || '—';
-        const resultatNet = d.resultat_net || d.kpis?.resultat_net || '—';
-        const tresorerie = d.tresorerie || d.kpis?.tresorerie || '—';
-        const ratioDette = d.ratio_dette || d.endettement || d.kpis?.ratio_dette || '—';
         return (
           <div className="space-y-4">
+            {d.resume && <p className="text-sm leading-relaxed">{d.resume}</p>}
             {(d.commentaire || d.analyse) && <p className="text-sm leading-relaxed">{d.commentaire || d.analyse}</p>}
-            <div className="grid grid-cols-3 gap-3">
-              <KpiCard label="Chiffre d'affaires" value={ca} />
-              <KpiCard label="Marge brute" value={margeBrute} />
-              <KpiCard label="EBITDA" value={ebitda} />
-              <KpiCard label="Résultat net" value={resultatNet} />
-              <KpiCard label="Trésorerie" value={tresorerie} />
-              <KpiCard label="Ratio dette" value={ratioDette} />
-            </div>
-            {d.points_forts && <Callout type="green" title="Points forts" text={d.points_forts} />}
-            {d.points_attention && <Callout type="amber" title="Points d'attention" text={d.points_attention} />}
-            {d.source && (
-              <p className="text-[10px] text-muted-foreground/60 mt-1 italic">{d.source}</p>
-            )}
-            {(d.projections || d.previsions) && (() => {
-              const proj = d.projections || d.previsions || {};
-              return (
-                <div>
-                  <p className="text-xs font-semibold mb-2">Projections</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {proj.ca_n1 && <KpiCard label="CA projeté N+1" value={proj.ca_n1} />}
-                    {proj.ca_n3 && <KpiCard label="CA projeté N+3" value={proj.ca_n3} />}
-                    {proj.ebitda_projete && <KpiCard label="EBITDA projeté" value={proj.ebitda_projete} />}
-                    {(proj.point_mort || proj.breakeven) && <KpiCard label="Point mort" value={proj.point_mort || proj.breakeven} />}
+            {/* Historique financier — structured table */}
+            {d.historique && (typeof d.historique === 'string' ? (
+              <TextBlock title="Historique financier" text={d.historique} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Historique financier</p>
+                {d.historique.commentaire && <p className="text-sm leading-relaxed mb-2">{d.historique.commentaire}</p>}
+                {arr(d.historique.tableau).length > 0 && (
+                  <table className="w-full text-xs border-collapse"><thead><tr className="bg-muted"><th className="text-left px-3 py-2 border-b font-semibold">Année</th><th className="text-right px-3 py-2 border-b font-semibold">CA</th><th className="text-right px-3 py-2 border-b font-semibold">Marge brute</th><th className="text-right px-3 py-2 border-b font-semibold">EBITDA</th><th className="text-right px-3 py-2 border-b font-semibold">Résultat net</th></tr></thead>
+                  <tbody>{arr(d.historique.tableau).map((r: any, i: number) => (
+                    <tr key={i} className="hover:bg-muted/30"><td className="px-3 py-2 border-b font-medium">{r.annee}</td><td className="px-3 py-2 border-b text-right">{r.ca}</td><td className="px-3 py-2 border-b text-right">{r.marge_brute}</td><td className="px-3 py-2 border-b text-right">{r.ebitda}</td><td className="px-3 py-2 border-b text-right">{r.resultat_net}</td></tr>
+                  ))}</tbody></table>
+                )}
+              </div>
+            ))}
+            {/* Projections — structured table */}
+            {d.projections && (typeof d.projections === 'string' ? (
+              <TextBlock title="Projections" text={d.projections} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Projections</p>
+                {d.projections.commentaire && <p className="text-sm leading-relaxed mb-2">{d.projections.commentaire}</p>}
+                {arr(d.projections.tableau).length > 0 && (
+                  <table className="w-full text-xs border-collapse"><thead><tr className="bg-primary/5"><th className="text-left px-3 py-2 border-b font-semibold">Année</th><th className="text-right px-3 py-2 border-b font-semibold">CA</th><th className="text-right px-3 py-2 border-b font-semibold">Marge brute</th><th className="text-right px-3 py-2 border-b font-semibold">EBITDA</th><th className="text-right px-3 py-2 border-b font-semibold">Résultat net</th></tr></thead>
+                  <tbody>{arr(d.projections.tableau).map((r: any, i: number) => (
+                    <tr key={i} className="hover:bg-muted/30"><td className="px-3 py-2 border-b font-medium">{r.annee}</td><td className="px-3 py-2 border-b text-right">{r.ca}</td><td className="px-3 py-2 border-b text-right">{r.marge_brute}</td><td className="px-3 py-2 border-b text-right">{r.ebitda}</td><td className="px-3 py-2 border-b text-right">{r.resultat_net}</td></tr>
+                  ))}</tbody></table>
+                )}
+              </div>
+            ))}
+            {/* Ratios clés — structured */}
+            {arr(d.ratios_cles).length > 0 && (typeof d.ratios_cles === 'string' ? (
+              <TextBlock title="Ratios clés" text={d.ratios_cles} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Ratios clés</p>
+                <div className="space-y-1">{arr(d.ratios_cles).map((r: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded bg-muted/30 border">
+                    <span className="text-sm font-medium">{r.ratio}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold">{r.valeur}</span>
+                      {r.benchmark && <span className="text-xs text-muted-foreground">Benchmark : {r.benchmark}</span>}
+                      {r.verdict && <Badge variant="outline" className={r.verdict === 'Bon' ? 'border-emerald-300 text-emerald-700' : r.verdict === 'Faible' ? 'border-red-300 text-red-700' : 'border-amber-300 text-amber-700'}>{r.verdict}</Badge>}
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
-            {renderGenericFields(d, ['commentaire', 'analyse', 'chiffre_affaires', 'ca', 'revenue', 'ca_annee_n', 'kpis', 'marge_brute', 'ebitda', 'resultat_net', 'tresorerie', 'ratio_dette', 'endettement', 'points_forts', 'points_attention', 'projections', 'previsions', 'evolution'])}
+                ))}</div>
+              </div>
+            ))}
+            {/* Besoins financement */}
+            {d.besoins_financement && typeof d.besoins_financement === 'object' && (
+              <div className="grid grid-cols-3 gap-3">
+                {d.besoins_financement.bfr && <KpiCard label="BFR" value={d.besoins_financement.bfr} />}
+                {d.besoins_financement.capex && <KpiCard label="CAPEX" value={d.besoins_financement.capex} />}
+                {d.besoins_financement.dette && <KpiCard label="Dette" value={d.besoins_financement.dette} />}
+              </div>
+            )}
+            {d.qualite_donnees && <p className="text-xs text-muted-foreground italic mt-2">{d.qualite_donnees}</p>}
           </div>
         );
       }
@@ -312,17 +442,51 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
                 {d.verdict === 'INVESTIR' ? '✅' : d.verdict === 'APPROFONDIR' ? '⚠️' : '❌'} {d.verdict}
               </div>
             </div>
-            <p className="text-sm leading-relaxed">{d.justification}</p>
-            {d.conditions?.length > 0 && (
+            {d.resume && <p className="text-sm leading-relaxed font-medium">{d.resume}</p>}
+            {/* Justification — structured or string */}
+            {d.justification && (typeof d.justification === 'string' ? (
+              <p className="text-sm leading-relaxed">{d.justification}</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {arr(d.justification.arguments_pour).length > 0 && (
+                    <div className="rounded-lg border-l-4 border-emerald-400 bg-emerald-50/50 p-3">
+                      <p className="text-xs font-semibold text-emerald-700 mb-1">Arguments en faveur</p>
+                      <ul className="space-y-1">{arr(d.justification.arguments_pour).map((a: string, i: number) => <li key={i} className="text-xs text-emerald-700">✓ {a}</li>)}</ul>
+                    </div>
+                  )}
+                  {arr(d.justification.arguments_contre).length > 0 && (
+                    <div className="rounded-lg border-l-4 border-red-400 bg-red-50/50 p-3">
+                      <p className="text-xs font-semibold text-red-700 mb-1">Réserves</p>
+                      <ul className="space-y-1">{arr(d.justification.arguments_contre).map((a: string, i: number) => <li key={i} className="text-xs text-red-700">✗ {a}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+                {d.justification.facteur_decisif && (
+                  <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-3">
+                    <p className="text-xs font-semibold mb-1">Facteur décisif</p>
+                    <p className="text-sm leading-relaxed">{d.justification.facteur_decisif}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+            {arr(d.conditions).length > 0 && (
               <div className="rounded-lg border-l-4 border-amber-400 bg-amber-50 p-4">
                 <p className="text-xs font-semibold mb-1">Conditions</p>
-                <ul className="space-y-1">{d.conditions.map((c: string, i: number) => <li key={i} className="text-sm">• {c}</li>)}</ul>
+                <ul className="space-y-1">{arr(d.conditions).map((c: any, i: number) => <li key={i} className="text-sm">• {typeof c === 'string' ? c : c.condition || JSON.stringify(c)}</li>)}</ul>
               </div>
             )}
-            {d.prochaines_etapes?.length > 0 && (
+            {arr(d.prochaines_etapes).length > 0 && (
               <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-4">
                 <p className="text-xs font-semibold mb-1">Prochaines Étapes</p>
-                <ul className="space-y-1">{d.prochaines_etapes.map((s: string, i: number) => <li key={i} className="text-sm">→ {s}</li>)}</ul>
+                {typeof d.prochaines_etapes[0] === 'string' ? (
+                  <ul className="space-y-1">{arr(d.prochaines_etapes).map((s: string, i: number) => <li key={i} className="text-sm">→ {s}</li>)}</ul>
+                ) : (
+                  <table className="w-full text-xs border-collapse mt-1"><thead><tr><th className="text-left px-2 py-1 font-semibold">Étape</th><th className="text-left px-2 py-1 font-semibold">Responsable</th><th className="text-left px-2 py-1 font-semibold">Délai</th></tr></thead>
+                  <tbody>{arr(d.prochaines_etapes).map((s: any, i: number) => (
+                    <tr key={i}><td className="px-2 py-1">{s.etape}</td><td className="px-2 py-1 text-muted-foreground">{s.responsable}</td><td className="px-2 py-1">{s.delai}</td></tr>
+                  ))}</tbody></table>
+                )}
               </div>
             )}
           </div>
@@ -422,31 +586,83 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
       case 'these_investissement':
         return (
           <div className="space-y-4">
-            {(d.these || d.synthese || d.resume) && (
-              <p className="text-sm leading-relaxed">{d.these || d.synthese || d.resume}</p>
-            )}
+            {d.resume && <p className="text-sm leading-relaxed">{d.resume}</p>}
+            {(d.these || d.synthese) && !d.resume && <p className="text-sm leading-relaxed">{d.these || d.synthese}</p>}
             <div className="grid grid-cols-2 gap-4">
+              {/* Thèse positive — structured or flat */}
               <div className="rounded-lg border-l-4 border-emerald-400 bg-emerald-50/50 p-4">
-                <p className="text-xs font-semibold text-emerald-700 mb-2">✅ Arguments Pour</p>
-                <ul className="space-y-1">{arr(d.arguments_pour || d.pour || []).map((a: any, i: number) => (
-                  <li key={i} className="text-sm">{typeof a === 'string' ? a : a.argument || JSON.stringify(a)}</li>
-                ))}</ul>
+                <p className="text-xs font-semibold text-emerald-700 mb-2">✅ Thèse positive</p>
+                {typeof d.these_positive === 'string' ? (
+                  <p className="text-sm leading-relaxed">{d.these_positive}</p>
+                ) : d.these_positive ? (
+                  <>
+                    {d.these_positive.synthese && <p className="text-sm leading-relaxed mb-3">{d.these_positive.synthese}</p>}
+                    {arr(d.these_positive.arguments).map((a: any, i: number) => (
+                      <div key={i} className="mb-2">
+                        <p className="text-sm font-semibold text-emerald-800">{a.argument}</p>
+                        <p className="text-xs text-emerald-700/80 leading-relaxed">{a.explication}</p>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <ul className="space-y-1">{arr(d.arguments_pour || d.pour || []).map((a: any, i: number) => (
+                    <li key={i} className="text-sm">{typeof a === 'string' ? a : a.argument || JSON.stringify(a)}</li>
+                  ))}</ul>
+                )}
               </div>
+              {/* Thèse négative — structured or flat */}
               <div className="rounded-lg border-l-4 border-red-400 bg-red-50/50 p-4">
-                <p className="text-xs font-semibold text-red-700 mb-2">⚠️ Arguments Contre</p>
-                <ul className="space-y-1">{arr(d.arguments_contre || d.contre || d.risques || []).map((a: any, i: number) => (
-                  <li key={i} className="text-sm">{typeof a === 'string' ? a : a.argument || JSON.stringify(a)}</li>
-                ))}</ul>
+                <p className="text-xs font-semibold text-red-700 mb-2">⚠️ Réserves</p>
+                {typeof d.these_negative === 'string' ? (
+                  <p className="text-sm leading-relaxed">{d.these_negative}</p>
+                ) : d.these_negative ? (
+                  <>
+                    {d.these_negative.synthese && <p className="text-sm leading-relaxed mb-3">{d.these_negative.synthese}</p>}
+                    {arr(d.these_negative.arguments).map((a: any, i: number) => (
+                      <div key={i} className="mb-2">
+                        <p className="text-sm font-semibold text-red-800">{a.argument}</p>
+                        <p className="text-xs text-red-700/80 leading-relaxed">{a.explication}</p>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <ul className="space-y-1">{arr(d.arguments_contre || d.contre || []).map((a: any, i: number) => (
+                    <li key={i} className="text-sm">{typeof a === 'string' ? a : a.argument || JSON.stringify(a)}</li>
+                  ))}</ul>
+                )}
               </div>
             </div>
-            {arr(d.facteurs_cles || d.facteurs_cles_succes || []).length > 0 && (
+            {arr(d.facteurs_cles_succes || d.facteurs_cles || []).length > 0 && (
               <div>
                 <p className="text-xs font-semibold mb-1">Facteurs clés de succès</p>
-                <ul className="space-y-1">{arr(d.facteurs_cles || d.facteurs_cles_succes).map((f: string, i: number) => (
+                <ul className="space-y-1">{arr(d.facteurs_cles_succes || d.facteurs_cles).map((f: string, i: number) => (
                   <li key={i} className="text-sm flex items-start gap-2"><Target className="h-3.5 w-3.5 text-primary mt-0.5 flex-none" />{f}</li>
                 ))}</ul>
               </div>
             )}
+            {arr(d.catalyseurs).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Catalyseurs de croissance</p>
+                <ul className="space-y-1">{arr(d.catalyseurs).map((c: string, i: number) => (
+                  <li key={i} className="text-sm flex items-start gap-2"><TrendingUp className="h-3.5 w-3.5 text-emerald-500 mt-0.5 flex-none" />{c}</li>
+                ))}</ul>
+              </div>
+            )}
+            {/* Scénarios de sortie — structured or string */}
+            {d.scenarios_sortie && (typeof d.scenarios_sortie === 'string' ? (
+              <TextBlock title="Scénarios de sortie" text={d.scenarios_sortie} />
+            ) : (
+              <div>
+                <p className="text-xs font-semibold mb-2">Scénarios de sortie</p>
+                {d.scenarios_sortie.resume && <p className="text-sm leading-relaxed mb-2">{d.scenarios_sortie.resume}</p>}
+                {arr(d.scenarios_sortie.options).length > 0 && (
+                  <table className="w-full text-xs border-collapse"><thead><tr className="bg-muted"><th className="text-left px-3 py-2 border-b font-semibold">Type</th><th className="text-left px-3 py-2 border-b font-semibold">Horizon</th><th className="text-left px-3 py-2 border-b font-semibold">Multiple</th><th className="text-left px-3 py-2 border-b font-semibold">Commentaire</th></tr></thead>
+                  <tbody>{arr(d.scenarios_sortie.options).map((o: any, i: number) => (
+                    <tr key={i}><td className="px-3 py-2 border-b font-medium">{o.type}</td><td className="px-3 py-2 border-b">{o.horizon}</td><td className="px-3 py-2 border-b">{o.multiple_sortie}</td><td className="px-3 py-2 border-b text-muted-foreground">{o.commentaire}</td></tr>
+                  ))}</tbody></table>
+                )}
+              </div>
+            ))}
           </div>
         );
 
