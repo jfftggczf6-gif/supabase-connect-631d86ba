@@ -224,8 +224,8 @@ export default function ProgrammeCreatePage() {
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm font-medium">Glissez un PDF ou DOCX ici</p>
-                    <p className="text-xs text-muted-foreground">ou cliquez pour parcourir — les critères seront extraits automatiquement</p>
+                    <p className="text-sm font-medium">📄 Glissez votre fiche programme ici</p>
+                    <p className="text-xs text-muted-foreground">(PDF, DOCX, XLSX, image — tous formats acceptés) · L'IA extraira automatiquement les critères</p>
                   </div>
                 )}
               </div>
