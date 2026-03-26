@@ -526,22 +526,8 @@ export default function ProgrammeCreatePage() {
                         reader.onerror = rej;
                         reader.readAsDataURL(file);
                       });
-                      const { data, error } = await supabase.functions.invoke('extract-form-fields', {
-                        body: { file_base64: base64, file_name: file.name }
-                      });
-                      if (error) {
-                        let msg = error.message || 'Erreur inconnue';
-                        try {
-                          const ctx = (error as any).context;
-                          if (ctx && typeof ctx.json === 'function') {
-                            const body = await ctx.json();
-                            msg = body?.error || body?.message || msg;
-                          }
-                        } catch {}
-                        throw new Error(msg);
-                      }
-                      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-                      const fields = parsed?.form_fields || [];
+                      const data = await invokeLong('extract-form-fields', { file_base64: base64, file_name: file.name });
+                      const fields = data?.form_fields || [];
                       if (!fields.length) throw new Error('Aucun champ extrait du document');
                       const newFields: FormField[] = fields.map((f: any, i: number) => ({
                         id: `ext-${i}-${Date.now()}`,
