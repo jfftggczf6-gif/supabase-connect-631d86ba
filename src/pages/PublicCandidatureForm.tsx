@@ -40,8 +40,9 @@ export default function PublicCandidatureForm() {
         });
         const data = await res.json();
         if (!res.ok) { setError(data.error || 'Programme introuvable'); return; }
-        if (data.status !== 'open') { setError('Cet appel à candidatures est clôturé.'); return; }
-        setProgramme(data);
+        if (data.closed) { setError(data.reason || 'Cet appel à candidatures est clôturé.'); return; }
+        if (!data.success || !data.programme) { setError('Programme introuvable'); return; }
+        setProgramme(data.programme);
       } catch { setError('Erreur de connexion'); }
       finally { setLoading(false); }
     })();
