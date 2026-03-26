@@ -60,22 +60,23 @@ export const DELIVERABLE_CONFIG = [
 ];
 
 export const PIPELINE = [
-  // Phase 1 — Triage
+  // Phase 1 — Triage & Extraction
   { name: 'Diagnostic initial', fn: 'generate-pre-screening',  type: 'pre_screening' as DeliverableType },
-  // Phase 2 — Analyse
+  { name: 'Inputs',           fn: 'generate-inputs',           type: 'inputs_data' as DeliverableType },
+  // Phase 2 — Analyse (BMC/SIC lisent inputs_data + pre_screening)
   { name: 'BMC',              fn: 'generate-bmc',              type: 'bmc_analysis' as DeliverableType },
   { name: 'SIC',              fn: 'generate-sic',              type: 'sic_analysis' as DeliverableType },
-  { name: 'Inputs',           fn: 'generate-inputs',           type: 'inputs_data' as DeliverableType },
   { name: 'Framework',        fn: 'generate-framework',        type: 'framework_data' as DeliverableType },
-  { name: 'Plan Financier',    fn: 'generate-plan-financier',   type: 'plan_financier' as DeliverableType },
+  // Phase 3 — Plans & Stratégie
+  { name: 'Plan Financier',   fn: 'generate-plan-financier',   type: 'plan_financier' as DeliverableType },
   { name: 'Business Plan',    fn: 'generate-business-plan',    type: 'business_plan' as DeliverableType },
   { name: 'ODD',              fn: 'generate-odd',              type: 'odd_analysis' as DeliverableType },
   { name: 'Diagnostic',       fn: 'generate-diagnostic',       type: 'diagnostic_data' as DeliverableType },
-  // Phase 3 — Investisseur
+  // Phase 4 — Investisseur
   { name: 'Valuation',        fn: 'generate-valuation',        type: 'valuation' as DeliverableType },
   { name: 'One-Pager',        fn: 'generate-onepager',         type: 'onepager' as DeliverableType },
   { name: 'Investment Memo',  fn: 'generate-investment-memo',  type: 'investment_memo' as DeliverableType },
-  // Phase 4 — Décision (screening en dernier)
+  // Phase 5 — Décision
   { name: 'Décision programme', fn: 'generate-screening-report', type: 'screening_report' as DeliverableType },
 ];
 
