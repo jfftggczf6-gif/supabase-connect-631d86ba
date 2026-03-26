@@ -333,12 +333,67 @@ export default function EntrepreneurDashboard({
           return;
         }
       }
-      for (const file of Array.from(files || [])) {
+
+      const fileList = Array.from(files || []);
+
+      // 1. Upload to Storage
+      for (const file of fileList) {
         const filePath = `${enterprise.id}/${file.name}`;
         const { error } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true });
         if (error) throw error;
       }
-      toast.success(`${files?.length || 0} fichier(s) uploadé(s)`);
+      toast.success(`${fileList.length} fichier(s) uploadé(s)`);
+
+      // 2. Parse via Railway (extract text + tables) — runs in background
+      toast.info('Extraction du contenu des documents...');
+      try {
+        const parsedDocs: { fileName: string; content: string; category: string; quality: string }[] = [];
+        for (const file of fileList) {
+          const formData = new FormData();
+          formData.append('file', file);
+          const parseRes = await fetch(`${import.meta.env.VITE_PARSER_URL}/parse`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${import.meta.env.VITE_PARSER_API_KEY}` },
+            body: formData,
+          });
+          if (parseRes.ok) {
+            const parsed = await parseRes.json();
+            if (parsed.content && parsed.content.length > 10) {
+              parsedDocs.push({
+                fileName: file.name,
+                content: parsed.content,
+                category: parsed.category || 'autre',
+                quality: parsed.quality || 'unknown',
+              });
+            }
+          }
+        }
+
+        // 3. Merge with existing document_content and save
+        if (parsedDocs.length > 0) {
+          const existingContent = enterprise.document_content || '';
+          const newContent = parsedDocs.map(d =>
+            `\n══════ ${d.fileName} (${d.category}) ══════\n${d.content}`
+          ).join('\n');
+          const merged = existingContent + newContent;
+
+          // Update enterprise with parsed content + bump data_changed_at
+          await supabase.from('enterprises').update({
+            document_content: merged.slice(0, 300000),
+            document_parsing_report: JSON.stringify({
+              parsed_at: new Date().toISOString(),
+              new_files: parsedDocs.map(d => ({ name: d.fileName, category: d.category, quality: d.quality })),
+            }),
+            data_changed_at: new Date().toISOString(),
+          }).eq('id', enterprise.id);
+
+          toast.success(`${parsedDocs.length} document(s) analysé(s) — contenu extrait`);
+        }
+      } catch (parseErr) {
+        console.warn('Document parsing non-blocking error:', parseErr);
+        // Parsing failure is non-blocking — files are already uploaded
+      }
+
       await fetchData();
       // Trigger enterprise info extraction in background
       const hasDeliverables = deliverables.length > 0;
