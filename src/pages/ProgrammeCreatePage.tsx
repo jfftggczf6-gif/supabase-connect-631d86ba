@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, X, Loader2 } from 'lucide-react';
+import { CalendarIcon, Plus, X, Loader2, Upload, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -31,6 +31,9 @@ interface FormField {
 export default function ProgrammeCreatePage() {
   const nav = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     name: '', organization: '', description: '',
     budget: '', nb_places: '', currency: 'XOF',
@@ -61,6 +64,67 @@ export default function ProgrammeCreatePage() {
 
   const removeField = (id: string) => setFormFields(f => f.filter(ff => ff.id !== id));
   const toggleFieldRequired = (id: string) => setFormFields(f => f.map(ff => ff.id === id ? { ...ff, required: !ff.required } : ff));
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['pdf', 'docx', 'txt', 'md'].includes(ext || '')) {
+      toast({ title: 'Format non supporté', description: 'Utilisez PDF, DOCX ou TXT.', variant: 'destructive' });
+      return;
+    }
+
+    setUploadedFile(file);
+    setExtracting(true);
+
+    try {
+      // Upload to storage first
+      const storagePath = `programme-criteria/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, file);
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      // Call extraction function
+      const { data, error } = await supabase.functions.invoke('extract-programme-criteria', {
+        body: { storage_path: storagePath }
+      });
+
+      if (error) throw new Error(error.message);
+
+      const extracted = data?.extracted;
+      if (!extracted) throw new Error('Aucune donnée extraite');
+
+      // Pre-fill form with extracted data
+      setForm(f => ({
+        ...f,
+        name: extracted.name || f.name,
+        description: extracted.description || f.description,
+        country_filter: extracted.country_filter?.length ? extracted.country_filter : f.country_filter,
+        sector_filter: extracted.sector_filter?.length ? extracted.sector_filter : f.sector_filter,
+        min_revenue: extracted.min_revenue ? String(extracted.min_revenue) : f.min_revenue,
+        min_margin: extracted.min_margin ? String(extracted.min_margin) : f.min_margin,
+        budget: extracted.custom_criteria?.montant_financement ? f.budget : f.budget,
+      }));
+
+      toast({ title: '✅ Critères extraits', description: 'Les champs ont été pré-remplis. Vérifiez et modifiez si nécessaire.' });
+    } catch (err: any) {
+      toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
+    } finally {
+      setExtracting(false);
+    }
+  }, []);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileUpload(file);
+  }, [handleFileUpload]);
+
+  const onFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+  }, [handleFileUpload]);
 
   const handleSave = async (publish = false) => {
     if (!form.name.trim()) { toast({ title: 'Le nom est requis', variant: 'destructive' }); return; }
@@ -119,6 +183,54 @@ export default function ProgrammeCreatePage() {
     <DashboardLayout title="Nouveau programme" subtitle="Créer un appel à candidatures">
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Upload fiche programme */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">📄 Importer une fiche programme</CardTitle></CardHeader>
+            <CardContent>
+              <div
+                className={cn(
+                  'border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer',
+                  dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50',
+                  extracting && 'pointer-events-none opacity-60'
+                )}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+                onClick={() => document.getElementById('file-upload-input')?.click()}
+              >
+                <input
+                  id="file-upload-input"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.docx,.txt,.md"
+                  onChange={onFileInput}
+                />
+                {extracting ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm font-medium">Extraction des critères en cours...</p>
+                    <p className="text-xs text-muted-foreground">Analyse IA du document</p>
+                  </div>
+                ) : uploadedFile ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileText className="h-8 w-8 text-primary" />
+                    <p className="text-sm font-medium">{uploadedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">Critères extraits — modifiez les champs ci-dessous</p>
+                    <Button variant="ghost" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }}>
+                      Changer de fichier
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm font-medium">Glissez un PDF ou DOCX ici</p>
+                    <p className="text-xs text-muted-foreground">ou cliquez pour parcourir — les critères seront extraits automatiquement</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Identité */}
           <Card>
             <CardHeader><CardTitle className="text-base">Identité</CardTitle></CardHeader>
