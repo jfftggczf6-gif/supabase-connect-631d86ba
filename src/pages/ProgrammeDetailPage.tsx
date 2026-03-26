@@ -123,20 +123,6 @@ export default function ProgrammeDetailPage() {
 
   const openDetail = (cId: string) => { setSelectedCandidature(cId); setDrawerOpen(true); };
 
-  const candidatureUrl = programme?.form_slug ? `${window.location.origin}/candidature/${programme.form_slug}` : null;
-
-  if (loading) return <DashboardLayout title="Programme"><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></DashboardLayout>;
-  if (!programme) return <DashboardLayout title="Programme introuvable"><p className="text-muted-foreground">Ce programme n'existe pas.</p></DashboardLayout>;
-
-  const status = programme.status;
-  const fmt = (d: string | null) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
-
-  const tabs: string[] = ['apercu'];
-  if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
-  if (status === 'open') tabs.push('diffusion');
-  if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
-  tabs.push('parametres');
-
   const [coaches, setCoaches] = useState<{ id: string; name: string; count: number }[]>([]);
 
   // Fetch coaches list
@@ -152,7 +138,6 @@ export default function ProgrammeDetailPage() {
         .from('profiles')
         .select('user_id, full_name')
         .in('user_id', coachIds);
-      // Count enterprises per coach from candidatures
       const counts: Record<string, number> = {};
       for (const c of candidatures) {
         if (c.assigned_coach_id) counts[c.assigned_coach_id] = (counts[c.assigned_coach_id] || 0) + 1;
@@ -164,6 +149,20 @@ export default function ProgrammeDetailPage() {
       })));
     })();
   }, [candidatures]);
+
+  const candidatureUrl = programme?.form_slug ? `${window.location.origin}/candidature/${programme.form_slug}` : null;
+
+  if (loading) return <DashboardLayout title="Programme"><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></DashboardLayout>;
+  if (!programme) return <DashboardLayout title="Programme introuvable"><p className="text-muted-foreground">Ce programme n'existe pas.</p></DashboardLayout>;
+
+  const status = programme.status;
+  const fmt = (d: string | null) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
+
+  const tabs: string[] = ['apercu'];
+  if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
+  if (status === 'open') tabs.push('diffusion');
+  if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
+  tabs.push('parametres');
 
   // Extract criteria details
   const customCriteria = criteria?.custom_criteria || {};
