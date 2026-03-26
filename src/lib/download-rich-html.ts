@@ -1,4 +1,5 @@
 import { getValidAccessToken } from './getValidAccessToken';
+import { exportToPdf } from './export-pdf';
 import { toast } from 'sonner';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -57,25 +58,12 @@ export async function downloadRichPdf(
   navigate: any,
 ) {
   try {
-    const token = await getValidAccessToken(authSession, navigate);
-    const url = `${SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterpriseId}&format=pdf&_ts=${Date.now()}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'Erreur génération PDF');
-    }
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    toast.info('Génération du PDF en cours...');
+    // Same path as Memo/OnePager: fetch HTML then send directly to Railway
+    const html = await fetchRichHtml(type, enterpriseId, authSession, navigate);
     const safeName = enterpriseName.replace(/[^a-zA-Z0-9]/g, '_');
-    a.download = `${safeName}_${type}_${new Date().toISOString().slice(0, 10)}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
+    const filename = `${safeName}_${type}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportToPdf(html, filename);
     toast.success('PDF téléchargé');
   } catch (err: any) {
     toast.error(err.message || 'Erreur PDF');
