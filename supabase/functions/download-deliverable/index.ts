@@ -1461,13 +1461,22 @@ function onepagerHTML(data: any, ent: string): string {
 // ===== VALUATION HTML =====
 function valuationHTML(data: any, ent: string): string {
   const score = data.score ?? data.confidence_score ?? 0;
-  const synthese = data.synthese || data.valuation_range || {};
+  // v5 engine fields
+  const synthese = data.synthese_valorisation || data.synthese || data.valuation_range || {};
   const dcf = data.dcf || {};
-  const multEbitda = data.multiples_ebitda || data.mult_ebitda || {};
-  const multCA = data.multiples_ca || data.mult_ca || {};
-  const decotes = data.decotes || data.discounts || {};
-  const qualitative = data.analyse_qualitative || data.qualitative || {};
+  const multiples = data.multiples || {};
+  const decotes = data.decotes_primes || data.decotes || data.discounts || {};
+  const implications = data.implications_investissement || {};
+  const engine = data._engine || {};
   const devise = data.devise || 'FCFA';
+
+  // Backward compat: old flat multiples fields
+  const multEbitda_base = multiples.ebitda_dernier_exercice ?? (data.multiples_ebitda || data.mult_ebitda || {}).ebitda ?? null;
+  const multEbitda_mult = multiples.multiple_ebitda_retenu ?? (data.multiples_ebitda || data.mult_ebitda || {}).multiple ?? null;
+  const multEbitda_val = multiples.valeur_par_ebitda ?? (data.multiples_ebitda || data.mult_ebitda || {}).valeur ?? (data.multiples_ebitda || data.mult_ebitda || {}).equity_value ?? null;
+  const multCA_base = multiples.ca_dernier_exercice ?? (data.multiples_ca || data.mult_ca || {}).ca ?? null;
+  const multCA_mult = multiples.multiple_ca_retenu ?? (data.multiples_ca || data.mult_ca || {}).multiple ?? null;
+  const multCA_val = multiples.valeur_par_ca ?? (data.multiples_ca || data.mult_ca || {}).valeur ?? (data.multiples_ca || data.mult_ca || {}).equity_value ?? null;
 
   const fmtV = (n: any) => {
     if (n == null || n === '' || isNaN(Number(n))) return '—';
@@ -1479,69 +1488,170 @@ function valuationHTML(data: any, ent: string): string {
 
   let body = '';
 
-  // Synthèse / Range
-  body += `<div class="card"><h2>💰 Synthèse de valorisation</h2><div class="grid-4">`;
-  body += `<div class="metric" style="background:#fef2f2"><div class="lbl">Valeur basse</div><div class="val" style="color:#dc2626;font-size:18px">${fmtV(synthese.low || synthese.valeur_basse)}</div></div>`;
-  body += `<div class="metric" style="background:#dcfce7"><div class="lbl">Valeur médiane</div><div class="val" style="color:#16a34a;font-size:22px">${fmtV(synthese.median || synthese.valeur_mediane)}</div></div>`;
-  body += `<div class="metric" style="background:#dbeafe"><div class="lbl">Valeur haute</div><div class="val" style="color:#2563eb;font-size:18px">${fmtV(synthese.high || synthese.valeur_haute)}</div></div>`;
-  if (synthese.equity_value) body += `<div class="metric"><div class="lbl">Equity Value</div><div class="val" style="font-size:18px">${fmtV(synthese.equity_value)}</div></div>`;
-  body += `</div></div>`;
-
-  // DCF
-  if (dcf.equity_value || dcf.enterprise_value) {
-    body += `<div class="card"><h2>📐 Méthode DCF</h2><div class="grid-2">`;
-    if (dcf.wacc) body += `<div class="metric"><div class="lbl">WACC</div><div class="val">${(Number(dcf.wacc) * 100).toFixed(1)}%</div></div>`;
-    if (dcf.terminal_value) body += `<div class="metric"><div class="lbl">Valeur terminale</div><div class="val" style="font-size:16px">${fmtV(dcf.terminal_value)}</div></div>`;
-    if (dcf.enterprise_value) body += `<div class="metric"><div class="lbl">Enterprise Value</div><div class="val" style="font-size:16px">${fmtV(dcf.enterprise_value)}</div></div>`;
-    if (dcf.equity_value) body += `<div class="metric"><div class="lbl">Equity Value</div><div class="val" style="font-size:16px">${fmtV(dcf.equity_value)}</div></div>`;
-    body += `</div>`;
-    if (dcf.source) body += `<p style="font-size:11px;color:#94a3b8;margin-top:8px">Source : ${dcf.source}</p>`;
-    body += `</div>`;
+  // ── Synthèse de valorisation ──
+  const vBasse = synthese.valeur_basse ?? synthese.low;
+  const vMediane = synthese.valeur_mediane ?? synthese.median;
+  const vHaute = synthese.valeur_haute ?? synthese.high;
+  body += `<div class="card"><h2>Synthese de valorisation</h2>`;
+  body += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">`;
+  body += `<div class="metric" style="background:#fef2f2"><div class="lbl">Valeur basse</div><div class="val" style="color:#dc2626;font-size:18px">${fmtV(vBasse)}</div></div>`;
+  body += `<div class="metric" style="background:#dcfce7"><div class="lbl">Valeur mediane</div><div class="val" style="color:#16a34a;font-size:22px">${fmtV(vMediane)}</div></div>`;
+  body += `<div class="metric" style="background:#dbeafe"><div class="lbl">Valeur haute</div><div class="val" style="color:#2563eb;font-size:18px">${fmtV(vHaute)}</div></div>`;
+  body += `</div>`;
+  if (synthese.methode_privilegiee) {
+    body += `<p style="font-size:13px;margin-bottom:6px"><strong>Methode privilegiee :</strong> ${synthese.methode_privilegiee}</p>`;
   }
-
-  // Multiples EBITDA
-  if (multEbitda.valeur || multEbitda.equity_value) {
-    body += `<div class="card"><h2>📊 Multiples EBITDA</h2><div class="grid-2">`;
-    if (multEbitda.multiple) body += `<div class="metric"><div class="lbl">Multiple</div><div class="val">${multEbitda.multiple}x</div></div>`;
-    if (multEbitda.fourchette) body += `<div class="metric"><div class="lbl">Fourchette</div><div class="val" style="font-size:14px">${multEbitda.fourchette}</div></div>`;
-    body += `<div class="metric"><div class="lbl">Valeur</div><div class="val" style="font-size:16px">${fmtV(multEbitda.valeur || multEbitda.equity_value)}</div></div>`;
-    body += `</div>`;
-    if (multEbitda.source) body += `<p style="font-size:11px;color:#94a3b8;margin-top:8px">Source : ${multEbitda.source}</p>`;
-    body += `</div>`;
+  if (synthese.justification_methode) {
+    body += `<p style="font-size:13px;color:#475569;margin-bottom:8px">${synthese.justification_methode}</p>`;
   }
-
-  // Multiples CA
-  if (multCA.valeur || multCA.equity_value) {
-    body += `<div class="card"><h2>📈 Multiples CA</h2><div class="grid-2">`;
-    if (multCA.multiple) body += `<div class="metric"><div class="lbl">Multiple</div><div class="val">${multCA.multiple}x</div></div>`;
-    if (multCA.fourchette) body += `<div class="metric"><div class="lbl">Fourchette</div><div class="val" style="font-size:14px">${multCA.fourchette}</div></div>`;
-    body += `<div class="metric"><div class="lbl">Valeur</div><div class="val" style="font-size:16px">${fmtV(multCA.valeur || multCA.equity_value)}</div></div>`;
-    body += `</div>`;
-    if (multCA.source) body += `<p style="font-size:11px;color:#94a3b8;margin-top:8px">Source : ${multCA.source}</p>`;
-    body += `</div>`;
+  if (synthese.note_analyste) {
+    body += `<div style="background:#f8fafc;border-left:3px solid #6366f1;padding:12px 16px;border-radius:0 6px 6px 0;margin-top:8px">`;
+    body += `<p style="font-size:12px;font-weight:600;color:#6366f1;margin-bottom:4px">Note de l'analyste</p>`;
+    body += `<p style="font-size:13px;color:#334155">${synthese.note_analyste}</p></div>`;
   }
+  body += `</div>`;
 
-  // Décotes
-  const decoteEntries = Object.entries(decotes).filter(([_, v]) => v != null);
-  if (decoteEntries.length) {
-    body += `<div class="card"><h2>📉 Décotes appliquées</h2><table><tr><th>Type</th><th style="text-align:right">Valeur</th></tr>`;
-    for (const [k, v] of decoteEntries) {
-      const label = k.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-      body += `<tr><td>${label}</td><td class="amount">${typeof v === 'number' ? (v * 100).toFixed(0) + '%' : v}</td></tr>`;
+  // ── DCF ──
+  if (dcf.equity_value || dcf.enterprise_value || dcf.wacc_pct) {
+    body += `<div class="card"><h2>Methode DCF (Discounted Cash-Flows)</h2>`;
+    body += `<div class="grid-4">`;
+    if (dcf.wacc_pct != null) body += `<div class="metric"><div class="lbl">WACC</div><div class="val">${Number(dcf.wacc_pct).toFixed(1)}%</div></div>`;
+    // backward compat: old format stored wacc as decimal
+    if (dcf.wacc_pct == null && dcf.wacc != null) body += `<div class="metric"><div class="lbl">WACC</div><div class="val">${(Number(dcf.wacc) * 100).toFixed(1)}%</div></div>`;
+    if (dcf.enterprise_value != null) body += `<div class="metric"><div class="lbl">Enterprise Value</div><div class="val" style="font-size:16px">${fmtV(dcf.enterprise_value)}</div></div>`;
+    if (dcf.equity_value != null) body += `<div class="metric"><div class="lbl">Equity Value</div><div class="val" style="font-size:16px">${fmtV(dcf.equity_value)}</div></div>`;
+    if (dcf.terminal_value != null) body += `<div class="metric"><div class="lbl">Valeur terminale</div><div class="val" style="font-size:16px">${fmtV(dcf.terminal_value)}</div></div>`;
+    body += `</div>`;
+
+    // Projections cashflow table
+    const projections = dcf.projections_cashflow || [];
+    if (projections.length > 0) {
+      body += `<h3 style="margin-top:16px;font-size:14px">Projections de cash-flows</h3>`;
+      body += `<table><tr><th>Annee</th><th style="text-align:right">FCF</th></tr>`;
+      for (const p of projections) {
+        body += `<tr><td>${p.annee || p.year || '—'}</td><td class="amount">${fmtV(p.fcf ?? p.cashflow)}</td></tr>`;
+      }
+      body += `</table>`;
     }
-    body += `</table></div>`;
+
+    if (dcf.note_methodologique) {
+      body += `<div style="background:#f8fafc;border-left:3px solid #0ea5e9;padding:12px 16px;border-radius:0 6px 6px 0;margin-top:12px">`;
+      body += `<p style="font-size:12px;font-weight:600;color:#0ea5e9;margin-bottom:4px">Note methodologique</p>`;
+      body += `<p style="font-size:13px;color:#334155">${dcf.note_methodologique}</p></div>`;
+    }
+    body += `</div>`;
   }
 
-  // Analyse qualitative
-  if (qualitative.forces || qualitative.faiblesses || qualitative.commentaire) {
-    body += `<div class="card"><h2>🔍 Analyse qualitative</h2>`;
-    if (qualitative.commentaire) body += `<p style="font-size:13px;color:#475569;margin-bottom:12px">${qualitative.commentaire}</p>`;
-    if (qualitative.forces?.length) {
-      body += `<h3 style="color:#166534">Forces</h3><ul>${qualitative.forces.map((f: string) => `<li style="color:#166534">✓ ${f}</li>`).join('')}</ul>`;
+  // ── Multiples ──
+  if (multEbitda_val != null || multCA_val != null) {
+    body += `<div class="card"><h2>Methode des Multiples</h2>`;
+    body += `<div class="grid-2">`;
+
+    // EBITDA
+    if (multEbitda_val != null) {
+      body += `<div class="metric" style="text-align:center">`;
+      body += `<div class="lbl">Multiple EBITDA</div>`;
+      body += `<div class="val" style="font-size:16px">${fmtV(multEbitda_val)}</div>`;
+      body += `<p style="font-size:11px;color:#64748b;margin-top:4px">EBITDA ${fmtV(multEbitda_base)} x ${multEbitda_mult ?? '—'}x</p>`;
+      body += `</div>`;
     }
-    if (qualitative.faiblesses?.length) {
-      body += `<h3 style="color:#991b1b">Faiblesses</h3><ul>${qualitative.faiblesses.map((f: string) => `<li style="color:#991b1b">✗ ${f}</li>`).join('')}</ul>`;
+
+    // CA
+    if (multCA_val != null) {
+      body += `<div class="metric" style="text-align:center">`;
+      body += `<div class="lbl">Multiple CA</div>`;
+      body += `<div class="val" style="font-size:16px">${fmtV(multCA_val)}</div>`;
+      body += `<p style="font-size:11px;color:#64748b;margin-top:4px">CA ${fmtV(multCA_base)} x ${multCA_mult ?? '—'}x</p>`;
+      body += `</div>`;
     }
+    body += `</div>`;
+
+    // Justification
+    const justifMult = multiples.justification_multiples || '';
+    if (justifMult) {
+      body += `<p style="font-size:13px;color:#475569;margin-top:12px">${justifMult}</p>`;
+    }
+
+    // Comparables
+    const comparables = multiples.comparables_references || [];
+    if (comparables.length > 0) {
+      body += `<h3 style="margin-top:12px;font-size:14px">Transactions comparables</h3><ul>`;
+      for (const c of comparables) {
+        body += `<li style="font-size:13px;color:#334155">${typeof c === 'string' ? c : JSON.stringify(c)}</li>`;
+      }
+      body += `</ul>`;
+    }
+    body += `</div>`;
+  }
+
+  // ── Decotes & Primes ──
+  const decoteDetail = decotes.detail || [];
+  const decoteAjust = decotes.ajustement_total_pct;
+  if (decoteDetail.length > 0 || decoteAjust != null) {
+    body += `<div class="card"><h2>Decotes et Primes</h2>`;
+    if (decoteAjust != null) {
+      const ajColor = Number(decoteAjust) < 0 ? '#dc2626' : Number(decoteAjust) > 0 ? '#16a34a' : '#475569';
+      body += `<div class="metric" style="display:inline-block;margin-bottom:12px"><div class="lbl">Ajustement total</div><div class="val" style="color:${ajColor};font-size:18px">${Number(decoteAjust) > 0 ? '+' : ''}${decoteAjust}%</div></div>`;
+    }
+    if (decoteDetail.length > 0) {
+      body += `<ul style="margin-bottom:8px">`;
+      for (const item of decoteDetail) {
+        body += `<li style="font-size:13px;color:#334155">${typeof item === 'string' ? item : (item.label || item.nom || '') + (item.pct != null ? ' (' + item.pct + '%)' : '')}</li>`;
+      }
+      body += `</ul>`;
+    }
+    if (decotes.justification) {
+      body += `<p style="font-size:13px;color:#475569">${decotes.justification}</p>`;
+    }
+    body += `</div>`;
+  }
+  // Backward compat: old flat decotes object (no detail array)
+  if (decoteDetail.length === 0 && decoteAjust == null) {
+    const oldDecoteEntries = Object.entries(decotes).filter(([k, v]) => v != null && k !== 'justification' && k !== 'detail' && k !== 'ajustement_total_pct');
+    if (oldDecoteEntries.length) {
+      body += `<div class="card"><h2>Decotes appliquees</h2><table><tr><th>Type</th><th style="text-align:right">Valeur</th></tr>`;
+      for (const [k, v] of oldDecoteEntries) {
+        const label = k.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        body += `<tr><td>${label}</td><td class="amount">${typeof v === 'number' ? (v * 100).toFixed(0) + '%' : v}</td></tr>`;
+      }
+      body += `</table></div>`;
+    }
+  }
+
+  // ── Implications investissement ──
+  if (implications.pre_money_estime || implications.si_levee_100m || implications.scenario_sortie) {
+    body += `<div class="card"><h2>Implications pour l'investissement</h2>`;
+    if (implications.pre_money_estime != null) {
+      body += `<div class="metric" style="display:inline-block;margin-bottom:12px"><div class="lbl">Pre-money estime</div><div class="val" style="font-size:18px">${fmtV(implications.pre_money_estime)}</div></div>`;
+    }
+    body += `<div class="grid-2">`;
+    if (implications.si_levee_100m) {
+      body += `<div class="metric"><div class="lbl">Scenario levee 100 M</div><div class="val" style="font-size:13px;font-weight:400">${implications.si_levee_100m}</div></div>`;
+    }
+    if (implications.si_levee_500m) {
+      body += `<div class="metric"><div class="lbl">Scenario levee 500 M</div><div class="val" style="font-size:13px;font-weight:400">${implications.si_levee_500m}</div></div>`;
+    }
+    body += `</div>`;
+    if (implications.multiple_sortie_estime) {
+      body += `<p style="font-size:13px;margin-top:8px"><strong>Multiple de sortie estime :</strong> ${implications.multiple_sortie_estime}</p>`;
+    }
+    if (implications.irr_investisseur_estime) {
+      body += `<p style="font-size:13px;margin-top:4px"><strong>TRI investisseur estime :</strong> ${implications.irr_investisseur_estime}</p>`;
+    }
+    if (implications.scenario_sortie) {
+      body += `<div style="background:#f8fafc;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin-top:12px">`;
+      body += `<p style="font-size:12px;font-weight:600;color:#f59e0b;margin-bottom:4px">Scenario de sortie</p>`;
+      body += `<p style="font-size:13px;color:#334155">${implications.scenario_sortie}</p></div>`;
+    }
+    body += `</div>`;
+  }
+
+  // ── Engine metadata ──
+  if (engine.version) {
+    body += `<div style="text-align:right;font-size:11px;color:#94a3b8;margin-top:8px">`;
+    body += `Engine v${engine.version}`;
+    if (engine.calcul_deterministe) body += ` | Calcul deterministe`;
+    if (engine.inputs_quality) body += ` | Qualite inputs: ${engine.inputs_quality}`;
     body += `</div>`;
   }
 
@@ -1902,7 +2012,7 @@ serve(async (req) => {
       bmc_analysis: bmcHTML, sic_analysis: sicHTML, inputs_data: inputsHTML,
       framework_data: frameworkHTML, diagnostic_data: diagnosticHTML,
       plan_ovo: planOvoHTML, business_plan: businessPlanHTML, odd_analysis: oddHTML,
-      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML, onepager: onepagerHTML,
+      pre_screening: preScreeningHTML, valuation: valuationHTML, screening_report: screeningReportHTML, onepager: onepagerHTML, plan_financier: planOvoHTML,
     };
 
     const generator = richGenerators[deliverableType];
