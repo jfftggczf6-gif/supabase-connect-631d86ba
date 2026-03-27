@@ -64,7 +64,15 @@ serve(async (req: Request) => {
     const country = enterprise.country || "Côte d'Ivoire";
     const sector = enterprise.sector || "agro_industrie";
     const fiscal = getFiscalParams(country);
+    // Use currency from inputs if available (entrepreneur may use USD, EUR, etc.)
+    const inputsCurrency = (inputsData as any)?.devise;
+    if (inputsCurrency && inputsCurrency !== fiscal.devise) {
+      console.log(`[plan-financier] Inputs use ${inputsCurrency}, country default is ${fiscal.devise} — using ${inputsCurrency}`);
+      fiscal.devise = inputsCurrency;
+      fiscal.currency_iso = inputsCurrency;
+    }
     const fp = getFiscalParamsForPrompt(country);
+    if (inputsCurrency) { fp.devise = inputsCurrency; fp.currency_iso = inputsCurrency; }
     const guardrails = getSectorGuardrails(sector);
 
     // Update status

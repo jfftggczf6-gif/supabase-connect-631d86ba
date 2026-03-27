@@ -72,27 +72,29 @@ serve(async (req) => {
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "valuation");
 
     // 5. Appel IA pour l'analyse qualitative
+    const devise = inputsData?.devise || frameworkData?.devise || "FCFA";
     const analysisInput = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || 'Non spécifié'}
 PAYS : ${ent.country || "Côte d'Ivoire"}
+DEVISE : ${devise}
 EFFECTIFS : ${ent.employees_count || 'Non spécifié'}
 
 ═══ RÉSULTATS CALCULÉS (NE PAS MODIFIER) ═══
 DCF :
   WACC = ${calcResult.dcf.wacc_pct}%
-  Enterprise Value = ${calcResult.dcf.enterprise_value.toLocaleString()} FCFA
-  Equity Value = ${calcResult.dcf.equity_value.toLocaleString()} FCFA
-  Terminal Value = ${calcResult.dcf.terminal_value.toLocaleString()} FCFA
+  Enterprise Value = ${calcResult.dcf.enterprise_value.toLocaleString()} ${devise}
+  Equity Value = ${calcResult.dcf.equity_value.toLocaleString()} ${devise}
+  Terminal Value = ${calcResult.dcf.terminal_value.toLocaleString()} ${devise}
   Cashflows projetés : ${calcResult.dcf.projections_cashflow.map(p => `${p.annee}=${p.fcf.toLocaleString()}`).join(', ')}
 
 Multiples :
-  EBITDA ${calcResult.multiples.ebitda_dernier_exercice.toLocaleString()} × ${calcResult.multiples.multiple_ebitda_retenu} = ${calcResult.multiples.valeur_par_ebitda.toLocaleString()} FCFA
-  CA ${calcResult.multiples.ca_dernier_exercice.toLocaleString()} × ${calcResult.multiples.multiple_ca_retenu} = ${calcResult.multiples.valeur_par_ca.toLocaleString()} FCFA
+  EBITDA ${calcResult.multiples.ebitda_dernier_exercice.toLocaleString()} × ${calcResult.multiples.multiple_ebitda_retenu} = ${calcResult.multiples.valeur_par_ebitda.toLocaleString()} ${devise}
+  CA ${calcResult.multiples.ca_dernier_exercice.toLocaleString()} × ${calcResult.multiples.multiple_ca_retenu} = ${calcResult.multiples.valeur_par_ca.toLocaleString()} ${devise}
 
 Décotes/Primes : ${calcResult.decotes_primes.ajustement_total_pct}%
   ${calcResult.decotes_primes.detail.join('\n  ')}
 
-Synthèse : ${calcResult.synthese.valeur_basse.toLocaleString()} — ${calcResult.synthese.valeur_mediane.toLocaleString()} — ${calcResult.synthese.valeur_haute.toLocaleString()} FCFA
+Synthèse : ${calcResult.synthese.valeur_basse.toLocaleString()} — ${calcResult.synthese.valeur_mediane.toLocaleString()} — ${calcResult.synthese.valeur_haute.toLocaleString()} ${devise}
 
 ═══ BENCHMARKS ═══
 ${getValuationBenchmarksPrompt()}
