@@ -1479,7 +1479,7 @@ function planFinancierHTML(data: any, ent: string): string {
   const opexCats: any[] = d.opex_categories || [];
   const compteResultat = d.compte_resultat_reel || {};
   const structureCouts = d.structure_couts || {};
-  const devise = d.currency || 'XOF';
+  const devise = d.currency || d.devise || 'FCFA';
 
   const fmtM = (n: any) => {
     const v = Number(n); if (!v && v !== 0) return '—';

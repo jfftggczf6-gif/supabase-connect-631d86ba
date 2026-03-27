@@ -987,9 +987,9 @@ JSON SCHEMA CONDENSÉ ATTENDU :
 {
   "company": "string",
   "country": "string (en anglais)",
-  "currency": "XOF",
-  "exchange_rate_eur": 655.957,
-  "vat_rate": 0.18,
+  "currency": "${fp?.currency_iso || 'XOF'}",
+  "exchange_rate_eur": ${fp?.exchange_rate_eur || 655.957},
+  "vat_rate": ${fp?.tva ? Number(fp.tva) / 100 : 0.18},
   "inflation_rate": 0.03,
   "tax_regime_1": 0.04,
   "tax_regime_2": 0.30,
