@@ -1002,23 +1002,30 @@ export default function EntrepreneurDashboard({
     if (!enterprise) return;
     try {
       // Plan financier Excel → download .xlsm from Storage (not from download-deliverable)
-      if (type === 'plan_financier' && format === 'xlsx') {
-        const planDeliv = deliverables.find((d: any) => d.type === 'plan_financier');
+      if ((type === 'plan_financier' || type === 'plan_ovo') && format === 'xlsx') {
+        // Try plan_financier deliverable first
+        const planDeliv = deliverables.find((d: any) => d.type === 'plan_financier') || deliverables.find((d: any) => d.type === 'plan_ovo');
         const excelFilename = (planDeliv?.data as any)?.excel_filename;
+
+        // Also check plan_ovo_excel deliverable (OVO Excel output)
+        const ovoExcelDeliv = deliverables.find((d: any) => d.type === 'plan_ovo_excel');
+        const ovoFileUrl = (ovoExcelDeliv?.data as any)?.status === 'completed' ? ovoExcelDeliv?.file_url : null;
+
         if (excelFilename) {
-          const { data: signedUrl } = await supabase.storage.from('deliverables').createSignedUrl(`${enterprise.id}/${excelFilename}`, 3600);
-          if (signedUrl?.signedUrl) {
-            await handleDownloadOvoFile(signedUrl.signedUrl);
-            return;
-          }
-          // Fallback: try ovo-outputs bucket
-          const { data: signedUrl2 } = await supabase.storage.from('ovo-outputs').createSignedUrl(excelFilename, 3600);
-          if (signedUrl2?.signedUrl) {
-            await handleDownloadOvoFile(signedUrl2.signedUrl);
-            return;
-          }
+          // Try deliverables bucket
+          const { data: s1 } = await supabase.storage.from('deliverables').createSignedUrl(`${enterprise.id}/${excelFilename}`, 3600);
+          if (s1?.signedUrl) { await handleDownloadOvoFile(s1.signedUrl); return; }
+          // Try ovo-outputs bucket
+          const { data: s2 } = await supabase.storage.from('ovo-outputs').createSignedUrl(excelFilename, 3600);
+          if (s2?.signedUrl) { await handleDownloadOvoFile(s2.signedUrl); return; }
         }
-        // If no .xlsm found, fall through to download-deliverable
+
+        // Try direct file_url from plan_ovo_excel
+        if (ovoFileUrl) {
+          await handleDownloadOvoFile(ovoFileUrl);
+          return;
+        }
+        // Fall through to download-deliverable
       }
 
       const token = await getValidAccessToken(authSession, navigate);
