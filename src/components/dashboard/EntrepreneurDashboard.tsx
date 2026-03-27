@@ -72,6 +72,7 @@ export default function EntrepreneurDashboard({
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSector, setNewSector] = useState('');
+  const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Guinée-Bissau", "Ghana", "Kenya", "Nigeria", "Maroc", "Tunisie", "Madagascar", "Éthiopie", "Tanzanie", "Rwanda", "Afrique du Sud"];
   const [newCountry, setNewCountry] = useState("Côte d'Ivoire");
   const [newCity, setNewCity] = useState('');
   const [newLegalForm, setNewLegalForm] = useState('');
@@ -1186,7 +1187,7 @@ export default function EntrepreneurDashboard({
                     <div className="space-y-1.5"><Label>Nom *</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: EcoBuild CI SARL" /></div>
                     <div className="space-y-1.5"><Label>Secteur</Label><Input value={newSector} onChange={e => setNewSector(e.target.value)} placeholder="Recyclage, Agroalimentaire..." /></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5"><Label>Pays</Label><Input value={newCountry} onChange={e => setNewCountry(e.target.value)} /></div>
+                      <div className="space-y-1.5"><Label>Pays</Label><select value={newCountry} onChange={e => setNewCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                       <div className="space-y-1.5"><Label>Ville</Label><Input value={newCity} onChange={e => setNewCity(e.target.value)} placeholder="Abidjan" /></div>
                     </div>
                     <div className="space-y-1.5"><Label>Forme juridique</Label><Input value={newLegalForm} onChange={e => setNewLegalForm(e.target.value)} placeholder="SARL, SA, SAS..." /></div>
@@ -1277,7 +1278,7 @@ export default function EntrepreneurDashboard({
             <div className="space-y-1.5"><Label>Nom *</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Secteur</Label><Input value={editSector} onChange={e => setEditSector(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>Pays</Label><Input value={editCountry} onChange={e => setEditCountry(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Pays</Label><select value={editCountry} onChange={e => setEditCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
               <div className="space-y-1.5"><Label>Ville</Label><Input value={editCity} onChange={e => setEditCity(e.target.value)} /></div>
             </div>
             <div className="space-y-1.5"><Label>Forme juridique</Label><Input value={editLegalForm} onChange={e => setEditLegalForm(e.target.value)} /></div>
