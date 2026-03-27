@@ -1001,6 +1001,26 @@ export default function EntrepreneurDashboard({
   const handleDownload = async (type: string, format: string) => {
     if (!enterprise) return;
     try {
+      // Plan financier Excel → download .xlsm from Storage (not from download-deliverable)
+      if (type === 'plan_financier' && format === 'xlsx') {
+        const planDeliv = deliverables.find((d: any) => d.type === 'plan_financier');
+        const excelFilename = (planDeliv?.data as any)?.excel_filename;
+        if (excelFilename) {
+          const { data: signedUrl } = await supabase.storage.from('deliverables').createSignedUrl(`${enterprise.id}/${excelFilename}`, 3600);
+          if (signedUrl?.signedUrl) {
+            await handleDownloadOvoFile(signedUrl.signedUrl);
+            return;
+          }
+          // Fallback: try ovo-outputs bucket
+          const { data: signedUrl2 } = await supabase.storage.from('ovo-outputs').createSignedUrl(excelFilename, 3600);
+          if (signedUrl2?.signedUrl) {
+            await handleDownloadOvoFile(signedUrl2.signedUrl);
+            return;
+          }
+        }
+        // If no .xlsm found, fall through to download-deliverable
+      }
+
       const token = await getValidAccessToken(authSession, navigate);
       const ts = Date.now();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-deliverable?type=${type}&enterprise_id=${enterprise.id}&format=${format}&_ts=${ts}`;
