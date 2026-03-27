@@ -98,7 +98,7 @@ export function scoreDiagnostic(data: any): ScoringResult {
   return computeWeighted([
     // Déterministe 40%
     { name: 'Performance vs secteur', weight: 15, score: bmEntries.length > 0 ? Math.round((nbOk / bmEntries.length) * 100) : 0, source: 'deterministic', detail: `${nbOk}/${bmEntries.length}` },
-    { name: 'Bloquants', weight: 15, score: bloquants === 0 ? 100 : bloquants <= 1 ? 45 : bloquants <= 3 ? 20 : 5, source: 'deterministic', detail: `${bloquants} bloquant(s)` },
+    { name: 'Bloquants', weight: 15, score: bloquants === 0 ? 100 : bloquants <= 1 ? 65 : bloquants <= 3 ? 45 : 25, source: 'deterministic', detail: `${bloquants} bloquant(s)` },
     { name: 'Prêt bailleur', weight: 10, score: data?.verdict_readiness?.pret_pour_bailleur ? 100 : 15, source: 'deterministic' },
     // IA 60%
     { name: 'Score readiness (IA)', weight: 60, score: clamp(safe(data?.verdict_readiness?.score || data?.score_global || data?.score)), source: 'ai' },
