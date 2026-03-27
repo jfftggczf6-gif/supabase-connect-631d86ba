@@ -19,6 +19,8 @@ import KnowledgeBaseManager from './KnowledgeBaseManager';
 import WorkspaceKnowledgeManager from './WorkspaceKnowledgeManager';
 import FundingMatchTab from './FundingMatchTab';
 import PortfolioTab from './PortfolioTab';
+import AlertsTab from './AlertsTab';
+import ExportTab from './ExportTab';
 import { PIPELINE } from '@/lib/dashboard-config';
 
 interface Profile {
@@ -320,6 +322,8 @@ export default function SuperAdminDashboard() {
           <TabsTrigger value="kb_structured" className="gap-1"><Database className="h-3.5 w-3.5" />KB Structurée</TabsTrigger>
           <TabsTrigger value="portfolio" className="gap-1"><TrendingUp className="h-3.5 w-3.5" />Portfolio</TabsTrigger>
           <TabsTrigger value="funding" className="gap-1"><Target className="h-3.5 w-3.5" />Matching Bailleurs</TabsTrigger>
+          <TabsTrigger value="alerts" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" />Alertes</TabsTrigger>
+          <TabsTrigger value="exports" className="gap-1"><FileText className="h-3.5 w-3.5" />Exports</TabsTrigger>
         </TabsList>
 
         {/* USERS TAB */}
@@ -578,6 +582,12 @@ export default function SuperAdminDashboard() {
         </TabsContent>
         <TabsContent value="funding">
           <FundingMatchTab />
+        </TabsContent>
+        <TabsContent value="alerts">
+          <AlertsTab />
+        </TabsContent>
+        <TabsContent value="exports">
+          <ExportTab />
         </TabsContent>
       </Tabs>
 
