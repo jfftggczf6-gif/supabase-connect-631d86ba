@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Then listen for auth changes (don't await inside callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -69,7 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!currentRole) setRoleLoading(true);
           return currentRole;
         });
-        fetchUserData(session.user.id).finally(() => setRoleLoading(false));
+        // After signup, wait for DB trigger to finish creating profile + role
+        const delay = event === 'SIGNED_IN' && !role ? 1000 : 0;
+        setTimeout(() => {
+          fetchUserData(session.user.id).finally(() => setRoleLoading(false));
+        }, delay);
       } else {
         setProfile(null);
         setRoleState(null);
