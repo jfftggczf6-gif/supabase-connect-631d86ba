@@ -467,7 +467,29 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     trigger_reason: triggerReason || 'pipeline',
   };
 
-  // 4. Upsert deliverable
+  // 4. Compute weighted score (replaces subjective AI score)
+  try {
+    const { scoreInputs, scoreBmc, scoreDiagnostic, scoreValuation, scoreMemo, scoreScreening } = await import("./scoring.ts");
+    const scoreFns: Record<string, (d: any) => any> = {
+      inputs_data: scoreInputs,
+      bmc_analysis: scoreBmc,
+      diagnostic_data: scoreDiagnostic,
+      valuation: scoreValuation,
+      investment_memo: scoreMemo,
+      screening_report: scoreScreening,
+    };
+    const scoreFn = scoreFns[type];
+    if (scoreFn) {
+      const result = scoreFn(data);
+      data._scoring = { weighted_score: result.score, criteria: result.criteria, confidence: result.confidence };
+      data.score = result.score;
+      console.log(`[scoring] ${type}: ${result.score}/100 (confidence ${result.confidence}%, ${result.criteria.length} critères)`);
+    }
+  } catch (e) {
+    console.warn("[scoring] non-blocking error:", e);
+  }
+
+  // 5. Upsert deliverable
   const { data: upserted } = await supabase.from("deliverables").upsert({
     enterprise_id,
     type,
