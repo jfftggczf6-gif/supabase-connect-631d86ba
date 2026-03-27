@@ -1625,7 +1625,7 @@ export default function EntrepreneurDashboard({
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleDownload('plan_financier', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors shadow-sm">
-                          <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                          <FileSpreadsheet className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span>
                         </button>
                         <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
@@ -1652,7 +1652,7 @@ export default function EntrepreneurDashboard({
                           <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération…</div>
                         ) : ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url ? (
                           <>
-                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel</button>
+                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
                             <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> Regénérer</button>
                           </>
                         ) : (
@@ -1694,7 +1694,7 @@ export default function EntrepreneurDashboard({
                       <div className="flex items-center gap-2">
                         {deliverables.find((d: any) => d.type === 'odd_excel') ? (
                           <>
-                            <button onClick={() => handleDownload('odd_analysis', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel</button>
+                            <button onClick={() => handleDownload('odd_analysis', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
                             <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
                           </>
                         ) : selectedDeliv?.data ? (
