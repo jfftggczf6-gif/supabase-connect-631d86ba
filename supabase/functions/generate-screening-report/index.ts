@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  jsonResponse, errorResponse, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent,
+  jsonResponse, errorResponse, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent, getFiscalParams,
 } from "../_shared/helpers_v5.ts";
 import { normalizeScreeningReport, getFinancialTruth } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
@@ -164,15 +164,16 @@ serve(async (req) => {
 
     // Financial Truth Anchor
     const truth = getFinancialTruth(inputsData);
+    const devise = (inputsData as any)?.devise || getFiscalParams(ent.country || '').devise || '';
     let truthBlock = "";
     if (truth) {
       truthBlock = `
 ══════ DONNÉES FINANCIÈRES RÉELLES ══════
-CA N (${truth.annee_n}) : ${truth.ca_n.toLocaleString('fr-FR')} FCFA
-CA N-1 : ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
+CA N (${truth.annee_n}) : ${truth.ca_n.toLocaleString('fr-FR')} ${devise}
+CA N-1 : ${truth.ca_n_minus_1.toLocaleString('fr-FR')} ${devise}
 Marge brute : ${truth.marge_brute_pct}%
-EBITDA : ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
-Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+EBITDA : ${truth.ebitda.toLocaleString('fr-FR')} ${devise} (${truth.ebitda_pct}%)
+Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} ${devise}
 ══════ FIN ══════
 `;
     }
@@ -195,7 +196,7 @@ Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
-PAYS : ${ent.country || "Côte d'Ivoire"}
+PAYS : ${ent.country || ''}
 EFFECTIFS DÉCLARÉS : ${ent.employees_count || "Non spécifié"}
 FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DATE CRÉATION : ${ent.creation_date || "Non spécifié"}

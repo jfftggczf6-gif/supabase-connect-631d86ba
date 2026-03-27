@@ -221,21 +221,22 @@ serve(async (req) => {
         : null;
     }
 
-    const pays = ent.country || "Côte d'Ivoire";
+    const pays = ent.country || '';
     const secteur = ent.sector || "Non spécifié";
 
     // Financial Truth Anchor
     const inputsRaw = rawLivrables.inputs;
     const truth = getFinancialTruth(inputsRaw);
+    const devise = (inputsRaw as any)?.devise || getFiscalParams(pays).devise || '';
     let truthBlock = "";
     if (truth) {
       truthBlock = `
 ══════ DONNÉES FINANCIÈRES RÉELLES ══════
-CA N (${truth.annee_n}) : ${truth.ca_n.toLocaleString('fr-FR')} FCFA
-CA N-1 : ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
+CA N (${truth.annee_n}) : ${truth.ca_n.toLocaleString('fr-FR')} ${devise}
+CA N-1 : ${truth.ca_n_minus_1.toLocaleString('fr-FR')} ${devise}
 Marge brute : ${truth.marge_brute_pct}%
-EBITDA : ${truth.ebitda.toLocaleString('fr-FR')} FCFA (${truth.ebitda_pct}%)
-Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
+EBITDA : ${truth.ebitda.toLocaleString('fr-FR')} ${devise} (${truth.ebitda_pct}%)
+Trésorerie nette : ${truth.tresorerie_nette.toLocaleString('fr-FR')} ${devise}
 Toute déviation > 5% dans un livrable = problème "bloquant".
 ══════ FIN ══════
 `;

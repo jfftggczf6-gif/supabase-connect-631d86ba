@@ -127,16 +127,16 @@ export function buildInputsXlsx(data: any): SheetData[] {
   if (Object.keys(cr).length) {
     sheets.push({
       name: 'Compte de Résultat',
-      headers: ['Poste', `Montant (${data.devise || 'FCFA'})`],
+      headers: ['Poste', `Montant (${data.devise || ''})`],
       rows: Object.entries(cr).map(([k, v]) => [k.replace(/_/g, ' '), Number(v) || 0]),
     });
   }
-  
+
   // Bilan Actif
   if (data.bilan?.actif) {
     sheets.push({
       name: 'Bilan Actif',
-      headers: ['Poste', `Montant (${data.devise || 'FCFA'})`],
+      headers: ['Poste', `Montant (${data.devise || ''})`],
       rows: Object.entries(data.bilan.actif).map(([k, v]) => [k.replace(/_/g, ' '), Number(v) || 0]),
     });
   }
@@ -145,7 +145,7 @@ export function buildInputsXlsx(data: any): SheetData[] {
   if (data.bilan?.passif) {
     sheets.push({
       name: 'Bilan Passif',
-      headers: ['Poste', `Montant (${data.devise || 'FCFA'})`],
+      headers: ['Poste', `Montant (${data.devise || ''})`],
       rows: Object.entries(data.bilan.passif).map(([k, v]) => [k.replace(/_/g, ' '), Number(v) || 0]),
     });
   }

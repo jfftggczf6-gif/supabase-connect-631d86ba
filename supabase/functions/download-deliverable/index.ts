@@ -532,7 +532,7 @@ ${alertes.map((a:any)=>`<li style="color:#854d0e">${typeof a==='string'?a:a.mess
 
   // Compte de résultat
   if (Object.keys(cr).length) {
-    body += `<div class="card"><h2>📊 Compte de Résultat</h2><table><tr><th>Poste</th><th style="text-align:right">Montant (${data.devise||'FCFA'})</th></tr>
+    body += `<div class="card"><h2>📊 Compte de Résultat</h2><table><tr><th>Poste</th><th style="text-align:right">Montant (${data.devise||''})</th></tr>
 ${Object.entries(cr).map(([k,v])=>`<tr${k.includes('resultat')?` style="font-weight:700;background:#f8fafc"`:''}>
 <td>${k.replace(/_/g,' ').replace(/\b\w/g,(c:string)=>c.toUpperCase())}</td><td class="amount">${fmt(v)}</td></tr>`).join('')}</table></div>`;
   }
@@ -1479,7 +1479,7 @@ function planFinancierHTML(data: any, ent: string): string {
   const opexCats: any[] = d.opex_categories || [];
   const compteResultat = d.compte_resultat_reel || {};
   const structureCouts = d.structure_couts || {};
-  const devise = d.currency || d.devise || 'FCFA';
+  const devise = d.currency || d.devise || '';
 
   const fmtM = (n: any) => {
     const v = Number(n); if (!v && v !== 0) return '—';
@@ -1790,7 +1790,7 @@ function valuationHTML(data: any, ent: string): string {
   const decotes = data.decotes_primes || data.decotes || data.discounts || {};
   const implications = data.implications_investissement || {};
   const engine = data._engine || {};
-  const devise = data.devise || 'FCFA';
+  const devise = data.devise || '';
 
   // Backward compat: old flat multiples fields
   const multEbitda_base = multiples.ebitda_dernier_exercice ?? (data.multiples_ebitda || data.mult_ebitda || {}).ebitda ?? null;

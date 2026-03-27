@@ -576,8 +576,8 @@ export function getSectorGuardrails(sector: string): SectorGuardrail {
  * @param includeExamples  Inclure les fiches entreprises de référence (défaut: true)
  */
 export function getFinancialKnowledgePrompt(
-  country: Country = "cote_d_ivoire",
-  sector: Sector = "services_b2b",
+  country: Country | string = "",
+  sector: Sector | string = "services_b2b",
   includeExamples = true
 ): string {
   const blocks: string[] = [

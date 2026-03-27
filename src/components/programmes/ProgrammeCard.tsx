@@ -43,7 +43,7 @@ export default function ProgrammeCard({ programme, showChef }: { programme: Prog
             <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {programme.country_filter.join(', ')}</div>
           ) : null}
           {programme.budget ? (
-            <div className="flex items-center gap-1"><Banknote className="h-3 w-3" /> {programme.budget.toLocaleString()} {programme.currency || 'XOF'}</div>
+            <div className="flex items-center gap-1"><Banknote className="h-3 w-3" /> {programme.budget.toLocaleString()} {programme.currency || ''}</div>
           ) : null}
           {programme.nb_places ? (
             <div className="flex items-center gap-1"><Users className="h-3 w-3" /> {programme.nb_places} places</div>

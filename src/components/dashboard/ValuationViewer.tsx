@@ -31,7 +31,7 @@ const fmt = (n: any, devise = 'FCFA') => {
 export default function ValuationViewer({ data, enterpriseId, deliverableId, enterpriseName, onRegenerate, onUpdated }: Props) {
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
-  const devise = data.devise || 'FCFA';
+  const devise = data.devise || '';
   const dcf = data.dcf || {};
   const multiples = data.multiples || {};
   const decotes = data.decotes_primes || {};

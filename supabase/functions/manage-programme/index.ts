@@ -61,7 +61,7 @@ serve(async (req) => {
         sector_filter: body.sector_filter || [],
         budget: body.budget || null,
         nb_places: body.nb_places || null,
-        currency: body.currency || "XOF",
+        currency: body.currency || "",
         start_date: body.start_date || null,
         end_date: body.end_date || null,
         programme_start: body.programme_start || null,

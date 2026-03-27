@@ -125,7 +125,7 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
   const croisBmc = data.croisement_bmc_financiers || {};
   const manquantes = data.donnees_manquantes || [];
 
-  const deviseVal = data?.devise || data?.metadata?.devise || 'FCFA';
+  const deviseVal = data?.devise || data?.metadata?.devise || '';
   const formatAmount = (n: number) => {
     if (!n && n !== 0) return '—';
     return new Intl.NumberFormat('fr-FR').format(n) + ' ' + deviseVal;

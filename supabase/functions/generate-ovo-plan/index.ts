@@ -147,7 +147,7 @@ Deno.serve(async (req: Request) => {
         ...data,
         user_id: ent.user_id,
         company: ent.name,
-        country: ent.country || "Côte d'Ivoire",
+        country: ent.country || '',
         sector: ent.sector || "Autre",
         business_model: bmcData?.canvas?.modele_revenus?.[0] || "Vente directe",
         products,
@@ -987,7 +987,7 @@ JSON SCHEMA CONDENSÉ ATTENDU :
 {
   "company": "string",
   "country": "string (en anglais)",
-  "currency": "${fp?.currency_iso || 'XOF'}",
+  "currency": "${fp?.currency_iso || ''}",
   "exchange_rate_eur": ${fp?.exchange_rate_eur || 655.957},
   "vat_rate": ${fp?.tva ? Number(fp.tva) / 100 : 0.18},
   "inflation_rate": 0.03,

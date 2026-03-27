@@ -977,7 +977,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
 
   // If no cashflow line from Framework, derive cashflow = EBITDA × (1 - taux_IS/100)
   if (!cfLine && data.net_profit && data.cashflow) {
-    const { is: tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
+    const { is: tauxIS } = getFiscalParams(country || '');
     for (const yk of PROJ_KEYS) {
       const ebitda = data.ebitda[yk] || 0;
       // cashflow ≈ EBITDA × (1 - IS%) — approximation simplifiée sans amortissements
@@ -1016,7 +1016,7 @@ export function enforceFrameworkConstraints(data: any, frameworkData: any, input
   // Ratio bounded to [0.4–2.5×]: if out of range, derive EBITDA from actual OPEX instead
   if (data.opex) {
     const opexFields = ['staff_salaries', 'marketing', 'office_costs', 'travel', 'insurance', 'maintenance', 'third_parties', 'other'];
-    const { is: tauxIS } = getFiscalParams(country || "Côte d'Ivoire");
+    const { is: tauxIS } = getFiscalParams(country || '');
     for (const yk of PROJ_KEYS) {
       const targetOpex = data.gross_profit[yk] - data.ebitda[yk];
       const currentOpex = opexFields.reduce((sum, f) => sum + (data.opex[f]?.[yk] || 0), 0);

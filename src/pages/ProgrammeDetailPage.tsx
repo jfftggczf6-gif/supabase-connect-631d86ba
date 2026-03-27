@@ -191,7 +191,7 @@ export default function ProgrammeDetailPage() {
             <Card><CardContent className="p-5 space-y-2">
               <h3 className="font-semibold">Informations</h3>
               <p className="text-sm"><strong>Organisation :</strong> {programme.organization || '—'}</p>
-              <p className="text-sm"><strong>Budget :</strong> {programme.budget?.toLocaleString() || '—'} {programme.currency || 'XOF'}</p>
+              <p className="text-sm"><strong>Budget :</strong> {programme.budget?.toLocaleString() || '—'} {programme.currency || ''}</p>
               <p className="text-sm"><strong>Places :</strong> {programme.nb_places || '—'}</p>
               <p className="text-sm"><strong>Pays :</strong> {programme.country_filter?.join(', ') || '—'}</p>
               <p className="text-sm"><strong>Secteurs :</strong> {programme.sector_filter?.join(', ') || '—'}</p>

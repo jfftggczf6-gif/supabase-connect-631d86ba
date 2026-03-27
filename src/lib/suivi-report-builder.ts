@@ -57,7 +57,7 @@ h2{font-size:11pt;color:#1B5E8A;border-bottom:1.5px solid #1B5E8A;padding-bottom
 </style></head><body>
 <h1>Rapport de suivi — ${ent.name}</h1>
 <div class="meta">
-${ent.sector || ''} — ${ent.country || "Côte d'Ivoire"}<br>
+${ent.sector || ''} — ${ent.country || ''}<br>
 Coach : ${coachName} | Date : ${new Date().toLocaleDateString('fr-FR')}<br>
 Accompagnement depuis : ${rdvNotes.length > 0 ? new Date(rdvNotes[rdvNotes.length - 1].date_rdv).toLocaleDateString('fr-FR') : '—'}
 </div>

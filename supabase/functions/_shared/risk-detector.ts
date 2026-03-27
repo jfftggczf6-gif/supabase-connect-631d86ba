@@ -69,19 +69,19 @@ function checkRiskFactor(code: string, d: FinancialData): string | null {
   switch (code) {
     case 'ebitda_no_salary':
       if ((d.salaire_dirigeant === 0 || d.salaire_dirigeant == null) && d.ebitda && d.ca && (d.ebitda / d.ca) > 0.15) {
-        return `EBITDA de ${((d.ebitda / d.ca) * 100).toFixed(1)}% du CA sans rémunération dirigeant déclarée. L'EBITDA réel est potentiellement surévalué de 8-15 M XOF.`;
+        return `EBITDA de ${((d.ebitda / d.ca) * 100).toFixed(1)}% du CA sans rémunération dirigeant déclarée. L'EBITDA réel est potentiellement surévalué.`;
       }
       return null;
 
     case 'cash_invisible':
       if (d.tresorerie != null && d.ca && d.ca > 0 && d.tresorerie < d.ca * 0.02 && d.tresorerie >= 0) {
-        return `Trésorerie très faible (${d.tresorerie?.toLocaleString('fr-FR')} XOF) vs CA de ${d.ca?.toLocaleString('fr-FR')} XOF. Possible cash non bancaire.`;
+        return `Trésorerie très faible (${d.tresorerie?.toLocaleString('fr-FR')}) vs CA de ${d.ca?.toLocaleString('fr-FR')}. Possible cash non bancaire.`;
       }
       return null;
 
     case 'dette_cachee_fournisseurs':
       if (d.dettes_fournisseurs != null && d.ca && d.dettes_fournisseurs === 0 && d.ca > 50_000_000) {
-        return `Aucune dette fournisseurs déclarée malgré un CA de ${d.ca?.toLocaleString('fr-FR')} XOF. Suspect : vérifier les engagements hors bilan.`;
+        return `Aucune dette fournisseurs déclarée malgré un CA de ${d.ca?.toLocaleString('fr-FR')}. Suspect : vérifier les engagements hors bilan.`;
       }
       return null;
 

@@ -30,5 +30,5 @@ export function getDevise(data: Record<string, any>): string {
     || data?.currency
     || data?.metadata?.devise
     || data?.metadata?.currency
-    || 'FCFA';
+    || '';
 }

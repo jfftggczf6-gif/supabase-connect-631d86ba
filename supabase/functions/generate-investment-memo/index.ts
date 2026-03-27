@@ -221,7 +221,7 @@ serve(async (req) => {
     const oddData = getDelivData("odd_analysis");
     const diagnosticData = getDelivData("diagnostic_data");
 
-    const knowledgeBase = getFinancialKnowledgePrompt(ent.country || "cote_d_ivoire", ent.sector || "services_b2b", true);
+    const knowledgeBase = getFinancialKnowledgePrompt((ent.country || "") as any, (ent.sector || "services_b2b") as any, true);
     const valuationBenchmarks = getValuationBenchmarksPrompt();
     const donorCriteria = getDonorCriteriaPrompt();
     const ragContext = await buildRAGContext(
@@ -240,7 +240,7 @@ serve(async (req) => {
 
     const contextBlock = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
-PAYS : ${ent.country || "Côte d'Ivoire"}
+PAYS : ${ent.country || ''}
 EFFECTIFS : ${ent.employees_count || "Non spécifié"}
 FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DESCRIPTION : ${ent.description || ""}

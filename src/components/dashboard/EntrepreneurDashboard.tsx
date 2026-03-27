@@ -73,7 +73,7 @@ export default function EntrepreneurDashboard({
   const [newName, setNewName] = useState('');
   const [newSector, setNewSector] = useState('');
   const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Guinée-Bissau", "Ghana", "Kenya", "Nigeria", "Maroc", "Tunisie", "Madagascar", "Éthiopie", "Tanzanie", "Rwanda", "Afrique du Sud"];
-  const [newCountry, setNewCountry] = useState("Côte d'Ivoire");
+  const [newCountry, setNewCountry] = useState("");
   const [newCity, setNewCity] = useState('');
   const [newLegalForm, setNewLegalForm] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -84,6 +84,7 @@ export default function EntrepreneurDashboard({
   const [generatingOvoPlan, setGeneratingOvoPlan] = useState(false);
   const [_generatingScreening, setGeneratingScreening] = useState(false);
   const [ovoDownloadUrl, setOvoDownloadUrl] = useState<string | null>(null);
+  const [regeneratingExcel, setRegeneratingExcel] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('overview');
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
@@ -438,6 +439,11 @@ export default function EntrepreneurDashboard({
   const handleGenerate = async (force = false) => {
     if (!enterprise) return;
 
+    if (!enterprise.country) {
+      toast.error('Veuillez renseigner le pays de l\'entreprise avant de lancer la génération.');
+      return;
+    }
+
     // M5: Warn if no documents uploaded (generation will use only form inputs — less accurate)
     if (uploadedFiles.length === 0) {
       toast('Aucun document uploadé — la génération utilisera uniquement les données saisies. Pour des résultats plus précis, uploadez vos documents financiers.', { icon: '📄', duration: 5000 });
@@ -491,6 +497,10 @@ export default function EntrepreneurDashboard({
 
   const handleGenerateModule = async (moduleCode: string) => {
     if (!enterprise) return;
+    if (!enterprise.country) {
+      toast.error('Veuillez renseigner le pays de l\'entreprise avant de lancer la génération.');
+      return;
+    }
     setGeneratingModule(moduleCode);
 
     const MODULE_TYPE_MAP: Record<string, string> = {
@@ -645,7 +655,7 @@ export default function EntrepreneurDashboard({
         .from('enterprises')
         .insert({
           user_id: user.id, name: newName.trim(), sector: newSector.trim() || null,
-          country: newCountry.trim() || "Côte d'Ivoire", city: newCity.trim() || null,
+          country: newCountry.trim() || null, city: newCity.trim() || null,
           legal_form: newLegalForm.trim() || null, description: newDescription.trim() || null,
           contact_email: profile?.email || user?.email || null,
           contact_name: profile?.full_name || null,
@@ -770,6 +780,10 @@ export default function EntrepreneurDashboard({
 
   const handleGenerateOvoPlan = async () => {
     if (!enterprise) return;
+    if (!enterprise.country) {
+      toast.error('Veuillez renseigner le pays de l\'entreprise avant de lancer la génération.');
+      return;
+    }
     setGeneratingOvoPlan(true);
     setOvoDownloadUrl(null);
     const requestId = crypto.randomUUID();
@@ -905,7 +919,7 @@ export default function EntrepreneurDashboard({
         enterprise_id: enterprise.id,
         request_id: requestId,
         company: enterprise.name,
-        country: enterprise.country || "IVORY COAST",
+        country: enterprise.country || "",
         sector: enterprise.sector || "",
         business_model: (bmcData as any)?.canvas?.proposition_valeur?.enonce || (bmcData as any)?.business_model || (bmcData as any)?.proposition_valeur || "",
         current_year: new Date().getFullYear(),
@@ -971,6 +985,36 @@ export default function EntrepreneurDashboard({
       toast.error(err.message || 'La génération a échoué, veuillez réessayer');
     } finally {
       setGeneratingOvoPlan(false);
+    }
+  };
+
+  const handleRegenerateExcel = async () => {
+    if (!enterprise) return;
+    setRegeneratingExcel(true);
+    try {
+      const token = await getValidAccessToken(authSession, navigate);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/regenerate-excel-ovo`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterprise.id }),
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+        throw new Error(err.error || `Erreur ${response.status}`);
+      }
+      const result = await response.json();
+      if (result.download_url) {
+        setOvoDownloadUrl(result.download_url);
+        toast.success(`Excel OVO regénéré (${Math.round((result.size_bytes || 0) / 1024)} Ko)`);
+      }
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Échec de la regénération Excel');
+    } finally {
+      setRegeneratingExcel(false);
     }
   };
 
@@ -1187,12 +1231,12 @@ export default function EntrepreneurDashboard({
                     <div className="space-y-1.5"><Label>Nom *</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: EcoBuild CI SARL" /></div>
                     <div className="space-y-1.5"><Label>Secteur</Label><Input value={newSector} onChange={e => setNewSector(e.target.value)} placeholder="Recyclage, Agroalimentaire..." /></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5"><Label>Pays</Label><select value={newCountry} onChange={e => setNewCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                      <div className="space-y-1.5"><Label>Pays *</Label><select value={newCountry} onChange={e => setNewCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="" disabled>— Sélectionner —</option>{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                       <div className="space-y-1.5"><Label>Ville</Label><Input value={newCity} onChange={e => setNewCity(e.target.value)} placeholder="Abidjan" /></div>
                     </div>
                     <div className="space-y-1.5"><Label>Forme juridique</Label><Input value={newLegalForm} onChange={e => setNewLegalForm(e.target.value)} placeholder="SARL, SA, SAS..." /></div>
                     <div className="space-y-1.5"><Label>Description</Label><Input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Décrivez votre activité..." /></div>
-                    <Button className="w-full" onClick={createEnterprise} disabled={creating || !newName.trim()}>
+                    <Button className="w-full" onClick={createEnterprise} disabled={creating || !newName.trim() || !newCountry}>
                       {creating ? 'Création...' : 'Créer mon entreprise'}
                     </Button>
                   </div>
@@ -1219,6 +1263,10 @@ export default function EntrepreneurDashboard({
 
   const handleGenerateScreening = async () => {
     if (!enterprise) return;
+    if (!enterprise.country) {
+      toast.error('Veuillez renseigner le pays de l\'entreprise avant de lancer la génération.');
+      return;
+    }
     setGeneratingScreening(true);
     try {
       const token = await getValidAccessToken(authSession, navigate);
@@ -1633,6 +1681,9 @@ export default function EntrepreneurDashboard({
                         </button>
                         <button onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors shadow-sm">
                           <Download className="h-3.5 w-3.5" /> PDF
+                        </button>
+                        <button onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Regénère l'Excel à partir des données existantes (sans IA)">
+                          {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
                         </button>
                         <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors disabled:opacity-50">
                           {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Regénérer

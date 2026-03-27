@@ -131,7 +131,7 @@ function buildContextBlock(ctx: any): string {
 
   return `ENTREPRISE :
 - Nom : ${ent.name || "N/A"}
-- Pays : ${ent.country || "Côte d'Ivoire"}
+- Pays : ${ent.country || ''}
 - Secteur : ${ent.sector || "N/A"}
 - Description : ${ent.description || "N/A"}
 - Employés : ${ent.employees_count || "N/A"}
@@ -823,7 +823,7 @@ serve(async (req) => {
 
     // Financial knowledge (no examples to save tokens)
     const knowledgeBase = getFinancialKnowledgePrompt(
-      (ent.country || "Côte d'Ivoire").toLowerCase().replace(/[\s']/g, "_"),
+      (ent.country || '').toLowerCase().replace(/[\s']/g, "_"),
       (ent.sector || "services_b2b").toLowerCase().replace(/[\s\-\/]/g, "_"),
       false
     );
@@ -835,9 +835,9 @@ serve(async (req) => {
     let webMarketContext = "";
     try {
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
-      const country = ent.country || "Côte d'Ivoire";
+      const country = ent.country || '';
       const sector = ent.sector || "agro-industrie";
-      const countryCode = country.includes("Ivoire") ? "CI" : country.includes("négal") ? "SN" : country.includes("ameroun") ? "CM" : country.includes("Congo") ? "CD" : "CI";
+      const countryCode = country.includes("Ivoire") ? "CI" : country.includes("négal") ? "SN" : country.includes("ameroun") ? "CM" : country.includes("Congo") ? "CD" : country.slice(0, 2).toUpperCase() || "";
 
       console.log("[BP] Web search for market analysis...");
       const webResp = await fetch("https://api.anthropic.com/v1/messages", {

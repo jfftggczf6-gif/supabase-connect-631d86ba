@@ -63,7 +63,7 @@ async function createEnterpriseFromCandidature(
     coach_id: coachId,
     name: candidature.company_name,
     sector: candidature.form_data?.sector || null,
-    country: candidature.form_data?.country || candidature.form_data?.pays || "Côte d'Ivoire",
+    country: candidature.form_data?.country || candidature.form_data?.pays || null,
     city: candidature.form_data?.city || candidature.form_data?.ville || null,
     contact_name: candidature.contact_name,
     contact_email: candidature.contact_email,

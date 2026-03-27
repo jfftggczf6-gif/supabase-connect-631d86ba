@@ -231,7 +231,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
         <div>
           <h3 className="text-lg font-bold text-foreground">Plan Financier</h3>
           <p className="text-xs text-muted-foreground">
-            {data.company || '—'} • {data.country || ''} • {data.currency || 'XOF'}
+            {data.company || '—'} • {data.country || ''} • {data.currency || ''}
           </p>
         </div>
         {analyse.score_investissabilite != null && (

@@ -226,7 +226,7 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
         <div>
           <h3 className="text-lg font-bold text-foreground">Plan Financier OVO</h3>
           <p className="text-xs text-muted-foreground">
-            {data.company || '—'} • {data.country || 'Côte d\'Ivoire'} • {data.currency || 'XOF'}
+            {data.company || '—'} • {data.country || ''} • {data.currency || ''}
           </p>
         </div>
         {data.score != null && (

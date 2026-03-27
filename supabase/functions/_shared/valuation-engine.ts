@@ -447,7 +447,7 @@ export function extractValuationInputs(
     cashflows_projetes: cashflows,
     ca_projetes: caProjectes,
     ebitda_projetes: ebitdaProjectes,
-    pays: enterprise?.country || 'cote_d_ivoire',
+    pays: enterprise?.country || '',
     secteur: enterprise?.sector || 'services_b2b',
     ca_historique_3ans: caHist,
     effectifs: enterprise?.employees_count || 0,

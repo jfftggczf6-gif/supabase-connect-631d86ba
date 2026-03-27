@@ -77,7 +77,7 @@ serve(async (req) => {
     const oddData = getDelivData("odd_analysis");
     const diagnosticData = getDelivData("diagnostic_data");
 
-    const knowledgeBase = getFinancialKnowledgePrompt(ent.country || "cote_d_ivoire", ent.sector || "services_b2b", false);
+    const knowledgeBase = getFinancialKnowledgePrompt((ent.country || "") as any, (ent.sector || "services_b2b") as any, false);
 
     const delivSummary: string[] = [];
     if (bmcData) delivSummary.push(`BMC:\n${JSON.stringify(bmcData).substring(0, 3000)}`);
@@ -90,7 +90,7 @@ serve(async (req) => {
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
-PAYS : ${ent.country || "Côte d'Ivoire"}
+PAYS : ${ent.country || ''}
 DESCRIPTION : ${ent.description || ""}
 EFFECTIFS : ${ent.employees_count || "Non spécifié"}
 CONTACT : ${ent.contact_name || ""} — ${ent.contact_email || ""} — ${ent.contact_phone || ""}

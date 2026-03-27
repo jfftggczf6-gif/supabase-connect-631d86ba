@@ -582,6 +582,16 @@ export const FISCAL_PARAMS: Record<string, {
   "Congo":          { tva: 18.9, is: 28, ir_max: 40, smig: 90000, patente: "Variable", cotisations_sociales: 22.6, devise: "FCFA", currency_iso: "XAF", exchange_rate_eur: 655.957 },
   "RDC":            { tva: 16, is: 30, ir_max: 40, smig: 7075, patente: "Variable", cotisations_sociales: 14.5, devise: "CDF", currency_iso: "CDF", exchange_rate_eur: 2800 },
   "Guinée":         { tva: 18, is: 35, ir_max: 40, smig: 440000, patente: "Variable", cotisations_sociales: 23, devise: "GNF", currency_iso: "GNF", exchange_rate_eur: 9500 },
+  "Ghana":          { tva: 15, is: 25, ir_max: 30, smig: 44800, patente: "Variable", cotisations_sociales: 18.5, devise: "GHS", currency_iso: "GHS", exchange_rate_eur: 15.5 },
+  "Kenya":          { tva: 16, is: 30, ir_max: 30, smig: 15120, patente: "Variable", cotisations_sociales: 12, devise: "KES", currency_iso: "KES", exchange_rate_eur: 165 },
+  "Nigeria":        { tva: 7.5, is: 30, ir_max: 24, smig: 30000, patente: "Variable", cotisations_sociales: 18, devise: "NGN", currency_iso: "NGN", exchange_rate_eur: 1750 },
+  "Maroc":          { tva: 20, is: 31, ir_max: 38, smig: 2970, patente: "Variable", cotisations_sociales: 26.6, devise: "MAD", currency_iso: "MAD", exchange_rate_eur: 10.8 },
+  "Tunisie":        { tva: 19, is: 25, ir_max: 35, smig: 460, patente: "Variable", cotisations_sociales: 25.75, devise: "TND", currency_iso: "TND", exchange_rate_eur: 3.35 },
+  "Madagascar":     { tva: 20, is: 20, ir_max: 20, smig: 200000, patente: "Variable", cotisations_sociales: 19, devise: "MGA", currency_iso: "MGA", exchange_rate_eur: 4900 },
+  "Éthiopie":       { tva: 15, is: 30, ir_max: 35, smig: 0, patente: "Variable", cotisations_sociales: 18, devise: "ETB", currency_iso: "ETB", exchange_rate_eur: 130 },
+  "Tanzanie":       { tva: 18, is: 30, ir_max: 30, smig: 100000, patente: "Variable", cotisations_sociales: 20, devise: "TZS", currency_iso: "TZS", exchange_rate_eur: 2850 },
+  "Rwanda":         { tva: 18, is: 30, ir_max: 30, smig: 0, patente: "Variable", cotisations_sociales: 8, devise: "RWF", currency_iso: "RWF", exchange_rate_eur: 1450 },
+  "Afrique du Sud": { tva: 15, is: 27, ir_max: 45, smig: 4600, patente: "Variable", cotisations_sociales: 2, devise: "ZAR", currency_iso: "ZAR", exchange_rate_eur: 20.5 },
 };
 
 export function getFiscalParams(country: string) {
@@ -592,7 +602,8 @@ export function getFiscalParams(country: string) {
   for (const [key, val] of Object.entries(FISCAL_PARAMS)) {
     if (c.includes(key.toLowerCase()) || key.toLowerCase().includes(c)) return val;
   }
-  return FISCAL_PARAMS["Côte d'Ivoire"];
+  // Fallback générique — taux moyens UEMOA (pas spécifique à un pays)
+  return { tva: 18, is: 25, ir_max: 35, smig: 60000, patente: "0.5% CA", cotisations_sociales: 20, devise: "", currency_iso: "", exchange_rate_eur: 655.957 };
 }
 
 /**
@@ -882,7 +893,7 @@ Multiples CA: ${b.multiple_ca_min}-${b.multiple_ca_max}×`);
     if (b.capex_typiques && typeof b.capex_typiques === 'object' && Object.keys(b.capex_typiques).length > 0) {
       let capexLines = `══ CAPEX TYPIQUES SECTEUR (${b.secteur}) ══\n`;
       for (const [item, detail] of Object.entries(b.capex_typiques as Record<string, any>)) {
-        capexLines += `${item}: ${detail.min?.toLocaleString('fr-FR')}-${detail.max?.toLocaleString('fr-FR')} ${detail.devise || 'XOF'} (amort ${detail.amort_ans} ans)\n`;
+        capexLines += `${item}: ${detail.min?.toLocaleString('fr-FR')}-${detail.max?.toLocaleString('fr-FR')} ${detail.devise || ''} (amort ${detail.amort_ans} ans)\n`;
       }
       capexLines += `⚠️ Utiliser comme référence pour valider les CAPEX de l'entreprise`;
       parts.push(capexLines);
