@@ -1008,7 +1008,19 @@ export default function EntrepreneurDashboard({
       const result = await response.json();
       if (result.download_url) {
         setOvoDownloadUrl(result.download_url);
-        toast.success(`Excel OVO regénéré (${Math.round((result.size_bytes || 0) / 1024)} Ko)`);
+        toast.success(`Excel OVO regénéré (${Math.round((result.size_bytes || 0) / 1024)} Ko) — téléchargement...`);
+        // Auto-download via signed URL (no auth header needed — token is in the URL)
+        const dlResp = await fetch(result.download_url);
+        if (dlResp.ok) {
+          const blob = await dlResp.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = result.file_name || `${enterprise?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'entreprise'}_PlanFinancierOVO.xlsm`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+        }
       }
       await fetchData();
     } catch (err: any) {
