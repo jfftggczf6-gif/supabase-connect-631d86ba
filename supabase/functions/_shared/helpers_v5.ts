@@ -291,12 +291,24 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
     if (aiResult.stop_reason === "max_tokens") {
       console.warn(`AI response truncated (max_tokens=${mt} reached)`);
     }
-    // Token tracking
+    // Token tracking + cost logging
     const usage = aiResult.usage;
     if (usage) {
       const inputCost = (usage.input_tokens || 0) * (model.includes("opus") ? 15 : 3) / 1_000_000;
       const outputCost = (usage.output_tokens || 0) * (model.includes("opus") ? 75 : 15) / 1_000_000;
-      console.log(`[cost] ${model.slice(0,20)}: ${usage.input_tokens || 0} in + ${usage.output_tokens || 0} out = $${(inputCost + outputCost).toFixed(4)}`);
+      const totalCost = inputCost + outputCost;
+      console.log(`[cost] ${model.slice(0,20)}: ${usage.input_tokens || 0} in + ${usage.output_tokens || 0} out = $${totalCost.toFixed(4)}`);
+      // Log to DB (non-blocking)
+      try {
+        const svc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        svc.from("ai_cost_log").insert({
+          function_name: new Error().stack?.split('\n')[2]?.trim()?.slice(3, 50) || 'callAI',
+          model,
+          input_tokens: usage.input_tokens || 0,
+          output_tokens: usage.output_tokens || 0,
+          cost_usd: totalCost,
+        }).then(() => {}).catch(() => {});
+      } catch (_) {}
     }
     return aiResult.content?.[0]?.text || "";
   };

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw, Target, Database, Server, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw, Target, Database, Server, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react';
 import CoachesTab from './CoachesTab';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import ScreeningDashboard from './ScreeningDashboard';
@@ -21,6 +21,7 @@ import FundingMatchTab from './FundingMatchTab';
 import PortfolioTab from './PortfolioTab';
 import AlertsTab from './AlertsTab';
 import ExportTab from './ExportTab';
+import CostTrackingTab from './CostTrackingTab';
 import { PIPELINE } from '@/lib/dashboard-config';
 
 interface Profile {
@@ -323,6 +324,7 @@ export default function SuperAdminDashboard() {
           <TabsTrigger value="portfolio" className="gap-1"><TrendingUp className="h-3.5 w-3.5" />Portfolio</TabsTrigger>
           <TabsTrigger value="funding" className="gap-1"><Target className="h-3.5 w-3.5" />Matching Bailleurs</TabsTrigger>
           <TabsTrigger value="alerts" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" />Alertes</TabsTrigger>
+          <TabsTrigger value="costs" className="gap-1"><DollarSign className="h-3.5 w-3.5" />Coûts IA</TabsTrigger>
           <TabsTrigger value="exports" className="gap-1"><FileText className="h-3.5 w-3.5" />Exports</TabsTrigger>
         </TabsList>
 
@@ -585,6 +587,9 @@ export default function SuperAdminDashboard() {
         </TabsContent>
         <TabsContent value="alerts">
           <AlertsTab />
+        </TabsContent>
+        <TabsContent value="costs">
+          <CostTrackingTab />
         </TabsContent>
         <TabsContent value="exports">
           <ExportTab />
