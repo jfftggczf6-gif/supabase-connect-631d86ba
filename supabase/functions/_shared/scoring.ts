@@ -281,3 +281,191 @@ function computeWeighted(criteria: Criterion[]): ScoringResult {
 
   return { score: clamp(score), criteria, confidence };
 }
+
+// ─── SIC (Social Impact Canvas) ──────────────────────────────
+
+export function scoreSic(data: any): ScoringResult {
+  const criteria: Criterion[] = [];
+
+  // 1. Dimensions évaluées (25%)
+  const dims = data?.dimensions || data?.canvas_blocs || {};
+  const nbDims = typeof dims === 'object' ? Object.keys(dims).length : 0;
+  criteria.push({ name: 'Dimensions évaluées', weight: 25, score: nbDims >= 5 ? 100 : nbDims >= 3 ? 60 : nbDims >= 1 ? 30 : 0, source: 'deterministic' });
+
+  // 2. ODD identifiés (20%)
+  const oddDetail = data?.odd_detail || [];
+  const nbOdd = Array.isArray(oddDetail) ? oddDetail.length : 0;
+  criteria.push({ name: 'ODD identifiés', weight: 20, score: nbOdd >= 5 ? 100 : nbOdd >= 3 ? 70 : nbOdd >= 1 ? 40 : 0, source: 'deterministic' });
+
+  // 3. Théorie du changement (20%)
+  const tdc = data?.theorie_du_changement || data?.theorie_changement;
+  criteria.push({ name: 'Théorie du changement', weight: 20, score: tdc ? 100 : 0, source: 'deterministic' });
+
+  // 4. Recommandations (15%)
+  const reco = data?.recommandations;
+  criteria.push({ name: 'Recommandations', weight: 15, score: reco ? 100 : 0, source: 'deterministic' });
+
+  // 5. Score global IA (20%)
+  criteria.push({ name: 'Score impact IA', weight: 20, score: clamp(safe(data?.score_global || data?.score)), source: 'ai' });
+
+  return computeWeighted(criteria);
+}
+
+// ─── ODD ─────────────────────────────────────────────────────
+
+export function scoreOdd(data: any): ScoringResult {
+  const criteria: Criterion[] = [];
+  const cibles = data?.evaluation_cibles_odd?.cibles || [];
+
+  // 1. Nombre de cibles évaluées (25%)
+  criteria.push({ name: 'Cibles évaluées', weight: 25, score: cibles.length >= 20 ? 100 : cibles.length >= 10 ? 70 : cibles.length >= 5 ? 40 : 10, source: 'deterministic', detail: `${cibles.length} cibles` });
+
+  // 2. Cibles positives (20%)
+  const positives = cibles.filter((c: any) => c.evaluation === 'positif').length;
+  const ratio = cibles.length > 0 ? positives / cibles.length : 0;
+  criteria.push({ name: 'Alignement positif', weight: 20, score: clamp(ratio * 100), source: 'deterministic', detail: `${positives}/${cibles.length}` });
+
+  // 3. Indicateurs d'impact (20%)
+  const indicateurs = data?.indicateurs_impact?.indicateurs || [];
+  criteria.push({ name: 'Indicateurs mesurables', weight: 20, score: indicateurs.length >= 5 ? 100 : indicateurs.length >= 3 ? 60 : indicateurs.length >= 1 ? 30 : 0, source: 'deterministic' });
+
+  // 4. Synthèse présente (15%)
+  criteria.push({ name: 'Synthèse impact', weight: 15, score: data?.synthese ? 100 : 0, source: 'deterministic' });
+
+  // 5. Score global IA (20%)
+  criteria.push({ name: 'Score ODD IA', weight: 20, score: clamp(safe(data?.score_global || data?.score)), source: 'ai' });
+
+  return computeWeighted(criteria);
+}
+
+// ─── PRE-SCREENING ───────────────────────────────────────────
+
+export function scorePreScreening(data: any): ScoringResult {
+  const criteria: Criterion[] = [];
+
+  // 1. Activités identifiées (20%)
+  const activites = data?.activites_identifiees || [];
+  criteria.push({ name: 'Activités identifiées', weight: 20, score: activites.length >= 3 ? 100 : activites.length >= 1 ? 50 : 0, source: 'deterministic' });
+
+  // 2. KPIs extraits (20%)
+  const kpis = data?.kpis_extraits || data?.chiffres_cles || {};
+  const nbKpis = typeof kpis === 'object' ? Object.keys(kpis).length : 0;
+  criteria.push({ name: 'KPIs extraits', weight: 20, score: nbKpis >= 5 ? 100 : nbKpis >= 3 ? 60 : nbKpis >= 1 ? 30 : 0, source: 'deterministic' });
+
+  // 3. Risques identifiés (15%)
+  const risques = data?.risques || [];
+  criteria.push({ name: 'Risques identifiés', weight: 15, score: risques.length >= 3 ? 100 : risques.length >= 1 ? 50 : 0, source: 'deterministic' });
+
+  // 4. Forces identifiées (15%)
+  const forces = data?.forces || [];
+  criteria.push({ name: 'Forces identifiées', weight: 15, score: forces.length >= 3 ? 100 : forces.length >= 1 ? 50 : 0, source: 'deterministic' });
+
+  // 5. Classification (10%)
+  criteria.push({ name: 'Classification', weight: 10, score: data?.classification ? 100 : 0, source: 'deterministic' });
+
+  // 6. Score IA (20%)
+  criteria.push({ name: 'Score IA', weight: 20, score: clamp(safe(data?.score_global || data?.score)), source: 'ai' });
+
+  return computeWeighted(criteria);
+}
+
+// ─── PLAN FINANCIER ──────────────────────────────────────────
+
+export function scorePlanFinancier(data: any): ScoringResult {
+  const criteria: Criterion[] = [];
+  const kpis = data?.kpis || {};
+  const projections = data?.projections || [];
+
+  // 1. KPIs calculés (20%)
+  const kpiFields = ['ca', 'marge_brute', 'ebitda', 'resultat_net'];
+  const kpiFilled = kpiFields.filter(f => safe(kpis[f]) > 0 || safe(kpis[f + '_pct']) > 0);
+  criteria.push({ name: 'KPIs financiers', weight: 20, score: Math.round((kpiFilled.length / kpiFields.length) * 100), source: 'deterministic' });
+
+  // 2. Projections (20%)
+  criteria.push({ name: 'Projections 5 ans', weight: 20, score: projections.length >= 5 ? 100 : projections.length >= 3 ? 60 : projections.length >= 1 ? 30 : 0, source: 'deterministic' });
+
+  // 3. Produits détaillés (15%)
+  const nbProduits = (data?.produits || []).length + (data?.services || []).length;
+  criteria.push({ name: 'Produits/services', weight: 15, score: nbProduits >= 3 ? 100 : nbProduits >= 1 ? 50 : 0, source: 'deterministic' });
+
+  // 4. Staff (10%)
+  const nbStaff = (data?.staff || []).length;
+  criteria.push({ name: 'Effectifs détaillés', weight: 10, score: nbStaff >= 2 ? 100 : nbStaff >= 1 ? 50 : 0, source: 'deterministic' });
+
+  // 5. Seuil de rentabilité (10%)
+  criteria.push({ name: 'Seuil rentabilité', weight: 10, score: data?.seuil_rentabilite?.montant ? 100 : 0, source: 'deterministic' });
+
+  // 6. Indicateurs décision (15%)
+  const indic = data?.indicateurs_decision || {};
+  const nbIndic = ['van', 'tri', 'payback_years', 'dscr_moyen'].filter(k => indic[k] != null).length;
+  criteria.push({ name: 'Indicateurs décision', weight: 15, score: Math.round((nbIndic / 4) * 100), source: 'deterministic' });
+
+  // 7. Analyse IA (10%)
+  const analyse = data?.analyse || {};
+  criteria.push({ name: 'Analyse IA', weight: 10, score: analyse.avis ? Math.min(100, analyse.avis.length / 2) : 0, source: 'ai' });
+
+  return computeWeighted(criteria);
+}
+
+// ─── BUSINESS PLAN ───────────────────────────────────────────
+
+export function scoreBusinessPlan(data: any): ScoringResult {
+  const criteria: Criterion[] = [];
+
+  // 1. Sections présentes (30%)
+  const sections = ['resume_gestion', 'historique', 'vision', 'mission', 'description_generale', 'swot', 'modele_produit', 'marketing_5p', 'equipe_direction', 'investissement_plan', 'financier_tableau'];
+  const filled = sections.filter(s => data?.[s] && (typeof data[s] === 'string' ? data[s].length > 10 : Object.keys(data[s]).length > 0));
+  criteria.push({ name: 'Sections rédigées', weight: 30, score: Math.round((filled.length / sections.length) * 100), source: 'deterministic', detail: `${filled.length}/${sections.length}` });
+
+  // 2. SWOT complet (15%)
+  const swot = data?.swot || {};
+  const swotParts = ['forces', 'faiblesses', 'opportunites', 'menaces'].filter(k => swot[k]?.length > 0);
+  criteria.push({ name: 'SWOT complet', weight: 15, score: Math.round((swotParts.length / 4) * 100), source: 'deterministic' });
+
+  // 3. Analyse marché (15%)
+  const marche = data?.analyse_marche || {};
+  const hasMarche = marche.taille_marche || marche.tam || data?.marche_potentiel;
+  criteria.push({ name: 'Analyse marché', weight: 15, score: hasMarche ? 100 : 0, source: 'deterministic' });
+
+  // 4. Tableau financier (15%)
+  const fin = data?.financier_tableau || {};
+  criteria.push({ name: 'Tableau financier', weight: 15, score: fin.annee1 ? 100 : 0, source: 'deterministic' });
+
+  // 5. Impact (10%)
+  const hasImpact = data?.impact_social || data?.impact_environnemental;
+  criteria.push({ name: 'Impact documenté', weight: 10, score: hasImpact ? 100 : 0, source: 'deterministic' });
+
+  // 6. Score IA (15%)
+  criteria.push({ name: 'Score IA', weight: 15, score: clamp(safe(data?.score)), source: 'ai' });
+
+  return computeWeighted(criteria);
+}
+
+// ─── ONE-PAGER ───────────────────────────────────────────────
+
+export function scoreOnepager(data: any): ScoringResult {
+  const criteria: Criterion[] = [];
+
+  // 1. Sections clés (30%)
+  const sections = ['presentation_entreprise', 'apercu_projet', 'proposition_valeur', 'marche', 'potentiel_marche', 'equipe', 'equipe_gouvernance', 'impact', 'besoin_financement'];
+  const filled = sections.filter(s => data?.[s]);
+  criteria.push({ name: 'Sections complètes', weight: 30, score: Math.round((filled.length / sections.length) * 100), source: 'deterministic' });
+
+  // 2. Chiffres clés (20%)
+  const kpis = data?.kpis_financiers || data?.traction_finances || data?.chiffres_cles;
+  criteria.push({ name: 'Chiffres clés', weight: 20, score: kpis ? 100 : 0, source: 'deterministic' });
+
+  // 3. Contact (10%)
+  criteria.push({ name: 'Contact', weight: 10, score: data?.contact ? 100 : 0, source: 'deterministic' });
+
+  // 4. Valorisation (15%)
+  criteria.push({ name: 'Valorisation indicative', weight: 15, score: data?.valorisation_indicative ? 100 : 0, source: 'deterministic' });
+
+  // 5. Impact (10%)
+  criteria.push({ name: 'Impact ODD', weight: 10, score: data?.impact_odd || data?.impact ? 100 : 0, source: 'deterministic' });
+
+  // 6. Score IA (15%)
+  criteria.push({ name: 'Score IA', weight: 15, score: clamp(safe(data?.score)), source: 'ai' });
+
+  return computeWeighted(criteria);
+}

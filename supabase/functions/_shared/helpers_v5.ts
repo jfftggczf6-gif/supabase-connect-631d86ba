@@ -469,12 +469,18 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
 
   // 4. Compute weighted score (replaces subjective AI score)
   try {
-    const { scoreInputs, scoreBmc, scoreDiagnostic, scoreValuation, scoreMemo, scoreScreening } = await import("./scoring.ts");
+    const { scoreInputs, scoreBmc, scoreSic, scoreOdd, scorePreScreening, scorePlanFinancier, scoreBusinessPlan, scoreOnepager, scoreDiagnostic, scoreValuation, scoreMemo, scoreScreening } = await import("./scoring.ts");
     const scoreFns: Record<string, (d: any) => any> = {
       inputs_data: scoreInputs,
+      pre_screening: scorePreScreening,
       bmc_analysis: scoreBmc,
+      sic_analysis: scoreSic,
+      plan_financier: scorePlanFinancier,
+      business_plan: scoreBusinessPlan,
+      odd_analysis: scoreOdd,
       diagnostic_data: scoreDiagnostic,
       valuation: scoreValuation,
+      onepager: scoreOnepager,
       investment_memo: scoreMemo,
       screening_report: scoreScreening,
     };
