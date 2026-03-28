@@ -360,7 +360,7 @@ export default function ProgrammeDetailPage() {
 
         {/* Reporting */}
         <TabsContent value="reporting">
-          <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} />
+          <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} />
         </TabsContent>
 
         {/* Paramètres */}
