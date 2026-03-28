@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useBlocker } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -114,6 +114,20 @@ export default function EntrepreneurDashboard({
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [generating]);
+
+  // Block in-app navigation during generation
+  const blocker = useBlocker(generating);
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      const leave = window.confirm('Une génération IA est en cours. Si vous quittez, les étapes restantes ne seront pas lancées.\n\nQuitter quand même ?');
+      if (leave) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker.state]);
 
   // Notify parent of generating state changes
   useEffect(() => {
