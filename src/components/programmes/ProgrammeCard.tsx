@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import ProgrammeStatusBadge from './ProgrammeStatusBadge';
 import { MapPin, Banknote, Users, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +20,7 @@ interface Programme {
   end_date?: string | null;
   candidatures_count?: number;
   chef_name?: string | null;
+  type?: string | null;
 }
 
 export default function ProgrammeCard({ programme, showChef }: { programme: Programme; showChef?: boolean }) {
