@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useBlocker } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -116,20 +116,6 @@ export default function EntrepreneurDashboard({
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [generating]);
-
-  // Block in-app navigation during generation
-  const blocker = useBlocker(generating);
-
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      const leave = window.confirm(t('pipeline.warn_leave'));
-      if (leave) {
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    }
-  }, [blocker.state]);
 
   // Notify parent of generating state changes
   useEffect(() => {
