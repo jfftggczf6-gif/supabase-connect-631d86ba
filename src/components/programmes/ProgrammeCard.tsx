@@ -35,7 +35,10 @@ export default function ProgrammeCard({ programme, showChef }: { programme: Prog
               <p className="text-xs text-muted-foreground">Organisation : {programme.organization}</p>
             )}
           </div>
-          <ProgrammeStatusBadge status={programme.status} />
+          <div className="flex items-center gap-1">
+            {programme.type === 'cohorte_directe' && <Badge variant="outline" className="text-[10px]">Cohorte</Badge>}
+            <ProgrammeStatusBadge status={programme.status} />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">

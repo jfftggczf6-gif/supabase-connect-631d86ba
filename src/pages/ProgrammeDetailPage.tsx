@@ -14,6 +14,7 @@ import CandidatureDetailDrawer from '@/components/programmes/CandidatureDetailDr
 import ProgrammeDashboardTab from '@/components/programmes/ProgrammeDashboardTab';
 import ProgrammeComparatifTab from '@/components/programmes/ProgrammeComparatifTab';
 import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab';
+import CohorteEnterprisesTab from '@/components/programmes/CohorteEnterprisesTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
@@ -161,11 +162,16 @@ export default function ProgrammeDetailPage() {
   const status = programme.status;
   const fmt = (d: string | null) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
 
+  const isCohorte = programme.type === 'cohorte_directe';
   const tabs: string[] = ['apercu'];
-  if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
-  if (status === 'open') tabs.push('diffusion');
-  if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
-  tabs.push('parametres');
+  if (isCohorte) {
+    tabs.push('enterprises', 'dashboard', 'comparatif', 'reporting');
+  } else {
+    if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
+    if (status === 'open') tabs.push('diffusion');
+    if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
+  }
+  if (status !== 'completed') tabs.push('parametres');
 
   // Extract criteria details
   const customCriteria = criteria?.custom_criteria || {};
@@ -184,7 +190,7 @@ export default function ProgrammeDetailPage() {
       <Tabs defaultValue="apercu">
         <TabsList className="flex-wrap">
           {tabs.map(t => <TabsTrigger key={t} value={t}>{
-            { apercu: 'Aperçu', candidatures: 'Candidatures', kanban: 'Kanban', diffusion: 'Diffusion', dashboard: 'Dashboard', comparatif: 'Comparatif', reporting: 'Reporting', parametres: 'Paramètres' }[t]
+            { apercu: 'Aperçu', enterprises: 'Entreprises', candidatures: 'Candidatures', kanban: 'Kanban', diffusion: 'Diffusion', dashboard: 'Dashboard', comparatif: 'Comparatif', reporting: 'Reporting', parametres: 'Paramètres' }[t]
           }</TabsTrigger>)}
         </TabsList>
 
@@ -260,6 +266,11 @@ export default function ProgrammeDetailPage() {
               )}
             </div>
           )}
+        </TabsContent>
+
+        {/* Entreprises (cohorte) */}
+        <TabsContent value="enterprises">
+          <CohorteEnterprisesTab programmeId={id!} programmeName={programme.name} />
         </TabsContent>
 
         {/* Candidatures */}

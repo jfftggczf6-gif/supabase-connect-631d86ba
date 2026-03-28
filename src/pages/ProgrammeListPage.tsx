@@ -5,7 +5,8 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ProgrammeCard from '@/components/programmes/ProgrammeCard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Users } from 'lucide-react';
+import CreateCohorteDialog from '@/components/programmes/CreateCohorteDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
@@ -15,6 +16,7 @@ export default function ProgrammeListPage() {
   const [programmes, setProgrammes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showCohorte, setShowCohorte] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -48,6 +50,9 @@ export default function ProgrammeListPage() {
             <SelectItem value="completed">Terminé</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => setShowCohorte(true)} className="gap-2">
+          <Users className="h-4 w-4" /> Nouvelle cohorte
+        </Button>
         <Button onClick={() => nav('/programmes/new')} className="gap-2">
           <Plus className="h-4 w-4" /> Nouveau programme
         </Button>
@@ -67,6 +72,7 @@ export default function ProgrammeListPage() {
           ))}
         </div>
       )}
+      <CreateCohorteDialog open={showCohorte} onOpenChange={setShowCohorte} />
     </DashboardLayout>
   );
 }

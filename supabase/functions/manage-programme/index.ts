@@ -261,6 +261,148 @@ serve(async (req) => {
       return jsonRes({ success: true, programme: updated });
     }
 
+    // ═══════ CREATE_COHORTE ═══════
+    if (action === "create_cohorte") {
+      if (!isAdmin && !isChefProg) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!body.name) return jsonRes({ error: "Le nom de la cohorte est requis" }, 400);
+      if (!body.enterprise_ids?.length) return jsonRes({ error: "Sélectionnez au moins une entreprise" }, 400);
+
+      const { data: prog, error: insertErr } = await supabase
+        .from("programmes")
+        .insert({
+          name: body.name,
+          description: body.description || null,
+          organization: body.organization || null,
+          type: "cohorte_directe",
+          status: "in_progress",
+          budget: body.budget || null,
+          nb_places: body.enterprise_ids.length,
+          currency: body.currency || "",
+          programme_start: body.programme_start || new Date().toISOString().slice(0, 10),
+          programme_end: body.programme_end || null,
+          country_filter: [],
+          sector_filter: [],
+          form_fields: [],
+          created_by: user.id,
+          chef_programme_id: isChefProg ? user.id : (body.chef_programme_id || user.id),
+        })
+        .select()
+        .single();
+
+      if (insertErr) return jsonRes({ error: insertErr.message }, 500);
+
+      const candidatures = [];
+      for (const enterpriseId of body.enterprise_ids) {
+        const { data: ent } = await supabase
+          .from("enterprises")
+          .select("name, contact_name, contact_email, contact_phone, coach_id, score_ir")
+          .eq("id", enterpriseId)
+          .single();
+        if (!ent) continue;
+
+        const { data: cand, error: candErr } = await supabase
+          .from("candidatures")
+          .insert({
+            programme_id: prog.id,
+            enterprise_id: enterpriseId,
+            company_name: ent.name,
+            contact_name: ent.contact_name || null,
+            contact_email: ent.contact_email || null,
+            contact_phone: ent.contact_phone || null,
+            status: "selected",
+            assigned_coach_id: ent.coach_id || null,
+            form_data: {},
+            documents: [],
+            screening_data: { score_initial: ent.score_ir || 0, integrated_at: new Date().toISOString() },
+            submitted_at: new Date().toISOString(),
+            committee_notes: "Intégré directement dans la cohorte",
+          })
+          .select("id")
+          .single();
+        if (!candErr && cand) candidatures.push(cand);
+      }
+
+      return jsonRes({
+        success: true,
+        programme: prog,
+        nb_entreprises_integrees: candidatures.length,
+        message: `Cohorte "${body.name}" créée avec ${candidatures.length} entreprises`
+      });
+    }
+
+    // ═══════ ADD_ENTERPRISE ═══════
+    if (action === "add_enterprise") {
+      if (!body.programme_id || !body.enterprise_id) return jsonRes({ error: "programme_id et enterprise_id requis" }, 400);
+
+      const { data: prog } = await supabase
+        .from("programmes")
+        .select("chef_programme_id, name")
+        .eq("id", body.programme_id)
+        .single();
+      if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
+      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+
+      const { data: existing } = await supabase
+        .from("candidatures")
+        .select("id")
+        .eq("programme_id", body.programme_id)
+        .eq("enterprise_id", body.enterprise_id)
+        .maybeSingle();
+      if (existing) return jsonRes({ error: "Cette entreprise est déjà dans le programme" }, 400);
+
+      const { data: ent } = await supabase
+        .from("enterprises")
+        .select("name, contact_name, contact_email, contact_phone, coach_id, score_ir")
+        .eq("id", body.enterprise_id)
+        .single();
+      if (!ent) return jsonRes({ error: "Entreprise non trouvée" }, 404);
+
+      const { data: cand, error: candErr } = await supabase
+        .from("candidatures")
+        .insert({
+          programme_id: body.programme_id,
+          enterprise_id: body.enterprise_id,
+          company_name: ent.name,
+          contact_name: ent.contact_name || null,
+          contact_email: ent.contact_email || null,
+          contact_phone: ent.contact_phone || null,
+          status: "selected",
+          assigned_coach_id: ent.coach_id || null,
+          form_data: {},
+          documents: [],
+          screening_data: { score_initial: ent.score_ir || 0, integrated_at: new Date().toISOString() },
+          submitted_at: new Date().toISOString(),
+          committee_notes: `Ajouté à "${prog.name}" le ${new Date().toLocaleDateString('fr-FR')}`,
+        })
+        .select()
+        .single();
+      if (candErr) return jsonRes({ error: candErr.message }, 500);
+
+      return jsonRes({ success: true, candidature: cand, message: `${ent.name} ajoutée au programme` });
+    }
+
+    // ═══════ REMOVE_ENTERPRISE ═══════
+    if (action === "remove_enterprise") {
+      if (!body.programme_id || !body.enterprise_id) return jsonRes({ error: "programme_id et enterprise_id requis" }, 400);
+
+      const { data: prog } = await supabase
+        .from("programmes")
+        .select("chef_programme_id")
+        .eq("id", body.programme_id)
+        .single();
+      if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
+      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+
+      const { error: delErr } = await supabase
+        .from("candidatures")
+        .delete()
+        .eq("programme_id", body.programme_id)
+        .eq("enterprise_id", body.enterprise_id);
+      if (delErr) return jsonRes({ error: delErr.message }, 500);
+
+      return jsonRes({ success: true, message: "Entreprise retirée du programme" });
+    }
+
     return jsonRes({ error: `Action inconnue: ${action}` }, 400);
 
   } catch (e: any) {
