@@ -135,14 +135,17 @@ export default function ProgrammeDetailPage() {
           .eq('role', 'coach');
         if (!coachRoles?.length) return;
         const coachIds = coachRoles.map(r => r.user_id);
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name')
-          .in('user_id', coachIds);
-        setCoaches((profiles || []).map(p => ({
+        const [{ data: profiles }, { data: entCounts }] = await Promise.all([
+          supabase.from('profiles').select('user_id, full_name, email').in('user_id', coachIds),
+          supabase.from('enterprises').select('coach_id').in('coach_id', coachIds),
+        ]);
+        const countMap: Record<string, number> = {};
+        (entCounts || []).forEach((e: any) => { countMap[e.coach_id] = (countMap[e.coach_id] || 0) + 1; });
+        setCoaches((profiles || []).filter(p => p.full_name).map(p => ({
           id: p.user_id,
           name: p.full_name || p.user_id.slice(0, 8),
-          count: 0,
+          email: p.email || '',
+          count: countMap[p.user_id] || 0,
         })));
       } catch (e) {
         console.error('[coaches] fetch error:', e);
