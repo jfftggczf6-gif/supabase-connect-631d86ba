@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { buildSuiviReportHtml } from '@/lib/suivi-report-builder';
 
 interface SuiviReportModalProps {
@@ -16,6 +17,7 @@ interface SuiviReportModalProps {
 }
 
 export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose }: SuiviReportModalProps) {
+  const { t } = useTranslation();
   const { profile } = useAuth();
   const [comment, setComment] = useState('');
   const [nextSteps, setNextSteps] = useState('');
@@ -59,7 +61,7 @@ export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-    toast.success('Rapport téléchargé');
+    toast.success(t('coaching.suivi_report_downloaded'));
   };
 
   return (
@@ -68,31 +70,31 @@ export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose
         {!reportHtml ? (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport de suivi — {enterpriseName}</DialogTitle>
+              <DialogTitle>{t('coaching.suivi_modal_title')} — {enterpriseName}</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label className="text-xs font-medium">Commentaire et recommandation</Label>
+                <Label className="text-xs font-medium">{t('coaching.suivi_comment_label')}</Label>
                 <Textarea value={comment} onChange={e => setComment(e.target.value)} rows={4}
-                  placeholder="L'accompagnement progresse bien…" />
+                  placeholder={t('coaching.suivi_comment_placeholder')} />
               </div>
               <div>
-                <Label className="text-xs font-medium">Prochaines étapes (optionnel)</Label>
+                <Label className="text-xs font-medium">{t('coaching.suivi_next_steps')}</Label>
                 <Textarea value={nextSteps} onChange={e => setNextSteps(e.target.value)} rows={2}
-                  placeholder="1. Mise en place comité consultatif…" />
+                  placeholder={t('coaching.suivi_next_steps_placeholder')} />
               </div>
               <Button onClick={handleGenerate} disabled={generating} className="w-full">
-                {generating ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Compilation…</> : 'Générer le rapport'}
+                {generating ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t('coaching.suivi_compiling')}</> : t('coaching.suivi_generate')}
               </Button>
             </div>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport de suivi</DialogTitle>
+              <DialogTitle>{t('coaching.suivi_modal_title')}</DialogTitle>
               <div className="flex gap-2">
-                <Button size="sm" onClick={downloadAsHtml}>Télécharger HTML</Button>
-                <Button size="sm" variant="outline" onClick={() => setReportHtml(null)}>Modifier</Button>
+                <Button size="sm" onClick={downloadAsHtml}>{t('coaching.suivi_download_html')}</Button>
+                <Button size="sm" variant="outline" onClick={() => setReportHtml(null)}>{t('coaching.modify')}</Button>
               </div>
             </DialogHeader>
             <iframe srcDoc={reportHtml} className="w-full h-[600px] border rounded-lg" />

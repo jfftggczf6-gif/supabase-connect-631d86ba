@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 /** fetch an edge function with a 120s timeout (avoids EarlyDrop on long-running functions) */
 async function invokeLong(fnName: string, body: Record<string, unknown>) {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Non authentifié');
+  if (!session?.access_token) throw new Error('Not authenticated');
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 120_000);
   try {
@@ -57,12 +58,13 @@ async function invokeLong(fnName: string, body: Record<string, unknown>) {
     return await res.json();
   } catch (err: any) {
     clearTimeout(timeoutId);
-    if (err.name === 'AbortError') throw new Error("L'extraction prend trop de temps (>2 min), réessayez");
+    if (err.name === 'AbortError') throw new Error('Extraction timeout (>2 min)');
     throw err;
   }
 }
 
 export default function ProgrammeCreatePage() {
+  const { t } = useTranslation();
   const nav = useNavigate();
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -111,7 +113,7 @@ export default function ProgrammeCreatePage() {
     const ext = file.name.split('.').pop()?.toLowerCase();
     const ACCEPTED = ['pdf', 'docx', 'doc', 'txt', 'md', 'xlsx', 'xls', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'];
     if (!ACCEPTED.includes(ext || '')) {
-      toast({ title: 'Format non supporté', description: 'Formats acceptés : PDF, DOCX, XLSX, images, TXT.', variant: 'destructive' });
+      toast({ title: t('programme.format_not_supported'), description: t('programme.format_hint'), variant: 'destructive' });
       return;
     }
 
@@ -130,7 +132,7 @@ export default function ProgrammeCreatePage() {
       const data = await invokeLong('extract-programme-criteria', { storage_path: storagePath });
 
       const extracted = data?.extracted;
-      if (!extracted) throw new Error('Aucune donnée extraite');
+      if (!extracted) throw new Error(t('programme.no_data_extracted'));
 
       const filled = new Set<string>();
 
@@ -189,9 +191,9 @@ export default function ProgrammeCreatePage() {
       });
 
       setPrefilledFields(filled);
-      toast({ title: '✅ Critères extraits avec succès', description: `${filled.size} champs pré-remplis depuis ${file.name}. Vérifiez et ajustez avant de sauvegarder.` });
+      toast({ title: t('programme.criteria_extracted_success'), description: t('programme.fields_prefilled', { count: filled.size, file: file.name }) });
     } catch (err: any) {
-      toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
+      toast({ title: t('programme.extraction_error'), description: err.message, variant: 'destructive' });
     } finally {
       setExtracting(false);
     }
@@ -210,12 +212,12 @@ export default function ProgrammeCreatePage() {
   }, [handleFileUpload]);
 
   const handleSave = async (publish = false) => {
-    if (!form.name.trim()) { toast({ title: 'Le nom est requis', variant: 'destructive' }); return; }
+    if (!form.name.trim()) { toast({ title: t('programme.name_required'), variant: 'destructive' }); return; }
     setSaving(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error('Non authentifié');
+      if (!session?.user) throw new Error(t('programme.not_authenticated'));
 
       // Build slug from name
       const slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 60) + '-' + Date.now().toString(36);
@@ -263,14 +265,14 @@ export default function ProgrammeCreatePage() {
       const { data: prog, error: progErr } = await supabase.from('programmes').insert(insertData).select('id').single();
 
       if (progErr || !prog?.id) {
-        throw new Error(progErr?.message || 'Impossible de créer le programme');
+        throw new Error(progErr?.message || t('programme.create_error'));
       }
 
-      toast({ title: publish ? '✅ Programme publié' : '✅ Brouillon enregistré' });
+      toast({ title: publish ? t('programme.programme_published') : t('programme.draft_saved') });
       nav(`/programmes/${prog.id}`);
     } catch (err: any) {
       console.error('Programme creation error:', err);
-      toast({ title: 'Erreur', description: err.message || 'Impossible de créer le programme', variant: 'destructive' });
+      toast({ title: t('common.error'), description: err.message || t('programme.create_error'), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -283,7 +285,7 @@ export default function ProgrammeCreatePage() {
         <PopoverTrigger asChild>
           <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground')}>
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {value ? format(value, 'PPP', { locale: fr }) : 'Sélectionner...'}
+            {value ? format(value, 'PPP', { locale: fr }) : t('programme.select_date')}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -294,12 +296,12 @@ export default function ProgrammeCreatePage() {
   );
 
   return (
-    <DashboardLayout title="Nouveau programme" subtitle="Créer un appel à candidatures">
+    <DashboardLayout title={t('programme.create')} subtitle={t('programme.create_subtitle')}>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Upload fiche programme */}
           <Card>
-            <CardHeader><CardTitle className="text-base">📄 Importer une fiche programme</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('programme.import_file')}</CardTitle></CardHeader>
             <CardContent>
               <div
                 className={cn(
@@ -322,23 +324,23 @@ export default function ProgrammeCreatePage() {
                 {extracting ? (
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm font-medium">Extraction des critères en cours...</p>
-                    <p className="text-xs text-muted-foreground">Analyse IA du document</p>
+                    <p className="text-sm font-medium">{t('programme.extracting_criteria')}</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.ai_analysis')}</p>
                   </div>
                 ) : uploadedFile ? (
                   <div className="flex flex-col items-center gap-2">
                     <FileText className="h-8 w-8 text-primary" />
                     <p className="text-sm font-medium">{uploadedFile.name}</p>
-                    <p className="text-xs text-muted-foreground">Critères extraits — modifiez les champs ci-dessous</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.criteria_extracted_hint')}</p>
                     <Button variant="ghost" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }}>
-                      Changer de fichier
+                      {t('programme.change_file')}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm font-medium">📄 Glissez votre fiche programme ici</p>
-                    <p className="text-xs text-muted-foreground">(PDF, DOCX, XLSX, image — tous formats acceptés) · L'IA extraira automatiquement les critères</p>
+                    <p className="text-sm font-medium">{t('programme.drop_file')}</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.drop_file_formats')}</p>
                   </div>
                 )}
               </div>
@@ -347,32 +349,32 @@ export default function ProgrammeCreatePage() {
 
           {/* Identité */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Identité</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('programme.identity')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className={cn(prefilledFields.has('name') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
-                <Label>Nom du programme * {prefilledFields.has('name') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
-                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Programme Pilote GIZ 2026" />
+                <Label>{t('programme.name_label')} {prefilledFields.has('name') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder={t('programme.name_placeholder')} />
               </div>
-              <div><Label>Organisation</Label><Input value={form.organization} onChange={e => setForm(f => ({ ...f, organization: e.target.value }))} placeholder="Ex: GIZ, AFD, I&P" /></div>
+              <div><Label>{t('programme.org_label')}</Label><Input value={form.organization} onChange={e => setForm(f => ({ ...f, organization: e.target.value }))} placeholder={t('programme.org_placeholder')} /></div>
               <div className={cn(prefilledFields.has('description') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
-                <Label>Description {prefilledFields.has('description') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
-                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Description du programme..." />
+                <Label>{t('programme.desc_label')} {prefilledFields.has('description') && <Badge variant="outline" className="ml-2 text-[10px] text-primary">IA</Badge>}</Label>
+                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder={t('programme.desc_placeholder')} />
               </div>
             </CardContent>
           </Card>
 
           {/* Paramètres */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Paramètres</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('programme.parameters')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div className={cn(prefilledFields.has('budget') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <Label>Budget {prefilledFields.has('budget') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
+                  <Label>{t('programme.budget_label')} {prefilledFields.has('budget') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                   <Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} />
                 </div>
-                <div><Label>Nb places</Label><Input type="number" value={form.nb_places} onChange={e => setForm(f => ({ ...f, nb_places: e.target.value }))} /></div>
+                <div><Label>{t('programme.nb_places')}</Label><Input type="number" value={form.nb_places} onChange={e => setForm(f => ({ ...f, nb_places: e.target.value }))} /></div>
                 <div>
-                  <Label>Devise</Label>
+                  <Label>{t('programme.currency_label')}</Label>
                   <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="XOF">XOF</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent>
@@ -380,7 +382,7 @@ export default function ProgrammeCreatePage() {
                 </div>
               </div>
               <div className={cn(prefilledFields.has('country_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
-                <Label className="text-xs">Pays éligibles {prefilledFields.has('country_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
+                <Label className="text-xs">{t('programme.eligible_countries')} {prefilledFields.has('country_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {COUNTRIES.map(c => (
                     <Badge key={c} variant={form.country_filter.includes(c) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('country_filter', c)}>{c}</Badge>
@@ -388,7 +390,7 @@ export default function ProgrammeCreatePage() {
                 </div>
               </div>
               <div className={cn(prefilledFields.has('sector_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
-                <Label className="text-xs">Secteurs éligibles {prefilledFields.has('sector_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
+                <Label className="text-xs">{t('programme.eligible_sectors')} {prefilledFields.has('sector_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {SECTORS.map(s => (
                     <Badge key={s} variant={form.sector_filter.includes(s) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('sector_filter', s)}>{s}</Badge>
@@ -400,18 +402,18 @@ export default function ProgrammeCreatePage() {
 
           {/* Dates */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Dates</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('programme.dates_title')}</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <DatePicker label="Début candidatures" value={form.start_date} onChange={d => setForm(f => ({ ...f, start_date: d }))} />
+                <DatePicker label={t('programme.start_candidatures')} value={form.start_date} onChange={d => setForm(f => ({ ...f, start_date: d }))} />
                 <div className={cn(prefilledFields.has('end_date') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <DatePicker label={`Fin candidatures ${prefilledFields.has('end_date') ? '(IA)' : ''}`} value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
+                  <DatePicker label={`${t('programme.end_candidatures')} ${prefilledFields.has('end_date') ? '(IA)' : ''}`} value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
                 </div>
                 <div className={cn(prefilledFields.has('programme_start') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <DatePicker label={`Début programme ${prefilledFields.has('programme_start') ? '(IA)' : ''}`} value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
+                  <DatePicker label={`${t('programme.start_programme_date')} ${prefilledFields.has('programme_start') ? '(IA)' : ''}`} value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
                 </div>
                 <div className={cn(prefilledFields.has('programme_end') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <DatePicker label={`Fin programme ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
+                  <DatePicker label={`${t('programme.end_programme')} ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
                 </div>
               </div>
             </CardContent>
@@ -421,7 +423,7 @@ export default function ProgrammeCreatePage() {
           <Card className={cn((criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) && 'ring-2 ring-primary/30')}>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <ListChecks className="h-4 w-4" /> Critères du programme
+                <ListChecks className="h-4 w-4" /> {t('programme.criteria_title')}
                 {prefilledFields.has('criteres_eligibilite') && <Badge variant="outline" className="text-[10px] text-primary">IA</Badge>}
               </CardTitle>
             </CardHeader>
@@ -429,9 +431,9 @@ export default function ProgrammeCreatePage() {
               {/* Éligibilité */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> Critères d'éligibilité
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> {t('programme.eligibility_criteria')}
                 </Label>
-                <p className="text-xs text-muted-foreground">Conditions obligatoires pour candidater</p>
+                <p className="text-xs text-muted-foreground">{t('programme.eligibility_desc')}</p>
                 {criteresEligibilite.map((c, i) => (
                   <div key={`elig-${i}`} className="flex items-start gap-2 p-2 border rounded-md bg-green-50/50 dark:bg-green-950/20">
                     <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
@@ -444,9 +446,9 @@ export default function ProgrammeCreatePage() {
               {/* Sélection */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> Critères de sélection
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> {t('programme.selection_criteria_label')}
                 </Label>
-                <p className="text-xs text-muted-foreground">Critères de notation et classement</p>
+                <p className="text-xs text-muted-foreground">{t('programme.selection_desc')}</p>
                 {criteresSelection.map((c, i) => (
                   <div key={`sel-${i}`} className="flex items-start gap-2 p-2 border rounded-md bg-amber-50/50 dark:bg-amber-950/20">
                     <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
@@ -459,7 +461,7 @@ export default function ProgrammeCreatePage() {
               {/* Conditions spécifiques */}
               {conditionsSpecifiques.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Conditions spécifiques</Label>
+                  <Label className="text-xs font-semibold">{t('programme.specific_conditions')}</Label>
                   {conditionsSpecifiques.map((c, i) => (
                     <div key={`cond-${i}`} className="flex items-start gap-2 p-2 border rounded-md">
                       <span className="text-sm flex-1">{c}</span>
@@ -471,13 +473,13 @@ export default function ProgrammeCreatePage() {
 
               {/* Ajouter un critère */}
               <div className="flex gap-2">
-                <Input placeholder="Ajouter un critère..." value={newCritere} onChange={e => setNewCritere(e.target.value)} className="flex-1" />
+                <Input placeholder={t('programme.add_criterion')} value={newCritere} onChange={e => setNewCritere(e.target.value)} className="flex-1" />
                 <Select value={newCritereType} onValueChange={v => setNewCritereType(v as typeof newCritereType)}>
                   <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="eligibilite">Éligibilité</SelectItem>
-                    <SelectItem value="selection">Sélection</SelectItem>
-                    <SelectItem value="condition">Condition</SelectItem>
+                    <SelectItem value="eligibilite">{t('programme.eligibility_option')}</SelectItem>
+                    <SelectItem value="selection">{t('programme.selection_option')}</SelectItem>
+                    <SelectItem value="condition">{t('programme.condition_option')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline" onClick={() => {
@@ -493,7 +495,7 @@ export default function ProgrammeCreatePage() {
 
           {/* Formulaire candidature */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Formulaire de candidature (champs personnalisés)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('programme.custom_form_title')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {/* Drop zone for form template */}
               <div
@@ -519,7 +521,7 @@ export default function ProgrammeCreatePage() {
                     });
                     const data = await invokeLong('extract-form-fields', { file_base64: base64, file_name: file.name });
                     const fields = data?.form_fields || [];
-                    if (!fields.length) throw new Error('Aucun champ extrait du document');
+                    if (!fields.length) throw new Error(t('programme.no_fields_extracted'));
                     const newFields: FormField[] = fields.map((f: any, i: number) => ({
                       id: `ext-${i}-${Date.now()}`,
                       label: f.label || `Champ ${i + 1}`,
@@ -528,10 +530,10 @@ export default function ProgrammeCreatePage() {
                       options: f.options,
                     }));
                     setFormFields(prev => [...prev, ...newFields]);
-                    toast({ title: `✅ ${newFields.length} champs extraits depuis ${file.name}` });
+                    toast({ title: t('programme.fields_extracted', { count: newFields.length, file: file.name }) });
                   } catch (err: any) {
                     console.error('[extract-form-fields] Error:', err);
-                    toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
+                    toast({ title: t('programme.extraction_error'), description: err.message, variant: 'destructive' });
                   } finally {
                     setExtractingForm(false);
                   }
@@ -554,7 +556,7 @@ export default function ProgrammeCreatePage() {
                       });
                       const data = await invokeLong('extract-form-fields', { file_base64: base64, file_name: file.name });
                       const fields = data?.form_fields || [];
-                      if (!fields.length) throw new Error('Aucun champ extrait du document');
+                      if (!fields.length) throw new Error(t('programme.no_fields_extracted'));
                       const newFields: FormField[] = fields.map((f: any, i: number) => ({
                         id: `ext-${i}-${Date.now()}`,
                         label: f.label || `Champ ${i + 1}`,
@@ -563,10 +565,10 @@ export default function ProgrammeCreatePage() {
                         options: f.options,
                       }));
                       setFormFields(prev => [...prev, ...newFields]);
-                      toast({ title: `✅ ${newFields.length} champs extraits depuis ${file.name}` });
+                      toast({ title: t('programme.fields_extracted', { count: newFields.length, file: file.name }) });
                     } catch (err: any) {
                       console.error('[extract-form-fields] Error:', err);
-                      toast({ title: 'Erreur d\'extraction', description: err.message, variant: 'destructive' });
+                      toast({ title: t('programme.extraction_error'), description: err.message, variant: 'destructive' });
                     } finally {
                       setExtractingForm(false);
                     }
@@ -575,38 +577,38 @@ export default function ProgrammeCreatePage() {
                 {extractingForm ? (
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <p className="text-sm font-medium">Extraction des champs en cours...</p>
+                    <p className="text-sm font-medium">{t('programme.extracting_fields')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-1">
                     <Upload className="h-6 w-6 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">📋 Glissez un modèle de formulaire existant ici</p>
-                    <p className="text-xs text-muted-foreground">(PDF, DOCX, XLSX, image — tous formats)</p>
-                    <p className="text-xs text-muted-foreground">L'IA extraira les champs automatiquement</p>
+                    <p className="text-sm text-muted-foreground">{t('programme.drop_form_template')}</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.drop_form_formats')}</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.ai_extract_fields')}</p>
                   </div>
                 )}
               </div>
 
-              <p className="text-xs text-muted-foreground">Les champs fixes (nom entreprise, contact, email, téléphone) sont toujours inclus. Ajoutez ici des champs personnalisés.</p>
+              <p className="text-xs text-muted-foreground">{t('programme.fixed_fields_hint')}</p>
               {formFields.map(f => (
                 <div key={f.id} className="flex items-center gap-2 p-2 border rounded-md">
                   <span className="text-sm flex-1">{f.label}</span>
                   <Badge variant="outline" className="text-[10px]">{f.type}</Badge>
-                  <Badge variant={f.required ? 'default' : 'outline'} className="cursor-pointer text-[10px]" onClick={() => toggleFieldRequired(f.id)}>{f.required ? 'Requis' : 'Optionnel'}</Badge>
+                  <Badge variant={f.required ? 'default' : 'outline'} className="cursor-pointer text-[10px]" onClick={() => toggleFieldRequired(f.id)}>{f.required ? t('programme.required_field') : t('programme.optional_field')}</Badge>
                   <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeField(f.id)}><X className="h-3 w-3" /></Button>
                 </div>
               ))}
               <div className="flex gap-2">
-                <Input placeholder="Label du champ" value={newFieldLabel} onChange={e => setNewFieldLabel(e.target.value)} className="flex-1" />
+                <Input placeholder={t('programme.field_label_placeholder')} value={newFieldLabel} onChange={e => setNewFieldLabel(e.target.value)} className="flex-1" />
                 <Select value={newFieldType} onValueChange={v => setNewFieldType(v as any)}>
                   <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="text">Texte</SelectItem>
-                    <SelectItem value="number">Nombre</SelectItem>
-                    <SelectItem value="textarea">Zone de texte</SelectItem>
-                    <SelectItem value="select">Liste</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="file">Fichier</SelectItem>
+                    <SelectItem value="text">{t('programme.field_text')}</SelectItem>
+                    <SelectItem value="number">{t('programme.field_number')}</SelectItem>
+                    <SelectItem value="textarea">{t('programme.field_textarea')}</SelectItem>
+                    <SelectItem value="select">{t('programme.field_list')}</SelectItem>
+                    <SelectItem value="date">{t('programme.field_date')}</SelectItem>
+                    <SelectItem value="file">{t('programme.field_file')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline" onClick={addField}><Plus className="h-4 w-4" /></Button>
@@ -618,16 +620,16 @@ export default function ProgrammeCreatePage() {
         {/* Preview sidebar */}
         <div className="space-y-4">
           <Card className="sticky top-20">
-            <CardHeader><CardTitle className="text-base">Preview formulaire</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('programme.form_preview')}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground italic">Champs fixes :</p>
-              {['Nom entreprise *', 'Nom contact *', 'Email *', 'Téléphone'].map(f => (
+              <p className="text-xs text-muted-foreground italic">{t('programme.fixed_fields')}</p>
+              {[t('programme.fixed_company'), t('programme.fixed_contact'), t('programme.fixed_email'), t('programme.fixed_phone')].map(f => (
                 <div key={f} className="space-y-1">
                   <Label className="text-xs">{f}</Label>
                   <Input disabled className="h-8" />
                 </div>
               ))}
-              {formFields.length > 0 && <p className="text-xs text-muted-foreground italic pt-2">Champs personnalisés :</p>}
+              {formFields.length > 0 && <p className="text-xs text-muted-foreground italic pt-2">{t('programme.custom_fields')}</p>}
               {formFields.map(f => (
                 <div key={f.id} className="space-y-1">
                   <Label className="text-xs">{f.label} {f.required ? '*' : ''}</Label>
@@ -639,10 +641,10 @@ export default function ProgrammeCreatePage() {
 
           <div className="flex flex-col gap-2">
             <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="w-full">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Enregistrer (brouillon)
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.save_draft')}
             </Button>
             <Button onClick={() => handleSave(true)} disabled={saving} className="w-full">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Publier l'appel
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.publish_call')}
             </Button>
           </div>
         </div>

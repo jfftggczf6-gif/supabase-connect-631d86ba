@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Loader2, FileUp, PenLine, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import SuiviReportModal from './SuiviReportModal';
 import FinalReportModal from './FinalReportModal';
@@ -27,6 +28,7 @@ interface IAResult {
 }
 
 export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTabProps) {
+  const { t } = useTranslation();
   const { session: authSession } = useAuth();
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
 
   const handleAnalyze = async () => {
     if (!text.trim() && !file) {
-      toast.error('Ajoutez du texte ou un fichier');
+      toast.error(t('coaching.add_text_or_file'));
       return;
     }
 
@@ -149,7 +151,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         metadata: { titre: noteTitle, date_rdv: dateRdv, has_file: !!file },
       } as any).then(() => {}).catch(() => {});
 
-      toast.success('Note enregistrée');
+      toast.success(t('coaching.note_saved'));
       resetForm();
       loadNotes();
     } catch (err: any) {
@@ -177,10 +179,10 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       {/* A — Report buttons */}
       <div className="flex gap-2">
         <Button variant="default" size="sm" onClick={() => setShowReport('suivi')}>
-          📋 Rapport de suivi
+          {t('coaching.suivi_report')}
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowReport('final')}>
-          <Sparkles className="h-3.5 w-3.5 mr-1" /> Rapport final
+          <Sparkles className="h-3.5 w-3.5 mr-1" /> {t('coaching.final_report')}
         </Button>
       </div>
 
@@ -199,16 +201,16 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
               onChange={handleFileChange}
             />
             <FileUp className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-sm font-medium">Déposez un compte-rendu de RDV</p>
-            <p className="text-xs text-muted-foreground mt-1">Word, PDF, ou photo de notes</p>
+            <p className="text-sm font-medium">{t('coaching.drop_report')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('coaching.drop_hint')}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">ou</span>
+            <span className="text-xs text-muted-foreground">{t('coaching.or')}</span>
             <div className="h-px flex-1 bg-border" />
           </div>
           <Button variant="outline" className="w-full" onClick={() => setMode('write')}>
-            <PenLine className="h-4 w-4 mr-2" /> Écrire une note
+            <PenLine className="h-4 w-4 mr-2" /> {t('coaching.write_note')}
           </Button>
         </div>
       )}
@@ -218,19 +220,19 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
           <CardContent className="py-4 space-y-3">
             {file && (
               <div className="flex items-center gap-2 p-2 bg-background rounded-lg border text-xs">
-                <Badge variant="outline">fichier</Badge>
+                <Badge variant="outline">{t('coaching.file_label')}</Badge>
                 <span className="flex-1 truncate">{file.name}</span>
                 <button onClick={() => setFile(null)} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
             )}
-            <Input type="date" value={dateRdv} onChange={e => setDateRdv(e.target.value)} placeholder="Date du RDV" />
+            <Input type="date" value={dateRdv} onChange={e => setDateRdv(e.target.value)} placeholder={t('coaching.date_rdv')} />
             <Textarea value={text} onChange={e => setText(e.target.value)}
-              placeholder="Notes de RDV, observations, informations collectées..." rows={5} />
+              placeholder={t('coaching.note_placeholder')} rows={5} />
             <div className="flex gap-2">
               <Button onClick={handleAnalyze} className="flex-1" disabled={analyzing}>
-                {analyzing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Analyse…</> : 'Analyser'}
+                {analyzing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t('coaching.analyzing')}</> : t('coaching.analyze')}
               </Button>
-              <Button variant="outline" onClick={resetForm}>Annuler</Button>
+              <Button variant="outline" onClick={resetForm}>{t('common.cancel')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -240,7 +242,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-8 text-center">
             <Loader2 className="h-6 w-6 mx-auto animate-spin text-primary mb-2" />
-            <p className="text-sm text-muted-foreground">Analyse en cours…</p>
+            <p className="text-sm text-muted-foreground">{t('coaching.analysis_processing')}</p>
           </CardContent>
         </Card>
       )}
@@ -256,7 +258,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
 
             {iaResult.infos_extraites?.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-medium">Intégrer au pipeline :</p>
+                <p className="text-xs font-medium">{t('coaching.integrate_pipeline')}</p>
                 {iaResult.infos_extraites.map((info, i) => (
                   <div key={i} className="flex items-start gap-3 p-2 bg-background rounded-lg border">
                     <Switch checked={info.injecter} onCheckedChange={(v) => toggleInfo(i, v)} />
@@ -271,9 +273,9 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
 
             <div className="flex gap-2">
               <Button onClick={handleSave} className="flex-1" disabled={saving}>
-                {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enregistrement…</> : 'Enregistrer'}
+                {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t('coaching.saving_note')}</> : t('coaching.save_note')}
               </Button>
-              <Button variant="outline" onClick={() => setMode('write')}>Modifier</Button>
+              <Button variant="outline" onClick={() => setMode('write')}>{t('coaching.modify')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -283,7 +285,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       {!loading && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
-            Historique — {notes.length} note{notes.length !== 1 ? 's' : ''}
+            {t('coaching.history')} — {notes.length} note{notes.length !== 1 ? 's' : ''}
           </p>
           {notes.map((note: any) => (
             <Card key={note.id}>
@@ -295,7 +297,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
                       : note.file_name ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
                       : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400'
                     }`}>
-                      {note.date_rdv ? 'RDV' : note.file_name ? 'fichier' : 'note'}
+                      {note.date_rdv ? t('coaching.rdv_label') : note.file_name ? t('coaching.file_label') : t('coaching.note_label')}
                     </Badge>
                     <span className="text-xs font-medium">{note.titre}</span>
                   </div>
@@ -308,7 +310,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
                 </p>
                 {note.infos_extraites?.filter((i: any) => i.injecter)?.length > 0 && (
                   <div className="mt-2 pt-2 border-t">
-                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mb-1">Intégré au pipeline :</p>
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mb-1">{t('coaching.integrated_pipeline')}</p>
                     {note.infos_extraites.filter((i: any) => i.injecter).map((info: any, j: number) => (
                       <p key={j} className="text-[10px] text-indigo-600 dark:text-indigo-400">• {info.info}</p>
                     ))}
@@ -319,7 +321,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
           ))}
           {notes.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">
-              Aucune note de coaching pour le moment
+              {t('coaching.no_notes')}
             </p>
           )}
         </div>

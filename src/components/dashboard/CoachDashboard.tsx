@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,12 +38,21 @@ function getScoreBg(score: number) {
   return 'bg-red-100 text-red-700 border-red-200';
 }
 
-function getPhaseLabel(phase: string) {
+function getPhaseColor(phase: string) {
   switch (phase) {
-    case 'identite': return { label: 'Identité', color: '#7c3aed' };
-    case 'finance':  return { label: 'Finance',  color: '#2563eb' };
-    case 'dossier':  return { label: 'Dossier',  color: '#059669' };
-    default:         return { label: 'Identité', color: '#7c3aed' };
+    case 'identite': return '#7c3aed';
+    case 'finance':  return '#2563eb';
+    case 'dossier':  return '#059669';
+    default:         return '#7c3aed';
+  }
+}
+
+function getPhaseKey(phase: string) {
+  switch (phase) {
+    case 'identite': return 'dashboard_coach.phase_identite';
+    case 'finance':  return 'dashboard_coach.phase_finance';
+    case 'dossier':  return 'dashboard_coach.phase_dossier';
+    default:         return 'dashboard_coach.phase_identite';
   }
 }
 
@@ -54,6 +64,7 @@ type DetailTab = 'mirror' | 'coaching';
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CoachDashboard() {
+  const { t } = useTranslation();
   const { user, profile } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -223,7 +234,7 @@ export default function CoachDashboard() {
   const handleBackToList = useCallback(() => {
     if (childGenerating) {
       const confirmed = window.confirm(
-        'Une génération est en cours. Si vous quittez, elle sera interrompue. Continuer ?'
+        t('dashboard_coach.confirm_leave_generating')
       );
       if (!confirmed) return;
     }
@@ -252,13 +263,13 @@ export default function CoachDashboard() {
         if (rpcError) throw rpcError;
 
         if (status === 'linked') {
-          toast.success("Entreprise liée avec succès !");
+          toast.success(t('dashboard_coach.linked_success'));
           linked = true;
         } else if (status === 'already_yours') {
-          toast.info("Cette entreprise est déjà dans votre portefeuille");
+          toast.info(t('dashboard_coach.already_in_portfolio'));
           linked = true;
         } else if (status === 'already_assigned') {
-          toast.error("Cette entreprise est déjà suivie par un autre coach");
+          toast.error(t('dashboard_coach.already_assigned_other'));
           setAddLoading(false);
           return;
         }
@@ -277,14 +288,14 @@ export default function CoachDashboard() {
         });
 
         if (error) throw error;
-        toast.success(`${addForm.name} ajouté avec succès`);
+        toast.success(t('dashboard_coach.added_success', { name: addForm.name }));
       }
 
       setShowAddModal(false);
       setAddForm({ name: '', contact_email: '' });
       await fetchData();
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'ajout");
+      toast.error(err.message || t('dashboard_coach.add_error'));
     } finally {
       setAddLoading(false);
     }
@@ -300,7 +311,7 @@ export default function CoachDashboard() {
       if (extractedInfo.sector) updates.sector = extractedInfo.sector;
       const { error } = await supabase.from('enterprises').update(updates).eq('id', selectedEnt.id);
       if (error) throw error;
-      toast.success('Informations mises à jour !');
+      toast.success(t('dashboard_coach.info_updated'));
       setShowExtractDialog(false);
       setExtractedInfo(null);
       fetchData();
@@ -325,11 +336,11 @@ export default function CoachDashboard() {
         await supabase.from('deliverables').delete().eq('enterprise_id', ent.id);
         await supabase.from('enterprise_modules').delete().eq('enterprise_id', ent.id);
         await supabase.from('enterprises').delete().eq('id', ent.id);
-        toast.success(`${ent.name} supprimé`);
+        toast.success(t('dashboard_coach.deleted_success', { name: ent.name }));
       } else {
         // Entrepreneur owns this — just detach coach
         await supabase.from('enterprises').update({ coach_id: null }).eq('id', ent.id);
-        toast.success(`${ent.name} détaché de votre liste`);
+        toast.success(t('dashboard_coach.detached_success', { name: ent.name }));
       }
 
       if (selectedEnt?.id === ent.id) {
@@ -337,7 +348,7 @@ export default function CoachDashboard() {
       }
       await fetchData();
     } catch (err: any) {
-      toast.error(err.message || 'Erreur lors de la suppression');
+      toast.error(err.message || t('dashboard_coach.delete_error'));
     }
   };
 
@@ -357,8 +368,8 @@ export default function CoachDashboard() {
     const ent = selectedEnt;
 
     const tabsConfig = [
-      { key: 'mirror' as DetailTab, label: '👁 Vue entrepreneur', desc: 'Livrables et diagnostic' },
-      { key: 'coaching' as DetailTab, label: '📝 Coaching', desc: 'Notes et rapports' },
+      { key: 'mirror' as DetailTab, label: `👁 ${t('dashboard_coach.tab_mirror')}`, desc: t('dashboard_coach.tab_mirror_desc') },
+      { key: 'coaching' as DetailTab, label: `📝 ${t('dashboard_coach.tab_coaching')}`, desc: t('dashboard_coach.tab_coaching_desc') },
     ];
 
     // ═══ FULLSCREEN MODE ═══
@@ -369,7 +380,7 @@ export default function CoachDashboard() {
             <div className="flex items-center justify-between px-4 py-2">
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="sm" onClick={() => setFullscreen(false)}>
-                  <Minimize2 className="h-4 w-4 mr-1" /> Réduire
+                  <Minimize2 className="h-4 w-4 mr-1" /> {t('dashboard_coach.minimize')}
                 </Button>
                 <h2 className="font-display font-semibold">{ent.name}</h2>
                 {(ent.score_ir || 0) > 0 && (
@@ -379,7 +390,7 @@ export default function CoachDashboard() {
                 )}
               </div>
               <Button variant="ghost" size="sm" onClick={handleBackToList}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> {childGenerating ? 'Génération en cours…' : 'Retour à la liste'}
+                <ArrowLeft className="h-4 w-4 mr-1" /> {childGenerating ? t('dashboard_coach.generating_in_progress') : t('dashboard_coach.back_to_list')}
               </Button>
             </div>
             <div className="flex gap-0 px-4 border-t border-border">
@@ -423,13 +434,13 @@ export default function CoachDashboard() {
     return (
       <DashboardLayout
         title={ent.name}
-        subtitle={`${ent.sector || 'Secteur non défini'} • ${ent.country || ''}`}
+        subtitle={`${ent.sector || t('dashboard_coach.sector_undefined')} • ${ent.country || ''}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={handleBackToList}>
-              <ArrowLeft className="h-4 w-4 mr-1" /> {childGenerating ? 'Génération en cours…' : 'Retour'}
+              <ArrowLeft className="h-4 w-4 mr-1" /> {childGenerating ? t('dashboard_coach.generating_in_progress') : t('common.back')}
             </Button>
             <div>
               <h2 className="text-xl font-display font-bold">{ent.name}</h2>
@@ -442,7 +453,7 @@ export default function CoachDashboard() {
                 {ent.score_ir}/100
               </Badge>
             )}
-            <Button variant="ghost" size="sm" onClick={() => setFullscreen(true)} title="Plein écran">
+            <Button variant="ghost" size="sm" onClick={() => setFullscreen(true)} title={t('dashboard_coach.fullscreen')}>
               <Maximize2 className="h-4 w-4" />
             </Button>
           </div>
@@ -490,12 +501,12 @@ export default function CoachDashboard() {
   if (view === 'screening') {
     return (
       <DashboardLayout
-        title="Screening & Programmes"
-        subtitle="Évaluez vos entreprises par critères programme"
+        title={t('dashboard_coach.screening_title')}
+        subtitle={t('dashboard_coach.screening_subtitle')}
       >
         <div className="flex gap-3 mb-6">
           <Button variant="outline" onClick={handleBackToList} className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Retour au portefeuille
+            <ArrowLeft className="h-4 w-4" /> {t('dashboard_coach.back_to_portfolio')}
           </Button>
         </div>
         <ProgrammeCriteriaEditor />
@@ -510,21 +521,21 @@ export default function CoachDashboard() {
 
   return (
     <DashboardLayout
-      title={`Bonjour, ${profile?.full_name || 'Coach'} 👋`}
-      subtitle="Tableau de bord de coaching"
+      title={`${t('dashboard_coach.greeting', { name: profile?.full_name || 'Coach' })} 👋`}
+      subtitle={t('dashboard_coach.coaching_dashboard')}
     >
       {/* Liste des entreprises */}
 
       {/* Actions rapides */}
       <div className="flex flex-wrap gap-3 mb-6">
         <Button onClick={() => setShowAddModal(true)} className="gap-2">
-          <UserPlus className="h-4 w-4" /> Ajouter un entrepreneur
+          <UserPlus className="h-4 w-4" /> {t('dashboard_coach.add_enterprise')}
         </Button>
         <Button variant="outline" asChild className="gap-2">
-          <a href="/templates"><Download className="h-4 w-4" /> Templates vierges</a>
+          <a href="/templates"><Download className="h-4 w-4" /> {t('dashboard_coach.blank_templates')}</a>
         </Button>
         <Button variant="outline" className="gap-2" onClick={() => setShowKBManager(true)}>
-          <Database className="h-4 w-4" /> Base de connaissances
+          <Database className="h-4 w-4" /> {t('dashboard_coach.knowledge_base')}
         </Button>
       </div>
 
@@ -534,7 +545,7 @@ export default function CoachDashboard() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Rechercher par nom, contact, email..."
+            placeholder={t('dashboard_coach.search_placeholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -545,10 +556,10 @@ export default function CoachDashboard() {
           onChange={e => setFilterPhase(e.target.value)}
           className="border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
         >
-          <option value="">Toutes les phases</option>
-          <option value="identite">Identité</option>
-          <option value="finance">Finance</option>
-          <option value="dossier">Dossier</option>
+          <option value="">{t('dashboard_coach.all_phases')}</option>
+          <option value="identite">{t('dashboard_coach.phase_identite')}</option>
+          <option value="finance">{t('dashboard_coach.phase_finance')}</option>
+          <option value="dossier">{t('dashboard_coach.phase_dossier')}</option>
         </select>
       </div>
 
@@ -561,21 +572,21 @@ export default function CoachDashboard() {
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
             <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p className="font-medium">{search || filterPhase ? 'Aucun résultat' : 'Aucun entrepreneur'}</p>
+            <p className="font-medium">{search || filterPhase ? t('dashboard_coach.no_results') : t('dashboard_coach.no_entrepreneurs')}</p>
             <p className="text-sm mt-1">
-              {search || filterPhase ? "Essayez avec d'autres critères de recherche" : 'Cliquez sur "Ajouter un entrepreneur" pour commencer'}
+              {search || filterPhase ? t('dashboard_coach.try_other_criteria') : t('dashboard_coach.click_add_entrepreneur')}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-muted/30 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            <div className="col-span-3">Entreprise</div>
-            <div className="col-span-2 hidden md:block">Contact</div>
-            <div className="col-span-2 hidden lg:block">Secteur</div>
-            <div className="col-span-1">Score</div>
-            <div className="col-span-1 hidden sm:block">Phase</div>
-            <div className="col-span-3 text-right">Actions</div>
+            <div className="col-span-3">{t('dashboard_coach.table_enterprise')}</div>
+            <div className="col-span-2 hidden md:block">{t('dashboard_coach.table_contact')}</div>
+            <div className="col-span-2 hidden lg:block">{t('dashboard_coach.table_sector')}</div>
+            <div className="col-span-1">{t('dashboard_coach.table_score')}</div>
+            <div className="col-span-1 hidden sm:block">{t('dashboard_coach.table_phase')}</div>
+            <div className="col-span-3 text-right">{t('dashboard_coach.table_actions')}</div>
           </div>
 
           {filteredEnts.map(ent => {
@@ -585,7 +596,8 @@ export default function CoachDashboard() {
             const total = mods.length || 8;
             const pct = Math.round((completed / total) * 100);
             const score = ent.score_ir || (delivs.length > 0 ? Math.round(delivs.reduce((s: number, d: any) => s + (d.score || 0), 0) / delivs.length) : 0);
-            const phase = getPhaseLabel(ent.phase || 'identite');
+            const phaseColor = getPhaseColor(ent.phase || 'identite');
+            const phaseKey = getPhaseKey(ent.phase || 'identite');
 
             return (
               <div key={ent.id} className="grid grid-cols-12 gap-2 px-4 py-3.5 border-b border-border/50 hover:bg-muted/20 transition-colors items-center">
@@ -619,8 +631,8 @@ export default function CoachDashboard() {
                   )}
                 </div>
                 <div className="col-span-1 hidden sm:block">
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: phase.color, background: `${phase.color}15` }}>
-                    {phase.label}
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: phaseColor, background: `${phaseColor}15` }}>
+                    {t(phaseKey)}
                   </span>
                 </div>
                 <div className="col-span-3 flex items-center justify-end gap-1.5">
@@ -628,7 +640,7 @@ export default function CoachDashboard() {
                     variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1"
                     onClick={() => handleViewEnterprise(ent)}
                   >
-                    <Eye className="h-3 w-3" /> Voir
+                    <Eye className="h-3 w-3" /> {t('dashboard_coach.view')}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -639,21 +651,21 @@ export default function CoachDashboard() {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>
-                          {ent.user_id === user?.id ? 'Supprimer' : 'Détacher'} {ent.name} ?
+                          {ent.user_id === user?.id ? t('dashboard_coach.delete_enterprise') : t('dashboard_coach.detach_enterprise')} {t('dashboard_coach.delete_confirm', { name: ent.name })}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                           {ent.user_id === user?.id
-                            ? "Cette entreprise et tous ses livrables seront définitivement supprimés."
-                            : "L'entreprise sera retirée de votre liste mais restera accessible à l'entrepreneur."}
+                            ? t('dashboard_coach.delete_description')
+                            : t('dashboard_coach.detach_description')}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDeleteEnterprise(ent)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          {ent.user_id === user?.id ? 'Supprimer' : 'Détacher'}
+                          {ent.user_id === user?.id ? t('dashboard_coach.delete_enterprise') : t('dashboard_coach.detach_enterprise')}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -670,12 +682,12 @@ export default function CoachDashboard() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" /> Nouvel entrepreneur
+              <UserPlus className="h-5 w-5 text-primary" /> {t('dashboard_coach.new_entrepreneur')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Nom de l'entreprise *</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.enterprise_name_required')}</label>
               <input
                 type="text" placeholder="SARL Mon Entreprise"
                 value={addForm.name}
@@ -684,7 +696,7 @@ export default function CoachDashboard() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Email</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.email_label')}</label>
               <input type="email" placeholder="contact@entreprise.com"
                 value={addForm.contact_email}
                 onChange={e => setAddForm(f => ({ ...f, contact_email: e.target.value }))}
@@ -692,10 +704,10 @@ export default function CoachDashboard() {
               />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>Annuler</Button>
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleAddEntrepreneur} disabled={addLoading || !addForm.name.trim()} className="gap-2">
                 {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Ajouter
+                {t('common.add')}
               </Button>
             </div>
           </div>
@@ -708,7 +720,7 @@ export default function CoachDashboard() {
           <DialogHeader className="px-6 pt-6 pb-2 flex-none">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg font-semibold">
-                Rapport — {reportPreview?.enterpriseName}
+                {t('dashboard_coach.report_title', { name: reportPreview?.enterpriseName })}
               </DialogTitle>
               <Button
                 variant="outline"
@@ -724,10 +736,10 @@ export default function CoachDashboard() {
                   a.click();
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
-                  toast.success('Rapport téléchargé !');
+                  toast.success(t('dashboard_coach.report_downloaded'));
                 }}
               >
-                <Download className="h-4 w-4 mr-1" /> Télécharger
+                <Download className="h-4 w-4 mr-1" /> {t('common.download')}
               </Button>
             </div>
           </DialogHeader>
@@ -735,7 +747,7 @@ export default function CoachDashboard() {
             <iframe
               srcDoc={reportPreview?.html ?? ''}
               className="w-full h-full rounded-md border bg-background"
-              title="Rapport Coach"
+              title={t('reporting.report')}
               sandbox="allow-same-origin"
             />
           </div>
@@ -745,38 +757,38 @@ export default function CoachDashboard() {
       <Dialog open={showExtractDialog} onOpenChange={setShowExtractDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Informations détectées</DialogTitle>
+            <DialogTitle>{t('dashboard_coach.extracted_info_title')}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mb-4">
-            Nous avons extrait les informations suivantes du document uploadé. Souhaitez-vous mettre à jour l'entreprise ?
+            {t('dashboard_coach.extracted_info_desc')}
           </p>
           <div className="space-y-2">
             {extractedInfo?.name && (
               <div className="flex items-center gap-2">
-                <Badge variant="outline">Nom</Badge>
+                <Badge variant="outline">{t('dashboard_coach.label_name')}</Badge>
                 <span className="text-sm font-medium">{extractedInfo.name}</span>
               </div>
             )}
             {extractedInfo?.sector && (
               <div className="flex items-center gap-2">
-                <Badge variant="outline">Secteur</Badge>
+                <Badge variant="outline">{t('dashboard_coach.label_sector')}</Badge>
                 <span className="text-sm font-medium">{extractedInfo.sector}</span>
               </div>
             )}
             {extractedInfo?.country && (
               <div className="flex items-center gap-2">
-                <Badge variant="outline">Pays</Badge>
+                <Badge variant="outline">{t('dashboard_coach.label_country')}</Badge>
                 <span className="text-sm font-medium">{extractedInfo.country}</span>
               </div>
             )}
           </div>
           <div className="flex gap-2 justify-end mt-4">
             <Button variant="outline" onClick={() => { setShowExtractDialog(false); setExtractedInfo(null); }}>
-              Ignorer
+              {t('dashboard_coach.ignore')}
             </Button>
             <Button onClick={handleConfirmExtraction} disabled={savingExtraction}>
               {savingExtraction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Mettre à jour
+              {t('dashboard_coach.update')}
             </Button>
           </div>
         </DialogContent>
@@ -786,7 +798,7 @@ export default function CoachDashboard() {
       <Dialog open={showKBManager} onOpenChange={setShowKBManager}>
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Base de connaissances</DialogTitle>
+            <DialogTitle>{t('dashboard_coach.knowledge_base')}</DialogTitle>
           </DialogHeader>
           <KnowledgeBaseManager />
         </DialogContent>

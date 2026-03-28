@@ -22,6 +22,7 @@ import PortfolioTab from './PortfolioTab';
 import AlertsTab from './AlertsTab';
 import ExportTab from './ExportTab';
 import CostTrackingTab from './CostTrackingTab';
+import { useTranslation } from 'react-i18next';
 import { PIPELINE } from '@/lib/dashboard-config';
 
 interface Profile {
@@ -71,6 +72,7 @@ interface CoachUpload {
 }
 
 export default function SuperAdminDashboard() {
+  const { t } = useTranslation();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
@@ -228,21 +230,21 @@ export default function SuperAdminDashboard() {
   const handleReassignCoach = async (enterpriseId: string, newCoachId: string | null) => {
     const { error } = await supabase.from('enterprises').update({ coach_id: newCoachId || null }).eq('id', enterpriseId);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Coach réassigné' });
+      toast({ title: t('admin.coach_reassigned') });
       setEnterprises(prev => prev.map(e => e.id === enterpriseId ? { ...e, coach_id: newCoachId || null } : e));
     }
   };
 
   const handleDeleteEnterprise = async (id: string) => {
     const { error: dErr } = await supabase.from('deliverables').delete().eq('enterprise_id', id);
-    if (dErr) { toast({ title: 'Erreur suppression livrables', description: dErr.message, variant: 'destructive' }); return; }
+    if (dErr) { toast({ title: t('admin.error_delete_deliverables'), description: dErr.message, variant: 'destructive' }); return; }
     const { error } = await supabase.from('enterprises').delete().eq('id', id);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Entreprise supprimée' });
+      toast({ title: t('admin.enterprise_deleted') });
       setEnterprises(prev => prev.filter(e => e.id !== id));
       setDeliverables(prev => prev.filter(d => d.enterprise_id !== id));
     }
@@ -255,14 +257,14 @@ export default function SuperAdminDashboard() {
   };
 
   return (
-    <DashboardLayout title="Administration" subtitle="Vue globale de la plateforme">
+    <DashboardLayout title={t('admin.title')} subtitle={t('admin.subtitle')}>
       {/* KPI Cards — STEP 3: added parser status card */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {[
-          { label: 'Utilisateurs', value: stats.users, icon: Users },
-          { label: 'Coaches', value: stats.coaches, icon: UserCog },
-          { label: 'Entreprises', value: stats.enterprises, icon: Building2 },
-          { label: 'Livrables', value: stats.deliverables, icon: FileText },
+          { label: t('admin.users_label'), value: stats.users, icon: Users },
+          { label: t('admin.coaches_label'), value: stats.coaches, icon: UserCog },
+          { label: t('admin.enterprises_label'), value: stats.enterprises, icon: Building2 },
+          { label: t('admin.deliverables_label'), value: stats.deliverables, icon: FileText },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="p-4 flex items-center gap-3">
@@ -288,10 +290,10 @@ export default function SuperAdminDashboard() {
             </div>
             <div>
               <p className="text-sm font-bold text-foreground">
-                {parserStatus === 'up' ? 'En ligne' : parserStatus === 'down' ? 'Hors ligne' : 'Vérification...'}
+                {parserStatus === 'up' ? t('admin.parser_online') : parserStatus === 'down' ? t('admin.parser_offline') : t('admin.parser_checking')}
               </p>
               <p className="text-xs text-muted-foreground">
-                Serveur Python {parserVersion ? `v${parserVersion}` : ''}
+                {t('admin.parser_server')} {parserVersion ? `v${parserVersion}` : ''}
               </p>
             </div>
           </CardContent>
@@ -303,29 +305,29 @@ export default function SuperAdminDashboard() {
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
             <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} className="rounded" />
-            Auto-refresh 30s
+            {t('admin.auto_refresh')}
           </label>
           <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Actualiser
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> {t('admin.refresh')}
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="users">
         <TabsList className="mb-4 flex-wrap">
-          <TabsTrigger value="users">Utilisateurs</TabsTrigger>
-          <TabsTrigger value="coaches">Coaches</TabsTrigger>
-          <TabsTrigger value="enterprises">Entreprises</TabsTrigger>
-          <TabsTrigger value="errors" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Erreurs{errorDeliverables.length > 0 ? ` (${errorDeliverables.length})` : ''}</TabsTrigger>
-          <TabsTrigger value="screening" className="gap-1"><Target className="h-3.5 w-3.5" />Screening</TabsTrigger>
-          <TabsTrigger value="knowledge" className="gap-1"><Database className="h-3.5 w-3.5" />Base de connaissances</TabsTrigger>
-          <TabsTrigger value="activity">Activité récente</TabsTrigger>
-          <TabsTrigger value="kb_structured" className="gap-1"><Database className="h-3.5 w-3.5" />KB Structurée</TabsTrigger>
-          <TabsTrigger value="portfolio" className="gap-1"><TrendingUp className="h-3.5 w-3.5" />Portfolio</TabsTrigger>
-          <TabsTrigger value="funding" className="gap-1"><Target className="h-3.5 w-3.5" />Matching Bailleurs</TabsTrigger>
-          <TabsTrigger value="alerts" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" />Alertes</TabsTrigger>
-          <TabsTrigger value="costs" className="gap-1"><DollarSign className="h-3.5 w-3.5" />Coûts IA</TabsTrigger>
-          <TabsTrigger value="exports" className="gap-1"><FileText className="h-3.5 w-3.5" />Exports</TabsTrigger>
+          <TabsTrigger value="users">{t('admin.tab_users')}</TabsTrigger>
+          <TabsTrigger value="coaches">{t('admin.tab_coaches')}</TabsTrigger>
+          <TabsTrigger value="enterprises">{t('admin.tab_enterprises')}</TabsTrigger>
+          <TabsTrigger value="errors" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {t('admin.tab_errors')}{errorDeliverables.length > 0 ? ` (${errorDeliverables.length})` : ''}</TabsTrigger>
+          <TabsTrigger value="screening" className="gap-1"><Target className="h-3.5 w-3.5" />{t('admin.tab_screening')}</TabsTrigger>
+          <TabsTrigger value="knowledge" className="gap-1"><Database className="h-3.5 w-3.5" />{t('admin.tab_knowledge')}</TabsTrigger>
+          <TabsTrigger value="activity">{t('admin.tab_activity')}</TabsTrigger>
+          <TabsTrigger value="kb_structured" className="gap-1"><Database className="h-3.5 w-3.5" />{t('admin.tab_kb_structured')}</TabsTrigger>
+          <TabsTrigger value="portfolio" className="gap-1"><TrendingUp className="h-3.5 w-3.5" />{t('admin.tab_portfolio')}</TabsTrigger>
+          <TabsTrigger value="funding" className="gap-1"><Target className="h-3.5 w-3.5" />{t('admin.tab_funding')}</TabsTrigger>
+          <TabsTrigger value="alerts" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" />{t('admin.tab_alerts')}</TabsTrigger>
+          <TabsTrigger value="costs" className="gap-1"><DollarSign className="h-3.5 w-3.5" />{t('admin.tab_costs')}</TabsTrigger>
+          <TabsTrigger value="exports" className="gap-1"><FileText className="h-3.5 w-3.5" />{t('admin.tab_exports')}</TabsTrigger>
         </TabsList>
 
         {/* USERS TAB */}
@@ -333,10 +335,10 @@ export default function SuperAdminDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-4">
-                <CardTitle className="text-lg">Tous les utilisateurs</CardTitle>
+                <CardTitle className="text-lg">{t('admin.all_users')}</CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Rechercher..." className="pl-8" value={searchUsers} onChange={e => setSearchUsers(e.target.value)} />
+                  <Input placeholder={t('admin.search')} className="pl-8" value={searchUsers} onChange={e => setSearchUsers(e.target.value)} />
                 </div>
               </div>
             </CardHeader>
@@ -344,10 +346,10 @@ export default function SuperAdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nom</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Rôle(s)</TableHead>
-                    <TableHead>Inscription</TableHead>
+                    <TableHead>{t('admin.col_name')}</TableHead>
+                    <TableHead>{t('admin.col_email')}</TableHead>
+                    <TableHead>{t('admin.col_roles')}</TableHead>
+                    <TableHead>{t('admin.col_registration')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -360,14 +362,14 @@ export default function SuperAdminDashboard() {
                           {(roleMap[p.user_id] || []).map(r => (
                             <Badge key={r} variant={roleBadgeVariant(r)} className="text-xs">{r}</Badge>
                           ))}
-                          {!roleMap[p.user_id]?.length && <span className="text-xs text-muted-foreground">aucun</span>}
+                          {!roleMap[p.user_id]?.length && <span className="text-xs text-muted-foreground">{t('admin.no_role')}</span>}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{formatDate(p.created_at)}</TableCell>
                     </TableRow>
                   ))}
                   {!filteredUsers.length && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Aucun utilisateur trouvé</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{t('admin.no_user_found')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -391,10 +393,10 @@ export default function SuperAdminDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-4">
-                <CardTitle className="text-lg">Toutes les entreprises</CardTitle>
+                <CardTitle className="text-lg">{t('admin.all_enterprises')}</CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Rechercher..." className="pl-8" value={searchEnterprises} onChange={e => setSearchEnterprises(e.target.value)} />
+                  <Input placeholder={t('admin.search')} className="pl-8" value={searchEnterprises} onChange={e => setSearchEnterprises(e.target.value)} />
                 </div>
               </div>
             </CardHeader>
@@ -402,15 +404,15 @@ export default function SuperAdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Entreprise</TableHead>
-                    <TableHead>Entrepreneur</TableHead>
-                    <TableHead>Coach</TableHead>
-                    <TableHead>Secteur</TableHead>
-                    <TableHead>Score IR</TableHead>
-                    <TableHead>Phase</TableHead>
-                    <TableHead>Livrables</TableHead>
-                    <TableHead>Dernière activité</TableHead>
-                    <TableHead className="w-[80px]">Actions</TableHead>
+                    <TableHead>{t('admin.col_enterprise')}</TableHead>
+                    <TableHead>{t('admin.col_entrepreneur')}</TableHead>
+                    <TableHead>{t('admin.col_coach')}</TableHead>
+                    <TableHead>{t('admin.col_sector')}</TableHead>
+                    <TableHead>{t('admin.col_score_ir')}</TableHead>
+                    <TableHead>{t('admin.col_phase')}</TableHead>
+                    <TableHead>{t('admin.col_deliverables')}</TableHead>
+                    <TableHead>{t('admin.col_last_activity')}</TableHead>
+                    <TableHead className="w-[80px]">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -431,10 +433,10 @@ export default function SuperAdminDashboard() {
                             onValueChange={v => handleReassignCoach(e.id, v === 'none' ? null : v)}
                           >
                             <SelectTrigger className="h-8 w-[160px] text-xs">
-                              <SelectValue placeholder="Aucun coach" />
+                              <SelectValue placeholder={t('admin.no_coach')} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">Aucun</SelectItem>
+                              <SelectItem value="none">{t('admin.no_coach_short')}</SelectItem>
                               {coaches.map(c => (
                                 <SelectItem key={c.user_id} value={c.user_id}>
                                   {c.full_name || c.email || c.user_id.slice(0, 8)}
@@ -461,15 +463,15 @@ export default function SuperAdminDashboard() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Supprimer « {e.name} » ?</AlertDialogTitle>
+                                <AlertDialogTitle>{t('admin.delete_enterprise_title', { name: e.name })}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Cette action supprimera l'entreprise et tous ses livrables. Cette action est irréversible.
+                                  {t('admin.delete_enterprise_desc')}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                 <AlertDialogAction onClick={() => handleDeleteEnterprise(e.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                  Supprimer
+                                  {t('common.delete')}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -479,7 +481,7 @@ export default function SuperAdminDashboard() {
                     );
                   })}
                   {!filteredEnterprises.length && (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Aucune entreprise trouvée</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">{t('admin.no_enterprise_found')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -491,23 +493,23 @@ export default function SuperAdminDashboard() {
         <TabsContent value="errors">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Générations en erreur</CardTitle>
+              <CardTitle className="text-lg">{t('admin.errors_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Entreprise</TableHead>
-                    <TableHead>Module</TableHead>
-                    <TableHead>Erreur</TableHead>
+                    <TableHead>{t('admin.col_date')}</TableHead>
+                    <TableHead>{t('admin.col_enterprise')}</TableHead>
+                    <TableHead>{t('admin.col_module')}</TableHead>
+                    <TableHead>{t('admin.col_error')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {errorDeliverables.map(d => {
                     const ent = enterpriseMap[d.enterprise_id];
                     const data = d.data as any;
-                    const errorMsg = data?.error || data?.detail || data?.message || 'Erreur inconnue';
+                    const errorMsg = data?.error || data?.detail || data?.message || t('admin.unknown_error');
                     return (
                       <TableRow key={d.id}>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(d.created_at)}</TableCell>
@@ -518,7 +520,7 @@ export default function SuperAdminDashboard() {
                     );
                   })}
                   {!errorDeliverables.length && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Aucune erreur détectée 🎉</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{t('admin.no_errors')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -530,16 +532,16 @@ export default function SuperAdminDashboard() {
         <TabsContent value="activity">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Activité récente</CardTitle>
+              <CardTitle className="text-lg">{t('admin.activity_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Entreprise</TableHead>
-                    <TableHead>Par</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>{t('admin.col_type')}</TableHead>
+                    <TableHead>{t('admin.col_enterprise')}</TableHead>
+                    <TableHead>{t('admin.col_by')}</TableHead>
+                    <TableHead>{t('admin.col_date')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -556,7 +558,7 @@ export default function SuperAdminDashboard() {
                     </TableRow>
                   ))}
                   {!recentActivity.length && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Aucune activité</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{t('admin.no_activity')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -601,7 +603,7 @@ export default function SuperAdminDashboard() {
         <Dialog open={!!selectedEnterprise} onOpenChange={() => setSelectedEnterprise(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{selectedEnterprise.name} — Pipeline</DialogTitle>
+              <DialogTitle>{selectedEnterprise.name} — {t('admin.pipeline_title')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 mt-4">
               {PIPELINE.map(step => {
@@ -615,10 +617,10 @@ export default function SuperAdminDashboard() {
                     <span className="text-sm">{step.name}</span>
                     <div className="flex items-center gap-2">
                       {status === 'done' && (
-                        <Badge className="text-xs bg-emerald-100 text-emerald-700">Fait</Badge>
+                        <Badge className="text-xs bg-emerald-100 text-emerald-700">{t('admin.status_done')}</Badge>
                       )}
                       {status === 'error' && (
-                        <Badge variant="destructive" className="text-xs">Erreur</Badge>
+                        <Badge variant="destructive" className="text-xs">{t('admin.status_error')}</Badge>
                       )}
                       {status === 'not_started' && (
                         <span className="text-xs text-muted-foreground">—</span>

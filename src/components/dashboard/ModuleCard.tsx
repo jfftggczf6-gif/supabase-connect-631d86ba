@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ModuleCardProps {
   title: string;
@@ -12,13 +13,13 @@ interface ModuleCardProps {
   onClick?: () => void;
 }
 
-const statusConfig = {
-  not_started: { label: 'Non commencé', variant: 'outline' as const },
-  in_progress: { label: 'En cours', variant: 'default' as const },
-  completed: { label: 'Terminé', variant: 'secondary' as const },
-};
-
 export default function ModuleCard({ title, description, icon: Icon, status, progress, onClick }: ModuleCardProps) {
+  const { t } = useTranslation();
+  const statusConfig = {
+    not_started: { label: t('status.not_started'), variant: 'outline' as const },
+    in_progress: { label: t('status.in_progress'), variant: 'default' as const },
+    completed: { label: t('status.completed'), variant: 'secondary' as const },
+  };
   const config = statusConfig[status];
 
   return (
@@ -41,7 +42,7 @@ export default function ModuleCard({ title, description, icon: Icon, status, pro
         <p className="text-sm text-muted-foreground mb-3">{description}</p>
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Progression</span>
+            <span>{t('dashboard_programme.progression')}</span>
             <span>{progress}%</span>
           </div>
           <Progress value={progress} className="h-1.5" />

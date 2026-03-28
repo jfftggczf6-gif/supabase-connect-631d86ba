@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ProgrammeCard from '@/components/programmes/ProgrammeCard';
@@ -11,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
 export default function ProgrammeListPage() {
+  const { t } = useTranslation();
   const { role } = useAuth();
   const nav = useNavigate();
   const [programmes, setProgrammes] = useState<any[]>([]);
@@ -24,7 +26,7 @@ export default function ProgrammeListPage() {
       const { data, error } = await supabase.functions.invoke('manage-programme', {
         body: { action: 'list' }
       });
-      if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); }
+      if (error) { toast({ title: t('common.error'), description: error.message, variant: 'destructive' }); }
       setProgrammes(data?.programmes || data || []);
       setLoading(false);
     })();
@@ -37,24 +39,24 @@ export default function ProgrammeListPage() {
   const isSuperAdmin = role === 'super_admin';
 
   return (
-    <DashboardLayout title="Programmes" subtitle="Gérez vos appels à candidatures et programmes d'accompagnement">
+    <DashboardLayout title={t('programme.title')} subtitle={t('programme.subtitle')}>
       <div className="flex items-center justify-between mb-6">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder={t('programme.filter_status')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="draft">Brouillon</SelectItem>
-            <SelectItem value="open">Ouvert</SelectItem>
-            <SelectItem value="closed">Clôturé</SelectItem>
-            <SelectItem value="in_progress">En cours</SelectItem>
-            <SelectItem value="completed">Terminé</SelectItem>
+            <SelectItem value="all">{t('programme.all_statuses')}</SelectItem>
+            <SelectItem value="draft">{t('programme.status_draft')}</SelectItem>
+            <SelectItem value="open">{t('programme.status_open')}</SelectItem>
+            <SelectItem value="closed">{t('programme.status_closed')}</SelectItem>
+            <SelectItem value="in_progress">{t('programme.status_in_progress')}</SelectItem>
+            <SelectItem value="completed">{t('programme.status_completed')}</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={() => setShowCohorte(true)} className="gap-2">
-          <Users className="h-4 w-4" /> Nouvelle cohorte
+          <Users className="h-4 w-4" /> {t('programme.create_cohorte')}
         </Button>
         <Button onClick={() => nav('/programmes/new')} className="gap-2">
-          <Plus className="h-4 w-4" /> Nouveau programme
+          <Plus className="h-4 w-4" /> {t('programme.create')}
         </Button>
       </div>
 
@@ -62,8 +64,8 @@ export default function ProgrammeListPage() {
         <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
-          <p className="text-lg font-medium">Aucun programme</p>
-          <p className="text-sm mt-1">Créez votre premier appel à candidatures</p>
+          <p className="text-lg font-medium">{t('programme.no_programmes')}</p>
+          <p className="text-sm mt-1">{t('programme.create_first')}</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

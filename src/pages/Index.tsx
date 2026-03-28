@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, LogIn, ArrowRight, ArrowDown,
   Upload, Sparkles, ClipboardCheck,
@@ -9,61 +10,62 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const DELIVERABLES = [
-  { icon: FileSearch, title: 'Diagnostic initial', desc: 'Points bloquants, actions recommandées, guide d\'accompagnement personnalisé' },
-  { icon: LayoutGrid, title: 'Business Model Canvas', desc: '9 blocs analysés, forces et faiblesses identifiées' },
-  { icon: BarChart3, title: 'Plan financier', desc: 'Projections sur 5 ans, 3 scénarios, adapté aux normes SYSCOHADA' },
-  { icon: Target, title: 'Analyse d\'impact (ODD)', desc: 'Indicateurs SMART, théorie du changement, contribution aux ODD' },
-  { icon: TrendingUp, title: 'Bilan de progression', desc: 'Ce qui a avancé, ce qui reste, prochaines étapes' },
-  { icon: FileText, title: 'Rapports de coaching', desc: 'Rapport de suivi et rapport final, générés depuis vos notes' },
-];
-
-const STEPS = [
-  {
-    step: '01',
-    icon: Upload,
-    title: 'Uploadez les documents de l\'entrepreneur',
-    desc: 'États financiers, pitch deck, BMC. L\'IA extrait et structure les données automatiquement.',
-  },
-  {
-    step: '02',
-    icon: Sparkles,
-    title: 'L\'IA génère le diagnostic et les livrables',
-    desc: 'Diagnostic initial avec guide d\'accompagnement, business plan, plan financier, analyse d\'impact. 12 livrables en quelques minutes.',
-  },
-  {
-    step: '03',
-    icon: ClipboardCheck,
-    title: 'Accompagnez et suivez la progression',
-    desc: 'Notes de coaching intégrées à l\'analyse, bilan de progression automatique, rapports de suivi pour le programme.',
-  },
-];
-
-const TRUST_ITEMS = [
-  {
-    icon: Shield,
-    title: 'Données non utilisées pour entraîner l\'IA',
-    desc: 'Les données de vos entrepreneurs ne servent pas à entraîner les modèles. Politique de non-rétention des données.',
-  },
-  {
-    icon: Eye,
-    title: 'Chaque programme a son espace isolé',
-    desc: 'Les données d\'un programme ne sont jamais visibles par un autre programme.',
-  },
-  {
-    icon: CheckCircle2,
-    title: 'Chaque chiffre cite sa source',
-    desc: 'Pas de chiffres inventés. Les analyses sont traçables et vérifiables.',
-  },
-  {
-    icon: Lock,
-    title: 'Accès sécurisé',
-    desc: 'Authentification, chiffrement des données, contrôle d\'accès par rôle.',
-  },
-];
-
 export default function Index() {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
+
+  const DELIVERABLES = [
+    { icon: FileSearch, title: t('pages.index_deliv_diagnostic_title'), desc: t('pages.index_deliv_diagnostic_desc') },
+    { icon: LayoutGrid, title: t('pages.index_deliv_bmc_title'), desc: t('pages.index_deliv_bmc_desc') },
+    { icon: BarChart3, title: t('pages.index_deliv_plan_title'), desc: t('pages.index_deliv_plan_desc') },
+    { icon: Target, title: t('pages.index_deliv_odd_title'), desc: t('pages.index_deliv_odd_desc') },
+    { icon: TrendingUp, title: t('pages.index_deliv_progress_title'), desc: t('pages.index_deliv_progress_desc') },
+    { icon: FileText, title: t('pages.index_deliv_reports_title'), desc: t('pages.index_deliv_reports_desc') },
+  ];
+
+  const STEPS = [
+    {
+      step: '01',
+      icon: Upload,
+      title: t('pages.index_step1_title'),
+      desc: t('pages.index_step1_desc'),
+    },
+    {
+      step: '02',
+      icon: Sparkles,
+      title: t('pages.index_step2_title'),
+      desc: t('pages.index_step2_desc'),
+    },
+    {
+      step: '03',
+      icon: ClipboardCheck,
+      title: t('pages.index_step3_title'),
+      desc: t('pages.index_step3_desc'),
+    },
+  ];
+
+  const TRUST_ITEMS = [
+    {
+      icon: Shield,
+      title: t('pages.index_trust_1_title'),
+      desc: t('pages.index_trust_1_desc'),
+    },
+    {
+      icon: Eye,
+      title: t('pages.index_trust_2_title'),
+      desc: t('pages.index_trust_2_desc'),
+    },
+    {
+      icon: CheckCircle2,
+      title: t('pages.index_trust_3_title'),
+      desc: t('pages.index_trust_3_desc'),
+    },
+    {
+      icon: Lock,
+      title: t('pages.index_trust_4_title'),
+      desc: t('pages.index_trust_4_desc'),
+    },
+  ];
 
   if (loading) {
     return (
@@ -85,11 +87,11 @@ export default function Index() {
               <span className="text-sm font-display font-bold text-primary-foreground">ES</span>
             </div>
             <span className="text-lg font-display font-bold text-foreground tracking-tight">ESONO</span>
-            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">INVESTMENT READINESS</span>
+            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">{t('pages.index_tagline')}</span>
           </div>
           <Link to="/login">
             <Button variant="outline" size="sm" className="gap-2">
-              <LogIn className="h-3.5 w-3.5" /> Se connecter
+              <LogIn className="h-3.5 w-3.5" /> {t('pages.index_sign_in')}
             </Button>
           </Link>
         </div>
@@ -100,19 +102,19 @@ export default function Index() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50" />
         <div className="container relative py-20 md:py-28">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-display font-black leading-[1.1] max-w-3xl">
-            Votre assistant IA pour accompagner les{' '}
+            {t('pages.index_hero_title_1')}{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[hsl(215,60%,55%)] to-[hsl(152,56%,45%)]">
-              PME africaines
+              {t('pages.index_hero_title_2')}
             </span>
           </h1>
           <p className="text-base md:text-lg text-white/50 mt-5 max-w-xl leading-relaxed">
-            ESONO aide les coachs à diagnostiquer, structurer et suivre leurs entrepreneurs — avec des données fiables.
+            {t('pages.index_hero_subtitle')}
           </p>
           <div className="flex flex-wrap gap-3 mt-8">
             {[
-              { label: 'Diagnostic en 2 minutes' },
-              { label: '12 livrables générés automatiquement' },
-              { label: 'Suivi de coaching intégré' },
+              { label: t('pages.index_badge_1') },
+              { label: t('pages.index_badge_2') },
+              { label: t('pages.index_badge_3') },
             ].map(badge => (
               <div key={badge.label} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
                 <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(152,56%,45%)]" />
@@ -123,23 +125,23 @@ export default function Index() {
           <div className="flex flex-wrap gap-3 mt-8">
             <Link to="/login">
               <Button size="lg" className="gap-2 bg-white text-primary hover:bg-white/90 font-bold">
-                Accéder à mon espace <ArrowRight className="h-4 w-4" />
+                {t('pages.index_cta_access')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <a href="#comment-ca-marche">
               <Button size="lg" variant="ghost" className="gap-2 text-white/70 hover:text-white hover:bg-white/10">
-                Voir comment ça marche <ArrowDown className="h-4 w-4" />
+                {t('pages.index_cta_how')} <ArrowDown className="h-4 w-4" />
               </Button>
             </a>
           </div>
         </div>
       </section>
 
-      {/* Comment ça marche */}
+      {/* Comment ca marche */}
       <section id="comment-ca-marche" className="container py-16 md:py-20">
         <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Processus</p>
-          <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">Comment ça marche</h2>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t('pages.index_process')}</p>
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">{t('pages.index_how_title')}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {STEPS.map(s => {
@@ -162,8 +164,8 @@ export default function Index() {
       <section className="bg-card border-y">
         <div className="container py-16 md:py-20">
           <div className="text-center mb-12">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Livrables</p>
-            <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">Ce que l'IA produit pour le coach</h2>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t('pages.index_deliverables_label')}</p>
+            <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">{t('pages.index_deliverables_title')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
             {DELIVERABLES.map(d => {
@@ -182,21 +184,21 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Données fiables */}
+      {/* Donnees fiables */}
       <section className="container py-16 md:py-20">
         <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Fiabilité</p>
-          <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">Données fiables</h2>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t('pages.index_reliability_label')}</p>
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">{t('pages.index_reliability_title')}</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-xl mx-auto">
-            Chaque chiffre a une source. Chaque benchmark est tracé.
+            {t('pages.index_reliability_subtitle')}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
           {[
-            { title: 'Benchmarks sourcés', desc: 'Chaque référence sectorielle est citée avec sa source et son année' },
-            { title: 'Calculs vérifiables', desc: 'Les valorisations et ratios sont calculés, pas générés par l\'IA' },
-            { title: 'Adapté à l\'Afrique', desc: 'Normes SYSCOHADA, devises locales, contexte terrain intégré' },
-            { title: 'Alertes terrain', desc: 'Signaux de risques identifiés automatiquement à partir des données' },
+            { title: t('pages.index_reliability_1_title'), desc: t('pages.index_reliability_1_desc') },
+            { title: t('pages.index_reliability_2_title'), desc: t('pages.index_reliability_2_desc') },
+            { title: t('pages.index_reliability_3_title'), desc: t('pages.index_reliability_3_desc') },
+            { title: t('pages.index_reliability_4_title'), desc: t('pages.index_reliability_4_desc') },
           ].map(item => (
             <div key={item.title} className="bg-card rounded-xl border p-5 hover:shadow-md transition-shadow">
               <h4 className="text-sm font-display font-bold text-foreground">{item.title}</h4>
@@ -206,12 +208,12 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Vos données sont protégées */}
+      {/* Vos donnees sont protegees */}
       <section className="bg-gradient-to-r from-[hsl(222,47%,14%)] to-[hsl(222,47%,20%)] text-white">
         <div className="container py-16 md:py-20">
           <div className="max-w-4xl mx-auto text-center mb-10">
             <Shield className="h-10 w-10 text-[hsl(152,56%,45%)] mx-auto mb-4" />
-            <h2 className="text-2xl md:text-3xl font-display font-bold">Vos données sont protégées</h2>
+            <h2 className="text-2xl md:text-3xl font-display font-bold">{t('pages.index_trust_title')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
             {TRUST_ITEMS.map(item => {
@@ -238,10 +240,10 @@ export default function Index() {
               <span className="text-[8px] font-display font-bold text-primary-foreground">ES</span>
             </div>
             <span className="font-display font-bold text-foreground">ESONO</span>
-            <span className="hidden sm:inline">— L'assistant IA des coachs d'entreprise en Afrique</span>
+            <span className="hidden sm:inline">— {t('pages.index_footer_tagline')}</span>
           </div>
           <Link to="/login" className="text-primary hover:underline font-medium">
-            Se connecter
+            {t('pages.index_sign_in')}
           </Link>
         </div>
       </footer>
