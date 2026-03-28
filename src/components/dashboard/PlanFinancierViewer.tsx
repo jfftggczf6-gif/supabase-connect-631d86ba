@@ -245,13 +245,13 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
 
       <Tabs defaultValue="synthese" className="w-full">
         <TabsList className="w-full flex overflow-x-auto">
-          <TabsTrigger value="synthese" className="text-[11px] flex-1">Synthèse</TabsTrigger>
-          <TabsTrigger value="situation" className="text-[11px] flex-1">Situation</TabsTrigger>
-          <TabsTrigger value="marges" className="text-[11px] flex-1">Marges</TabsTrigger>
-          <TabsTrigger value="hypotheses" className="text-[11px] flex-1">Hypothèses</TabsTrigger>
-          <TabsTrigger value="projections" className="text-[11px] flex-1">Projections</TabsTrigger>
-          <TabsTrigger value="produits" className="text-[11px] flex-1">Produits & RH</TabsTrigger>
-          <TabsTrigger value="investissement" className="text-[11px] flex-1">Invest.</TabsTrigger>
+          <TabsTrigger value="synthese" className="text-[11px] flex-1">{t('viewers.synthesis')}</TabsTrigger>
+          <TabsTrigger value="situation" className="text-[11px] flex-1">{t('viewers.plan_situation')}</TabsTrigger>
+          <TabsTrigger value="marges" className="text-[11px] flex-1">{t('viewers.plan_margins')}</TabsTrigger>
+          <TabsTrigger value="hypotheses" className="text-[11px] flex-1">{t('viewers.plan_hypotheses')}</TabsTrigger>
+          <TabsTrigger value="projections" className="text-[11px] flex-1">{t('viewers.plan_projections')}</TabsTrigger>
+          <TabsTrigger value="produits" className="text-[11px] flex-1">{t('viewers.plan_products')}</TabsTrigger>
+          <TabsTrigger value="investissement" className="text-[11px] flex-1">{t('viewers.plan_investment')}</TabsTrigger>
           
           {hasAuditTab && <TabsTrigger value="audit" className="text-[11px] flex-1">Audit</TabsTrigger>}
         </TabsList>

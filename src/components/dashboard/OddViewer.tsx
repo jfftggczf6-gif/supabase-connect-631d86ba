@@ -135,10 +135,10 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
       {/* Tabs */}
       <Tabs defaultValue="cibles">
         <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="cibles">Cibles ({cibles.length})</TabsTrigger>
-          <TabsTrigger value="resume">Résumé par ODD</TabsTrigger>
-          <TabsTrigger value="indicateurs">Indicateurs</TabsTrigger>
-          <TabsTrigger value="synthese">Synthèse</TabsTrigger>
+          <TabsTrigger value="cibles">{t('viewers.odd_targets')} ({cibles.length})</TabsTrigger>
+          <TabsTrigger value="resume">{t('viewers.odd_summary')}</TabsTrigger>
+          <TabsTrigger value="indicateurs">{t('viewers.sic_impact_indicators')}</TabsTrigger>
+          <TabsTrigger value="synthese">{t('viewers.synthesis')}</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: All targets */}

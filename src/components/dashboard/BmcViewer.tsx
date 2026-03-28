@@ -102,7 +102,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
 
       {/* RESSOURCES CLÉS (full width below canvas) */}
       <div className="bg-card border border-t-0 border-border rounded-b-xl p-5 mb-6 group">
-        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">RESSOURCES CLÉS {editBtn('canvas.ressources_cles', 'Ressources Clés')}</h4>
+        <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">{t('viewers.bmc_key_resources')} {editBtn('canvas.ressources_cles', 'Ressources Clés')}</h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
           {canvas.ressources_cles?.categories ? (
             Object.entries(canvas.ressources_cles.categories).map(([key, val]: [string, any]) => (
@@ -126,7 +126,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       <div className="grid grid-cols-2 gap-4 mb-8">
         {/* Coûts */}
         <div className="bg-card border border-border rounded-xl p-5 group">
-          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">STRUCTURE DE COÛTS {editBtn('canvas.structure_couts', 'Structure de Coûts')}</h4>
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">{t('viewers.bmc_cost_structure')} {editBtn('canvas.structure_couts', 'Structure de Coûts')}</h4>
           <div className="space-y-1.5">
             {(canvas.structure_couts?.postes || []).map((p: any, i: number) => (
               <div key={i} className="flex justify-between text-xs">
@@ -145,7 +145,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
 
         {/* Revenus */}
         <div className="bg-card border border-border rounded-xl p-5 group">
-          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">FLUX DE REVENUS {editBtn('canvas.flux_revenus', 'Flux de Revenus')}</h4>
+          <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-primary mb-3 flex items-center gap-2">{t('viewers.bmc_revenue_streams')} {editBtn('canvas.flux_revenus', 'Flux de Revenus')}</h4>
           <div className="space-y-1.5 text-xs">
             {canvas.flux_revenus?.produit_principal && <Row label="Produit principal" val={canvas.flux_revenus.produit_principal} />}
             {canvas.flux_revenus?.prix_moyen && <Row label="Prix moyen" val={canvas.flux_revenus.prix_moyen} />}
@@ -188,7 +188,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       {/* Forces & Points de vigilance */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="bg-card border rounded-xl p-5 group" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
-          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#166534' }}>✅ Forces {editBtn('diagnostic.forces', 'Forces')}</h4>
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#166534' }}>✅ {t('viewers.forces')} {editBtn('diagnostic.forces', 'Forces')}</h4>
           <ul className="space-y-1.5">
             {(diag.forces || []).map((f: string, i: number) => (
               <li key={i} className="text-xs text-foreground">• {f}</li>
@@ -196,7 +196,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
           </ul>
         </div>
         <div className="bg-card border rounded-xl p-5 group" style={{ borderColor: '#fef08a', background: '#fefce8' }}>
-          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#854d0e' }}>⚠️ Points de vigilance {editBtn('diagnostic.points_vigilance', 'Points de Vigilance')}</h4>
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#854d0e' }}>{t('viewers.watch_points')} {editBtn('diagnostic.points_vigilance', 'Points de Vigilance')}</h4>
           <ul className="space-y-1.5">
             {(diag.points_vigilance || []).map((p: string, i: number) => (
               <li key={i} className="text-xs text-foreground">• {p}</li>
@@ -215,7 +215,7 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
       </div>
 
       {/* ===== RECOMMANDATIONS STRATÉGIQUES ===== */}
-      <div className="group flex items-center gap-2"><SectionTitle>RECOMMANDATIONS STRATÉGIQUES</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
+      <div className="group flex items-center gap-2"><SectionTitle>{t('viewers.recommendations').toUpperCase()}</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
       <div className="space-y-4 mb-8">
         {reco.court_terme && (
           <RecoBlock emoji="📌" title="Court terme — Consolider les fondations" text={reco.court_terme} color="#22c55e" />

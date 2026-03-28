@@ -581,7 +581,13 @@
     "bp_strategy": "Strategy",
     "bp_operations": "Operations plan",
     "bp_financial": "Financial plan",
-    "bp_appendices": "Appendices"
+    "bp_appendices": "Appendices",
+    "odd_targets": "Targets",
+    "plan_situation": "Situation",
+    "plan_margins": "Margins",
+    "plan_projections": "Projections",
+    "plan_products": "Products & HR",
+    "plan_investment": "Invest."
   },
   "status": {
     "not_started": "Not started",
