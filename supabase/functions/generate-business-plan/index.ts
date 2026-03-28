@@ -829,7 +829,7 @@ serve(async (req) => {
     );
     const knowledgeBlock = `\n\n══════ BASE DE CONNAISSANCES FINANCIÈRE ══════\n${knowledgeBase}`;
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "business_plan");
-    const guardedPrompt = injectGuardrails(BP_SYSTEM_PROMPT);
+    const guardedPrompt = injectGuardrails(BP_SYSTEM_PROMPT, ent.country);
 
     // PRE-STEP: Web search for market analysis
     let webMarketContext = "";

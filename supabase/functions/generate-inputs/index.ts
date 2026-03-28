@@ -574,7 +574,7 @@ EXEMPLES :
       + `\n\nPARAMÈTRES FISCAUX ${ent.country || ''}:\n${JSON.stringify(fiscalParams)}`
       + `\n\n${benchmarks}`;
 
-    const rawData = await callAI(injectGuardrails(buildSystemPrompt(fiscalParams.devise)), enrichedPrompt, 16384, "claude-opus-4-6");
+    const rawData = await callAI(injectGuardrails(buildSystemPrompt(fiscalParams.devise), ent.country), enrichedPrompt, 16384, "claude-opus-4-6");
     const normalized = normalizeInputs(rawData);
     const data = validateAndEnrich(normalized, ent.country, ent.sector);
 

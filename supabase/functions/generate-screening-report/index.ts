@@ -269,7 +269,7 @@ ${DECISION_SCHEMA}`;
     } catch (e) { console.warn("[screening-report] risk detection non-blocking:", e); }
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 32768);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext + kbContext + riskBlock, 32768);
     const normalizedData = normalizeScreeningReport(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 

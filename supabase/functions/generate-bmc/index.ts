@@ -174,7 +174,7 @@ serve(async (req) => {
       if (preScreen.classification) upstreamContext += `Classification: ${preScreen.classification}\n`;
     }
 
-    const rawBmcData = await callAI(injectGuardrails(BMC_SYSTEM_PROMPT), BMC_USER_PROMPT(
+    const rawBmcData = await callAI(injectGuardrails(BMC_SYSTEM_PROMPT, ent.country), BMC_USER_PROMPT(
       ent.name, ent.sector || "", ent.country || "", ent.city || "", agentDocs
     ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}` + ragContext + kbContext + coachingContext + upstreamContext, 32768, "claude-sonnet-4-20250514", 0.3);
 

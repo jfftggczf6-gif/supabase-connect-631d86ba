@@ -407,7 +407,7 @@ ${PRE_SCREENING_SCHEMA}`;
         riskBlock = buildRiskBlock(flags);
       }
     } catch (e) { console.warn("[pre-screening] risk detection non-blocking:", e); }
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT), prompt + coachingContext + kbContext + riskBlock, 24576, undefined, 0.2);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext + kbContext + riskBlock, 24576, undefined, 0.2);
     const normalizedData = normalizePreScreening(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 

@@ -287,7 +287,7 @@ Indique lesquels sont levés et lesquels persistent.
     const agentDocs = getDocumentContentForAgent(ent, "diagnostic", 80_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawData = await callAI(
-      injectGuardrails(SYSTEM_PROMPT),
+      injectGuardrails(SYSTEM_PROMPT, pays),
       buildUserPrompt(ent.name, secteur, pays, agentDocs, livrables, truthBlock, progressionBlock) + coachingContext
         + riskBlock
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`

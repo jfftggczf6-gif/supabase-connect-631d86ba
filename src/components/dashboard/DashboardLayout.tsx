@@ -3,9 +3,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, ClipboardList } from 'lucide-react';
+import { LogOut, User, ClipboardList, Globe } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -17,7 +18,9 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation();
   const showProgrammes = role === 'super_admin' || role === 'chef_programme';
+  const toggleLang = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -48,7 +51,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/programmes') || location.pathname === '/dashboard') && 'bg-muted')}
                 onClick={() => navigate('/programmes')}
               >
-                <ClipboardList className="h-4 w-4" /> Programmes
+                <ClipboardList className="h-4 w-4" /> {t('nav.programmes')}
               </Button>
             )}
             {!showProgrammes && location.pathname !== '/dashboard' && (
@@ -58,10 +61,21 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 className="gap-1.5 text-xs"
                 onClick={() => navigate('/dashboard')}
               >
-                Dashboard
+                {t('nav.dashboard')}
               </Button>
             )}
           </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-xs h-8 px-2"
+              onClick={toggleLang}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {i18n.language === 'fr' ? 'EN' : 'FR'}
+            </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -71,15 +85,15 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline text-sm font-medium">{profile?.full_name || 'Utilisateur'}</span>
+                <span className="hidden sm:inline text-sm font-medium">{profile?.full_name || t('nav.user_fallback')}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem className="gap-2">
-                <User className="h-4 w-4" /> Profil
+                <User className="h-4 w-4" /> {t('nav.profile')}
               </DropdownMenuItem>
               <DropdownMenuItem className="gap-2 text-destructive" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4" /> Déconnexion
+                <LogOut className="h-4 w-4" /> {t('nav.logout')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

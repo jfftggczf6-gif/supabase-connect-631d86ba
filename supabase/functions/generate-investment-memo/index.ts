@@ -295,7 +295,7 @@ Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-          const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.2);
+          const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT, ent.country), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.2);
 
           const mergedMemo = { ...part1, ...part2 };
           mergedMemo.score = part1.resume_executif?.score_ir || 0;
@@ -353,7 +353,7 @@ Chaque section narrative doit faire au minimum 200 mots.
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
-          const part1Result = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.2);
+          const part1Result = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT, ent.country), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.2);
           const score = part1Result.resume_executif?.score_ir || 0;
 
           console.log("Investment Memo — Pass 1 done, saving checkpoint...");

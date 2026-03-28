@@ -41,7 +41,28 @@ Quand tu produis un objet JSON avec des constats, bloquants, ou observations chi
 { "titre": "Chute du CA de 39%", "constat": "Le CA est passé de 759M à 460M FCFA", "source": "États financiers 2023 et 2024", "severite": "urgent" }
 `;
 
-/** Injecte les guardrails dans un prompt système */
-export function injectGuardrails(systemPrompt: string): string {
-  return `${systemPrompt}\n\n══════ GUARDRAILS ANTI-HALLUCINATION ══════\n${AI_GUARDRAILS}\n══════ FIN GUARDRAILS ══════`;
+/** Injecte les guardrails dans un prompt système. Si country est fourni, ajoute l'instruction de langue. */
+export function injectGuardrails(systemPrompt: string, country?: string | null): string {
+  const langInstruction = country ? getLanguageInstruction(country) : '';
+  return `${systemPrompt}\n\n══════ GUARDRAILS ANTI-HALLUCINATION ══════\n${AI_GUARDRAILS}\n══════ FIN GUARDRAILS ══════${langInstruction}`;
+}
+
+// ── Country → Language mapping ──
+const ANGLOPHONE_COUNTRIES = new Set([
+  'nigeria', 'ghana', 'kenya', 'rwanda', 'tanzania', 'south africa',
+  'uganda', 'zambia', 'zimbabwe', 'botswana', 'namibia', 'malawi',
+  'sierra leone', 'liberia', 'gambia', 'ethiopia',
+]);
+
+export function getContentLanguage(country: string | null | undefined): 'fr' | 'en' {
+  if (!country) return 'fr';
+  return ANGLOPHONE_COUNTRIES.has(country.trim().toLowerCase()) ? 'en' : 'fr';
+}
+
+function getLanguageInstruction(country: string | null | undefined): string {
+  const lang = getContentLanguage(country);
+  if (lang === 'en') {
+    return '\n\n══════ RESPONSE LANGUAGE ══════\nAll text content, analyses, recommendations, and narratives must be written in ENGLISH. JSON keys remain unchanged. Only the text values must be in English.\n══════ END ══════';
+  }
+  return '';
 }

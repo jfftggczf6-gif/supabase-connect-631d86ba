@@ -241,7 +241,7 @@ serve(async (req) => {
     }
     if (impactContext) impactContext = `\n══════ DONNÉES STRUCTURÉES (pour calibrer l'impact) ══════\n${impactContext}`;
 
-    const rawAiData = await callAI(injectGuardrails(SYSTEM_PROMPT), userPrompt(
+    const rawAiData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData
     ) + ragContext + kbContext + coachingContext + impactContext, 16384, "claude-sonnet-4-20250514", 0.3);
 
