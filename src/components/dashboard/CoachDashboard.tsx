@@ -88,7 +88,8 @@ export default function CoachDashboard() {
   const [search, setSearch] = useState('');
   const [filterPhase, setFilterPhase] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', contact_email: '' });
+  const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Madagascar", "Rwanda", "Kenya", "Nigeria", "Ghana", "Maroc", "Tunisie", "Éthiopie", "Tanzanie", "Afrique du Sud"];
+  const [addForm, setAddForm] = useState({ name: '', contact_email: '', country: '', sector: '', city: '', description: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [showKBManager, setShowKBManager] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
@@ -281,6 +282,10 @@ export default function CoachDashboard() {
         const { error } = await supabase.from('enterprises').insert({
           name: addForm.name.trim(),
           contact_email: addForm.contact_email || null,
+          country: addForm.country || null,
+          sector: addForm.sector || null,
+          city: addForm.city || null,
+          description: addForm.description || null,
           coach_id: user.id,
           user_id: user.id,
           phase: 'identite',
@@ -292,7 +297,7 @@ export default function CoachDashboard() {
       }
 
       setShowAddModal(false);
-      setAddForm({ name: '', contact_email: '' });
+      setAddForm({ name: '', contact_email: '', country: '', sector: '', city: '', description: '' });
       await fetchData();
     } catch (err: any) {
       toast.error(err.message || t('dashboard_coach.add_error'));
@@ -685,23 +690,37 @@ export default function CoachDashboard() {
               <UserPlus className="h-5 w-5 text-primary" /> {t('dashboard_coach.new_entrepreneur')}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2">
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.enterprise_name_required')}</label>
-              <input
-                type="text" placeholder="SARL Mon Entreprise"
-                value={addForm.name}
-                onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+              <input type="text" placeholder="SARL Mon Entreprise" value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.country')} *</label>
+                <select value={addForm.country} onChange={e => setAddForm(f => ({ ...f, country: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value="">— {t('auth.select_country')} —</option>
+                  {SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.sector')}</label>
+                <input type="text" placeholder="Agro-industrie, Fintech..." value={addForm.sector} onChange={e => setAddForm(f => ({ ...f, sector: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.city')}</label>
+                <input type="text" placeholder="Abidjan, Lagos..." value={addForm.city} onChange={e => setAddForm(f => ({ ...f, city: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.email_label')}</label>
+                <input type="email" placeholder="contact@entreprise.com" value={addForm.contact_email} onChange={e => setAddForm(f => ({ ...f, contact_email: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.email_label')}</label>
-              <input type="email" placeholder="contact@entreprise.com"
-                value={addForm.contact_email}
-                onChange={e => setAddForm(f => ({ ...f, contact_email: e.target.value }))}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.description')}</label>
+              <input type="text" placeholder={t('dashboard_coach.description')} value={addForm.description} onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowAddModal(false)}>{t('common.cancel')}</Button>
