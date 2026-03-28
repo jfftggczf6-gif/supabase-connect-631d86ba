@@ -69,11 +69,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!currentRole) setRoleLoading(true);
           return currentRole;
         });
-        // After signup, wait for DB trigger to finish creating profile + role
-        const delay = event === 'SIGNED_IN' && !role ? 1000 : 0;
-        setTimeout(() => {
-          fetchUserData(session.user.id).finally(() => setRoleLoading(false));
-        }, delay);
+        // After signup/login, fetch user data. Retry if role not found (trigger may be slow).
+        const doFetch = async () => {
+          await fetchUserData(session!.user.id);
+          // If role still null after first fetch, retry after 2s (DB trigger may not have run yet)
+          setRoleState(currentRole => {
+            if (!currentRole && session?.user) {
+              setTimeout(async () => {
+                await fetchUserData(session!.user.id);
+                setRoleLoading(false);
+              }, 2000);
+            } else {
+              setRoleLoading(false);
+            }
+            return currentRole;
+          });
+        };
+        // Small delay on first SIGNED_IN to let trigger run
+        const delay = event === 'SIGNED_IN' ? 500 : 0;
+        setTimeout(doFetch, delay);
       } else {
         setProfile(null);
         setRoleState(null);
