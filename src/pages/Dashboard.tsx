@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -7,8 +8,17 @@ import SuperAdminDashboard from '@/components/dashboard/SuperAdminDashboard';
 
 export default function Dashboard() {
   const { role, loading, roleLoading, user } = useAuth();
+  const [waited, setWaited] = useState(false);
 
-  // Still loading auth or role → show spinner
+  // If user is logged in but role is null after loading, wait 3s then give up
+  useEffect(() => {
+    if (user && !role && !loading && !roleLoading) {
+      const timer = setTimeout(() => setWaited(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, role, loading, roleLoading]);
+
+  // Still loading
   if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -17,9 +27,8 @@ export default function Dashboard() {
     );
   }
 
-  // User is logged in but role not yet loaded → wait (trigger may still be running)
-  if (user && !role) {
-    // Give the DB trigger 3s max to create the role, then redirect
+  // User logged in but no role yet — wait up to 3s
+  if (user && !role && !waited) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -27,10 +36,7 @@ export default function Dashboard() {
     );
   }
 
-  // No user → login
   if (!user) return <Navigate to="/login" replace />;
-
-  // No role after everything loaded → select role
   if (!role) return <Navigate to="/select-role" replace />;
 
   if (role === 'chef_programme') return <Navigate to="/programmes" replace />;
