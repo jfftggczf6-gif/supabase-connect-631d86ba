@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wrench } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 

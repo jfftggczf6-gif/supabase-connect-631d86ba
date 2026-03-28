@@ -1,4 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import { formatAmount as formatAmountUtil, getDevise } from '@/lib/format-currency';

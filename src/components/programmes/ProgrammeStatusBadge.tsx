@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 const STATUS_CONFIG: Record<string, { label: string; emoji: string; className: string }> = {

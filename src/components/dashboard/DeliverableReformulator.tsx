@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, Check, X, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Upload, Cpu, PenLine, Share2, Download, Eye } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';

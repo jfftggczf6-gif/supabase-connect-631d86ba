@@ -1,4 +1,5 @@
 // BmcViewer
+import { useTranslation } from 'react-i18next';
 import SectionEditButton from './SectionEditButton';
 
 interface BmcViewerProps {

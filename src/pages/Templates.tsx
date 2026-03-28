@@ -1,4 +1,5 @@
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, FileSpreadsheet, Download, Loader2 } from 'lucide-react';
