@@ -72,7 +72,7 @@ serve(async (req) => {
       });
     }
 
-    const country = ent.country || "Côte d'Ivoire";
+    const country = ent.country || '';
     console.log("[reconcile-plan-ovo] Reconciling plan_ovo with latest framework_data...");
 
     // Reapply framework constraints

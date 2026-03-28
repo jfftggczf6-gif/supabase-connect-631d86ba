@@ -212,7 +212,7 @@ serve(async (req) => {
   try {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
-    const country = ent.country || "Côte d'Ivoire";
+    const country = ent.country || '';
     const inputsRaw = ctx.deliverableMap["inputs_data"]?.data || ctx.deliverableMap["inputs_data"] || {};
     const allData = {
       inputs: inputsRaw,

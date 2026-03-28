@@ -182,7 +182,8 @@ export async function runPipelineFromClient(
       }
     }
 
-    onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}…` });
+    const eta = (step as any).eta ? ` (${(step as any).eta})` : '';
+    onProgress?.({ current: i, total: PIPELINE.length, name: `${step.name}…${eta}` });
 
     // P2: Snapshot current deliverable before regeneration (protect coach corrections)
     const existingDeliv = existing?.find((d: any) => d.type === step.type);

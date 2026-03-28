@@ -146,7 +146,7 @@ serve(async (req) => {
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "secteurs"], "bmc_analysis");
 
     const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
-    const contextBenchmarks = getContextualBenchmarks(ent.country || "Côte d'Ivoire", ent.sector || "services_b2b");
+    const contextBenchmarks = getContextualBenchmarks(ent.country || '', ent.sector || "services_b2b");
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "bmc");
     const agentDocs = getDocumentContentForAgent(ent, "bmc", 20_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);

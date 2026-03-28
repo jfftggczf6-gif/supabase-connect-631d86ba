@@ -348,7 +348,7 @@ Résultat net = ${truth.resultat_net.toLocaleString('fr-FR')} FCFA
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
-PAYS : ${ent.country || "Côte d'Ivoire"}
+PAYS : ${ent.country || ''}
 EFFECTIFS DÉCLARÉS : ${ent.employees_count || "Non spécifié"}
 FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DATE CRÉATION : ${ent.creation_date || "Non spécifié"}

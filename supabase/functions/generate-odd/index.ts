@@ -182,7 +182,7 @@ serve(async (req) => {
     const userPrompt = buildUserPrompt(
       ent.name,
       ent.sector || "PME",
-      ent.country || "Côte d'Ivoire",
+      ent.country || '',
       bmcData,
       sicData
     ) + `\n\n══════ CRITÈRES ESG DES BAILLEURS ══════\n${donorCriteria}` + ragContext + kbContext;
@@ -228,7 +228,7 @@ serve(async (req) => {
       // Prepare data for the Python server
       const oddData = data as any;
       const oddExcelData = {
-        project_name: `${ent.name} — ${ent.country || "Côte d'Ivoire"}`,
+        project_name: `${ent.name} — ${ent.country || ''}`,
         date: new Date().toLocaleDateString('fr-FR'),
         cibles: oddData.evaluation_cibles_odd?.cibles?.map((c: any) => ({
           cible_id: c.target_id || c.cible_number || c.cible || c.odd_number,

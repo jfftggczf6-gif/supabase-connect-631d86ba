@@ -61,7 +61,7 @@ serve(async (req: Request) => {
     const coachingContext = await getCoachingContext(supabase, enterpriseId);
 
     const currentYear = new Date().getFullYear();
-    const country = enterprise.country || "Côte d'Ivoire";
+    const country = enterprise.country || '';
     const sector = enterprise.sector || "agro_industrie";
     const fiscal = getFiscalParams(country);
     // Use currency from inputs if available (entrepreneur may use USD, EUR, etc.)

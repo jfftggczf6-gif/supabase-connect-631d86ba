@@ -72,10 +72,10 @@ serve(async (req) => {
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "valuation");
 
     // 5. Appel IA pour l'analyse qualitative
-    const devise = inputsData?.devise || frameworkData?.devise || "FCFA";
+    const devise = inputsData?.devise || frameworkData?.devise || "";
     const analysisInput = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || 'Non spécifié'}
-PAYS : ${ent.country || "Côte d'Ivoire"}
+PAYS : ${ent.country || ''}
 DEVISE : ${devise}
 EFFECTIFS : ${ent.employees_count || 'Non spécifié'}
 
@@ -135,7 +135,7 @@ Produis l'analyse qualitative en JSON :
     // 5. Fusionner calculs + analyse IA
     const finalData = {
       score: aiAnalysis.score || 70,
-      devise: inputsData?.devise || frameworkData?.devise || "FCFA",
+      devise: inputsData?.devise || frameworkData?.devise || "",
 
       // CALCULÉ (déterministe)
       dcf: {

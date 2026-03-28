@@ -121,7 +121,7 @@ serve(async (req) => {
 
     const prompt = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || "Non spécifié"}
-PAYS : ${ent.country || "Côte d'Ivoire"}
+PAYS : ${ent.country || ''}
 EFFECTIFS DÉCLARÉS : ${ent.employees_count || "Non spécifié"}
 FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
 DESCRIPTION : ${ent.description || "Non spécifié"}

@@ -481,7 +481,7 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
     const bmcData = ctx.deliverableMap["bmc_analysis"] || {};
-    const fiscalParams = getFiscalParams(ent.country || "Côte d'Ivoire");
+    const fiscalParams = getFiscalParams(ent.country || '');
 
     // ── Load existing inputs for merge ──
     const { data: existingInputsDeliv } = await ctx.supabase
@@ -566,12 +566,12 @@ EXEMPLES :
       preScreenContext += `⚠️ Utilise ces informations pour identifier TOUTES les activités et estimer les CA par produit.\n`;
     }
 
-    const benchmarks = getContextualBenchmarks(ent.country || "Côte d'Ivoire", ent.sector || "services_b2b");
+    const benchmarks = getContextualBenchmarks(ent.country || '', ent.sector || "services_b2b");
 
     const enrichedPrompt = userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData, fiscalParams.devise
     ) + mergeInstruction + ragContext + kbContext + preScreenContext
-      + `\n\nPARAMÈTRES FISCAUX ${ent.country || "Côte d'Ivoire"}:\n${JSON.stringify(fiscalParams)}`
+      + `\n\nPARAMÈTRES FISCAUX ${ent.country || ''}:\n${JSON.stringify(fiscalParams)}`
       + `\n\n${benchmarks}`;
 
     const rawData = await callAI(injectGuardrails(buildSystemPrompt(fiscalParams.devise)), enrichedPrompt, 16384, "claude-opus-4-6");

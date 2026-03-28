@@ -328,10 +328,10 @@ serve(async (req) => {
 
     // RAG: enrichir avec benchmarks sectoriels et données fiscales
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "bailleurs", "secteurs"], "framework_data");
-    const fiscalParams = getFiscalParams(ent.country || "Côte d'Ivoire");
+    const fiscalParams = getFiscalParams(ent.country || '');
 
     // Inject centralized financial knowledge (without examples to save context)
-    const countryKey = (ent.country || "Côte d'Ivoire").toLowerCase().replace(/[\s']/g, "_");
+    const countryKey = (ent.country || '').toLowerCase().replace(/[\s']/g, "_");
     const sectorKey = (ent.sector || "services_b2b").toLowerCase().replace(/[\s\-\/]/g, "_");
     const knowledgeBase = getFinancialKnowledgePrompt(countryKey, sectorKey, false);
 
@@ -489,7 +489,7 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
     }
 
     const enrichedPrompt = userPrompt(
-      ent.name, ent.sector || "", ent.country || "Côte d'Ivoire", agentDocs, inputsData, bmcData, devise
+      ent.name, ent.sector || "", ent.country || '', agentDocs, inputsData, bmcData, devise
     ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + preScreenBlock + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework");
