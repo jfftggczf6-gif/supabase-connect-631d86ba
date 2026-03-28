@@ -96,11 +96,18 @@ export default function ProgrammeDetailPage() {
     setPublishing(false);
   };
 
+  const handleClose = async () => {
+    if (!confirm('Clôturer les candidatures ? Plus aucune candidature ne pourra être soumise.')) return;
+    const { error } = await supabase.from('programmes').update({ status: 'closed' }).eq('id', id!);
+    if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    else { toast({ title: '✅ Candidatures clôturées' }); fetchProgramme(); }
+  };
+
   const handleStart = async () => {
     setStarting(true);
     const { error } = await supabase.from('programmes').update({ status: 'in_progress' }).eq('id', id!);
     if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
-    else { toast({ title: '✅ Programme démarré' }); fetchProgramme(); }
+    else { toast({ title: '✅ Programme démarré — les onglets de suivi sont maintenant disponibles' }); fetchProgramme(); }
     setStarting(false);
   };
 
@@ -168,9 +175,13 @@ export default function ProgrammeDetailPage() {
   if (isCohorte) {
     tabs.push('enterprises', 'dashboard', 'comparatif', 'reporting', 'impact');
   } else {
-    if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
-    if (status === 'open') tabs.push('diffusion');
-    if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting', 'impact');
+    if (['open', 'closed'].includes(status)) {
+      tabs.push('candidatures', 'kanban');
+      if (status === 'open') tabs.push('diffusion');
+    }
+    if (['in_progress', 'completed'].includes(status)) {
+      tabs.push('dashboard', 'comparatif', 'reporting', 'impact');
+    }
   }
   if (status !== 'completed') tabs.push('parametres');
 
@@ -185,6 +196,7 @@ export default function ProgrammeDetailPage() {
       <div className="flex items-center gap-3 mb-6">
         <ProgrammeStatusBadge status={status} />
         {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Publier</Button>}
+        {status === 'open' && <Button variant="outline" onClick={handleClose}>Clôturer les candidatures</Button>}
         {status === 'closed' && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Démarrer le programme</Button>}
       </div>
 
