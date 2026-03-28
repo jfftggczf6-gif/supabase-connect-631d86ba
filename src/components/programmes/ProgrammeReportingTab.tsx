@@ -86,7 +86,8 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       if (error) throw error;
       toast.success('Programme clôturé');
       setShowClotureConfirm(false);
-      window.location.reload();
+      // Soft reload — the parent will re-fetch via its own state
+      window.dispatchEvent(new CustomEvent('programme-updated'));
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la clôture');
     }

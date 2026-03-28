@@ -84,7 +84,7 @@ ${bloquantsRestants.map((b: string) => `<div class="check"><span class="r">✗</
 ${rdvNotes.map((n: any) => `<div class="rdv"><b>${new Date(n.date_rdv).toLocaleDateString('fr-FR')}</b> — ${n.titre || (n.resume_ia as string)?.substring(0, 100) || 'Note'}</div>`).join('')}
 <p style="font-size:9pt;color:#64748B;margin-top:6px">Documents collectés : ${uploads.length} | Livrables : ${livrableTypes.length}</p>
 <div>
-${['pre_screening','bmc_analysis','sic_analysis','framework_data','plan_ovo','business_plan','odd_analysis','diagnostic_data','screening_report'].map(t =>
+${['pre_screening','bmc_analysis','sic_analysis','inputs_data','plan_financier','business_plan','odd_analysis','valuation','onepager','investment_memo','diagnostic_data','screening_report'].map(t =>
   `<span class="liv ${livrableTypes.includes(t) ? 'ok' : 'pending'}">${t.replace(/_/g,' ')}</span>`
 ).join('')}
 </div>

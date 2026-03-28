@@ -402,11 +402,22 @@ export default function ProgrammeDetailPage() {
             <h3 className="font-semibold">Paramètres du programme</h3>
             <p className="text-sm text-muted-foreground">La modification des paramètres sera disponible prochainement.</p>
             {['in_progress', 'closed'].includes(status) && (
-              <Button variant="destructive" onClick={async () => {
-                const { error } = await supabase.from('programmes').update({ status: 'completed' }).eq('id', id!);
-                if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
-                else { toast({ title: '✅ Programme clôturé' }); fetchProgramme(); }
-              }}>Clôturer le programme</Button>
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-red-900">Clôturer le programme</p>
+                    <p className="text-xs text-muted-foreground">Action irréversible. Le programme passera en statut "Terminé".</p>
+                  </div>
+                  <Button variant="destructive" onClick={async () => {
+                    if (!confirm(`Clôturer "${programme.name}" ? Cette action est irréversible.`)) return;
+                    const { error } = await supabase.functions.invoke('manage-programme', {
+                      body: { action: 'complete', id: id! }
+                    });
+                    if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+                    else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
+                  }}>Clôturer</Button>
+                </div>
+              </div>
             )}
           </CardContent></Card>
         </TabsContent>
