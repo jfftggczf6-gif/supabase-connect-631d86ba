@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import SectionEditButton from './SectionEditButton';
+import TranslateButton from './TranslateButton';
 import FrameworkViewerComponent from './FrameworkViewer';
 import PlanOvoViewerComponent from './PlanOvoViewer';
 import { OddViewer as OddViewerComponent } from './OddViewer';
@@ -20,20 +21,26 @@ interface DeliverableViewerProps {
 }
 
 export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated }: DeliverableViewerProps) {
+  const { t } = useTranslation();
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
+
   if (!data || typeof data !== 'object') return null;
 
-  const regenerateButton = onRegenerate ? (
-    <div className="flex justify-end mb-3">
-      <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
-        Regénérer
-      </button>
+  const toolbar = (
+    <div className="flex justify-end gap-2 mb-3">
+      <TranslateButton containerRef={viewerContainerRef as React.RefObject<HTMLElement>} />
+      {onRegenerate && (
+        <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
+          {t('dashboard_coach.regenerate')}
+        </button>
+      )}
     </div>
-  ) : null;
+  );
 
   const wrapWithRegenerate = (viewer: React.ReactNode) => (
     <>
-      {regenerateButton}
-      {viewer}
+      {toolbar}
+      <div ref={viewerContainerRef}>{viewer}</div>
     </>
   );
 

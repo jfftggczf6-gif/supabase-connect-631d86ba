@@ -598,7 +598,8 @@
   },
   "translate": {
     "btn": "Translate",
-    "translating": "Translating..."
+    "translating": "Translating...",
+    "undo": "Original"
   },
   "pages": {
     "not_found_title": "404",
