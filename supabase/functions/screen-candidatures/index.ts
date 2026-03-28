@@ -118,8 +118,15 @@ CANDIDATURE :
 RÉPONSES AU FORMULAIRE :
 ${JSON.stringify(candidature.form_data || {}, null, 2)}
 
-DOCUMENTS JOINTS : ${candidature.documents?.length || 0} fichier(s)
-${(candidature.documents || []).map((d: any) => `- ${d.field_label || 'Document'}: ${d.file_name} (${Math.round((d.file_size || 0)/1024)} KB)`).join('\n')}
+DOCUMENTS JOINTS : ${(() => {
+  const docs = Array.isArray(candidature.documents)
+    ? candidature.documents
+    : Object.entries(candidature.documents || {}).map(([k, v]: any) => ({
+        field_label: k, file_name: v?.filename || v?.file_name || k, file_size: v?.file_size || 0,
+      }));
+  if (docs.length === 0) return '0 fichier(s)\n⚠️ AUCUN DOCUMENT FOURNI — signaler comme point de vigilance';
+  return `${docs.length} fichier(s)\n${docs.map((d: any) => `- ${d.field_label || 'Document'}: ${d.file_name} (${Math.round((d.file_size || 0)/1024)} KB)`).join('\n')}`;
+})()}
 
 Produis le diagnostic initial complet.`;
 }

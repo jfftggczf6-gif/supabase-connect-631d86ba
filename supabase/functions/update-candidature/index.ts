@@ -311,6 +311,17 @@ serve(async (req) => {
       return jsonRes({ success: true, committee_notes: newNotes });
     }
 
+    if (action === "committee_decision") {
+      const { committee_decision } = body;
+      if (!committee_decision) return jsonRes({ error: "committee_decision requis" }, 400);
+      const { error: decErr } = await supabase.from("candidatures").update({
+        committee_decision,
+        committee_date: new Date().toISOString(),
+      }).eq("id", candidature_id);
+      if (decErr) return jsonRes({ error: decErr.message }, 500);
+      return jsonRes({ success: true, committee_decision });
+    }
+
     return jsonRes({ error: `Action inconnue: ${action}` }, 400);
 
   } catch (e: any) {
