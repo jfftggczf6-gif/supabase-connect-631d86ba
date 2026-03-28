@@ -85,6 +85,7 @@ export default function EntrepreneurDashboard({
   const [_generatingScreening, setGeneratingScreening] = useState(false);
   const [ovoDownloadUrl, setOvoDownloadUrl] = useState<string | null>(null);
   const [regeneratingExcel, setRegeneratingExcel] = useState(false);
+  const [regeneratingOddExcel, setRegeneratingOddExcel] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('overview');
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
@@ -1030,6 +1031,45 @@ export default function EntrepreneurDashboard({
     }
   };
 
+  const handleRegenerateOddExcel = async () => {
+    if (!enterprise) return;
+    setRegeneratingOddExcel(true);
+    try {
+      const token = await getValidAccessToken(authSession, navigate);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/regenerate-excel-odd`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterprise.id }),
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+        throw new Error(err.error || `Erreur ${response.status}`);
+      }
+      const result = await response.json();
+      if (result.download_url) {
+        toast.success(`Excel ODD généré (${Math.round((result.size_bytes || 0) / 1024)} Ko) — téléchargement...`);
+        const dlResp = await fetch(result.download_url);
+        if (dlResp.ok) {
+          const blob = await dlResp.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = result.file_name || `${enterprise?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'entreprise'}_ODD.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Échec de la génération Excel ODD');
+    } finally {
+      setRegeneratingOddExcel(false);
+    }
+  };
+
   const handleDownloadOvoFile = async (url: string) => {
     try {
       const token = await getValidAccessToken(authSession, navigate);
@@ -1756,14 +1796,10 @@ export default function EntrepreneurDashboard({
                         <div><p className="text-sm font-semibold text-emerald-900">ODD</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {deliverables.find((d: any) => d.type === 'odd_excel') ? (
-                          <>
-                            <button onClick={() => handleDownload('odd_analysis', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
-                            <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
-                          </>
-                        ) : selectedDeliv?.data ? (
-                          <Badge variant="outline" className="text-xs text-emerald-600"><Clock className="h-3 w-3 mr-1" /> Excel à la prochaine génération</Badge>
-                        ) : null}
+                        <button onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Génère l'Excel ODD à partir des données existantes">
+                          {regeneratingOddExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel ODD
+                        </button>
+                        <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
                       </div>
                     </div>
                   </div>
