@@ -5,10 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Users, TrendingUp, AlertTriangle, CheckCircle2, BarChart3, UserCheck, ChevronRight, Clock } from 'lucide-react';
+import { Loader2, Users, TrendingUp, AlertTriangle, CheckCircle2, BarChart3, UserCheck, ChevronRight, Clock, Activity, Bot, Pencil, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 
 interface Props {
   programmeId: string;
@@ -41,6 +41,9 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
   const enterprises = data.enterprises || [];
   const byCoach = data.by_coach || [];
   const modulesCompletion = kpis.modules_completion || {};
+  const scoreEvolution = data.score_evolution || [];
+  const activite7j = data.activite_7j || { par_jour: {}, totaux: { generations: 0, corrections: 0, notes_coaching: 0 } };
+  const activiteRecente = data.activite_recente || [];
 
   // Collect all alerts from enterprises
   const allAlerts: any[] = [];
@@ -88,87 +91,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Complétion par module */}
-        <Card><CardContent className="p-5">
-          <h3 className="font-semibold mb-4">Complétion par module</h3>
-          <div className="space-y-3">
-            {Object.entries(modulesCompletion).map(([mod, stats]: [string, any]) => {
-              const total = (stats.completed || 0) + (stats.in_progress || 0) + (stats.not_started || 0);
-              const pct = total > 0 ? Math.round((stats.completed / total) * 100) : 0;
-              return (
-                <div key={mod} className="flex items-center gap-3">
-                  <span className="text-xs font-medium w-28 truncate">{mod.replace(/_/g, ' ')}</span>
-                  <div className="flex-1">
-                    <Progress value={pct} className={`h-2 ${completionColor(pct)}`} />
-                  </div>
-                  <span className="text-xs text-muted-foreground w-16 text-right">{stats.completed}/{total} ({pct}%)</span>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent></Card>
-
-        {/* Distribution des scores */}
-        <Card><CardContent className="p-5">
-          <h3 className="font-semibold mb-4">Distribution des scores</h3>
-          {distribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={distribution}>
-                <XAxis dataKey="range" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {distribution.map((_: any, i: number) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <p className="text-sm text-muted-foreground text-center py-8">Pas encore de scores</p>}
-        </CardContent></Card>
-      </div>
-
-      {/* Par coach */}
-      {byCoach.length > 0 && (
-        <Card><CardContent className="p-5">
-          <h3 className="font-semibold mb-3">Par coach</h3>
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead>Coach</TableHead>
-              <TableHead>Entreprises</TableHead>
-              <TableHead>Score moyen</TableHead>
-              <TableHead>Complétion</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {byCoach.map((c: any) => (
-                <TableRow key={c.coach_id} className="cursor-pointer hover:bg-muted/50" onClick={() => setShowCoach(c)}>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-muted-foreground" />
-                    {c.coach_name}
-                  </TableCell>
-                  <TableCell>{c.enterprises_count}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={
-                      c.avg_score >= 70 ? 'border-emerald-300 text-emerald-700' :
-                      c.avg_score >= 40 ? 'border-amber-300 text-amber-700' :
-                      'border-red-300 text-red-700'
-                    }>{c.avg_score}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Progress value={c.avg_completion ?? 0} className="h-1.5 w-20" />
-                      <span className="text-xs text-muted-foreground">{c.avg_completion ?? 0}%</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent></Card>
-      )}
-
-      {/* Tableau entreprises */}
+      {/* Tableau entreprises (EN PREMIER — c'est ce que le chef cherche) */}
       <Card><CardContent className="p-5">
         <h3 className="font-semibold mb-3">Entreprises du programme</h3>
         <Table>
@@ -216,6 +139,158 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
           </TableBody>
         </Table>
       </CardContent></Card>
+
+      {/* Par coach */}
+      {byCoach.length > 0 && (
+        <Card><CardContent className="p-5">
+          <h3 className="font-semibold mb-3">Par coach</h3>
+          <Table>
+            <TableHeader><TableRow>
+              <TableHead>Coach</TableHead>
+              <TableHead>Entreprises</TableHead>
+              <TableHead>Score moyen</TableHead>
+              <TableHead>Complétion</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {byCoach.map((c: any) => (
+                <TableRow key={c.coach_id} className="cursor-pointer hover:bg-muted/50" onClick={() => setShowCoach(c)}>
+                  <TableCell className="font-medium flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-muted-foreground" />
+                    {c.coach_name}
+                  </TableCell>
+                  <TableCell>{c.enterprises_count}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={
+                      c.avg_score >= 70 ? 'border-emerald-300 text-emerald-700' :
+                      c.avg_score >= 40 ? 'border-amber-300 text-amber-700' :
+                      'border-red-300 text-red-700'
+                    }>{c.avg_score}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Progress value={c.avg_completion ?? 0} className="h-1.5 w-20" />
+                      <span className="text-xs text-muted-foreground">{c.avg_completion ?? 0}%</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      )}
+
+      {/* Analytics (dépliable) */}
+      <details>
+        <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-2">
+          <Activity className="h-4 w-4" /> Analytics détaillées
+        </summary>
+        <div className="mt-4 space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Complétion par module */}
+            <Card><CardContent className="p-5">
+              <h3 className="font-semibold mb-4">Complétion par module</h3>
+              <div className="space-y-3">
+                {Object.entries(modulesCompletion).map(([mod, stats]: [string, any]) => {
+                  const total = (stats.completed || 0) + (stats.in_progress || 0) + (stats.not_started || 0);
+                  const pct = total > 0 ? Math.round((stats.completed / total) * 100) : 0;
+                  return (
+                    <div key={mod} className="flex items-center gap-3">
+                      <span className="text-xs font-medium w-28 truncate">{mod.replace(/_/g, ' ')}</span>
+                      <div className="flex-1"><Progress value={pct} className={`h-2 ${completionColor(pct)}`} /></div>
+                      <span className="text-xs text-muted-foreground w-16 text-right">{stats.completed}/{total} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent></Card>
+            {/* Distribution des scores */}
+            <Card><CardContent className="p-5">
+              <h3 className="font-semibold mb-4">Distribution des scores</h3>
+              {distribution.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={distribution}>
+                    <XAxis dataKey="range" tick={{ fontSize: 12 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      {distribution.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <p className="text-sm text-muted-foreground text-center py-8">Pas encore de scores</p>}
+            </CardContent></Card>
+          </div>
+          {/* Évolution score */}
+          {scoreEvolution.length > 0 && (
+            <Card><CardContent className="p-5">
+              <h3 className="font-semibold mb-4">Évolution score cohorte (30 jours)</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={scoreEvolution}>
+                  <XAxis dataKey="semaine" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v: number) => `${v}/100`} />
+                  <Area type="monotone" dataKey="min" stackId="range" stroke="none" fill="#e5e7eb" />
+                  <Area type="monotone" dataKey="max" stackId="range2" stroke="none" fill="#dbeafe" fillOpacity={0.4} />
+                  <Line type="monotone" dataKey="score_moyen" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} name="Score moyen" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent></Card>
+          )}
+          {/* Activité 7j + récente */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card><CardContent className="p-5">
+              <h3 className="font-semibold mb-3">Activité 7 jours</h3>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="text-center p-2 bg-muted/50 rounded">
+                  <Bot className="h-3.5 w-3.5 mx-auto text-blue-500 mb-0.5" />
+                  <p className="text-lg font-bold">{activite7j.totaux.generations}</p>
+                  <p className="text-[10px] text-muted-foreground">Générations</p>
+                </div>
+                <div className="text-center p-2 bg-muted/50 rounded">
+                  <Pencil className="h-3.5 w-3.5 mx-auto text-amber-500 mb-0.5" />
+                  <p className="text-lg font-bold">{activite7j.totaux.corrections}</p>
+                  <p className="text-[10px] text-muted-foreground">Corrections</p>
+                </div>
+                <div className="text-center p-2 bg-muted/50 rounded">
+                  <MessageSquare className="h-3.5 w-3.5 mx-auto text-purple-500 mb-0.5" />
+                  <p className="text-lg font-bold">{activite7j.totaux.notes_coaching}</p>
+                  <p className="text-[10px] text-muted-foreground">Notes</p>
+                </div>
+              </div>
+              {Object.keys(activite7j.par_jour).length > 0 && (
+                <ResponsiveContainer width="100%" height={80}>
+                  <BarChart data={Object.entries(activite7j.par_jour).sort().map(([d, c]) => ({ jour: d.slice(5), count: c }))}>
+                    <XAxis dataKey="jour" tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#3b82f6" radius={[3, 3, 0, 0]} name="Actions" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent></Card>
+            <Card><CardContent className="p-5">
+              <h3 className="font-semibold mb-3">Activité récente</h3>
+              {activiteRecente.length > 0 ? (
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                  {activiteRecente.map((a: any, i: number) => {
+                    const ago = Math.floor((Date.now() - new Date(a.date).getTime()) / 3600000);
+                    const agoStr = ago < 1 ? '<1h' : ago < 24 ? `${ago}h` : `${Math.floor(ago / 24)}j`;
+                    const icon = a.action === 'generate' ? '🤖' : a.action === 'edit_section' ? '✏️' : a.action === 'coaching_note' ? '📝' : '📎';
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-xs p-1.5 rounded hover:bg-muted/50">
+                        <span className="text-muted-foreground w-8 shrink-0 text-right">{agoStr}</span>
+                        <span>{icon}</span>
+                        <span className="font-medium truncate">{a.enterprise}</span>
+                        {a.type && <span className="text-muted-foreground">{a.type.replace(/_/g, ' ')}</span>}
+                        {a.score && <Badge variant="outline" className="text-[9px]">{a.score}</Badge>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="text-sm text-muted-foreground text-center py-4">Aucune activité récente</p>}
+            </CardContent></Card>
+          </div>
+        </div>
+      </details>
 
       {/* Modal alertes */}
       <Dialog open={showAlerts} onOpenChange={setShowAlerts}>

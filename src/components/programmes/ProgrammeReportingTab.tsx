@@ -11,9 +11,10 @@ interface Props {
   programmeId: string;
   programmeName: string;
   programmeStatus?: string;
+  hideClotureButton?: boolean;
 }
 
-export default function ProgrammeReportingTab({ programmeId, programmeName, programmeStatus }: Props) {
+export default function ProgrammeReportingTab({ programmeId, programmeName, programmeStatus, hideClotureButton }: Props) {
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [report, setReport] = useState<any>(null);
   const [exporting, setExporting] = useState(false);
@@ -94,40 +95,34 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
 
   return (
     <div className="space-y-6">
-      {/* Rapports */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
+      {/* Rapport */}
+      {(() => {
+        const isFinal = programmeStatus === 'completed';
+        const reportType = isFinal ? 'final' : 'progress';
+        const label = isFinal ? 'Rapport final' : 'Rapport de progression';
+        const desc = isFinal
+          ? 'Bilan complet pour le bailleur avec impact, success stories et recommandations'
+          : 'Bilan intermédiaire avec KPIs, analyse cohorte et recommandations';
+        const Icon = isFinal ? ClipboardList : BarChart3;
+        const color = isFinal ? 'purple' : 'blue';
+        return (
+          <Card><CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-lg bg-${color}-500/10 flex items-center justify-center`}>
+                <Icon className={`h-5 w-5 text-${color}-600`} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">{label}</h3>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold">Rapport de progression</h3>
-              <p className="text-xs text-muted-foreground">Bilan intermédiaire avec KPIs et recommandations</p>
-            </div>
-          </div>
-          <Button onClick={() => handleGenerateReport('progress')} disabled={!!generatingReport} className="w-full gap-2">
-            {generatingReport === 'progress' ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
-            {generatingReport === 'progress' ? 'Génération... (30-60s)' : 'Générer'}
-          </Button>
-        </CardContent></Card>
-
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <ClipboardList className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold">Rapport final</h3>
-              <p className="text-xs text-muted-foreground">Bilan complet pour le bailleur avec impact et success stories</p>
-            </div>
-          </div>
-          <Button variant="outline" onClick={() => handleGenerateReport('final')} disabled={!!generatingReport} className="w-full gap-2">
-            {generatingReport === 'final' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
-            {generatingReport === 'final' ? 'Génération... (30-60s)' : 'Générer'}
-          </Button>
-        </CardContent></Card>
-      </div>
+            <Button onClick={() => handleGenerateReport(reportType)} disabled={!!generatingReport} className="w-full gap-2">
+              {generatingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+              {generatingReport ? 'Génération en cours...' : `Générer le ${label.toLowerCase()}`}
+            </Button>
+          </CardContent></Card>
+        );
+      })()}
 
       {/* Rapport généré */}
       {report && (
@@ -198,7 +193,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       </CardContent></Card>
 
       {/* Clôture */}
-      {programmeStatus === 'in_progress' && (
+      {!hideClotureButton && programmeStatus === 'in_progress' && (
         <Card className="border-red-200"><CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

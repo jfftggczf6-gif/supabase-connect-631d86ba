@@ -173,17 +173,17 @@ export default function ProgrammeDetailPage() {
   const isCohorte = programme.type === 'cohorte_directe';
   const tabs: string[] = ['apercu'];
   if (isCohorte) {
-    tabs.push('enterprises', 'dashboard', 'comparatif', 'reporting', 'impact');
+    tabs.push('enterprises', 'suivi', 'reporting', 'impact');
   } else {
     if (['open', 'closed'].includes(status)) {
-      tabs.push('candidatures', 'kanban');
+      tabs.push('selection');
       if (status === 'open') tabs.push('diffusion');
     }
     if (['in_progress', 'completed'].includes(status)) {
-      tabs.push('dashboard', 'comparatif', 'reporting', 'impact');
+      tabs.push('suivi', 'reporting', 'impact');
     }
   }
-  if (status !== 'completed') tabs.push('parametres');
+  tabs.push('parametres');
 
   // Extract criteria details
   const customCriteria = criteria?.custom_criteria || {};
@@ -203,7 +203,7 @@ export default function ProgrammeDetailPage() {
       <Tabs defaultValue="apercu">
         <TabsList className="flex-wrap">
           {tabs.map(t => <TabsTrigger key={t} value={t}>{
-            { apercu: 'Aperçu', enterprises: 'Entreprises', candidatures: 'Candidatures', kanban: 'Kanban', diffusion: 'Diffusion', dashboard: 'Dashboard', comparatif: 'Comparatif', reporting: 'Reporting', impact: 'Impact', parametres: 'Paramètres' }[t]
+            { apercu: 'Aperçu', enterprises: 'Entreprises', selection: 'Sélection', diffusion: 'Diffusion', suivi: 'Suivi', reporting: 'Reporting', impact: 'Impact', parametres: 'Paramètres' }[t]
           }</TabsTrigger>)}
         </TabsList>
 
@@ -286,8 +286,8 @@ export default function ProgrammeDetailPage() {
           <CohorteEnterprisesTab programmeId={id!} programmeName={programme.name} />
         </TabsContent>
 
-        {/* Candidatures */}
-        <TabsContent value="candidatures">
+        {/* Sélection (candidatures + kanban fusionnés) */}
+        <TabsContent value="selection">
           <div className="space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
               <Input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
@@ -308,37 +308,35 @@ export default function ProgrammeDetailPage() {
                 {screening ? 'Screening en cours...' : 'Screening IA'}
               </Button>
             </div>
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Entreprise</TableHead><TableHead>Contact</TableHead><TableHead>Email</TableHead><TableHead>Score IA</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead></TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {candidatures.map(c => (
-                  <TableRow key={c.id} className="cursor-pointer" onClick={() => openDetail(c.id)}>
-                    <TableCell className="font-medium">{c.company_name || '—'}</TableCell>
-                    <TableCell>{c.contact_name || '—'}</TableCell>
-                    <TableCell>{c.contact_email || '—'}</TableCell>
-                    <TableCell>{c.screening_score != null ? <Badge variant="outline">{c.screening_score}</Badge> : '—'}</TableCell>
-                    <TableCell><ProgrammeStatusBadge status={c.status} /></TableCell>
-                    <TableCell className="text-xs">{fmt(c.submitted_at)}</TableCell>
-                    <TableCell>
-                      {c.enterprise_id && (
-                        <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); nav(`/programmes/${id}/enterprise/${c.enterprise_id}`); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {candidatures.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Aucune candidature</TableCell></TableRow>}
-              </TableBody>
-            </Table>
+            <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
+            <details className="mt-2">
+              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">Vue tableau ({candidatures.length})</summary>
+              <Table className="mt-2">
+                <TableHeader><TableRow>
+                  <TableHead>Entreprise</TableHead><TableHead>Contact</TableHead><TableHead>Score IA</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead></TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {candidatures.map(c => (
+                    <TableRow key={c.id} className="cursor-pointer" onClick={() => openDetail(c.id)}>
+                      <TableCell className="font-medium">{c.company_name || '—'}</TableCell>
+                      <TableCell className="text-sm">{c.contact_name || '—'}</TableCell>
+                      <TableCell>{c.screening_score != null ? <Badge variant="outline">{c.screening_score}</Badge> : '—'}</TableCell>
+                      <TableCell><ProgrammeStatusBadge status={c.status} /></TableCell>
+                      <TableCell className="text-xs">{fmt(c.submitted_at)}</TableCell>
+                      <TableCell>
+                        {c.enterprise_id && (
+                          <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); nav(`/programmes/${id}/enterprise/${c.enterprise_id}`); }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {candidatures.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucune candidature</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </details>
           </div>
-        </TabsContent>
-
-        {/* Kanban */}
-        <TabsContent value="kanban">
-          <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
         </TabsContent>
 
         {/* Diffusion */}
@@ -375,19 +373,22 @@ export default function ProgrammeDetailPage() {
           </CardContent></Card>
         </TabsContent>
 
-        {/* Dashboard */}
-        <TabsContent value="dashboard">
-          <ProgrammeDashboardTab programmeId={id!} />
-        </TabsContent>
-
-        {/* Comparatif */}
-        <TabsContent value="comparatif">
-          <ProgrammeComparatifTab programmeId={id!} />
+        {/* Suivi (dashboard + comparatif fusionnés) */}
+        <TabsContent value="suivi">
+          <div className="space-y-6">
+            <ProgrammeDashboardTab programmeId={id!} />
+            <details className="mt-2">
+              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">Comparatif & classement</summary>
+              <div className="mt-3">
+                <ProgrammeComparatifTab programmeId={id!} />
+              </div>
+            </details>
+          </div>
         </TabsContent>
 
         {/* Reporting */}
         <TabsContent value="reporting">
-          <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} />
+          <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} hideClotureButton />
         </TabsContent>
 
         {/* Impact */}
@@ -417,6 +418,8 @@ export default function ProgrammeDetailPage() {
         onOpenChange={setDrawerOpen}
         coaches={coaches}
         onUpdated={fetchCandidatures}
+        candidatureIds={candidatures.map(c => c.id)}
+        onNavigate={(cId) => setSelectedCandidature(cId)}
       />
     </DashboardLayout>
   );

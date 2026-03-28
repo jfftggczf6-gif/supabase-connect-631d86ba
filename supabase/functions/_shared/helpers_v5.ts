@@ -548,7 +548,7 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
   try {
     const { data: allDeliverables } = await supabase
       .from("deliverables")
-      .select("score")
+      .select("type, score")
       .eq("enterprise_id", enterprise_id)
       .not("score", "is", null)
       .gt("score", 0);
@@ -556,6 +556,32 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     if (allDeliverables && allDeliverables.length > 0) {
       const scores = allDeliverables.map((d: any) => Number(d.score));
       const globalScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
+
+      // 6b. Track score history before updating
+      try {
+        const { data: currentEnt } = await supabase
+          .from("enterprises").select("score_ir").eq("id", enterprise_id).single();
+        const previousScore = currentEnt?.score_ir || 0;
+
+        if (globalScore !== previousScore) {
+          await supabase.from("score_history").insert({
+            enterprise_id,
+            score: globalScore,
+            scores_detail: {
+              trigger_type: type,
+              trigger_score: data.score || data.score_global || null,
+              previous_global: previousScore,
+              new_global: globalScore,
+              all_scores: Object.fromEntries(
+                allDeliverables.map((d: any) => [d.type, Number(d.score)])
+              ),
+            },
+          });
+        }
+      } catch (shErr) {
+        console.warn("[saveDeliverable] score_history insert failed:", shErr);
+      }
+
       await supabase.from("enterprises").update({ score_ir: globalScore }).eq("id", enterprise_id);
     }
   } catch (e) {

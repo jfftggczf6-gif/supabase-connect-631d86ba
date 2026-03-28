@@ -13,21 +13,24 @@ function jsonRes(data: any, status = 200) {
   });
 }
 
-const SCREENING_SYSTEM_PROMPT = `Tu es un analyste senior qui évalue des candidatures à un programme d'accompagnement de PME en Afrique francophone.
+const SCREENING_SYSTEM_PROMPT = `Tu es un analyste senior qui évalue des candidatures à un programme d'accompagnement de PME en Afrique francophone. Tu travailles pour un bailleur de fonds (DFI, ONG, fonds d'impact).
 
 Tu reçois :
 - Les réponses du formulaire de candidature (données DÉCLARATIVES de l'entrepreneur)
 - Les critères d'éligibilité du programme
 
-Tu dois produire un DIAGNOSTIC INITIAL complet — pas juste un score, mais une analyse qui permet au chef de programme de :
-1. Décider si cette entreprise mérite d'être sélectionnée
-2. Savoir à l'avance quels sont les axes de travail si elle est sélectionnée
-3. Briefer le coach assigné pour qu'il sache par où commencer
+Tu dois produire un DIAGNOSTIC COMPLET qui permet au chef de programme de DÉCIDER EN COMITÉ :
+1. Cette entreprise mérite-t-elle d'être sélectionnée ?
+2. Le financement est-il justifié et le risque acceptable ?
+3. Quels sont les axes de travail prioritaires si sélectionnée ?
+4. Comment briefer le coach assigné ?
 
 IMPORTANT :
 - Les données sont DÉCLARATIVES (pas vérifiées). Signale les incohérences.
 - Sois DIRECT et HONNÊTE — le bailleur préfère "ce dossier est insuffisant car..." plutôt qu'un avis diplomatique.
 - Le diagnostic doit être actionnable, pas juste descriptif.
+- Chaque affirmation doit être chiffrée quand possible.
+- Si une donnée manque, dis-le clairement plutôt que de deviner.
 
 Réponds UNIQUEMENT en JSON valide :
 {
@@ -72,6 +75,91 @@ Réponds UNIQUEMENT en JSON valide :
     }
   },
 
+  "fiche_entreprise": {
+    "anciennete_ans": <number ou null>,
+    "stade": "Idée | Démarrage (<2 ans) | Croissance (2-5 ans) | Maturité (>5 ans)",
+    "forme_juridique": "string ou null",
+    "ca_declare": <number ou null>,
+    "ca_devise": "string",
+    "effectif_declare": <number ou null>,
+    "secteur_activite": "string",
+    "pays": "string",
+    "ville": "string ou null",
+    "description_activite": "string — 2-3 phrases résumant ce que fait l'entreprise"
+  },
+
+  "indicateurs_financiers": {
+    "ca_annuel": <number ou null>,
+    "croissance_ca_pct": <number ou null — si historique disponible>,
+    "marge_estimee_pct": <number ou null>,
+    "rentabilite": "Rentable | Point mort | Déficitaire | Non évaluable",
+    "tresorerie_estimee": "Confortable | Tendue | Critique | Non évaluable",
+    "niveau_endettement": "Faible | Modéré | Élevé | Non évaluable",
+    "source_donnees": "Formulaire déclaratif — non vérifié",
+    "fiabilite": "Élevée | Moyenne | Faible",
+    "commentaire": "string — 1-2 phrases sur la qualité des données financières"
+  },
+
+  "marche_positionnement": {
+    "marche_cible": "string — description du marché adressé",
+    "taille_estimee": "string — ex: 'Marché local estimé à ~2Mds FCFA'",
+    "positionnement": "string — comment l'entreprise se différencie",
+    "concurrence": "string — niveau de concurrence et principaux acteurs",
+    "avantage_competitif": "string ou null",
+    "barriere_entree": "Faible | Modérée | Forte"
+  },
+
+  "equipe_gouvernance": {
+    "profil_dirigeant": "string — formation, expérience, parcours en 2-3 phrases",
+    "equipe_direction": "string — composition, compétences clés, lacunes",
+    "gouvernance": "Formelle | Basique | Inexistante | Non évaluable",
+    "key_man_risk": true | false,
+    "commentaire": "string — 1-2 phrases"
+  },
+
+  "impact_mesurable": {
+    "emplois_actuels": <number ou null>,
+    "emplois_projetes": "string — ex: 'de 15 à 30 en 24 mois'",
+    "pct_femmes": <number ou null>,
+    "pct_jeunes": <number ou null>,
+    "beneficiaires_directs": "string — qui bénéficie et combien",
+    "odd_potentiels": ["string — ex: 'ODD 8 — Travail décent'"],
+    "mesurabilite": "Forte | Moyenne | Faible",
+    "commentaire": "string"
+  },
+
+  "besoin_financement": {
+    "montant_demande": <number ou null>,
+    "montant_devise": "string",
+    "utilisation_prevue": ["string — postes de dépense principaux"],
+    "coherence_vs_ca": "Cohérent | Élevé vs CA | Faible vs ambition | Non évaluable",
+    "type_adapte": "Subvention | Prêt | Mixte | Equity",
+    "capacite_absorption": "Bonne | Moyenne | Faible | Non évaluable",
+    "commentaire": "string — 1-2 phrases"
+  },
+
+  "risques_programme": [
+    {
+      "risque": "string",
+      "type": "financier | opérationnel | réputationnel | exécution | concentration",
+      "probabilite": "faible | moyenne | élevée",
+      "impact_programme": "string — conséquence pour le bailleur",
+      "mitigation": "string"
+    }
+  ],
+
+  "traction": {
+    "anciennete": "string — ex: '4 ans d'activité'",
+    "evolution_ca": "string — ex: 'CA en hausse de 15% déclaré'",
+    "preuves_tangibles": ["string — contrats, clients, partenariats, certifications mentionnés"],
+    "niveau_preuve": "Solide | Partiel | Déclaratif uniquement"
+  },
+
+  "benchmark_declaratif": {
+    "position_vs_secteur": "Au-dessus | Dans la norme | En-dessous | Non évaluable",
+    "commentaire": "string — 1-2 phrases comparant aux PME du même secteur/pays"
+  },
+
   "points_forts": [
     {"titre": "string", "detail": "string", "impact": "string"}
   ],
@@ -88,11 +176,12 @@ Réponds UNIQUEMENT en JSON valide :
     "verdict": "SÉLECTIONNER | SÉLECTIONNER SOUS CONDITION | LISTE D'ATTENTE | REJETER",
     "justification": "string — 2-3 phrases",
     "priorites_si_selectionnee": ["string × 3-4"],
+    "conditions_prealables": ["string — ce qui DOIT être vérifié/fait AVANT tout financement"],
     "potentiel_6_mois": "string",
     "profil_coach_ideal": "string"
   },
 
-  "resume_comite": "string — 3-4 phrases pour décider en 30 secondes"
+  "resume_comite": "string — 4-5 phrases pour décider en 30 secondes. Commence par le verdict, puis les chiffres clés, puis le risque principal."
 }`;
 
 function buildUserPrompt(programme: any, criteria: any, candidature: any): string {
@@ -128,7 +217,7 @@ DOCUMENTS JOINTS : ${(() => {
   return `${docs.length} fichier(s)\n${docs.map((d: any) => `- ${d.field_label || 'Document'}: ${d.file_name} (${Math.round((d.file_size || 0)/1024)} KB)`).join('\n')}`;
 })()}
 
-Produis le diagnostic initial complet.`;
+Produis le diagnostic complet pour le comité de sélection.`;
 }
 
 async function screenOne(anthropicKey: string, programme: any, criteria: any, candidature: any): Promise<any> {
@@ -141,11 +230,11 @@ async function screenOne(anthropicKey: string, programme: any, criteria: any, ca
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: SCREENING_SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildUserPrompt(programme, criteria, candidature) }],
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (!resp.ok) {

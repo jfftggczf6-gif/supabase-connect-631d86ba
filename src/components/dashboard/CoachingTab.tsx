@@ -124,6 +124,8 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
 
       const filePath = file ? `${enterpriseId}/${Date.now()}_${file.name}` : null;
 
+      const noteTitle = iaResult?.titre || (dateRdv ? `RDV du ${dateRdv}` : 'Note');
+
       await supabase.from('coaching_notes' as any).insert({
         enterprise_id: enterpriseId,
         coach_id: user.id,
@@ -134,8 +136,18 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         resume_ia: iaResult?.resume || null,
         infos_extraites: iaResult?.infos_extraites || [],
         date_rdv: dateRdv || null,
-        titre: iaResult?.titre || (dateRdv ? `RDV du ${dateRdv}` : 'Note'),
+        titre: noteTitle,
       } as any);
+
+      // Log to activity_log
+      await supabase.from('activity_log' as any).insert({
+        enterprise_id: enterpriseId,
+        actor_id: user.id,
+        actor_role: 'coach',
+        action: 'coaching_note',
+        resource_type: 'coaching_note',
+        metadata: { titre: noteTitle, date_rdv: dateRdv, has_file: !!file },
+      } as any).then(() => {}).catch(() => {});
 
       toast.success('Note enregistrée');
       resetForm();

@@ -76,13 +76,25 @@ serve(async (req) => {
 
     // Get enterprise if linked
     let enterprise = null;
+    let preScreeningData = null;
     if (candidature.enterprise_id) {
-      const { data: ent } = await supabase
-        .from("enterprises")
-        .select("id, name, sector, country, city")
-        .eq("id", candidature.enterprise_id)
-        .maybeSingle();
+      const [{ data: ent }, { data: preScreenDeliv }] = await Promise.all([
+        supabase
+          .from("enterprises")
+          .select("id, name, sector, country, city, score_ir")
+          .eq("id", candidature.enterprise_id)
+          .maybeSingle(),
+        supabase
+          .from("deliverables")
+          .select("data, score")
+          .eq("enterprise_id", candidature.enterprise_id)
+          .eq("type", "pre_screening")
+          .maybeSingle(),
+      ]);
       enterprise = ent;
+      if (preScreenDeliv?.data && typeof preScreenDeliv.data === "object") {
+        preScreeningData = preScreenDeliv.data;
+      }
     }
 
     return jsonRes({
@@ -91,6 +103,7 @@ serve(async (req) => {
         ...candidature,
         assigned_coach: coach,
         enterprise,
+        pre_screening_full: preScreeningData,
       },
       programme: programme ? {
         id: programme.id,

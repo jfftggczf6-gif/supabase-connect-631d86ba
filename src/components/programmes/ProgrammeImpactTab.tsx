@@ -86,23 +86,7 @@ export default function ProgrammeImpactTab({ programmeId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Auto KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        {topKpis.map(key => {
-          const kpi = auto[key];
-          if (!kpi) return null;
-          return (
-            <Card key={key}><CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold">{fmtVal(kpi.value, kpi.unit)}</p>
-              <p className="text-[10px] text-muted-foreground">{KPI_LABELS[key] || key}</p>
-              {kpi.unit && kpi.unit !== 'emplois' && kpi.unit !== 'entreprises' && <p className="text-[9px] text-muted-foreground">{kpi.unit}</p>}
-            </CardContent></Card>
-          );
-        })}
-      </div>
-      <p className="text-[10px] text-muted-foreground text-center">Calculés automatiquement depuis les données ESONO</p>
-
-      {/* Custom KPIs */}
+      {/* Custom KPIs BAILLEURS — en premier (c'est ce qui intéresse le bailleur) */}
       <Card><CardContent className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">KPIs Bailleurs</h3>
@@ -181,6 +165,23 @@ export default function ProgrammeImpactTab({ programmeId }: Props) {
           <div><p className="text-2xl font-bold">{progression.taux_completion_pipeline || 0}%</p><p className="text-xs text-muted-foreground">Taux complétion</p></div>
         </div>
       </CardContent></Card>
+
+      {/* Données sources (auto-calculées) */}
+      <details>
+        <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">Données sources (calculées automatiquement)</summary>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mt-3">
+          {topKpis.map(key => {
+            const kpi = auto[key];
+            if (!kpi) return null;
+            return (
+              <Card key={key}><CardContent className="p-3 text-center">
+                <p className="text-lg font-bold">{fmtVal(kpi.value, kpi.unit)}</p>
+                <p className="text-[10px] text-muted-foreground">{KPI_LABELS[key] || key}</p>
+              </CardContent></Card>
+            );
+          })}
+        </div>
+      </details>
 
       {/* Add KPI dialog */}
       <Dialog open={showAddKpi} onOpenChange={setShowAddKpi}>

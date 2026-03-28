@@ -95,13 +95,18 @@ serve(async (req) => {
       });
     }
 
-    // Batch fetch enterprises, deliverables, modules
-    const [entRes, delivRes, modRes, profilesRes, notesRes] = await Promise.all([
+    // Batch fetch enterprises, deliverables, modules, score_history, activity_log
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+    const [entRes, delivRes, modRes, profilesRes, notesRes, scoreHistRes, activityRes] = await Promise.all([
       supabase.from("enterprises").select("id, name, coach_id, sector, country, updated_at").in("id", enterpriseIds),
       supabase.from("deliverables").select("enterprise_id, type, score, updated_at").in("enterprise_id", enterpriseIds),
       supabase.from("enterprise_modules").select("enterprise_id, module, status, progress, updated_at").in("enterprise_id", enterpriseIds),
       supabase.from("profiles").select("user_id, full_name, email"),
-      supabase.from("coaching_notes").select("enterprise_id").in("enterprise_id", enterpriseIds),
+      supabase.from("coaching_notes").select("enterprise_id, titre, created_at").in("enterprise_id", enterpriseIds),
+      supabase.from("score_history").select("enterprise_id, score, created_at").in("enterprise_id", enterpriseIds).gte("created_at", thirtyDaysAgo).order("created_at"),
+      supabase.from("activity_log").select("enterprise_id, action, deliverable_type, metadata, created_at").in("enterprise_id", enterpriseIds).gte("created_at", sevenDaysAgo).order("created_at", { ascending: false }).limit(50),
     ]);
 
     const enterprises = entRes.data || [];
@@ -109,6 +114,8 @@ serve(async (req) => {
     const allModules = modRes.data || [];
     const profiles = profilesRes.data || [];
     const coachingNotes = notesRes.data || [];
+    const scoreHistory = scoreHistRes.data || [];
+    const activityLog = activityRes.data || [];
 
     const profileMap: Record<string, any> = {};
     for (const p of profiles) profileMap[p.user_id] = p;
@@ -205,6 +212,54 @@ serve(async (req) => {
     const totalModules = enterpriseRows.reduce((s, e) => s + e.modules_total, 0);
     const completedModulesTotal = enterpriseRows.reduce((s, e) => s + e.modules_completed, 0);
 
+    // ─── Score evolution (weekly, last 30 days) ───
+    const scoreEvolution: { semaine: string; date: string; score_moyen: number; min: number; max: number; nb: number }[] = [];
+    if (scoreHistory.length > 0) {
+      const byWeek: Record<string, number[]> = {};
+      for (const sh of scoreHistory) {
+        const d = new Date(sh.created_at);
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay() + 1); // Monday
+        const key = weekStart.toISOString().slice(0, 10);
+        (byWeek[key] ||= []).push(sh.score);
+      }
+      for (const [date, wScores] of Object.entries(byWeek).sort()) {
+        const weekNum = `S${new Date(date).toISOString().slice(5, 7) === '01' ? '0' : ''}${Math.ceil((new Date(date).getDate()) / 7)}`;
+        scoreEvolution.push({
+          semaine: weekNum,
+          date,
+          score_moyen: Math.round(wScores.reduce((a, b) => a + b, 0) / wScores.length),
+          min: Math.min(...wScores),
+          max: Math.max(...wScores),
+          nb: wScores.length,
+        });
+      }
+    }
+
+    // ─── Activity 7 days ───
+    const activityByDay: Record<string, number> = {};
+    const activityTotals = { generations: 0, corrections: 0, notes_coaching: 0 };
+    for (const al of activityLog) {
+      const day = al.created_at.slice(0, 10);
+      activityByDay[day] = (activityByDay[day] || 0) + 1;
+      if (al.action === 'generate') activityTotals.generations++;
+      else if (al.action === 'edit_section') activityTotals.corrections++;
+      else if (al.action === 'coaching_note') activityTotals.notes_coaching++;
+    }
+
+    // ─── Recent activity (last 15 events) ───
+    const activityRecent = activityLog.slice(0, 15).map(al => {
+      const ent = enterprises.find(e => e.id === al.enterprise_id);
+      return {
+        date: al.created_at,
+        enterprise: ent?.name || '?',
+        enterprise_id: al.enterprise_id,
+        action: al.action,
+        type: al.deliverable_type || al.metadata?.type || null,
+        score: al.metadata?.score || null,
+      };
+    });
+
     return jsonRes({
       success: true,
       programme: { name: programme.name, status: programme.status, nb_places: programme.nb_places, organization: programme.organization },
@@ -221,6 +276,9 @@ serve(async (req) => {
       by_coach: byCoach,
       enterprises: enterpriseRows.sort((a, b) => (b.score_ir || 0) - (a.score_ir || 0)),
       score_distribution: dist,
+      score_evolution: scoreEvolution,
+      activite_7j: { par_jour: activityByDay, totaux: activityTotals },
+      activite_recente: activityRecent,
     });
 
   } catch (e: any) {
