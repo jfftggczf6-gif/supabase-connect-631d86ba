@@ -15,6 +15,7 @@ import ProgrammeDashboardTab from '@/components/programmes/ProgrammeDashboardTab
 import ProgrammeComparatifTab from '@/components/programmes/ProgrammeComparatifTab';
 import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab';
 import CohorteEnterprisesTab from '@/components/programmes/CohorteEnterprisesTab';
+import ProgrammeImpactTab from '@/components/programmes/ProgrammeImpactTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
@@ -165,11 +166,11 @@ export default function ProgrammeDetailPage() {
   const isCohorte = programme.type === 'cohorte_directe';
   const tabs: string[] = ['apercu'];
   if (isCohorte) {
-    tabs.push('enterprises', 'dashboard', 'comparatif', 'reporting');
+    tabs.push('enterprises', 'dashboard', 'comparatif', 'reporting', 'impact');
   } else {
     if (['open', 'closed', 'in_progress', 'completed'].includes(status)) tabs.push('candidatures', 'kanban');
     if (status === 'open') tabs.push('diffusion');
-    if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting');
+    if (['in_progress', 'completed'].includes(status)) tabs.push('dashboard', 'comparatif', 'reporting', 'impact');
   }
   if (status !== 'completed') tabs.push('parametres');
 
@@ -190,7 +191,7 @@ export default function ProgrammeDetailPage() {
       <Tabs defaultValue="apercu">
         <TabsList className="flex-wrap">
           {tabs.map(t => <TabsTrigger key={t} value={t}>{
-            { apercu: 'Aperçu', enterprises: 'Entreprises', candidatures: 'Candidatures', kanban: 'Kanban', diffusion: 'Diffusion', dashboard: 'Dashboard', comparatif: 'Comparatif', reporting: 'Reporting', parametres: 'Paramètres' }[t]
+            { apercu: 'Aperçu', enterprises: 'Entreprises', candidatures: 'Candidatures', kanban: 'Kanban', diffusion: 'Diffusion', dashboard: 'Dashboard', comparatif: 'Comparatif', reporting: 'Reporting', impact: 'Impact', parametres: 'Paramètres' }[t]
           }</TabsTrigger>)}
         </TabsList>
 
@@ -375,6 +376,11 @@ export default function ProgrammeDetailPage() {
         {/* Reporting */}
         <TabsContent value="reporting">
           <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} />
+        </TabsContent>
+
+        {/* Impact */}
+        <TabsContent value="impact">
+          <ProgrammeImpactTab programmeId={id!} />
         </TabsContent>
 
         {/* Paramètres */}
