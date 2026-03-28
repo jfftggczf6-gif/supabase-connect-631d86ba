@@ -1,21 +1,28 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import EntrepreneurDashboard from '@/components/dashboard/EntrepreneurDashboard';
 
-/**
- * Read-only enterprise view for chef_programme.
- * Uses EntrepreneurDashboard with readOnly=true (no edit/regen buttons).
- */
 export default function ProgrammeEnterprisePage() {
   const { id: programmeId, enterpriseId } = useParams<{ id: string; enterpriseId: string }>();
   const nav = useNavigate();
 
   return (
-    <EntrepreneurDashboard
-      enterpriseId={enterpriseId}
-      showBackButton
-      onBack={() => nav(`/programmes/${programmeId}`)}
-      coachMode={false}
-      readOnly
-    />
+    <div className="min-h-screen bg-background">
+      <div className="bg-blue-50 border-b border-blue-200 px-6 py-2 flex items-center gap-3">
+        <button onClick={() => nav(`/programmes/${programmeId}`)} className="flex items-center gap-1 text-sm text-blue-700 hover:text-blue-900">
+          <ArrowLeft className="h-4 w-4" /> Retour au programme
+        </button>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 text-sm text-blue-600">
+          <BookOpen className="h-4 w-4" />
+          Vue programme — lecture seule
+        </div>
+      </div>
+      <EntrepreneurDashboard
+        enterpriseId={enterpriseId}
+        coachMode={false}
+        readOnly
+      />
+    </div>
   );
 }

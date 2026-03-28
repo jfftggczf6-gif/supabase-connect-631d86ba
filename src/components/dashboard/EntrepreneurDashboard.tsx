@@ -1499,8 +1499,8 @@ export default function EntrepreneurDashboard({
                 globalScore={globalScore}
                 onSelectModule={setSelectedModule}
               />
-            ) : (selectedModule === 'upload' || selectedModule === 'reconstruction') ? (
-              /* Upload / Sources panel */
+            ) : (selectedModule === 'upload' || selectedModule === 'reconstruction') && !readOnly ? (
+              /* Upload / Sources panel — hidden in readOnly */
               <div className="p-6 max-w-2xl mx-auto space-y-4">
                 <h2 className="font-display font-bold text-lg mb-4">Documents d'inputs</h2>
 
@@ -1734,12 +1734,12 @@ export default function EntrepreneurDashboard({
                         <button onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors shadow-sm">
                           <Download className="h-3.5 w-3.5" /> PDF
                         </button>
-                        <button onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Regénère l'Excel à partir des données existantes (sans IA)">
+                        {!readOnly && <button onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Regénère l'Excel à partir des données existantes (sans IA)">
                           {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
-                        </button>
-                        <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors disabled:opacity-50">
+                        </button>}
+                        {!readOnly && <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors disabled:opacity-50">
                           {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Regénérer
-                        </button>
+                        </button>}
                       </div>
                     </div>
                   </div>
@@ -1796,9 +1796,9 @@ export default function EntrepreneurDashboard({
                         <div><p className="text-sm font-semibold text-emerald-900">ODD</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Génère l'Excel ODD à partir des données existantes">
+                        {!readOnly && <button onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Génère l'Excel ODD à partir des données existantes">
                           {regeneratingOddExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel ODD
-                        </button>
+                        </button>}
                         <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
                       </div>
                     </div>
