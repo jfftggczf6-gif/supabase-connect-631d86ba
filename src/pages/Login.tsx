@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 
 export default function Login() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +23,7 @@ export default function Login() {
       await signIn(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      toast.error(err.message || 'Erreur de connexion');
+      toast.error(err.message || t('auth.login_error'));
     } finally {
       setIsLoading(false);
     }
@@ -35,9 +37,9 @@ export default function Login() {
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">
             <span className="text-lg font-display font-bold text-primary-foreground">ES</span>
           </div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Bon retour !</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">{t('auth.welcome_back')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Connectez-vous pour reprendre votre progression et retrouver vos livrables.
+            {t('auth.login_subtitle')}
           </p>
         </div>
 
@@ -45,7 +47,7 @@ export default function Login() {
         <div className="bg-card rounded-xl border p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -57,9 +59,9 @@ export default function Login() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="password">{t('auth.password')}</Label>
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-                  Mot de passe oublié ?
+                  {t('auth.forgot_password')}
                 </Link>
               </div>
               <Input
@@ -79,23 +81,23 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Connexion...
+                  {t('auth.signing_in')}
                 </>
               ) : (
-                'Se connecter'
+                t('auth.sign_in')
               )}
             </button>
           </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          Pas encore de compte ?{' '}
+          {t('auth.no_account')}{' '}
           <Link to="/register?role=coach" className="text-primary hover:underline font-medium">
-            Créer un compte Coach
+            {t('auth.create_coach_account')}
           </Link>
           {' · '}
           <Link to="/register?role=entrepreneur" className="text-primary hover:underline font-medium">
-            Créer un compte Entrepreneur
+            {t('auth.create_entrepreneur_account')}
           </Link>
         </p>
       </div>

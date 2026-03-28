@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function CohorteEnterprisesTab({ programmeId, programmeName }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [enterprises, setEnterprises] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,13 +64,13 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   useEffect(() => { fetchEnterprises(); }, [programmeId]);
 
   const handleRemove = async (enterpriseId: string, name: string) => {
-    if (!confirm(`Retirer "${name}" de la cohorte ?`)) return;
+    if (!confirm(t('cohorte.remove_confirm', { name }))) return;
     setRemoving(enterpriseId);
     const { data, error } = await supabase.functions.invoke('manage-programme', {
       body: { action: 'remove_enterprise', programme_id: programmeId, enterprise_id: enterpriseId }
     });
-    if (error || data?.error) toast.error(data?.error || error?.message || 'Erreur');
-    else { toast.success(`${name} retirée`); fetchEnterprises(); }
+    if (error || data?.error) toast.error(data?.error || error?.message || t('common.error'));
+    else { toast.success(t('cohorte.removed', { name })); fetchEnterprises(); }
     setRemoving(null);
   };
 
@@ -102,7 +104,7 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       });
       if (!error && !data?.error) added++;
     }
-    toast.success(`${added} entreprise(s) ajoutée(s)`);
+    toast.success(t('cohorte.enterprises_added', { count: added }));
     setShowAdd(false);
     setAdding(false);
     fetchEnterprises();
@@ -113,18 +115,18 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Entreprises de la cohorte ({enterprises.length})</h3>
-        <Button size="sm" onClick={openAddDialog}><Plus className="h-4 w-4 mr-1" /> Ajouter</Button>
+        <h3 className="font-semibold">{t('cohorte.enterprises_title')} ({enterprises.length})</h3>
+        <Button size="sm" onClick={openAddDialog}><Plus className="h-4 w-4 mr-1" /> {t('common.add')}</Button>
       </div>
 
       <Card><CardContent className="p-0">
         <Table>
           <TableHeader><TableRow>
-            <TableHead>Entreprise</TableHead>
-            <TableHead>Score IR</TableHead>
-            <TableHead>Coach</TableHead>
-            <TableHead>Livrables</TableHead>
-            <TableHead>Activité</TableHead>
+            <TableHead>{t('cohorte.enterprise')}</TableHead>
+            <TableHead>{t('cohorte.score_ir')}</TableHead>
+            <TableHead>{t('cohorte.coach')}</TableHead>
+            <TableHead>{t('cohorte.deliverables')}</TableHead>
+            <TableHead>{t('cohorte.activity')}</TableHead>
             <TableHead></TableHead>
           </TableRow></TableHeader>
           <TableBody>
@@ -152,7 +154,7 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
               </TableRow>
             ))}
             {enterprises.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Aucune entreprise dans la cohorte</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t('cohorte.no_enterprises')}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -161,7 +163,7 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       {/* Add dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Ajouter des entreprises</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('cohorte.add_enterprises')}</DialogTitle></DialogHeader>
           <div className="space-y-1">
             {availableEnts.map(e => (
               <label key={e.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer">
@@ -175,13 +177,13 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
                 {e.coach_name && <span className="text-[10px] text-muted-foreground">{e.coach_name}</span>}
               </label>
             ))}
-            {availableEnts.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Toutes les entreprises sont déjà dans la cohorte</p>}
+            {availableEnts.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">{t('cohorte.all_enterprises_added')}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleAddEnterprises} disabled={adding || selectedToAdd.size === 0}>
               {adding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Ajouter ({selectedToAdd.size})
+              {t('common.add')} ({selectedToAdd.size})
             </Button>
           </DialogFooter>
         </DialogContent>

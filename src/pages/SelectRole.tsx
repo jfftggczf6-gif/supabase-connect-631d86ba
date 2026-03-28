@@ -1,10 +1,12 @@
 import { useNavigate, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Leaf, GraduationCap, Briefcase } from 'lucide-react';
 
 export default function SelectRole() {
+  const { t } = useTranslation();
   const { setRole, role } = useAuth();
   const navigate = useNavigate();
 
@@ -13,12 +15,13 @@ export default function SelectRole() {
   }
 
   const handleSelect = async (selectedRole: 'coach' | 'entrepreneur') => {
+    const roleLabel = selectedRole === 'coach' ? t('auth.role_coach') : t('auth.role_entrepreneur');
     try {
       await setRole(selectedRole);
-      toast.success(`Rôle ${selectedRole === 'coach' ? 'Coach' : 'Entrepreneur'} activé`);
+      toast.success(t('auth.role_activated', { role: roleLabel }));
       navigate('/dashboard');
     } catch (err: any) {
-      toast.error(err.message || 'Erreur lors de la sélection du rôle');
+      toast.error(err.message || t('auth.role_select_error'));
     }
   };
 
@@ -32,8 +35,8 @@ export default function SelectRole() {
           <h1 className="text-2xl font-display font-bold text-foreground">ESONO BIS</h1>
         </div>
 
-        <h2 className="text-center text-xl font-display font-semibold mb-2">Choisissez votre rôle</h2>
-        <p className="text-center text-muted-foreground mb-8">Ce choix est permanent et ne pourra pas être modifié.</p>
+        <h2 className="text-center text-xl font-display font-semibold mb-2">{t('auth.select_role')}</h2>
+        <p className="text-center text-muted-foreground mb-8">{t('auth.role_permanent')}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card
@@ -44,17 +47,17 @@ export default function SelectRole() {
               <div className="mx-auto h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                 <GraduationCap className="h-8 w-8 text-primary" />
               </div>
-              <CardTitle className="font-display mt-4">Coach</CardTitle>
+              <CardTitle className="font-display mt-4">{t('auth.role_coach')}</CardTitle>
               <CardDescription>
-                Accompagnez vos entrepreneurs, suivez leurs progrès et gérez les livrables
+                {t('auth.coach_desc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>✓ Tableau de bord de suivi</li>
-                <li>✓ Gestion des entrepreneurs</li>
-                <li>✓ Validation des livrables</li>
-                <li>✓ Génération automatique</li>
+                <li>{t('auth.coach_feature_1')}</li>
+                <li>{t('auth.coach_feature_2')}</li>
+                <li>{t('auth.coach_feature_3')}</li>
+                <li>{t('auth.coach_feature_4')}</li>
               </ul>
             </CardContent>
           </Card>
@@ -67,17 +70,17 @@ export default function SelectRole() {
               <div className="mx-auto h-16 w-16 rounded-2xl bg-secondary/10 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
                 <Briefcase className="h-8 w-8 text-secondary" />
               </div>
-              <CardTitle className="font-display mt-4">Entrepreneur</CardTitle>
+              <CardTitle className="font-display mt-4">{t('auth.role_entrepreneur')}</CardTitle>
               <CardDescription>
-                Développez votre business plan, complétez vos modules et téléchargez vos livrables
+                {t('auth.entrepreneur_desc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>✓ 8 modules guidés</li>
-                <li>✓ Analyse IA automatique</li>
-                <li>✓ Livrables téléchargeables</li>
-                <li>✓ Suivi de progression</li>
+                <li>{t('auth.entrepreneur_feature_1')}</li>
+                <li>{t('auth.entrepreneur_feature_2')}</li>
+                <li>{t('auth.entrepreneur_feature_3')}</li>
+                <li>{t('auth.entrepreneur_feature_4')}</li>
               </ul>
             </CardContent>
           </Card>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -71,8 +73,8 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) { toast.error('Le nom est requis'); return; }
-    if (selected.size === 0) { toast.error('Sélectionnez au moins une entreprise'); return; }
+    if (!name.trim()) { toast.error(t('cohorte.name_required_error')); return; }
+    if (selected.size === 0) { toast.error(t('cohorte.select_min_one')); return; }
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke('manage-programme', {
@@ -93,7 +95,7 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
       onOpenChange(false);
       if (data?.programme?.id) navigate(`/programmes/${data.programme.id}`);
     } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+      toast.error(err.message || t('common.error'));
     }
     setCreating(false);
   };
@@ -102,23 +104,23 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Créer une cohorte de suivi</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> {t('cohorte.create_title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Nom *</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Cohorte Pilote Q2 2026" /></div>
-            <div className="space-y-1.5"><Label>Organisation</Label><Input value={organization} onChange={e => setOrganization(e.target.value)} placeholder="ESONO / SellArts" /></div>
+            <div className="space-y-1.5"><Label>{t('cohorte.name_required')}</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Cohorte Pilote Q2 2026" /></div>
+            <div className="space-y-1.5"><Label>{t('cohorte.organization')}</Label><Input value={organization} onChange={e => setOrganization(e.target.value)} placeholder="ESONO / SellArts" /></div>
           </div>
-          <div className="space-y-1.5"><Label>Description</Label><Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Suivi des PME accompagnées..." /></div>
+          <div className="space-y-1.5"><Label>{t('cohorte.description')}</Label><Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Suivi des PME accompagnées..." /></div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5"><Label>Budget</Label><Input type="number" value={budget} onChange={e => setBudget(e.target.value)} placeholder="250000000" /></div>
-            <div className="space-y-1.5"><Label>Début</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Fin</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>{t('cohorte.budget')}</Label><Input type="number" value={budget} onChange={e => setBudget(e.target.value)} placeholder="250000000" /></div>
+            <div className="space-y-1.5"><Label>{t('cohorte.start_date')}</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>{t('cohorte.end_date')}</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="font-semibold text-sm mb-3">Sélectionner les entreprises</h4>
+            <h4 className="font-semibold text-sm mb-3">{t('cohorte.select_enterprises')}</h4>
             {loading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
             ) : (
@@ -138,15 +140,15 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
                 ))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-2">{selected.size} entreprise(s) sélectionnée(s)</p>
+            <p className="text-xs text-muted-foreground mt-2">{t('cohorte.enterprises_selected', { count: selected.size })}</p>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleCreate} disabled={creating || !name.trim() || selected.size === 0}>
             {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Users className="h-4 w-4 mr-2" />}
-            Créer la cohorte ({selected.size})
+            {t('cohorte.create_cohorte')} ({selected.size})
           </Button>
         </DialogFooter>
       </DialogContent>

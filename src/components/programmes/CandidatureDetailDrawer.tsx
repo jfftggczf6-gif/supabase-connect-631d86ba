@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ function fmt(v: number | null | undefined, suffix = ''): string {
 }
 
 export default function CandidatureDetailDrawer({ candidatureId, open, onOpenChange, coaches, onUpdated, candidatureIds = [], onNavigate }: Props) {
+  const { t } = useTranslation();
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -68,7 +70,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
       toast({ title: 'Erreur', description: data?.error || error?.message, variant: 'destructive' });
       return;
     }
-    toast({ title: 'Candidature mise à jour' });
+    toast({ title: t('candidature.updated') });
     onUpdated();
   };
 
@@ -147,19 +149,19 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                     {detail.screening_score}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">Score IA</p>
+                    <p className="font-semibold text-sm">{t('candidature.score_ia')}</p>
                     <Progress value={Number(detail.screening_score)} className="h-1.5 w-24" />
                   </div>
                 </div>
               )}
               {s.classification && <Badge variant="outline" className="text-sm h-8">{s.classification}</Badge>}
               <div className="ml-auto flex gap-2">
-                <Button size="sm" variant="destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>Rejeter</Button>
-                <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>Pré-sélectionner</Button>
+                <Button size="sm" variant="destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
+                <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
                 <Button size="sm" onClick={() => {
-                  if (!selectedCoach) { toast({ title: 'Assignez un coach', description: 'Un coach doit être assigné pour sélectionner', variant: 'destructive' }); return; }
+                  if (!selectedCoach) { toast({ title: t('candidature.assign_coach_required'), description: t('candidature.assign_coach_required_desc'), variant: 'destructive' }); return; }
                   updateCandidature('move', { new_status: 'selected', coach_id: selectedCoach });
-                }} disabled={saving}>Sélectionner</Button>
+                }} disabled={saving}>{t('candidature.select')}</Button>
               </div>
             </div>
 
@@ -171,7 +173,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {s.resume_comite && (
                   <Card className="border-primary/20 bg-primary/5">
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">Résumé comité</h4>
+                      <h4 className="font-semibold text-sm mb-2">{t('candidature.committee_summary')}</h4>
                       <p className="text-sm">{s.resume_comite}</p>
                     </CardContent>
                   </Card>
@@ -183,7 +185,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <h4 className="font-semibold text-sm">Fiche entreprise</h4>
+                        <h4 className="font-semibold text-sm">{t('screening.company_profile')}</h4>
                         {fiche.stade && <Badge variant="outline" className="text-[10px]">{fiche.stade}</Badge>}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-2">
@@ -221,7 +223,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {dims && typeof dims === 'object' && Object.keys(dims).length > 0 && (
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-3">Dimensions diagnostiques</h4>
+                      <h4 className="font-semibold text-sm mb-3">{t('screening.dimensions')}</h4>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                         {Object.entries(dims).map(([k, v]: [string, any]) => {
                           const score = typeof v === 'number' ? v : (v?.score ?? 0);
@@ -245,11 +247,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {matching && (
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">Matching critères programme</h4>
+                      <h4 className="font-semibold text-sm mb-2">{t('screening.matching_criteria')}</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {Array.isArray(matching.criteres_ok) && matching.criteres_ok.length > 0 && (
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-emerald-700">Validés ({matching.criteres_ok.length})</p>
+                            <p className="text-xs font-medium text-emerald-700">{t('screening.validated')} ({matching.criteres_ok.length})</p>
                             {matching.criteres_ok.map((c: any, i: number) => (
                               <div key={i} className="flex items-start gap-1.5 text-xs"><span className="text-emerald-500 mt-0.5">✓</span><span>{safeText(c)}</span></div>
                             ))}
@@ -257,7 +259,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         )}
                         {Array.isArray(matching.criteres_partiels) && matching.criteres_partiels.length > 0 && (
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-amber-700">Partiels ({matching.criteres_partiels.length})</p>
+                            <p className="text-xs font-medium text-amber-700">{t('screening.partial')} ({matching.criteres_partiels.length})</p>
                             {matching.criteres_partiels.map((c: any, i: number) => (
                               <div key={i} className="flex items-start gap-1.5 text-xs"><span className="text-amber-500 mt-0.5">~</span><span>{safeText(c)}</span></div>
                             ))}
@@ -265,7 +267,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         )}
                         {Array.isArray(matching.criteres_ko) && matching.criteres_ko.length > 0 && (
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-red-700">Non remplis ({matching.criteres_ko.length})</p>
+                            <p className="text-xs font-medium text-red-700">{t('screening.not_met')} ({matching.criteres_ko.length})</p>
                             {matching.criteres_ko.map((c: any, i: number) => (
                               <div key={i} className="flex items-start gap-1.5 text-xs"><span className="text-red-500 mt-0.5">✗</span><span>{safeText(c)}</span></div>
                             ))}
@@ -282,7 +284,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                     {pointsForts.length > 0 && (
                       <Card>
                         <CardContent className="p-4">
-                          <h4 className="font-semibold text-sm text-emerald-700 mb-2">Points forts</h4>
+                          <h4 className="font-semibold text-sm text-emerald-700 mb-2">{t('screening.strengths')}</h4>
                           <ul className="text-xs space-y-1 list-disc pl-4">
                             {pointsForts.map((p: any, i: number) => <li key={i}>{safeText(p)}</li>)}
                           </ul>
@@ -292,7 +294,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                     {pointsVig.length > 0 && (
                       <Card>
                         <CardContent className="p-4">
-                          <h4 className="font-semibold text-sm text-amber-700 mb-2">Points de vigilance</h4>
+                          <h4 className="font-semibold text-sm text-amber-700 mb-2">{t('screening.watch_points')}</h4>
                           <ul className="text-xs space-y-1 list-disc pl-4">
                             {pointsVig.map((p: any, i: number) => <li key={i}>{safeText(p)}</li>)}
                           </ul>
@@ -306,7 +308,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {Array.isArray(incoherences) && incoherences.length > 0 && (
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">Incohérences détectées</h4>
+                      <h4 className="font-semibold text-sm mb-2">{t('screening.inconsistencies')}</h4>
                       <div className="space-y-2">
                         {incoherences.map((inc: any, i: number) => (
                           <div key={i} className="flex items-start gap-2 text-xs">
@@ -327,26 +329,26 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {reco && (
                   <Card className="bg-muted/50">
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">Recommandation</h4>
+                      <h4 className="font-semibold text-sm mb-2">{t('screening.recommendation')}</h4>
                       {reco.verdict && <Badge variant="outline" className="mb-2">{reco.verdict}</Badge>}
                       {reco.justification && <p className="text-sm mb-2">{reco.justification}</p>}
                       {typeof reco === 'string' && <p className="text-sm">{reco}</p>}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 text-xs">
                         {Array.isArray(reco.priorites_si_selectionnee) && reco.priorites_si_selectionnee.length > 0 && (
                           <div>
-                            <p className="font-medium mb-1">Priorités si sélectionnée</p>
+                            <p className="font-medium mb-1">{t('screening.priorities_if_selected')}</p>
                             <ul className="list-disc pl-4 space-y-0.5">{reco.priorites_si_selectionnee.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
                           </div>
                         )}
                         {Array.isArray(reco.conditions_prealables) && reco.conditions_prealables.length > 0 && (
                           <div>
-                            <p className="font-medium text-red-700 mb-1">Conditions préalables</p>
+                            <p className="font-medium text-red-700 mb-1">{t('screening.prerequisites')}</p>
                             <ul className="list-disc pl-4 space-y-0.5">{reco.conditions_prealables.map((c: string, i: number) => <li key={i}>{c}</li>)}</ul>
                           </div>
                         )}
                       </div>
-                      {reco.potentiel_6_mois && <p className="text-xs mt-2"><strong>Potentiel 6 mois :</strong> {reco.potentiel_6_mois}</p>}
-                      {reco.profil_coach_ideal && <p className="text-xs"><strong>Profil coach :</strong> {reco.profil_coach_ideal}</p>}
+                      {reco.potentiel_6_mois && <p className="text-xs mt-2"><strong>{t('screening.potential_6m')} :</strong> {reco.potentiel_6_mois}</p>}
+                      {reco.profil_coach_ideal && <p className="text-xs"><strong>{t('screening.coach_profile')} :</strong> {reco.profil_coach_ideal}</p>}
                     </CardContent>
                   </Card>
                 )}
@@ -361,7 +363,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                       onClick={() => setShowMore(!showMore)}
                     >
                       <FileText className="h-4 w-4" />
-                      {showMore ? 'Masquer le diagnostic complet' : 'Voir le diagnostic complet'}
+                      {showMore ? t('candidature.hide_diagnostic') : t('candidature.view_full_diagnostic')}
                       {showMore ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </Button>
 
@@ -374,7 +376,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-3">
                                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="font-semibold text-sm">Indicateurs financiers</h4>
+                                <h4 className="font-semibold text-sm">{t('screening.financial_indicators')}</h4>
                                 {indFin.fiabilite && <Badge variant="outline" className={`text-[10px] ${
                                   indFin.fiabilite === 'Élevée' ? 'text-emerald-700' : indFin.fiabilite === 'Faible' ? 'text-red-700' : 'text-amber-700'
                                 }`}>{indFin.fiabilite}</Badge>}
@@ -429,7 +431,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Target className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="font-semibold text-sm">Marché & positionnement</h4>
+                                <h4 className="font-semibold text-sm">{t('screening.market_positioning')}</h4>
                                 {marche.barriere_entree && <Badge variant="outline" className="text-[10px]">Barrière : {marche.barriere_entree}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
@@ -449,7 +451,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Users className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="font-semibold text-sm">Équipe & gouvernance</h4>
+                                <h4 className="font-semibold text-sm">{t('screening.team_governance')}</h4>
                                 {equipe.gouvernance && <Badge variant="outline" className="text-[10px]">{equipe.gouvernance}</Badge>}
                                 {equipe.key_man_risk && <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">Key-man risk</Badge>}
                               </div>
@@ -468,7 +470,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="font-semibold text-sm">Impact mesurable</h4>
+                                <h4 className="font-semibold text-sm">{t('screening.measurable_impact')}</h4>
                                 {impact.mesurabilite && <Badge variant="outline" className={`text-[10px] ${
                                   impact.mesurabilite === 'Forte' ? 'text-emerald-700' : impact.mesurabilite === 'Faible' ? 'text-red-700' : 'text-amber-700'
                                 }`}>Mesurabilité : {impact.mesurabilite}</Badge>}
@@ -513,7 +515,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Briefcase className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="font-semibold text-sm">Besoin de financement</h4>
+                                <h4 className="font-semibold text-sm">{t('screening.funding_need')}</h4>
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                                 {besoin.montant_demande != null && (
@@ -558,7 +560,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="font-semibold text-sm">Risques programme</h4>
+                                <h4 className="font-semibold text-sm">{t('screening.programme_risks')}</h4>
                               </div>
                               <div className="space-y-2">
                                 {risques.map((r: any, i: number) => (
@@ -585,7 +587,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         {traction && (
                           <Card>
                             <CardContent className="p-4">
-                              <h4 className="font-semibold text-sm mb-2">Traction & preuves</h4>
+                              <h4 className="font-semibold text-sm mb-2">{t('screening.traction_proof')}</h4>
                               {traction.niveau_preuve && (
                                 <Badge variant="outline" className={`text-[10px] mb-2 ${
                                   traction.niveau_preuve === 'Solide' ? 'text-emerald-700' :
@@ -610,7 +612,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         {benchmark && (
                           <Card>
                             <CardContent className="p-4">
-                              <h4 className="font-semibold text-sm mb-1">Benchmark sectoriel</h4>
+                              <h4 className="font-semibold text-sm mb-1">{t('screening.sector_benchmark')}</h4>
                               <div className="flex items-center gap-2 text-xs">
                                 {benchmark.position_vs_secteur && (
                                   <Badge variant="outline" className={`${
@@ -635,7 +637,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {/* Contact */}
                 <Card>
                   <CardContent className="p-4 space-y-1 text-sm">
-                    <h4 className="font-semibold text-sm mb-2">Contact</h4>
+                    <h4 className="font-semibold text-sm mb-2">{t('candidature.contact')}</h4>
                     <p><strong>Nom :</strong> {detail.contact_name || '—'}</p>
                     <p><strong>Email :</strong> {detail.contact_email || '—'}</p>
                     {detail.contact_phone && <p><strong>Tél :</strong> {detail.contact_phone}</p>}
@@ -650,7 +652,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {Array.isArray(detail.documents) && detail.documents.length > 0 && (
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">Documents ({detail.documents.length})</h4>
+                      <h4 className="font-semibold text-sm mb-2">{t('candidature.documents')} ({detail.documents.length})</h4>
                       <div className="space-y-1.5">
                         {detail.documents.map((doc: any, i: number) => (
                           <div key={i} className="flex items-center justify-between p-2 bg-muted rounded text-xs">
@@ -675,9 +677,9 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {/* Coach */}
                 <Card>
                   <CardContent className="p-4 space-y-2">
-                    <h4 className="font-semibold text-sm">Coach</h4>
+                    <h4 className="font-semibold text-sm">{t('auth.role_coach')}</h4>
                     <Select value={selectedCoach} onValueChange={setSelectedCoach}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Choisir un coach" /></SelectTrigger>
+                      <SelectTrigger className="h-9"><SelectValue placeholder={t('candidature.choose_coach')} /></SelectTrigger>
                       <SelectContent>
                         {coaches.map(c => (
                           <SelectItem key={c.id} value={c.id}>{c.name} ({c.count})</SelectItem>
@@ -686,7 +688,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                     </Select>
                     {selectedCoach && selectedCoach !== detail.assigned_coach_id && (
                       <Button size="sm" className="w-full" onClick={() => updateCandidature('assign_coach', { coach_id: selectedCoach })} disabled={saving}>
-                        {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null} Assigner
+                        {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null} {t('candidature.assign')}
                       </Button>
                     )}
                   </CardContent>
@@ -695,10 +697,10 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {/* Notes */}
                 <Card>
                   <CardContent className="p-4 space-y-2">
-                    <h4 className="font-semibold text-sm">Notes comité</h4>
+                    <h4 className="font-semibold text-sm">{t('candidature.committee_notes')}</h4>
                     <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} placeholder="Notes internes..." className="text-sm" />
                     <Button size="sm" variant="outline" className="w-full" onClick={() => updateCandidature('add_note', { committee_notes: notes })} disabled={saving}>
-                      Enregistrer
+                      {t('common.save')}
                     </Button>
                   </CardContent>
                 </Card>

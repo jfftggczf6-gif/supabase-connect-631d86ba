@@ -97,6 +97,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
       </header>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ const COUNTRIES = [
 ];
 
 export default function Register() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const initialRole = (searchParams.get('role') === 'entrepreneur' ? 'entrepreneur' : 'coach') as AppRole;
 
@@ -28,24 +30,26 @@ export default function Register() {
   const [country, setCountry] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
 
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
+  const roleLabel = selectedRole === 'coach' ? t('auth.role_coach') : t('auth.role_entrepreneur');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accepted) {
-      toast.error("Veuillez accepter les conditions d'utilisation");
+      toast.error(t('auth.accept_terms_error'));
       return;
     }
     setIsLoading(true);
     try {
       await signUp(email, password, fullName, selectedRole);
-      toast.success('Compte créé avec succès !');
+      toast.success(t('auth.account_created'));
       navigate('/dashboard');
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'inscription");
+      toast.error(err.message || t('auth.register_error'));
     } finally {
       setIsLoading(false);
     }
@@ -60,12 +64,12 @@ export default function Register() {
             <span className="text-lg font-display font-bold text-primary-foreground">ES</span>
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground">
-            Créer votre compte {selectedRole === 'coach' ? 'Coach' : 'Entrepreneur'}
+            {t('auth.create_account_title', { role: roleLabel })}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {selectedRole === 'entrepreneur'
-              ? 'Structurez votre projet et générez vos livrables investisseurs.'
-              : 'Accompagnez vos entrepreneurs et suivez leur progression.'}
+              ? t('auth.register_subtitle_entrepreneur')
+              : t('auth.register_subtitle_coach')}
           </p>
         </div>
 
@@ -76,7 +80,7 @@ export default function Register() {
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${selectedRole === 'coach' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <GraduationCap className="h-4 w-4" />
-            Coach
+            {t('auth.role_coach')}
           </button>
           <button
             type="button"
@@ -84,7 +88,7 @@ export default function Register() {
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${selectedRole === 'entrepreneur' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <Building2 className="h-4 w-4" />
-            Entrepreneur
+            {t('auth.role_entrepreneur')}
           </button>
         </div>
 
@@ -93,7 +97,7 @@ export default function Register() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">
-                Nom complet <span className="text-destructive">*</span>
+                {t('auth.full_name')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="fullName"
@@ -106,7 +110,7 @@ export default function Register() {
 
             <div className="space-y-2">
               <Label htmlFor="email">
-                Email <span className="text-destructive">*</span>
+                {t('auth.email')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="email"
@@ -120,7 +124,7 @@ export default function Register() {
 
             <div className="space-y-1">
               <Label htmlFor="password">
-                Mot de passe <span className="text-destructive">*</span>
+                {t('auth.password')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="password"
@@ -131,16 +135,16 @@ export default function Register() {
                 minLength={6}
                 required
               />
-              <p className="text-xs text-muted-foreground">Minimum 6 caractères</p>
+              <p className="text-xs text-muted-foreground">{t('auth.min_chars')}</p>
             </div>
 
             <div className="space-y-2">
               <Label>
-                Pays <span className="text-destructive">*</span>
+                {t('auth.country')} <span className="text-destructive">*</span>
               </Label>
               <Select value={country} onValueChange={setCountry}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un pays" />
+                  <SelectValue placeholder={t('auth.select_country')} />
                 </SelectTrigger>
                 <SelectContent>
                   {COUNTRIES.map(c => (
@@ -157,7 +161,7 @@ export default function Register() {
                 onCheckedChange={(v) => setAccepted(v === true)}
               />
               <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
-                J'accepte les conditions d'utilisation et la politique de confidentialité.
+                {t('auth.accept_terms')}
               </label>
             </div>
 
@@ -169,22 +173,22 @@ export default function Register() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Création en cours...
+                  {t('auth.creating_account')}
                 </>
               ) : (
-                `Créer mon compte ${selectedRole === 'coach' ? 'Coach' : 'Entrepreneur'}`
+                t('auth.create_account_btn', { role: roleLabel })
               )}
             </button>
           </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          Déjà inscrit ?{' '}
+          {t('auth.already_registered')}{' '}
           <Link to="/login" className="text-primary hover:underline font-medium">
-            Se connecter
+            {t('auth.sign_in')}
         </Link>
         </p>
-        
+
       </div>
     </div>
   );

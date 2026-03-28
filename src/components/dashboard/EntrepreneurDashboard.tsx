@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useBlocker } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +62,7 @@ export default function EntrepreneurDashboard({
   onGeneratingChange,
 }: EntrepreneurDashboardProps = {}) {
   const { user, profile, session: authSession, signOut } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [initialLoading, setInitialLoading] = useState(true);
   const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
@@ -120,7 +122,7 @@ export default function EntrepreneurDashboard({
 
   useEffect(() => {
     if (blocker.state === 'blocked') {
-      const leave = window.confirm('Une génération IA est en cours. Si vous quittez, les étapes restantes ne seront pas lancées.\n\nQuitter quand même ?');
+      const leave = window.confirm(t('pipeline.warn_leave'));
       if (leave) {
         blocker.proceed();
       } else {
@@ -1269,7 +1271,7 @@ export default function EntrepreneurDashboard({
             <h2 className="text-xl font-display font-bold">Entreprise introuvable</h2>
             <p className="text-muted-foreground text-sm">Les données de cette entreprise ne sont pas accessibles.</p>
           </div>
-          {onBack && <Button variant="outline" onClick={onBack}>Retour</Button>}
+          {onBack && <Button variant="outline" onClick={onBack}>{t('common.back')}</Button>}
         </div>
       );
     }
@@ -1286,24 +1288,24 @@ export default function EntrepreneurDashboard({
               <div className="mx-auto h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                 <Building2 className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-xl font-display font-bold mb-4">Créer votre entreprise</h2>
+              <h2 className="text-xl font-display font-bold mb-4">{t('dashboard_coach.add_enterprise')}</h2>
               <Dialog open={showCreate} onOpenChange={setShowCreate}>
                 <DialogTrigger asChild>
-                  <Button className="w-full gap-2"><Plus className="h-4 w-4" /> Commencer</Button>
+                  <Button className="w-full gap-2"><Plus className="h-4 w-4" /> {t('common.add')}</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle className="font-display">Nouvelle entreprise</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle className="font-display">{t('dashboard_coach.add_enterprise')}</DialogTitle></DialogHeader>
                   <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto pr-1">
-                    <div className="space-y-1.5"><Label>Nom *</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: EcoBuild CI SARL" /></div>
-                    <div className="space-y-1.5"><Label>Secteur</Label><Input value={newSector} onChange={e => setNewSector(e.target.value)} placeholder="Recyclage, Agroalimentaire..." /></div>
+                    <div className="space-y-1.5"><Label>{t('dashboard_coach.enterprise_name')} *</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: EcoBuild CI SARL" /></div>
+                    <div className="space-y-1.5"><Label>{t('dashboard_coach.sector')}</Label><Input value={newSector} onChange={e => setNewSector(e.target.value)} placeholder="Recyclage, Agroalimentaire..." /></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5"><Label>Pays *</Label><select value={newCountry} onChange={e => setNewCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="" disabled>— Sélectionner —</option>{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                      <div className="space-y-1.5"><Label>Ville</Label><Input value={newCity} onChange={e => setNewCity(e.target.value)} placeholder="Abidjan" /></div>
+                      <div className="space-y-1.5"><Label>{t('dashboard_coach.country')} *</Label><select value={newCountry} onChange={e => setNewCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="" disabled>— Sélectionner —</option>{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                      <div className="space-y-1.5"><Label>{t('dashboard_coach.city')}</Label><Input value={newCity} onChange={e => setNewCity(e.target.value)} placeholder="Abidjan" /></div>
                     </div>
                     <div className="space-y-1.5"><Label>Forme juridique</Label><Input value={newLegalForm} onChange={e => setNewLegalForm(e.target.value)} placeholder="SARL, SA, SAS..." /></div>
-                    <div className="space-y-1.5"><Label>Description</Label><Input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Décrivez votre activité..." /></div>
+                    <div className="space-y-1.5"><Label>{t('dashboard_coach.description')}</Label><Input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Décrivez votre activité..." /></div>
                     <Button className="w-full" onClick={createEnterprise} disabled={creating || !newName.trim() || !newCountry}>
-                      {creating ? 'Création...' : 'Créer mon entreprise'}
+                      {creating ? t('common.loading') : t('dashboard_coach.add_enterprise')}
                     </Button>
                   </div>
                 </DialogContent>
@@ -1362,7 +1364,7 @@ export default function EntrepreneurDashboard({
       <header className="flex-none h-14 border-b border-border bg-card flex items-center px-6 z-50">
         {showBackButton && onBack && (
           <Button variant="ghost" size="sm" onClick={onBack} className="mr-2">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Retour liste
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t('common.back')}
           </Button>
         )}
         <span className="font-display font-bold text-lg tracking-tight">ESONO</span>
@@ -1378,7 +1380,7 @@ export default function EntrepreneurDashboard({
           </span>
           {!coachMode && (
             <Button variant="outline" size="sm" className="gap-2" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4" /> Déconnexion
+              <LogOut className="h-4 w-4" /> {t('nav.logout')}
             </Button>
           )}
         </div>
@@ -1387,18 +1389,18 @@ export default function EntrepreneurDashboard({
       {/* ===== EDIT ENTERPRISE DIALOG ===== */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="font-display">Modifier l'entreprise</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display">{t('common.edit')}</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto pr-1">
-            <div className="space-y-1.5"><Label>Nom *</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Secteur</Label><Input value={editSector} onChange={e => setEditSector(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>{t('dashboard_coach.enterprise_name')} *</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>{t('dashboard_coach.sector')}</Label><Input value={editSector} onChange={e => setEditSector(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>Pays</Label><select value={editCountry} onChange={e => setEditCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-              <div className="space-y-1.5"><Label>Ville</Label><Input value={editCity} onChange={e => setEditCity(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>{t('dashboard_coach.country')}</Label><select value={editCountry} onChange={e => setEditCountry(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div className="space-y-1.5"><Label>{t('dashboard_coach.city')}</Label><Input value={editCity} onChange={e => setEditCity(e.target.value)} /></div>
             </div>
             <div className="space-y-1.5"><Label>Forme juridique</Label><Input value={editLegalForm} onChange={e => setEditLegalForm(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Description</Label><Input value={editDescription} onChange={e => setEditDescription(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>{t('dashboard_coach.description')}</Label><Input value={editDescription} onChange={e => setEditDescription(e.target.value)} /></div>
             <Button className="w-full" onClick={saveEnterprise} disabled={saving || !editName.trim()}>
-              {saving ? 'Enregistrement...' : 'Enregistrer'}
+              {saving ? t('common.saving') : t('common.save')}
             </Button>
           </div>
         </DialogContent>
@@ -1416,29 +1418,29 @@ export default function EntrepreneurDashboard({
           <div className="space-y-3 mt-2">
             {extractedInfo?.name && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                <span className="text-sm text-muted-foreground">Nom</span>
+                <span className="text-sm text-muted-foreground">{t('dashboard_coach.enterprise_name')}</span>
                 <span className="text-sm font-semibold">{extractedInfo.name}</span>
               </div>
             )}
             {extractedInfo?.country && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                <span className="text-sm text-muted-foreground">Pays</span>
+                <span className="text-sm text-muted-foreground">{t('dashboard_coach.country')}</span>
                 <span className="text-sm font-semibold">{extractedInfo.country}</span>
               </div>
             )}
             {extractedInfo?.sector && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                <span className="text-sm text-muted-foreground">Secteur</span>
+                <span className="text-sm text-muted-foreground">{t('dashboard_coach.sector')}</span>
                 <span className="text-sm font-semibold">{extractedInfo.sector}</span>
               </div>
             )}
           </div>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => { setShowExtractDialog(false); setExtractedInfo(null); }}>
-              Non merci
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleConfirmExtraction} disabled={saving}>
-              {saving ? 'Mise à jour...' : 'Oui, mettre à jour'}
+              {saving ? t('common.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1494,7 +1496,7 @@ export default function EntrepreneurDashboard({
               {(selectedModule === 'upload' || selectedModule === 'reconstruction') && (
                 <>
                   <FolderPlus className="h-5 w-5 text-muted-foreground" />
-                  <h1 className="font-display font-semibold text-base">Documents & Sources</h1>
+                  <h1 className="font-display font-semibold text-base">{t('dashboard_coach.documents')}</h1>
                 </>
               )}
             </div>
@@ -1516,7 +1518,7 @@ export default function EntrepreneurDashboard({
             ) : (selectedModule === 'upload' || selectedModule === 'reconstruction') && !readOnly ? (
               /* Upload / Sources panel — hidden in readOnly */
               <div className="p-6 max-w-2xl mx-auto space-y-4">
-                <h2 className="font-display font-bold text-lg mb-4">Documents d'inputs</h2>
+                <h2 className="font-display font-bold text-lg mb-4">{t('dashboard_coach.documents')}</h2>
 
                 {/* Document card: BMC & Impact Social */}
                 <input ref={docInputRef} type="file" multiple accept=".docx,.doc,.pdf,.txt" className="hidden" onChange={e => handleFileUpload(e, 'doc')} />
@@ -1541,7 +1543,7 @@ export default function EntrepreneurDashboard({
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-muted-foreground mt-1">Cliquez pour uploader (.docx, .pdf)</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('dashboard_coach.upload_hint')}</p>
                       )}
                     </div>
                   </div>
@@ -1571,7 +1573,7 @@ export default function EntrepreneurDashboard({
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-muted-foreground mt-1">Cliquez pour uploader (.xlsx, .csv)</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('dashboard_coach.upload_hint')}</p>
                       )}
                     </div>
                   </div>
@@ -1752,7 +1754,7 @@ export default function EntrepreneurDashboard({
                           {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
                         </button>}
                         {!readOnly && <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors disabled:opacity-50">
-                          {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Regénérer
+                          {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {t('dashboard_coach.regenerate')}
                         </button>}
                       </div>
                     </div>
@@ -1767,14 +1769,14 @@ export default function EntrepreneurDashboard({
                       </div>
                       <div className="flex items-center gap-2">
                         {generatingOvoPlan ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération…</div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
                         ) : ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url ? (
                           <>
                             <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
-                            <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> Regénérer</button>
+                            <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
                           </>
                         ) : (
-                          <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> Générer Excel OVO</button>
+                          <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')} Excel OVO</button>
                         )}
                       </div>
                     </div>
@@ -1789,14 +1791,14 @@ export default function EntrepreneurDashboard({
                       </div>
                       <div className="flex items-center gap-2">
                         {generatingModule === 'business_plan' ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération…</div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
                         ) : (selectedDeliv?.data as any)?._meta?.download_url ? (
                           <>
                             <button onClick={() => handleDownloadBpWord()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Word</button>
-                            <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 border border-indigo-300 text-xs font-semibold hover:bg-indigo-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> Regénérer</button>
+                            <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 border border-indigo-300 text-xs font-semibold hover:bg-indigo-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
                           </>
                         ) : (
-                          <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> Générer</button>
+                          <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')}</button>
                         )}
                       </div>
                     </div>
@@ -1851,7 +1853,7 @@ export default function EntrepreneurDashboard({
                   className="flex items-center gap-2 px-6 py-3 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
                 >
                   {generatingModule === 'investment_memo' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Générer le Mémo d'Investissement
+                  {t('common.generate')} — {t('modules.investment_memo')}
                 </button>
               </div>
             ) : selectedModule === 'plan_financier' ? (
@@ -1867,7 +1869,7 @@ export default function EntrepreneurDashboard({
                   className="flex items-center gap-2 px-6 py-3 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors shadow-sm disabled:opacity-50"
                 >
                   {generatingModule === 'plan_financier' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Générer le Plan Financier
+                  {t('common.generate')} — {t('modules.plan_financier')}
                 </button>
               </div>
             ) : (
@@ -1875,9 +1877,9 @@ export default function EntrepreneurDashboard({
                 <div className="mb-4">
                   <Sparkles className="h-16 w-16 text-muted-foreground/20" />
                 </div>
-                <h3 className="font-display font-semibold text-lg text-muted-foreground mb-2">Prêt à être généré</h3>
+                <h3 className="font-display font-semibold text-lg text-muted-foreground mb-2">{t('common.generate')}</h3>
                 <p className="text-sm text-muted-foreground/70 max-w-sm">
-                  Cliquez sur "Générer tout le pipeline" dans la sidebar.
+                  {t('dashboard_coach.generate_pipeline')}
                 </p>
               </div>
             )}
@@ -1891,7 +1893,7 @@ export default function EntrepreneurDashboard({
           <div className="container flex items-center gap-3 py-2 px-4">
             <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
             <span className="text-sm font-medium truncate">
-              Génération {generationProgress.current}/{generationProgress.total} : {generationProgress.name}
+              {t('pipeline.step_of', { current: generationProgress.current, total: generationProgress.total })} : {generationProgress.name}
             </span>
             <Progress
               value={(generationProgress.current / generationProgress.total) * 100}

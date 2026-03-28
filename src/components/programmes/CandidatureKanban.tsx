@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -8,13 +9,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-const COLUMNS = [
-  { id: 'received', label: 'Reçues', color: 'bg-blue-50 border-blue-200' },
-  { id: 'in_review', label: 'En revue', color: 'bg-amber-50 border-amber-200' },
-  { id: 'pre_selected', label: 'Pré-sélectionnées', color: 'bg-violet-50 border-violet-200' },
-  { id: 'rejected', label: 'Rejetées', color: 'bg-red-50 border-red-200' },
-  { id: 'selected', label: 'Sélectionnées', color: 'bg-emerald-50 border-emerald-200' },
-  { id: 'waitlisted', label: "Liste d'attente", color: 'bg-gray-50 border-gray-200' },
+const COLUMN_IDS = [
+  { id: 'received', labelKey: 'candidature.received', color: 'bg-blue-50 border-blue-200' },
+  { id: 'in_review', labelKey: 'candidature.in_review', color: 'bg-amber-50 border-amber-200' },
+  { id: 'pre_selected', labelKey: 'candidature.pre_selected', color: 'bg-violet-50 border-violet-200' },
+  { id: 'rejected', labelKey: 'candidature.rejected', color: 'bg-red-50 border-red-200' },
+  { id: 'selected', labelKey: 'candidature.selected', color: 'bg-emerald-50 border-emerald-200' },
+  { id: 'waitlisted', labelKey: 'candidature.waitlisted', color: 'bg-gray-50 border-gray-200' },
 ];
 
 interface Candidature {
@@ -26,7 +27,7 @@ interface Candidature {
   assigned_coach_id?: string | null;
 }
 
-function DroppableColumn({ col, children }: { col: typeof COLUMNS[number]; children: React.ReactNode }) {
+function DroppableColumn({ col, children }: { col: typeof COLUMN_IDS[number]; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   return (
     <div
@@ -83,6 +84,7 @@ interface Props {
 }
 
 export default function CandidatureKanban({ candidatures, onCardClick, onRefresh }: Props) {
+  const { t } = useTranslation();
   const [confirmReject, setConfirmReject] = useState<{ id: string; name: string } | null>(null);
   const [activeCard, setActiveCard] = useState<Candidature | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -92,10 +94,10 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
       body: { candidature_id: id, action: 'move', new_status: newStatus }
     });
     if (error || data?.error) {
-      toast({ title: 'Erreur', description: data?.error || error?.message || 'Erreur inconnue', variant: 'destructive' });
+      toast({ title: t('common.error'), description: data?.error || error?.message || t('common.error'), variant: 'destructive' });
       return;
     }
-    toast({ title: '✅ Statut mis à jour' });
+    toast({ title: t('candidature.status_updated') });
     onRefresh();
   };
 
@@ -111,7 +113,7 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
 
     const overId = over.id as string;
     // Check if dropped on a column directly
-    const targetColumn = COLUMNS.find(c => c.id === overId);
+    const targetColumn = COLUMN_IDS.find(c => c.id === overId);
     // Or dropped on another card — find which column that card is in
     let targetStatus = targetColumn?.id;
     if (!targetStatus) {
@@ -138,12 +140,12 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
         onDragEnd={handleDragEnd}
       >
         <div className="grid grid-cols-6 gap-3 min-h-[400px]">
-          {COLUMNS.map(col => {
+          {COLUMN_IDS.map(col => {
             const items = candidatures.filter(c => c.status === col.id);
             return (
               <DroppableColumn key={col.id} col={col}>
                 <div className="flex items-center justify-between px-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide">{col.label}</h4>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide">{t(col.labelKey)}</h4>
                   <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
                 </div>
                 <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -165,15 +167,15 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
       <AlertDialog open={!!confirmReject} onOpenChange={() => setConfirmReject(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer le rejet</AlertDialogTitle>
+            <AlertDialogTitle>{t('candidature.confirm_reject')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Voulez-vous rejeter la candidature de <strong>{confirmReject?.name}</strong> ?
+              {t('candidature.confirm_reject_desc', { name: confirmReject?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (confirmReject) { moveCard(confirmReject.id, 'rejected'); setConfirmReject(null); } }}>
-              Rejeter
+              {t('candidature.reject')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

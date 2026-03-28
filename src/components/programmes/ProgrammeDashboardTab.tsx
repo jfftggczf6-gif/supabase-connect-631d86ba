@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function ProgrammeDashboardTab({ programmeId }: Props) {
+  const { t } = useTranslation();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAlerts, setShowAlerts] = useState(false);
@@ -34,7 +36,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
   }, [programmeId]);
 
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-  if (!data) return <p className="text-center text-muted-foreground py-8">Aucune donnée disponible.</p>;
+  if (!data) return <p className="text-center text-muted-foreground py-8">{t('common.no_data')}</p>;
 
   const kpis = data.kpis || {};
   const distribution = data.score_distribution || [];
@@ -65,43 +67,43 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
         <Card><CardContent className="p-4 text-center">
           <Users className="h-5 w-5 mx-auto text-primary mb-1" />
           <p className="text-2xl font-bold">{kpis.total_selected ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Entreprises</p>
+          <p className="text-xs text-muted-foreground">{t('dashboard_programme.enterprises_short')}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <TrendingUp className="h-5 w-5 mx-auto text-emerald-500 mb-1" />
           <p className="text-2xl font-bold">{kpis.score_ir_moyen ?? '—'}</p>
-          <p className="text-xs text-muted-foreground">Score moyen</p>
+          <p className="text-xs text-muted-foreground">{t('dashboard_programme.score_avg')}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <BarChart3 className="h-5 w-5 mx-auto text-blue-500 mb-1" />
           <p className="text-2xl font-bold">{kpis.pipeline_completion_pct ?? 0}%</p>
-          <p className="text-xs text-muted-foreground">Complétion</p>
+          <p className="text-xs text-muted-foreground">{t('dashboard_programme.completion')}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <CheckCircle2 className="h-5 w-5 mx-auto text-purple-500 mb-1" />
           <p className="text-2xl font-bold">{kpis.coaching_notes_count ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Notes coaching</p>
+          <p className="text-xs text-muted-foreground">{t('dashboard_programme.coaching_notes')}</p>
         </CardContent></Card>
         <Card className="cursor-pointer hover:ring-2 ring-amber-300 transition-all" onClick={() => setShowAlerts(true)}>
           <CardContent className="p-4 text-center">
             <AlertTriangle className="h-5 w-5 mx-auto text-amber-500 mb-1" />
             <p className="text-2xl font-bold">{kpis.alerts_count ?? allAlerts.length}</p>
-            <p className="text-xs text-muted-foreground">Alertes</p>
+            <p className="text-xs text-muted-foreground">{t('dashboard_programme.alerts')}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tableau entreprises (EN PREMIER — c'est ce que le chef cherche) */}
       <Card><CardContent className="p-5">
-        <h3 className="font-semibold mb-3">Entreprises du programme</h3>
+        <h3 className="font-semibold mb-3">{t('dashboard_programme.enterprises')}</h3>
         <Table>
           <TableHeader><TableRow>
-            <TableHead>Entreprise</TableHead>
-            <TableHead>Coach</TableHead>
-            <TableHead>Score IR</TableHead>
-            <TableHead>Progression</TableHead>
-            <TableHead>Phase</TableHead>
-            <TableHead>Alertes</TableHead>
+            <TableHead>{t('dashboard_programme.enterprises_short')}</TableHead>
+            <TableHead>{t('dashboard_programme.coach')}</TableHead>
+            <TableHead>{t('dashboard_programme.score_ir')}</TableHead>
+            <TableHead>{t('dashboard_programme.progression')}</TableHead>
+            <TableHead>{t('dashboard_programme.phase')}</TableHead>
+            <TableHead>{t('dashboard_programme.alerts')}</TableHead>
             <TableHead></TableHead>
           </TableRow></TableHeader>
           <TableBody>
@@ -143,13 +145,13 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
       {/* Par coach */}
       {byCoach.length > 0 && (
         <Card><CardContent className="p-5">
-          <h3 className="font-semibold mb-3">Par coach</h3>
+          <h3 className="font-semibold mb-3">{t('dashboard_programme.by_coach')}</h3>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Coach</TableHead>
-              <TableHead>Entreprises</TableHead>
-              <TableHead>Score moyen</TableHead>
-              <TableHead>Complétion</TableHead>
+              <TableHead>{t('dashboard_programme.coach')}</TableHead>
+              <TableHead>{t('dashboard_programme.enterprises_short')}</TableHead>
+              <TableHead>{t('dashboard_programme.score_avg')}</TableHead>
+              <TableHead>{t('dashboard_programme.completion')}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {byCoach.map((c: any) => (
@@ -182,13 +184,13 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
       {/* Analytics (dépliable) */}
       <details>
         <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-2">
-          <Activity className="h-4 w-4" /> Analytics détaillées
+          <Activity className="h-4 w-4" /> {t('dashboard_programme.analytics')}
         </summary>
         <div className="mt-4 space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             {/* Complétion par module */}
             <Card><CardContent className="p-5">
-              <h3 className="font-semibold mb-4">Complétion par module</h3>
+              <h3 className="font-semibold mb-4">{t('dashboard_programme.module_completion')}</h3>
               <div className="space-y-3">
                 {Object.entries(modulesCompletion).map(([mod, stats]: [string, any]) => {
                   const total = (stats.completed || 0) + (stats.in_progress || 0) + (stats.not_started || 0);
@@ -205,7 +207,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
             </CardContent></Card>
             {/* Distribution des scores */}
             <Card><CardContent className="p-5">
-              <h3 className="font-semibold mb-4">Distribution des scores</h3>
+              <h3 className="font-semibold mb-4">{t('dashboard_programme.score_distribution')}</h3>
               {distribution.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={distribution}>
@@ -217,13 +219,13 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p className="text-sm text-muted-foreground text-center py-8">Pas encore de scores</p>}
+              ) : <p className="text-sm text-muted-foreground text-center py-8">{t('dashboard_programme.no_scores_yet')}</p>}
             </CardContent></Card>
           </div>
           {/* Évolution score */}
           {scoreEvolution.length > 0 && (
             <Card><CardContent className="p-5">
-              <h3 className="font-semibold mb-4">Évolution score cohorte (30 jours)</h3>
+              <h3 className="font-semibold mb-4">{t('dashboard_programme.score_evolution')}</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={scoreEvolution}>
                   <XAxis dataKey="semaine" tick={{ fontSize: 12 }} />
@@ -231,7 +233,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
                   <Tooltip formatter={(v: number) => `${v}/100`} />
                   <Area type="monotone" dataKey="min" stackId="range" stroke="none" fill="#e5e7eb" />
                   <Area type="monotone" dataKey="max" stackId="range2" stroke="none" fill="#dbeafe" fillOpacity={0.4} />
-                  <Line type="monotone" dataKey="score_moyen" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} name="Score moyen" />
+                  <Line type="monotone" dataKey="score_moyen" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} name={t('dashboard_programme.score_avg_label')} />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent></Card>
@@ -239,22 +241,22 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
           {/* Activité 7j + récente */}
           <div className="grid md:grid-cols-2 gap-4">
             <Card><CardContent className="p-5">
-              <h3 className="font-semibold mb-3">Activité 7 jours</h3>
+              <h3 className="font-semibold mb-3">{t('dashboard_programme.activity_7d')}</h3>
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div className="text-center p-2 bg-muted/50 rounded">
                   <Bot className="h-3.5 w-3.5 mx-auto text-blue-500 mb-0.5" />
                   <p className="text-lg font-bold">{activite7j.totaux.generations}</p>
-                  <p className="text-[10px] text-muted-foreground">Générations</p>
+                  <p className="text-[10px] text-muted-foreground">{t('dashboard_programme.generations')}</p>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
                   <Pencil className="h-3.5 w-3.5 mx-auto text-amber-500 mb-0.5" />
                   <p className="text-lg font-bold">{activite7j.totaux.corrections}</p>
-                  <p className="text-[10px] text-muted-foreground">Corrections</p>
+                  <p className="text-[10px] text-muted-foreground">{t('dashboard_programme.corrections')}</p>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
                   <MessageSquare className="h-3.5 w-3.5 mx-auto text-purple-500 mb-0.5" />
                   <p className="text-lg font-bold">{activite7j.totaux.notes_coaching}</p>
-                  <p className="text-[10px] text-muted-foreground">Notes</p>
+                  <p className="text-[10px] text-muted-foreground">{t('dashboard_programme.notes')}</p>
                 </div>
               </div>
               {Object.keys(activite7j.par_jour).length > 0 && (
@@ -268,7 +270,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
               )}
             </CardContent></Card>
             <Card><CardContent className="p-5">
-              <h3 className="font-semibold mb-3">Activité récente</h3>
+              <h3 className="font-semibold mb-3">{t('dashboard_programme.recent_activity')}</h3>
               {activiteRecente.length > 0 ? (
                 <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
                   {activiteRecente.map((a: any, i: number) => {
@@ -286,7 +288,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
                     );
                   })}
                 </div>
-              ) : <p className="text-sm text-muted-foreground text-center py-4">Aucune activité récente</p>}
+              ) : <p className="text-sm text-muted-foreground text-center py-4">{t('dashboard_programme.no_recent')}</p>}
             </CardContent></Card>
           </div>
         </div>
@@ -295,9 +297,9 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
       {/* Modal alertes */}
       <Dialog open={showAlerts} onOpenChange={setShowAlerts}>
         <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Alertes du programme</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('dashboard_programme.alerts_title')}</DialogTitle></DialogHeader>
           {allAlerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">Aucune alerte active.</p>
+            <p className="text-sm text-muted-foreground py-4">{t('dashboard_programme.no_alerts')}</p>
           ) : (
             <div className="space-y-2">
               {allAlerts.map((a, i) => (
@@ -320,11 +322,11 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
       {/* Modal coach portfolio */}
       <Dialog open={!!showCoach} onOpenChange={() => setShowCoach(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Portfolio — {showCoach?.coach_name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('dashboard_programme.portfolio')} — {showCoach?.coach_name}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center"><p className="text-xl font-bold">{showCoach?.enterprises_count}</p><p className="text-xs text-muted-foreground">Entreprises</p></div>
-            <div className="text-center"><p className="text-xl font-bold">{showCoach?.avg_score}</p><p className="text-xs text-muted-foreground">Score moyen</p></div>
-            <div className="text-center"><p className="text-xl font-bold">{showCoach?.avg_completion}%</p><p className="text-xs text-muted-foreground">Complétion</p></div>
+            <div className="text-center"><p className="text-xl font-bold">{showCoach?.enterprises_count}</p><p className="text-xs text-muted-foreground">{t('dashboard_programme.enterprises_short')}</p></div>
+            <div className="text-center"><p className="text-xl font-bold">{showCoach?.avg_score}</p><p className="text-xs text-muted-foreground">{t('dashboard_programme.score_avg')}</p></div>
+            <div className="text-center"><p className="text-xl font-bold">{showCoach?.avg_completion}%</p><p className="text-xs text-muted-foreground">{t('dashboard_programme.completion')}</p></div>
           </div>
           <div className="space-y-2">
             {enterprises.filter((e: any) => e.coach_id === showCoach?.coach_id).map((e: any) => {

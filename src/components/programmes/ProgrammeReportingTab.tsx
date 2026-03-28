@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function ProgrammeReportingTab({ programmeId, programmeName, programmeStatus, hideClotureButton }: Props) {
+  const { t } = useTranslation();
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [report, setReport] = useState<any>(null);
   const [exporting, setExporting] = useState(false);
@@ -100,10 +102,10 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       {(() => {
         const isFinal = programmeStatus === 'completed';
         const reportType = isFinal ? 'final' : 'progress';
-        const label = isFinal ? 'Rapport final' : 'Rapport de progression';
+        const label = isFinal ? t('reporting.final_report') : t('reporting.progress_report');
         const desc = isFinal
-          ? 'Bilan complet pour le bailleur avec impact, success stories et recommandations'
-          : 'Bilan intermédiaire avec KPIs, analyse cohorte et recommandations';
+          ? t('reporting.final_desc')
+          : t('reporting.progress_desc_long');
         const Icon = isFinal ? ClipboardList : BarChart3;
         const color = isFinal ? 'purple' : 'blue';
         return (
@@ -119,7 +121,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
             </div>
             <Button onClick={() => handleGenerateReport(reportType)} disabled={!!generatingReport} className="w-full gap-2">
               {generatingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-              {generatingReport ? 'Génération en cours...' : `Générer le ${label.toLowerCase()}`}
+              {generatingReport ? t('reporting.generating_report') : t('reporting.generate_report_type', { type: label.toLowerCase() })}
             </Button>
           </CardContent></Card>
         );
@@ -128,11 +130,11 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       {/* Rapport généré */}
       {report && (
         <Card><CardContent className="p-6 space-y-4">
-          <h3 className="font-semibold text-lg">{report.titre || 'Rapport'}</h3>
+          <h3 className="font-semibold text-lg">{report.titre || t('reporting.report')}</h3>
 
           {report.resume_executif && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-1">Résumé exécutif</h4>
+              <h4 className="font-medium text-blue-900 mb-1">{t('reporting.executive_summary')}</h4>
               <p className="text-sm text-blue-800">{report.resume_executif}</p>
             </div>
           )}
@@ -150,7 +152,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
 
           {report.entreprises_performantes?.length > 0 && (
             <div>
-              <h4 className="font-medium mb-2">Success stories</h4>
+              <h4 className="font-medium mb-2">{t('reporting.success_stories')}</h4>
               {report.entreprises_performantes.map((e: any, i: number) => (
                 <div key={i} className="flex items-center gap-2 p-2 rounded bg-emerald-50 border border-emerald-200 mb-1 text-sm">
                   <Badge variant="outline" className="text-emerald-700 border-emerald-300">{e.nom || e.name || `#${i+1}`}</Badge>
@@ -162,7 +164,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
 
           {report.recommandations?.length > 0 && (
             <div>
-              <h4 className="font-medium mb-2">Recommandations</h4>
+              <h4 className="font-medium mb-2">{t('reporting.recommendations')}</h4>
               <ul className="space-y-1 text-sm">
                 {report.recommandations.map((r: any, i: number) => (
                   <li key={i} className="flex items-start gap-2">
@@ -183,13 +185,13 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
             <Download className="h-5 w-5 text-emerald-600" />
           </div>
           <div>
-            <h3 className="font-semibold">Export des données</h3>
-            <p className="text-xs text-muted-foreground">Candidatures, scores, entreprises, notes de coaching</p>
+            <h3 className="font-semibold">{t('reporting.export_data')}</h3>
+            <p className="text-xs text-muted-foreground">{t('reporting.export_desc')}</p>
           </div>
         </div>
         <Button variant="outline" onClick={handleExport} disabled={exporting} className="w-full gap-2">
           {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Télécharger les données
+          {t('reporting.download_data')}
         </Button>
       </CardContent></Card>
 
@@ -202,12 +204,12 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
                 <Lock className="h-5 w-5 text-red-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-red-900">Clôturer le programme</h3>
-                <p className="text-xs text-muted-foreground">Marque le programme comme terminé. Action irréversible.</p>
+                <h3 className="font-semibold text-red-900">{t('programme.close_programme')}</h3>
+                <p className="text-xs text-muted-foreground">{t('programme.close_desc')}</p>
               </div>
             </div>
             <Button variant="destructive" onClick={() => setShowClotureConfirm(true)}>
-              Clôturer
+              {t('programme.close_button')}
             </Button>
           </div>
         </CardContent></Card>
@@ -217,17 +219,16 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       <Dialog open={showClotureConfirm} onOpenChange={setShowClotureConfirm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-red-500" /> Clôturer le programme</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-red-500" /> {t('programme.close_programme')}</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir clôturer "{programmeName}" ? Cette action est irréversible.
-              Les entreprises ne pourront plus générer de livrables dans le cadre de ce programme.
+              {t('programme.close_confirm_desc', { name: programmeName })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowClotureConfirm(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setShowClotureConfirm(false)}>{t('common.cancel')}</Button>
             <Button variant="destructive" onClick={handleCloture} disabled={closing}>
               {closing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Confirmer la clôture
+              {t('programme.confirm_close')}
             </Button>
           </DialogFooter>
         </DialogContent>

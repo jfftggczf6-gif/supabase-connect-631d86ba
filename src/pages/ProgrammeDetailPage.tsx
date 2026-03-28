@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function ProgrammeDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -99,7 +101,7 @@ export default function ProgrammeDetailPage() {
   };
 
   const handleClose = async () => {
-    if (!confirm('Clôturer les candidatures ? Plus aucune candidature ne pourra être soumise.')) return;
+    if (!confirm(t('programme.close_candidatures_confirm'))) return;
     const { error } = await supabase.from('programmes').update({ status: 'closed' }).eq('id', id!);
     if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     else { toast({ title: '✅ Candidatures clôturées' }); fetchProgramme(); }
@@ -166,8 +168,8 @@ export default function ProgrammeDetailPage() {
 
   const candidatureUrl = programme?.form_slug ? `${window.location.origin}/candidature/${programme.form_slug}` : null;
 
-  if (loading) return <DashboardLayout title="Programme"><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></DashboardLayout>;
-  if (!programme) return <DashboardLayout title="Programme introuvable"><p className="text-muted-foreground">Ce programme n'existe pas.</p></DashboardLayout>;
+  if (loading) return <DashboardLayout title={t('programme.title')}><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></DashboardLayout>;
+  if (!programme) return <DashboardLayout title={t('programme.not_found')}><p className="text-muted-foreground">{t('programme.not_found_desc')}</p></DashboardLayout>;
 
   const status = programme.status;
   const fmt = (d: string | null) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
@@ -197,15 +199,15 @@ export default function ProgrammeDetailPage() {
     <DashboardLayout title={programme.name} subtitle={programme.organization || ''}>
       <div className="flex items-center gap-3 mb-6">
         <ProgrammeStatusBadge status={status} />
-        {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Publier</Button>}
-        {status === 'open' && <Button variant="outline" onClick={handleClose}>Clôturer les candidatures</Button>}
-        {status === 'closed' && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Démarrer le programme</Button>}
+        {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.publish')}</Button>}
+        {status === 'open' && <Button variant="outline" onClick={handleClose}>{t('programme.close_candidatures')}</Button>}
+        {status === 'closed' && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.start_programme')}</Button>}
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
         <TabsList className="flex-wrap">
-          {tabs.map(t => <TabsTrigger key={t} value={t}>{
-            { apercu: 'Aperçu', enterprises: 'Entreprises', selection: 'Sélection', diffusion: 'Diffusion', suivi: 'Suivi', reporting: 'Reporting', impact: 'Impact', parametres: 'Paramètres' }[t]
+          {tabs.map(tab => <TabsTrigger key={tab} value={tab}>{
+            { apercu: t('programme.overview'), enterprises: t('programme.enterprises'), selection: t('programme.selection'), diffusion: t('programme.diffusion'), suivi: t('programme.monitoring'), reporting: t('programme.reporting'), impact: t('programme.impact'), parametres: t('programme.settings') }[tab]
           }</TabsTrigger>)}
         </TabsList>
 
@@ -213,18 +215,18 @@ export default function ProgrammeDetailPage() {
         <TabsContent value="apercu">
           <div className="grid md:grid-cols-2 gap-4">
             <Card><CardContent className="p-5 space-y-2">
-              <h3 className="font-semibold">Informations</h3>
-              <p className="text-sm"><strong>Organisation :</strong> {programme.organization || '—'}</p>
-              <p className="text-sm"><strong>Budget :</strong> {programme.budget?.toLocaleString() || '—'} {programme.currency || ''}</p>
-              <p className="text-sm"><strong>Places :</strong> {programme.nb_places || '—'}</p>
-              <p className="text-sm"><strong>Pays :</strong> {programme.country_filter?.join(', ') || '—'}</p>
-              <p className="text-sm"><strong>Secteurs :</strong> {programme.sector_filter?.join(', ') || '—'}</p>
+              <h3 className="font-semibold">{t('programme_tabs.information')}</h3>
+              <p className="text-sm"><strong>{t('programme_tabs.organization')} :</strong> {programme.organization || '—'}</p>
+              <p className="text-sm"><strong>{t('programme_tabs.budget')} :</strong> {programme.budget?.toLocaleString() || '—'} {programme.currency || ''}</p>
+              <p className="text-sm"><strong>{t('programme_tabs.places')} :</strong> {programme.nb_places || '—'}</p>
+              <p className="text-sm"><strong>{t('programme_tabs.countries')} :</strong> {programme.country_filter?.join(', ') || '—'}</p>
+              <p className="text-sm"><strong>{t('programme_tabs.sectors')} :</strong> {programme.sector_filter?.join(', ') || '—'}</p>
             </CardContent></Card>
             <Card><CardContent className="p-5 space-y-2">
-              <h3 className="font-semibold">Dates</h3>
-              <p className="text-sm"><strong>Candidatures :</strong> {fmt(programme.start_date)} → {fmt(programme.end_date)}</p>
-              <p className="text-sm"><strong>Programme :</strong> {fmt(programme.programme_start)} → {fmt(programme.programme_end)}</p>
-              {programme.description && <><h3 className="font-semibold pt-2">Description</h3><p className="text-sm text-muted-foreground">{programme.description}</p></>}
+              <h3 className="font-semibold">{t('programme_tabs.dates')}</h3>
+              <p className="text-sm"><strong>{t('programme_tabs.candidatures_dates')} :</strong> {fmt(programme.start_date)} → {fmt(programme.end_date)}</p>
+              <p className="text-sm"><strong>{t('programme_tabs.programme_dates')} :</strong> {fmt(programme.programme_start)} → {fmt(programme.programme_end)}</p>
+              {programme.description && <><h3 className="font-semibold pt-2">{t('programme_tabs.description')}</h3><p className="text-sm text-muted-foreground">{programme.description}</p></>}
             </CardContent></Card>
           </div>
 
@@ -235,7 +237,7 @@ export default function ProgrammeDetailPage() {
                 <Card><CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                    <h3 className="font-semibold">Critères d'éligibilité</h3>
+                    <h3 className="font-semibold">{t('programme_tabs.eligibility')}</h3>
                   </div>
                   <ul className="space-y-1.5">
                     {eligibilite.map((c, i) => (
@@ -251,7 +253,7 @@ export default function ProgrammeDetailPage() {
                 <Card><CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-blue-500" />
-                    <h3 className="font-semibold">Critères de sélection</h3>
+                    <h3 className="font-semibold">{t('programme_tabs.selection_criteria')}</h3>
                   </div>
                   <ul className="space-y-1.5">
                     {selection.map((c, i) => (
@@ -267,7 +269,7 @@ export default function ProgrammeDetailPage() {
                 <Card><CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    <h3 className="font-semibold">Conditions spécifiques</h3>
+                    <h3 className="font-semibold">{t('programme_tabs.specific_conditions')}</h3>
                   </div>
                   <ul className="space-y-1.5">
                     {conditions.map((c, i) => (
@@ -292,30 +294,30 @@ export default function ProgrammeDetailPage() {
         <TabsContent value="selection">
           <div className="space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <Input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
+              <Input placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Statut" /></SelectTrigger>
+                <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous</SelectItem>
-                  <SelectItem value="received">Reçues</SelectItem>
-                  <SelectItem value="in_review">En revue</SelectItem>
-                  <SelectItem value="pre_selected">Pré-sélectionnées</SelectItem>
-                  <SelectItem value="selected">Sélectionnées</SelectItem>
-                  <SelectItem value="rejected">Rejetées</SelectItem>
-                  <SelectItem value="waitlisted">Liste d'attente</SelectItem>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  <SelectItem value="received">{t('candidature.received')}</SelectItem>
+                  <SelectItem value="in_review">{t('candidature.in_review')}</SelectItem>
+                  <SelectItem value="pre_selected">{t('candidature.pre_selected')}</SelectItem>
+                  <SelectItem value="selected">{t('candidature.selected')}</SelectItem>
+                  <SelectItem value="rejected">{t('candidature.rejected')}</SelectItem>
+                  <SelectItem value="waitlisted">{t('candidature.waitlisted')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" className="gap-2" onClick={handleScreen} disabled={screening}>
                 {screening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-                {screening ? 'Screening en cours...' : 'Screening IA'}
+                {screening ? t('programme.screening_running') : t('programme.screening_ia')}
               </Button>
             </div>
             <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
             <details className="mt-2">
-              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">Vue tableau ({candidatures.length})</summary>
+              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">{t('candidature.table_view')} ({candidatures.length})</summary>
               <Table className="mt-2">
                 <TableHeader><TableRow>
-                  <TableHead>Entreprise</TableHead><TableHead>Contact</TableHead><TableHead>Score IA</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead></TableHead>
+                  <TableHead>{t('dashboard_programme.enterprises_short')}</TableHead><TableHead>{t('candidature.contact')}</TableHead><TableHead>{t('candidature.score_ia')}</TableHead><TableHead>{t('common.status')}</TableHead><TableHead>{t('common.date')}</TableHead><TableHead></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {candidatures.map(c => (
@@ -334,7 +336,7 @@ export default function ProgrammeDetailPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {candidatures.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucune candidature</TableCell></TableRow>}
+                  {candidatures.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('programme.no_candidatures')}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </details>
@@ -344,7 +346,7 @@ export default function ProgrammeDetailPage() {
         {/* Diffusion */}
         <TabsContent value="diffusion">
           <Card><CardContent className="p-5 space-y-4">
-            <h3 className="font-semibold">Diffusion de l'appel</h3>
+            <h3 className="font-semibold">{t('programme.diffusion_title')}</h3>
             {candidatureUrl ? (
               <>
                 <div className="flex items-center gap-2">
@@ -355,23 +357,23 @@ export default function ProgrammeDetailPage() {
                 <div className="flex items-center gap-4">
                   <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`} alt="QR Code" className="w-32 h-32 border rounded-lg p-1" />
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">QR Code</p>
-                    <p className="text-xs text-muted-foreground">Scannez pour accéder au formulaire</p>
+                    <p className="text-sm font-medium">{t('programme.qr_code')}</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.qr_scan')}</p>
                     <Button variant="outline" size="sm" onClick={() => {
                       const link = document.createElement('a');
                       link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
                       link.download = `qr-${programme.form_slug}.png`;
                       link.click();
-                    }}>Télécharger le QR</Button>
+                    }}>{t('programme.download_qr')}</Button>
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  <strong>Embed :</strong>
+                  <strong>{t('programme.embed')} :</strong>
                   <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
                 </div>
-                <p className="text-sm font-medium">{candidatures.length} candidatures reçues</p>
+                <p className="text-sm font-medium">{candidatures.length} {t('programme.candidatures_received')}</p>
               </>
-            ) : <p className="text-sm text-muted-foreground">Le lien sera disponible après publication.</p>}
+            ) : <p className="text-sm text-muted-foreground">{t('programme.link_available_after_publish')}</p>}
           </CardContent></Card>
         </TabsContent>
 
@@ -380,7 +382,7 @@ export default function ProgrammeDetailPage() {
           <div className="space-y-6">
             <ProgrammeDashboardTab programmeId={id!} />
             <details className="mt-2">
-              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">Comparatif & classement</summary>
+              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">{t('dashboard_programme.comparative')}</summary>
               <div className="mt-3">
                 <ProgrammeComparatifTab programmeId={id!} />
               </div>
@@ -401,23 +403,23 @@ export default function ProgrammeDetailPage() {
         {/* Paramètres */}
         <TabsContent value="parametres">
           <Card><CardContent className="p-5 space-y-3">
-            <h3 className="font-semibold">Paramètres du programme</h3>
-            <p className="text-sm text-muted-foreground">La modification des paramètres sera disponible prochainement.</p>
+            <h3 className="font-semibold">{t('programme.settings_title')}</h3>
+            <p className="text-sm text-muted-foreground">{t('programme.settings_coming_soon')}</p>
             {['in_progress', 'closed'].includes(status) && (
               <div className="pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-red-900">Clôturer le programme</p>
-                    <p className="text-xs text-muted-foreground">Action irréversible. Le programme passera en statut "Terminé".</p>
+                    <p className="font-semibold text-red-900">{t('programme.close_programme')}</p>
+                    <p className="text-xs text-muted-foreground">{t('programme.close_warning')}</p>
                   </div>
                   <Button variant="destructive" onClick={async () => {
-                    if (!confirm(`Clôturer "${programme.name}" ? Cette action est irréversible.`)) return;
+                    if (!confirm(t('programme.close_confirm', { name: programme.name }))) return;
                     const { error } = await supabase.functions.invoke('manage-programme', {
                       body: { action: 'complete', id: id! }
                     });
                     if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
                     else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
-                  }}>Clôturer</Button>
+                  }}>{t('programme.close_button')}</Button>
                 </div>
               </div>
             )}
