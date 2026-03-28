@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,6 +25,8 @@ import { fr } from 'date-fns/locale';
 export default function ProgrammeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'apercu';
   const [programme, setProgramme] = useState<any>(null);
   const [criteria, setCriteria] = useState<any>(null);
   const [candidatures, setCandidatures] = useState<any[]>([]);
@@ -200,7 +202,7 @@ export default function ProgrammeDetailPage() {
         {status === 'closed' && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Démarrer le programme</Button>}
       </div>
 
-      <Tabs defaultValue="apercu">
+      <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
         <TabsList className="flex-wrap">
           {tabs.map(t => <TabsTrigger key={t} value={t}>{
             { apercu: 'Aperçu', enterprises: 'Entreprises', selection: 'Sélection', diffusion: 'Diffusion', suivi: 'Suivi', reporting: 'Reporting', impact: 'Impact', parametres: 'Paramètres' }[t]
