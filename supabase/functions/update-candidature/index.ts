@@ -15,11 +15,11 @@ function jsonRes(data: any, status = 200) {
 
 // Valid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  received: ["in_review", "rejected"],
-  in_review: ["pre_selected", "rejected", "waitlisted"],
+  received: ["in_review", "pre_selected", "selected", "rejected"],
+  in_review: ["pre_selected", "selected", "rejected", "waitlisted"],
   pre_selected: ["selected", "rejected", "waitlisted"],
   waitlisted: ["pre_selected", "selected", "rejected"],
-  rejected: ["in_review"], // Allow un-reject
+  rejected: ["in_review", "pre_selected"], // Allow un-reject
   selected: [], // Final state
 };
 
