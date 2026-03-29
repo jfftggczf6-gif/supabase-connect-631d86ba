@@ -28,6 +28,7 @@ const SLIDE_COLORS: Record<string, string> = {
 };
 
 export default function PitchDeckViewer({ data, onRegenerate }: Props) {
+  const { t } = useTranslation();
   const slides = data.slides || [];
   const [currentSlide, setCurrentSlide] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);

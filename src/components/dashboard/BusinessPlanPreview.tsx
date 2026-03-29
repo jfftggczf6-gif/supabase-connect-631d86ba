@@ -111,6 +111,7 @@ function FinancierTable({ tableau }: { tableau: Record<string, Record<string, st
 }
 
 export default function BusinessPlanPreview({ data, enterpriseId, deliverableId, onUpdated }: BusinessPlanPreviewProps) {
+  const { t } = useTranslation();
   const bp = data || {};
 
   const editBtn = (sectionPath: string, sectionTitle: string) =>

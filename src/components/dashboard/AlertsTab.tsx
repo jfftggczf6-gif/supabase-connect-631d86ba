@@ -14,6 +14,7 @@ interface Alert {
 }
 
 export default function AlertsTab() {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
 

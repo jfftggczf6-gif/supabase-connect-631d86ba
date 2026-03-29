@@ -179,6 +179,7 @@ function AnalysisSection({ title, icon, data: sectionData }: { title: string; ic
 // ─── Main Component ───────────────────────────────────────────
 
 export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: PlanFinancierViewerProps) {
+  const { t } = useTranslation();
   const devise = getDevise(data);
   const editBtn = (path: string, title: string) =>
     enterpriseId && onUpdated ? (

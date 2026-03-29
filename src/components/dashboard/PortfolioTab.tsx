@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, TrendingUp, Users, Target } from 'lucide-react';
 
 export default function PortfolioTab() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<any>(null);
   const [enterprises, setEnterprises] = useState<any[]>([]);
 

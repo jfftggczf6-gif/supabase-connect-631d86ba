@@ -13,6 +13,7 @@ interface FrameworkViewerProps {
 }
 
 export default function FrameworkViewer({ data, enterpriseId, onUpdated }: FrameworkViewerProps) {
+  const { t } = useTranslation();
   const ratios = data.ratios || {};
   const kpis = data.kpis || {};
   const alertes = data.alertes || [];

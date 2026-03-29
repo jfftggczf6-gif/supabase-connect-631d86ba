@@ -35,6 +35,7 @@ function toArr(val: any): string[] {
 }
 
 export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerProps) {
+  const { t } = useTranslation();
   if (!data) return null;
 
   const editBtn = (sectionPath: string, sectionTitle: string) =>

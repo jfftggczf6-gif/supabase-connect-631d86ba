@@ -71,6 +71,7 @@ function EvalBadge({ evaluation }: { evaluation: string }) {
 }
 
 export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
+  const { t } = useTranslation();
   const cibles = data.evaluation_cibles_odd?.cibles ?? [];
   const resumeOdd = data.evaluation_cibles_odd?.resume_par_odd ?? {};
   const indicateurs = data.indicateurs_impact?.indicateurs ?? [];

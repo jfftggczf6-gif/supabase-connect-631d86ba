@@ -73,6 +73,7 @@ const deliverableLabel = (type: string) =>
   type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 export default function CoachesTab({ coaches, enterprises, deliverables, coachUploads, enterpriseMap }: CoachesTabProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
 

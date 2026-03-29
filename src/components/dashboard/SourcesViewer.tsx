@@ -69,6 +69,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export default function SourcesViewer({ coachUploads }: SourcesViewerProps) {
+  const { t } = useTranslation();
   const [kbEntries, setKbEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

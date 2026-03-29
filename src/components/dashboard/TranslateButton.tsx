@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 interface TranslateButtonProps {
   /** Ref to the container element whose text content will be translated */
-  containerRef: React.RefObject<HTMLElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function TranslateButton({ containerRef }: TranslateButtonProps) {

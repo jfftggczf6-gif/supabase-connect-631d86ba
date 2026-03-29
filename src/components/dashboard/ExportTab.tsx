@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Download, FileText, Loader2 } from 'lucide-react';
 
 export default function ExportTab() {
+  const { t } = useTranslation();
   const [exporting, setExporting] = useState<string | null>(null);
 
   const exportPortfolio = async () => {

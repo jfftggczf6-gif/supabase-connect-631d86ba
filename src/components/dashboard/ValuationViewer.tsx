@@ -30,6 +30,7 @@ const fmt = (n: any, devise = 'FCFA') => {
 };
 
 export default function ValuationViewer({ data, enterpriseId, deliverableId, enterpriseName, onRegenerate, onUpdated }: Props) {
+  const { t } = useTranslation();
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const devise = data.devise || '';

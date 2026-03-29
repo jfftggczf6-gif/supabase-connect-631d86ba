@@ -27,6 +27,7 @@ interface PreScreeningViewerProps {
 }
 
 export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline, enterpriseId, onUpdated }: PreScreeningViewerProps) {
+  const { t } = useTranslation();
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const [activeScope, setActiveScope] = useState('all');

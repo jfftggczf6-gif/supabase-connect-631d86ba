@@ -28,7 +28,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
 
   const toolbar = (
     <div className="flex justify-end gap-2 mb-3">
-      <TranslateButton containerRef={viewerContainerRef as React.RefObject<HTMLElement>} />
+      <TranslateButton containerRef={viewerContainerRef} />
       {onRegenerate && (
         <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
           {t('dashboard_coach.regenerate')}

@@ -67,6 +67,7 @@ const verdictColors: Record<string, string> = {
 const arr = (v: any): any[] => (Array.isArray(v) ? v : []);
 
 export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId, deliverableId, onUpdated }: Props) {
+  const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState('resume_executif');
   const [generatingPptx, setGeneratingPptx] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});

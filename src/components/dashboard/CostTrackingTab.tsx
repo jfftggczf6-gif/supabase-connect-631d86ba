@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, TrendingUp, Cpu } from 'lucide-react';
 
 export default function CostTrackingTab() {
+  const { t } = useTranslation();
   const [costs, setCosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

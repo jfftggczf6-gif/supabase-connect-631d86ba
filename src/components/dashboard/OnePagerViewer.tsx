@@ -14,6 +14,7 @@ interface Props {
 }
 
 export default function OnePagerViewer({ data, onRegenerate, enterpriseId, onUpdated }: Props) {
+  const { t } = useTranslation();
   const score = data.score || 0;
   const pres = data.presentation_entreprise || {};
   const equipe = data.equipe_gouvernance || {};

@@ -196,6 +196,7 @@ function normalizeData(raw: any) {
 
 
 export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerProps) {
+  const { t } = useTranslation();
   const [expandedDim, setExpandedDim] = useState<string | null>(null);
 
   if (!data) return null;

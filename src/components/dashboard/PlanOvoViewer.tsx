@@ -122,6 +122,7 @@ function KpiCard({ label, value, icon, devise = 'FCFA' }: { label: string; value
 }
 
 export default function PlanOvoViewer({ data, staleness: _staleness }: { data: any; staleness?: { frameworkUpdatedAt: any; planOvoUpdatedAt: any } }) {
+  const { t } = useTranslation();
   const devise = getDevise(data);
   const years = data.years || {};
   const labels = YEAR_KEYS.map(k => yearLabel(k, years));

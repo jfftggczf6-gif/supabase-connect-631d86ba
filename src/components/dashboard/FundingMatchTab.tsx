@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Loader2, TrendingUp, AlertTriangle, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 
 export default function FundingMatchTab() {
+  const { t } = useTranslation();
   const [enterprises, setEnterprises] = useState<any[]>([]);
   const [selectedEnterprise, setSelectedEnterprise] = useState<string>('');
   const [matches, setMatches] = useState<any[]>([]);
