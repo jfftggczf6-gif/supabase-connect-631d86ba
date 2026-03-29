@@ -153,6 +153,7 @@
     "download_pdf": "Télécharger PDF",
     "download_html": "Télécharger HTML",
     "download_excel": "Télécharger Excel",
+    "upload_cumulative_hint": "Uploadez vos documents ici. Chaque vague vient compléter les précédentes — rien n'est perdu.",
     "minimize": "Réduire",
     "back_to_list": "Retour à la liste",
     "generating_in_progress": "Génération en cours…",

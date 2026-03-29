@@ -1504,95 +1504,11 @@ export default function EntrepreneurDashboard({
             ) : (selectedModule === 'upload' || selectedModule === 'reconstruction') && !readOnly ? (
               /* Upload / Sources panel — hidden in readOnly */
               <div className="p-6 max-w-2xl mx-auto space-y-4">
-                <h2 className="font-display font-bold text-lg mb-4">{t('dashboard_coach.documents')}</h2>
+                <h2 className="font-display font-bold text-lg mb-2">{t('dashboard_coach.documents')}</h2>
+                <p className="text-xs text-muted-foreground mb-4">{t('dashboard_coach.upload_cumulative_hint')}</p>
 
-                {/* Document card: BMC & Impact Social */}
-                <input ref={docInputRef} type="file" multiple accept=".docx,.doc,.pdf,.txt" className="hidden" onChange={e => handleFileUpload(e, 'doc')} />
-                <div
-                  onClick={() => docInputRef.current?.click()}
-                  className="p-4 rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-none">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">BMC & Impact Social</p>
-                      {docFiles.length > 0 ? (
-                        docFiles.map(f => (
-                          <div key={f.name} className="flex items-center gap-1.5 mt-1 group/file">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-none" />
-                            <span className="text-xs text-emerald-600 truncate font-medium flex-1">{f.name}</span>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }} className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none">
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-1">{t('dashboard_coach.upload_hint')}</p>
-                      )}
-                    </div>
-                  </div>
-                  {uploading === 'doc' && <Loader2 className="h-4 w-4 animate-spin text-primary mt-2" />}
-                </div>
-
-                {/* Document card: Inputs Financiers */}
-                <input ref={finInputRef} type="file" multiple accept=".xlsx,.xls,.csv" className="hidden" onChange={e => handleFileUpload(e, 'fin')} />
-                <div
-                  onClick={() => finInputRef.current?.click()}
-                  className="p-4 rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center flex-none">
-                      <BarChart3 className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">Inputs Financiers</p>
-                      {finFiles.length > 0 ? (
-                        finFiles.map(f => (
-                          <div key={f.name} className="flex items-center gap-1.5 mt-1 group/file">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-none" />
-                            <span className="text-xs text-emerald-600 truncate font-medium flex-1">{f.name}</span>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }} className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none">
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-1">{t('dashboard_coach.upload_hint')}</p>
-                      )}
-                    </div>
-                  </div>
-                  {uploading === 'fin' && <Loader2 className="h-4 w-4 animate-spin text-primary mt-2" />}
-                </div>
-
-                {/* Extra documents */}
-                <input ref={extraInputRef} type="file" multiple className="hidden" onChange={e => handleFileUpload(e, 'extra')} />
-                <button
-                  onClick={() => extraInputRef.current?.click()}
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
-                >
-                  <FolderPlus className="h-3.5 w-3.5" />
-                  Documents supplémentaires
-                  {extraFiles.length > 0 && <span className="text-[10px] font-medium text-primary">({extraFiles.length})</span>}
-                </button>
-                {extraFiles.length > 0 && (
-                  <div className="space-y-1">
-                    {extraFiles.map(f => (
-                      <div key={f.name} className="flex items-center gap-1.5 px-2 py-1 group/file">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-none" />
-                        <span className="text-xs text-muted-foreground truncate font-medium flex-1">{f.name}</span>
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }} className="hidden group-hover/file:flex h-4 w-4 items-center justify-center rounded-sm hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex-none">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {uploading === 'extra' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-
-                {/* Reconstruction uploader */}
-                <div className="mt-4">
+                {/* Reconstruction uploader — seule zone de drop */}
+                <div>
                   <ReconstructionUploader
                     enterpriseId={enterprise.id}
                     session={authSession}

@@ -55,6 +55,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchExistingFiles = useCallback(async () => {
     const { data } = await supabase.storage.from('documents').list(`${enterpriseId}/reconstruction/`);
@@ -183,6 +184,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       setProgressLabel('Reconstruction IA en cours…');
       setProgress(82);
       const abortController = new AbortController();
+      abortRef.current = abortController;
       const timeoutId = setTimeout(() => abortController.abort(), 180000);
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reconstruct-from-traces`,
@@ -241,6 +243,14 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setParsedDocs([]);
     setParsingSummary(null);
     onComplete();
+  };
+
+  const handleStop = () => {
+    abortRef.current?.abort();
+    setUploading(false);
+    setProgress(0);
+    setProgressLabel('');
+    toast.info('Reconstruction arrêtée');
   };
 
   const handleReset = () => {
@@ -335,9 +345,10 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         {/* Existing files from storage */}
         {existingFiles.length > 0 && files.length === 0 && !uploading && (
           <div className="mb-4 space-y-1">
-            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" /> {existingFiles.length} document(s) déjà uploadé(s)
+            <p className="text-xs font-medium text-emerald-700 mb-1 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" /> {existingFiles.length} document(s) déjà intégré(s)
             </p>
+            <p className="text-[10px] text-muted-foreground mb-2">Les nouveaux fichiers viendront compléter ces documents. Rien n'est perdu.</p>
             <div className="max-h-32 overflow-y-auto space-y-1">
               {existingFiles.map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs bg-muted/40 rounded-lg px-3 py-1.5">
@@ -437,9 +448,14 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         {uploading && (
           <div className="mt-4 space-y-2">
             <Progress value={progress} className="h-2" />
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> {progressLabel}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> {progressLabel}
+              </p>
+              <Button variant="ghost" size="sm" onClick={handleStop} className="text-xs text-destructive h-6 px-2">
+                <X className="h-3 w-3 mr-1" /> Arrêter
+              </Button>
+            </div>
           </div>
         )}
 
