@@ -606,7 +606,7 @@ export const FISCAL_PARAMS: Record<string, {
   "Cameroun":       { tva: 19.25, is: 33, ir_max: 35, smig: 41875, patente: "Variable", cotisations_sociales: 18.5, devise: "FCFA", currency_iso: "XAF", exchange_rate_eur: 655.957 },
   "Gabon":          { tva: 18, is: 30, ir_max: 35, smig: 150000, patente: "Variable", cotisations_sociales: 20.1, devise: "FCFA", currency_iso: "XAF", exchange_rate_eur: 655.957 },
   "Congo":          { tva: 18.9, is: 28, ir_max: 40, smig: 90000, patente: "Variable", cotisations_sociales: 22.6, devise: "FCFA", currency_iso: "XAF", exchange_rate_eur: 655.957 },
-  "RDC":            { tva: 16, is: 30, ir_max: 40, smig: 7075, patente: "Variable", cotisations_sociales: 14.5, devise: "CDF", currency_iso: "CDF", exchange_rate_eur: 2800 },
+  "RDC":            { tva: 16, is: 30, ir_max: 40, smig: 7075, patente: "Variable", cotisations_sociales: 14.5, devise: "USD", currency_iso: "USD", exchange_rate_eur: 1.08 },
   "Guinée":         { tva: 18, is: 35, ir_max: 40, smig: 440000, patente: "Variable", cotisations_sociales: 23, devise: "GNF", currency_iso: "GNF", exchange_rate_eur: 9500 },
   "Ghana":          { tva: 15, is: 25, ir_max: 30, smig: 44800, patente: "Variable", cotisations_sociales: 18.5, devise: "GHS", currency_iso: "GHS", exchange_rate_eur: 15.5 },
   "Kenya":          { tva: 16, is: 30, ir_max: 30, smig: 15120, patente: "Variable", cotisations_sociales: 12, devise: "KES", currency_iso: "KES", exchange_rate_eur: 165 },
