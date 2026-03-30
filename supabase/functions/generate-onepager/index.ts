@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  jsonResponse, errorResponse, getCoachingContext,
+  jsonResponse, errorResponse, getCoachingContext, getFiscalParams,
 } from "../_shared/helpers_v5.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
@@ -44,7 +44,7 @@ const ONEPAGER_SCHEMA = `{
     "site_web": "string ou 'Non disponible'",
     "annee_creation": "string",
     "forme_juridique": "string",
-    "financement_recherche": "string — montant et type (ex: '150-200M FCFA — prêt à taux préférentiel')",
+    "financement_recherche": "string — montant et type (ex: '150-200M (devise locale) — prêt à taux préférentiel')",
     "objectif": "string — à quoi sert le financement"
   },
 
@@ -59,7 +59,7 @@ const ONEPAGER_SCHEMA = `{
 
   "traction_finances": {
     "ventes": "string — description du modèle de vente et de la traction commerciale",
-    "ca_annee_derniere": "string — CA exact avec l'année (ex: '460 329 721 FCFA (2024)')",
+    "ca_annee_derniere": "string — CA exact avec l'année (ex: '460 329 721 (devise locale) (2024)')",
     "acces_financement": "string — financements obtenus jusqu'ici",
     "croissance": "string — taux de croissance et historique (ex: '462M (2022) → 759M (2023) → 460M (2024)')",
     "economie_unitaire": "string — marge brute, marge unitaire, avantage coût",
@@ -110,16 +110,17 @@ serve(async (req) => {
     // Financial Truth Anchor
     const { getFinancialTruth } = await import("../_shared/normalizers.ts");
     const truth = getFinancialTruth(inputsData);
+    const devise = (inputsData as any)?.devise || getFiscalParams(ent.country || '').devise || '';
     let tractionBlock = "";
     if (truth) {
       tractionBlock = `
 ══════ TRACTION — CHIFFRES VÉRIFIÉS (ÉTATS FINANCIERS) ══════
 ⚠ UTILISER CES CHIFFRES EXACTEMENT DANS LA SECTION traction_finances
-CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2.toLocaleString('fr-FR')} FCFA
-CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1.toLocaleString('fr-FR')} FCFA
-CA N (${truth.annee_n}) = ${truth.ca_n.toLocaleString('fr-FR')} FCFA
-Trésorerie = ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
-EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} FCFA
+CA N-2 (${truth.annee_n - 2}) = ${truth.ca_n_minus_2.toLocaleString('fr-FR')} ${devise}
+CA N-1 (${truth.annee_n - 1}) = ${truth.ca_n_minus_1.toLocaleString('fr-FR')} ${devise}
+CA N (${truth.annee_n}) = ${truth.ca_n.toLocaleString('fr-FR')} ${devise}
+Trésorerie = ${truth.tresorerie_nette.toLocaleString('fr-FR')} ${devise}
+EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} ${devise}
 Marge brute = ${truth.marge_brute_pct}%
 ══════ FIN TRACTION ══════
 `;

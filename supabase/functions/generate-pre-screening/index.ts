@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  jsonResponse, errorResponse, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent,
+  jsonResponse, errorResponse, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent, getFiscalParams,
 } from "../_shared/helpers_v5.ts";
 import { getSectorKnowledgePrompt, getDonorCriteriaPrompt, getValidationRulesPrompt } from "../_shared/financial-knowledge.ts";
 import { normalizePreScreening } from "../_shared/normalizers.ts";
@@ -48,7 +48,7 @@ Ce diagnostic répond à 3 questions :
    Le coach qui lit ce diagnostic doit pouvoir préparer sa première session en 15 minutes.
 
 ═══ RÈGLES ABSOLUES ═══
-- CHIFFRES PRÉCIS : pas "le CA est élevé" mais "CA 460M FCFA en 2024, en baisse de 39% vs 759M en 2023"
+- CHIFFRES PRÉCIS : pas "le CA est élevé" mais "CA 460M en 2024, en baisse de 39% vs 759M en 2023"
 - HONNÊTETÉ : un dossier faible est un dossier faible
 - EXHAUSTIVITÉ : si une info est dans les documents, elle DOIT être dans ton analyse
 - FORMAT : Réponds UNIQUEMENT en JSON valide selon le schéma fourni
@@ -72,7 +72,7 @@ CONSTATS PAR SCOPE (section constats_par_scope) :
 Regroupe TOUS tes constats (forces, faiblesses, anomalies, risques) par domaine.
 Chaque constat est classé : "urgent" (rouge — à traiter immédiatement), "attention" (orange — à surveiller), "positif" (vert — point fort à valoriser).
 DANS CHAQUE SCOPE, classe les constats par sévérité : urgent d'abord, puis attention, puis positif.
-Chaque constat DOIT citer des chiffres précis. Pas "les charges sont élevées" mais "les charges fixes représentent 46% du CA (111M FCFA) contre 25-35% en médiane sectorielle".
+Chaque constat DOIT citer des chiffres précis. Pas "les charges sont élevées" mais "les charges fixes représentent 46% du CA (111M devise locale) contre 25-35% en médiane sectorielle".
 La piste est soit une action concrète (sévérité urgent/attention), soit un argument investisseur (sévérité positif).
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -91,7 +91,7 @@ const PRE_SCREENING_SCHEMA = `{
   },
 
   "kpis_bandeau": {
-    "ca_n": <number ou null — CA année N en FCFA>,
+    "ca_n": <number ou null — CA année N dans la devise locale>,
     "annee_n": "string — ex: 2024",
     "ca_growth_pct": <number ou null — évolution % vs N-1>,
     "marge_brute_pct": <number ou null>,
@@ -331,16 +331,17 @@ serve(async (req) => {
     // Financial Truth Anchor
     const { getFinancialTruth } = await import("../_shared/normalizers.ts");
     const truth = getFinancialTruth(inputsData);
+    const devise = (inputsData as any)?.devise || getFiscalParams(ent.country || '').devise || '';
     let truthBlock = "";
     if (truth) {
       truthBlock = `
 ══════ VÉRITÉ FINANCIÈRE (ÉTATS FINANCIERS) ══════
-CA = ${truth.ca_n.toLocaleString('fr-FR')} FCFA (année ${truth.annee_n})
-Trésorerie nette = ${truth.tresorerie_nette.toLocaleString('fr-FR')} FCFA
-EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} FCFA
+CA = ${truth.ca_n.toLocaleString('fr-FR')} ${devise} (année ${truth.annee_n})
+Trésorerie nette = ${truth.tresorerie_nette.toLocaleString('fr-FR')} ${devise}
+EBITDA = ${truth.ebitda.toLocaleString('fr-FR')} ${devise}
 Marge brute = ${truth.marge_brute_pct}%
-Endettement = ${truth.endettement.toLocaleString('fr-FR')} FCFA
-Résultat net = ${truth.resultat_net.toLocaleString('fr-FR')} FCFA
+Endettement = ${truth.endettement.toLocaleString('fr-FR')} ${devise}
+Résultat net = ${truth.resultat_net.toLocaleString('fr-FR')} ${devise}
 ⚠ UTILISER CES CHIFFRES — ils viennent des états financiers certifiés
 ══════ FIN ══════
 `;

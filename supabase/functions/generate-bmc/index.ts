@@ -160,7 +160,7 @@ serve(async (req) => {
         upstreamContext += `Produits/Services:\n${inputsData.produits_services.map((p: any) => `  - ${p.nom}: CA=${(p.ca_estime||0).toLocaleString("fr-FR")}, part=${p.part_ca_pct||0}%`).join("\n")}\n`;
       }
       if (inputsData.compte_resultat?.chiffre_affaires) {
-        upstreamContext += `CA total: ${inputsData.compte_resultat.chiffre_affaires.toLocaleString("fr-FR")} FCFA\n`;
+        upstreamContext += `CA total: ${inputsData.compte_resultat.chiffre_affaires.toLocaleString("fr-FR")} ${inputsData?.devise || ""}\n`;
       }
       if (inputsData.equipe?.length) {
         upstreamContext += `Équipe: ${inputsData.equipe.map((e: any) => `${e.poste}(${e.nombre})`).join(", ")}\n`;

@@ -85,11 +85,11 @@ const DECISION_SCHEMA = `{
   },
 
   "dimensionnement": {
-    "montant_recommande": "string — montant ou fourchette en FCFA",
+    "montant_recommande": "string — montant ou fourchette dans la devise locale",
     "type_financement": "string — prêt | subvention | mixte (prêt + subvention) | garantie",
     "justification_montant": "string — 2-3 phrases expliquant comment le montant est calculé",
     "utilisation_fonds": [
-      "string — poste de dépense. Ex: 'Équipement production : 15M FCFA'"
+      "string — poste de dépense. Ex: 'Équipement production : 15M (devise locale)'"
     ],
     "duree": "string — 12 mois, 24 mois...",
     "jalons": [

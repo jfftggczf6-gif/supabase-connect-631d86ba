@@ -228,7 +228,7 @@ serve(async (req) => {
         impactContext += inputsData.equipe.map((e: any) => `  - ${e.poste}: ${e.nombre} pers.`).join("\n") + "\n";
       }
       if (inputsData.compte_resultat?.chiffre_affaires) {
-        impactContext += `CA: ${inputsData.compte_resultat.chiffre_affaires.toLocaleString("fr-FR")} FCFA\n`;
+        impactContext += `CA: ${inputsData.compte_resultat.chiffre_affaires.toLocaleString("fr-FR")} ${inputsData?.devise || ""}\n`;
       }
       if (inputsData.produits_services?.length) {
         impactContext += `Activités: ${inputsData.produits_services.map((p: any) => p.nom).join(", ")}\n`;

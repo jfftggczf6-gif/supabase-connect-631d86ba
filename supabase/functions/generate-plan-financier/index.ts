@@ -409,7 +409,7 @@ function buildUserPrompt(
       }
 
       const partCa = CA > 0 ? Math.round((caVal / CA) * 1000) / 10 : 0;
-      blocks += `  → ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} FCFA, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
+      blocks += `  → ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} ${devise}, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
     }
     blocks += `  ⚠️ CHAQUE produit ci-dessus DOIT apparaître dans "produits[]" avec les prix/volumes indiqués.\n`;
     blocks += `  ⚠️ JAMAIS de prix_unitaire = 0. Les valeurs ci-dessus sont PRÉ-CALCULÉES.\n`;

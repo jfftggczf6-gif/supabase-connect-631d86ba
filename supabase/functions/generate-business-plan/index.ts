@@ -16,7 +16,7 @@ Tu connais les normes SYSCOHADA, la fiscalité UEMOA/CEMAC, et les critères des
 Tu génères UNIQUEMENT du JSON structuré. Pas de markdown, pas de texte autour. Rédige en français. Sois précis, factuel, stratégique. JAMAIS de contenu générique.
 
 SECTION analyse_marche — INSTRUCTIONS SPÉCIALES :
-1. Estimer la taille du marché (TAM/SAM/SOM) avec des CHIFFRES en FCFA et la SOURCE
+1. Estimer la taille du marché (TAM/SAM/SOM) avec des CHIFFRES dans la devise locale et la SOURCE
 2. Identifier au minimum 3 concurrents RÉELS ou catégories de concurrents du pays
 3. Pour chaque concurrent : positionnement, forces, faiblesses, taille estimée
 4. Identifier les barrières à l'entrée SPÉCIFIQUES au secteur et au pays
@@ -158,7 +158,7 @@ function buildPromptPart1(ctx: any): string {
 
 ${buildContextBlock(ctx)}
 
-CONTRAINTES : Chaque section doit être substantielle. Utilise des chiffres précis (FCFA, %). RETOURNE UNIQUEMENT LE JSON.
+CONTRAINTES : Chaque section doit être substantielle. Utilise des chiffres précis (devise locale, %). RETOURNE UNIQUEMENT LE JSON.
 
 ${SCHEMA_PART1}`;
 }
@@ -170,7 +170,7 @@ ${buildContextBlock(ctx)}
 
 SECTIONS DÉJÀ GÉNÉRÉES (résumé) : ${part1Summary}
 
-CONTRAINTES : Cohérence avec les sections précédentes. Chiffres financiers précis en FCFA. RETOURNE UNIQUEMENT LE JSON.
+CONTRAINTES : Cohérence avec les sections précédentes. Chiffres financiers précis dans la devise locale. RETOURNE UNIQUEMENT LE JSON.
 
 ${SCHEMA_PART2}`;
 }
@@ -848,7 +848,7 @@ serve(async (req) => {
           max_tokens: 4096,
           tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5,
             user_location: { type: "approximate", country: countryCode, region: country } }],
-          messages: [{ role: "user", content: `Recherche marché pour "${ent.name}" secteur "${sector}" en ${country}. Trouve: 1) Taille marché (TAM en FCFA + source), 2) 3-5 concurrents réels avec positionnement/forces/faiblesses, 3) Croissance annuelle %, 4) Réglementation (HACCP, normes), 5) Barrières entrée. Réponds en JSON: {"taille_marche":{"tam":"...","sam":"...","source":"..."},"croissance":"...","concurrents":[{"nom":"...","positionnement":"...","forces":["..."],"faiblesses":["..."],"taille_estimee":"..."}],"barrieres":["..."],"reglementation":"..."}` }],
+          messages: [{ role: "user", content: `Recherche marché pour "${ent.name}" secteur "${sector}" en ${country}. Trouve: 1) Taille marché (TAM dans la devise locale + source), 2) 3-5 concurrents réels avec positionnement/forces/faiblesses, 3) Croissance annuelle %, 4) Réglementation (HACCP, normes), 5) Barrières entrée. Réponds en JSON: {"taille_marche":{"tam":"...","sam":"...","source":"..."},"croissance":"...","concurrents":[{"nom":"...","positionnement":"...","forces":["..."],"faiblesses":["..."],"taille_estimee":"..."}],"barrieres":["..."],"reglementation":"..."}` }],
         }),
         signal: AbortSignal.timeout(45_000),
       });

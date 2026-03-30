@@ -173,7 +173,7 @@ elle DOIT apparaître dans produits_services avec son CA. Même si le CdR ne la 
 Exemple de croisement :
 - CdR dit "Ventes marchandises = 238M" (poste agrégé)
 - Rapport dit "Distribution = 653M (commissions 157M + distribution 331M + ventes 106M + prestations 59M)"
-- Rapport dit "Oeufs = 140 plaquettes/jour à 10 000 FCFA" → CA ≈ 140 × 365 × 10 000 × 0.7 (taux occupation) = 358M (2025)
+- Rapport dit "Oeufs = 140 plaquettes/jour à 10 000 (devise locale)" → CA ≈ 140 × 365 × 10 000 × 0.7 (taux occupation) = 358M (2025)
 - BMC dit "CA mensuel agriculture = 39M" → CA annuel ≈ 468M
 → Résultat : 3 produits_services avec CA estimé pour chacun
 
@@ -313,9 +313,9 @@ Analyse CHAQUE feuille/section du document. Extrais et retourne ce JSON COMPLET:
     }
   ],
   ⚠️ Si aucun coût fixe documenté mais effectif > 0 → estimer au minimum :
-  - Loyer bureau: 100K-500K FCFA/mois selon ville
-  - Électricité/eau: 50K-200K FCFA/mois
-  - Télécom/internet: 30K-100K FCFA/mois
+  - Loyer bureau: 100K-500K (devise locale)/mois selon ville
+  - Électricité/eau: 50K-200K (devise locale)/mois
+  - Télécom/internet: 30K-100K (devise locale)/mois
   - Assurances: 1-2% du CA/an
 
   "bfr": {
