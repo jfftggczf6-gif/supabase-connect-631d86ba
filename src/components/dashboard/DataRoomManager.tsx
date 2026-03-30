@@ -58,6 +58,7 @@ interface DataRoomManagerProps {
 }
 
 export default function DataRoomManager({ enterpriseId, userId, dataRoomSlug }: DataRoomManagerProps) {
+  const { t } = useTranslation();
   const [docs, setDocs] = useState<DataRoomDoc[]>([]);
   const [shares, setShares] = useState<DataRoomShare[]>([]);
   const [loading, setLoading] = useState(true);

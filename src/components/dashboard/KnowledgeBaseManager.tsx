@@ -32,6 +32,7 @@ interface KBEntry {
 const CATEGORIES = ['benchmarks', 'fiscal', 'general', 'donor_criteria'];
 
 export default function KnowledgeBaseManager() {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);

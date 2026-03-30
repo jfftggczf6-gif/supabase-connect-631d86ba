@@ -24,6 +24,7 @@ const DELIVERABLES = [
 ];
 
 export default function Livrables() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [enterprise, setEnterprise] = useState<any>(null);
   const [deliverables, setDeliverables] = useState<any[]>([]);

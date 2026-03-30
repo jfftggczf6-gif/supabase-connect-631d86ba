@@ -43,6 +43,7 @@ interface StorageFile {
 }
 
 export default function ReconstructionUploader({ enterpriseId, session, navigate, onComplete }: ReconstructionUploaderProps) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<File[]>([]);
   const [existingFiles, setExistingFiles] = useState<StorageFile[]>([]);
   const [uploading, setUploading] = useState(false);

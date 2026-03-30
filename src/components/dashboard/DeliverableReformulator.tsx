@@ -23,6 +23,7 @@ interface Props {
 export default function DeliverableReformulator({
   enterpriseId, deliverableId, deliverableType, fieldPath, currentText, context, onReformulated,
 }: Props) {
+  const { t } = useTranslation();
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState('');

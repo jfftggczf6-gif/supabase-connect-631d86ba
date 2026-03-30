@@ -61,6 +61,7 @@ interface ScreeningDashboardProps {
 }
 
 export default function ScreeningDashboard({ coachId }: ScreeningDashboardProps = {}) {
+  const { t } = useTranslation();
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [criteria, setCriteria] = useState<ProgrammeCriteria[]>([]);

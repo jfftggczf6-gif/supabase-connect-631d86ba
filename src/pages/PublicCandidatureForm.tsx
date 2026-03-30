@@ -15,6 +15,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export default function PublicCandidatureForm() {
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const [programme, setProgramme] = useState<any>(null);
   const [loading, setLoading] = useState(true);

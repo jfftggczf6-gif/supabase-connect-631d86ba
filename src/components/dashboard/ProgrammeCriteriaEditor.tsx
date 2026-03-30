@@ -64,6 +64,7 @@ const emptyForm = {
 };
 
 export default function ProgrammeCriteriaEditor() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [criteria, setCriteria] = useState<ProgrammeCriteria[]>([]);
   const [loading, setLoading] = useState(true);

@@ -35,6 +35,7 @@ const TEMPLATES = [
 ];
 
 export default function Templates() {
+  const { t } = useTranslation();
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const handleDownload = async (tpl: typeof TEMPLATES[0]) => {

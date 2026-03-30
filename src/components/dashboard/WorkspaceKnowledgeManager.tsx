@@ -41,6 +41,7 @@ interface AggBenchmark {
 }
 
 export default function WorkspaceKnowledgeManager() {
+  const { t } = useTranslation();
   const [benchmarks, setBenchmarks] = useState<Benchmark[]>([]);
   const [riskParams, setRiskParams] = useState<RiskParam[]>([]);
   const [countryData, setCountryData] = useState<CountryData[]>([]);

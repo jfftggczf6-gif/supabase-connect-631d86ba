@@ -22,6 +22,7 @@ interface Props {
 export default function DeliverableEditor({
   enterpriseId, deliverableId, deliverableType, fieldPath, currentValue, onSaved, onStaleTextsFound,
 }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(String(currentValue ?? ''));
   const [reason, setReason] = useState('');

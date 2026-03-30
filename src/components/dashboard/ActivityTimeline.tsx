@@ -37,6 +37,7 @@ interface Props {
 }
 
 export default function ActivityTimeline({ enterpriseId, limit = 20 }: Props) {
+  const { t } = useTranslation();
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
 

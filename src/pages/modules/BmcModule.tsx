@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Save, CheckCircle2, LayoutGrid, Loader2 } from 'lucide-react';
 
 export default function BmcModule() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [enterprise, setEnterprise] = useState<any>(null);

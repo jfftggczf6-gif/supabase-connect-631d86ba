@@ -72,6 +72,7 @@ const MODULE_INFO: Record<string, { title: string; description: string; fields: 
 };
 
 export default function GenericModule() {
+  const { t } = useTranslation();
   const { moduleCode } = useParams<{ moduleCode: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();

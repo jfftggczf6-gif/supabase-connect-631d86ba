@@ -16,6 +16,7 @@ interface FinalReportModalProps {
 }
 
 export default function FinalReportModal({ enterpriseId, enterpriseName, onClose }: FinalReportModalProps) {
+  const { t } = useTranslation();
   const { session: authSession } = useAuth();
   const [comment, setComment] = useState('');
   const [recommendation, setRecommendation] = useState('');

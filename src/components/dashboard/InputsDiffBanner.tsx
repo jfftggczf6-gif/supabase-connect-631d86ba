@@ -9,6 +9,7 @@ interface InputsDiffBannerProps {
 }
 
 export default function InputsDiffBanner({ enterpriseId }: InputsDiffBannerProps) {
+  const { t } = useTranslation();
   const [diffData, setDiffData] = useState<any>(null);
 
   useEffect(() => {
