@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import LanguageToggle from "@/components/LanguageToggle";
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,7 +38,8 @@ export default function ResetPassword() {
   if (!ready) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
+      <LanguageToggle className="absolute top-4 right-4" />
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">

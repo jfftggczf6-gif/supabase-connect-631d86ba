@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import LanguageToggle from "@/components/LanguageToggle";
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -89,11 +90,14 @@ export default function Index() {
             <span className="text-lg font-display font-bold text-foreground tracking-tight">ESONO</span>
             <span className="text-xs text-muted-foreground font-medium hidden sm:inline">{t('pages.index_tagline')}</span>
           </div>
-          <Link to="/login">
-            <Button variant="outline" size="sm" className="gap-2">
-              <LogIn className="h-3.5 w-3.5" /> {t('pages.index_sign_in')}
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <Link to="/login">
+              <Button variant="outline" size="sm" className="gap-2">
+                <LogIn className="h-3.5 w-3.5" /> {t('pages.index_sign_in')}
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

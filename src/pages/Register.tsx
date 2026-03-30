@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import LanguageToggle from "@/components/LanguageToggle";
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
@@ -56,7 +57,8 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 relative">
+      <LanguageToggle className="absolute top-4 right-4" />
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">

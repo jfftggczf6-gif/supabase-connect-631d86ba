@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import LanguageToggle from "@/components/LanguageToggle";
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +24,8 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
+      <LanguageToggle className="absolute top-4 right-4" />
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">

@@ -1,4 +1,5 @@
 import { useNavigate, Navigate } from 'react-router-dom';
+import LanguageToggle from "@/components/LanguageToggle";
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +27,8 @@ export default function SelectRole() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
+      <LanguageToggle className="absolute top-4 right-4" />
       <div className="w-full max-w-2xl animate-fade-in">
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
