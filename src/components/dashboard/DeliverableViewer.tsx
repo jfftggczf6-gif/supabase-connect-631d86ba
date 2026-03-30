@@ -18,13 +18,35 @@ interface DeliverableViewerProps {
   onRegenerate?: () => void;
   enterpriseId?: string;
   onUpdated?: () => void;
+  deliverableUpdatedAt?: string;
+  dataChangedAt?: string;
 }
 
-export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated }: DeliverableViewerProps) {
+export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated, deliverableUpdatedAt, dataChangedAt }: DeliverableViewerProps) {
   const { t } = useTranslation();
   const viewerContainerRef = useRef<HTMLDivElement>(null);
 
   if (!data || typeof data !== 'object') return null;
+
+  // Check if deliverable is stale (data changed after deliverable was generated)
+  const isStale = deliverableUpdatedAt && dataChangedAt &&
+    new Date(dataChangedAt).getTime() > new Date(deliverableUpdatedAt).getTime();
+
+  const staleBanner = isStale ? (
+    <div className="flex items-center gap-3 p-3 mb-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
+      <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+      <div className="flex-1">
+        <span className="text-amber-800">
+          {t('viewers.stale_banner')} ({new Date(dataChangedAt!).toLocaleDateString('fr-FR')})
+        </span>
+      </div>
+      {onRegenerate && (
+        <button onClick={onRegenerate} className="text-xs font-medium text-amber-700 hover:text-amber-900 underline shrink-0">
+          {t('dashboard_coach.regenerate')}
+        </button>
+      )}
+    </div>
+  ) : null;
 
   const toolbar = (
     <div className="flex justify-end gap-2 mb-3">
@@ -39,6 +61,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
 
   const wrapWithRegenerate = (viewer: React.ReactNode) => (
     <>
+      {staleBanner}
       {toolbar}
       <div ref={viewerContainerRef}>{viewer}</div>
     </>

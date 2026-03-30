@@ -1739,7 +1739,7 @@ export default function EntrepreneurDashboard({
                 ) : selectedModule === 'investment_memo' ? (
                   <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
                 ) : (
-                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
+                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} deliverableUpdatedAt={selectedDeliv.updated_at} dataChangedAt={(enterprise as any)?.data_changed_at} />
                 )}
               </div>
             ) : selectedModule === 'investment_memo' ? (
