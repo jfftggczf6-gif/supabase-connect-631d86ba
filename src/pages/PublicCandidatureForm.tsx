@@ -55,17 +55,7 @@ export default function PublicCandidatureForm() {
     if (!companyName || !contactName || !contactEmail) return;
     setSubmitting(true);
     try {
-      // Convert file uploads to base64
-      const documents: Record<string, { filename: string; base64: string }> = {};
-      for (const [key, file] of Object.entries(fileUploads)) {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(file);
-        });
-        documents[key] = { filename: file.name, base64 };
-      }
-
+      // 1. Submit candidature first to get the ID
       const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-candidature`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
@@ -76,11 +66,48 @@ export default function PublicCandidatureForm() {
           contact_email: contactEmail,
           contact_phone: contactPhone,
           form_data: formData,
-          documents: Object.keys(documents).length > 0 ? documents : undefined,
         })
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Erreur lors de la soumission'); setSubmitting(false); return; }
+
+      const candidatureId = data.candidature_id;
+
+      // 2. Upload files to Supabase Storage (using anon key — bucket must allow public uploads)
+      if (Object.keys(fileUploads).length > 0) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const docsMeta: any[] = [];
+        for (const [fieldLabel, filesOrFile] of Object.entries(fileUploads)) {
+          const fileList = Array.isArray(filesOrFile) ? filesOrFile : [filesOrFile];
+          for (const file of fileList) {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `${candidatureId}/${Date.now()}_${safeName}`;
+            await supabaseClient.storage.from('candidature-documents').upload(storagePath, file, { upsert: true });
+            docsMeta.push({
+              field_label: fieldLabel,
+              file_name: file.name,
+              file_size: file.size,
+              storage_path: `candidature-documents/${storagePath}`,
+            });
+          }
+        }
+
+        // 3. Update candidature with document metadata
+        if (docsMeta.length > 0) {
+          await fetch(`${SUPABASE_URL}/functions/v1/submit-candidature`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+            body: JSON.stringify({
+              action: 'update_documents',
+              candidature_id: candidatureId,
+              documents: docsMeta,
+            })
+          }).catch(() => {}); // Non-blocking
+        }
+      }
+
       setSubmitted(true);
     } catch { setError('Erreur de connexion'); }
     finally { setSubmitting(false); }
@@ -160,26 +187,60 @@ export default function PublicCandidatureForm() {
                       <input
                         ref={el => { fileInputRefs.current[field.label] = el; }}
                         type="file"
-                        accept=".pdf,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png"
+                        multiple
+                        accept=".pdf,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png,.pptx,.ppt,.csv,.txt"
                         className="hidden"
-                        onChange={e => handleFileSelect(field.label, e.target.files?.[0] || null)}
+                        onChange={e => {
+                          const files = e.target.files;
+                          if (files) {
+                            // Support multiple files per field
+                            const existing = fileUploads[field.label] ? [fileUploads[field.label]] : [];
+                            const allFiles = [...(Array.isArray(existing) ? existing : [existing]), ...Array.from(files)].flat();
+                            setFileUploads(prev => ({ ...prev, [field.label]: allFiles as any }));
+                          }
+                        }}
                       />
                       {fileUploads[field.label] ? (
-                        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                          <span className="text-sm truncate flex-1">{fileUploads[field.label].name}</span>
-                          <button type="button" onClick={() => handleFileSelect(field.label, null)} className="text-muted-foreground hover:text-destructive">
-                            <X className="h-4 w-4" />
+                        <div className="space-y-1">
+                          {(Array.isArray(fileUploads[field.label]) ? fileUploads[field.label] : [fileUploads[field.label]]).map((f: File, fi: number) => (
+                            <div key={fi} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                              <span className="text-sm truncate flex-1">{f.name}</span>
+                              <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
+                              <button type="button" onClick={() => {
+                                const arr = Array.isArray(fileUploads[field.label]) ? [...fileUploads[field.label]] : [fileUploads[field.label]];
+                                arr.splice(fi, 1);
+                                if (arr.length === 0) {
+                                  setFileUploads(prev => { const n = { ...prev }; delete n[field.label]; return n; });
+                                } else {
+                                  setFileUploads(prev => ({ ...prev, [field.label]: arr as any }));
+                                }
+                              }} className="text-muted-foreground hover:text-destructive">
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => fileInputRefs.current[field.label]?.click()} className="text-xs text-primary hover:underline mt-1">
+                            + Ajouter un fichier
                           </button>
                         </div>
                       ) : (
                         <div
                           onClick={() => fileInputRefs.current[field.label]?.click()}
-                          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                          onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-primary', 'bg-primary/5'); }}
+                          onDragLeave={e => { e.currentTarget.classList.remove('border-primary', 'bg-primary/5'); }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                            if (e.dataTransfer.files.length > 0) {
+                              setFileUploads(prev => ({ ...prev, [field.label]: Array.from(e.dataTransfer.files) as any }));
+                            }
+                          }}
+                          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-all"
                         >
                           <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                          <p className="text-sm text-muted-foreground">Cliquez ou glissez un fichier</p>
-                          <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, XLSX, Images</p>
+                          <p className="text-sm text-muted-foreground">Cliquez ou glissez vos fichiers</p>
+                          <p className="text-xs text-muted-foreground mt-1">PDF, Word, Excel, PowerPoint, Images — plusieurs fichiers acceptés</p>
                         </div>
                       )}
                     </div>

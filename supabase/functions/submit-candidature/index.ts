@@ -157,6 +157,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
+
+    // Handle document update (after initial submission)
+    if (body.action === 'update_documents' && body.candidature_id) {
+      await supabase.from("candidatures").update({
+        documents: body.documents || [],
+        updated_at: new Date().toISOString(),
+      }).eq("id", body.candidature_id);
+      return jsonRes({ success: true });
+    }
+
     const { programme_slug, company_name, contact_name, contact_email, contact_phone, form_data, documents } = body;
 
     // Validation
