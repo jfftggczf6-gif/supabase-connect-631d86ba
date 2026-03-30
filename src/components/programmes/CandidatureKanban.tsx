@@ -127,6 +127,9 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
 
     if (targetStatus === 'rejected') {
       setConfirmReject({ id: card.id, name: card.company_name });
+    } else if (targetStatus === 'selected') {
+      // Selection requires coach assignment — must go through drawer
+      toast({ title: t('candidature.assign_coach_required'), description: t('candidature.assign_coach_required_desc') });
     } else {
       moveCard(card.id, targetStatus);
     }
