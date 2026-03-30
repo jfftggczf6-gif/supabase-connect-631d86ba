@@ -129,50 +129,161 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
 
       {/* Rapport généré */}
       {report && (
-        <Card><CardContent className="p-6 space-y-4">
+        <Card><CardContent className="p-6 space-y-5">
           <h3 className="font-semibold text-lg">{report.titre || t('reporting.report')}</h3>
 
+          {/* Résumé exécutif */}
           {report.resume_executif && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-1">{t('reporting.executive_summary')}</h4>
-              <p className="text-sm text-blue-800">{report.resume_executif}</p>
+              <p className="text-sm text-blue-800 whitespace-pre-line">{report.resume_executif}</p>
             </div>
           )}
 
-          {report.stats_cohorte && (
+          {/* Chiffres clés (rapport progression) */}
+          {report.chiffres_cles && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Object.entries(report.stats_cohorte).map(([key, val]: [string, any]) => (
+              {Object.entries(report.chiffres_cles).map(([key, val]: [string, any]) => (
                 <div key={key} className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="text-lg font-bold">{typeof val === 'number' ? val : val}</p>
+                  <p className="text-xl font-bold">{val}</p>
                   <p className="text-[10px] text-muted-foreground">{key.replace(/_/g, ' ')}</p>
                 </div>
               ))}
             </div>
           )}
 
-          {report.entreprises_performantes?.length > 0 && (
-            <div>
-              <h4 className="font-medium mb-2">{t('reporting.success_stories')}</h4>
-              {report.entreprises_performantes.map((e: any, i: number) => (
-                <div key={i} className="flex items-center gap-2 p-2 rounded bg-emerald-50 border border-emerald-200 mb-1 text-sm">
-                  <Badge variant="outline" className="text-emerald-700 border-emerald-300">{e.nom || e.name || `#${i+1}`}</Badge>
-                  <span className="text-emerald-800">{e.raison || e.detail || ''}</span>
+          {/* Stats cohorte (rapport final) */}
+          {report.stats_cohorte && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(report.stats_cohorte).map(([key, val]: [string, any]) => (
+                <div key={key} className="text-center p-3 rounded-lg bg-muted/50">
+                  <p className="text-lg font-bold">{val}</p>
+                  <p className="text-[10px] text-muted-foreground">{key.replace(/_/g, ' ')}</p>
                 </div>
               ))}
             </div>
           )}
 
-          {report.recommandations?.length > 0 && (
+          {/* Analyse cohorte */}
+          {report.analyse_cohorte && (
+            <div className="space-y-2">
+              <h4 className="font-medium">{t('reporting.cohort_analysis')}</h4>
+              {report.analyse_cohorte.progression && <p className="text-sm">{report.analyse_cohorte.progression}</p>}
+              {report.analyse_cohorte.tendance && <Badge variant="outline">{report.analyse_cohorte.tendance}</Badge>}
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                {report.analyse_cohorte.forces?.length > 0 && (
+                  <div className="p-3 rounded bg-emerald-50 border border-emerald-200">
+                    <p className="text-xs font-medium text-emerald-700 mb-1">{t('viewers.forces')}</p>
+                    <ul className="text-xs space-y-0.5">{report.analyse_cohorte.forces.map((f: string, i: number) => <li key={i}>+ {f}</li>)}</ul>
+                  </div>
+                )}
+                {report.analyse_cohorte.faiblesses?.length > 0 && (
+                  <div className="p-3 rounded bg-red-50 border border-red-200">
+                    <p className="text-xs font-medium text-red-700 mb-1">{t('viewers.watch_points')}</p>
+                    <ul className="text-xs space-y-0.5">{report.analyse_cohorte.faiblesses.map((f: string, i: number) => <li key={i}>- {f}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Performance coachs */}
+          {report.performance_coachs?.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-2">{t('dashboard_programme.by_coach')}</h4>
+              <div className="space-y-2">
+                {report.performance_coachs.map((c: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded bg-muted/30 text-sm">
+                    <div>
+                      <span className="font-medium">{c.coach}</span>
+                      <span className="text-muted-foreground ml-2">({c.entreprises} entr.)</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span>Score: <strong>{c.score_moyen}</strong></span>
+                      <span>Complétion: <strong>{c.completion}</strong></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Entreprises à risque */}
+          {report.entreprises_a_risque?.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-2 text-red-700">{t('reporting.at_risk')}</h4>
+              {report.entreprises_a_risque.map((e: any, i: number) => (
+                <div key={i} className="p-3 rounded bg-red-50 border border-red-200 mb-2 text-sm">
+                  <p className="font-medium">{e.nom}</p>
+                  <p className="text-red-700 text-xs">{e.risque}</p>
+                  <p className="text-blue-600 text-xs mt-1">Action: {e.action_recommandee}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Entreprises performantes / Success stories */}
+          {(report.entreprises_performantes || report.entreprises_succes)?.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-2">{t('reporting.success_stories')}</h4>
+              {(report.entreprises_performantes || report.entreprises_succes).map((e: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 p-2 rounded bg-emerald-50 border border-emerald-200 mb-1 text-sm">
+                  <Badge variant="outline" className="text-emerald-700 border-emerald-300">{e.nom || e.name || `#${i+1}`}</Badge>
+                  <span className="text-emerald-800">{e.point_fort || e.highlights || e.raison || ''}</span>
+                  {e.score && <Badge variant="outline" className="text-xs">{e.score}</Badge>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Impact (rapport final) */}
+          {report.impact && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(report.impact).map(([key, val]: [string, any]) => (
+                <div key={key} className="text-center p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-lg font-bold">{Array.isArray(val) ? val.join(', ') : val}</p>
+                  <p className="text-[10px] text-muted-foreground">{key.replace(/_/g, ' ')}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Recommandations */}
+          {(report.recommandations || report.recommandations_programme)?.length > 0 && (
             <div>
               <h4 className="font-medium mb-2">{t('reporting.recommendations')}</h4>
-              <ul className="space-y-1 text-sm">
-                {report.recommandations.map((r: any, i: number) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-primary font-bold">{i+1}.</span>
-                    <span>{typeof r === 'string' ? r : r.texte || r.recommendation || JSON.stringify(r)}</span>
+              <ul className="space-y-2 text-sm">
+                {(report.recommandations || report.recommandations_programme).map((r: any, i: number) => (
+                  <li key={i} className="p-3 rounded bg-emerald-50/50 border border-emerald-100">
+                    <div className="flex items-start gap-2">
+                      <span className="text-primary font-bold">{r.priorite || i + 1}.</span>
+                      <div>
+                        <p className="font-medium">{typeof r === 'string' ? r : r.action || r.texte || r.recommendation || JSON.stringify(r)}</p>
+                        {r.impact_attendu && <p className="text-xs text-muted-foreground mt-0.5">{r.impact_attendu}</p>}
+                        {r.responsable && <Badge variant="outline" className="text-[10px] mt-1">{r.responsable}</Badge>}
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Prochaines étapes */}
+          {report.prochaines_etapes?.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-2">{t('reporting.next_steps')}</h4>
+              <ol className="space-y-1 text-sm list-decimal pl-4">
+                {report.prochaines_etapes.map((e: string, i: number) => <li key={i}>{e}</li>)}
+              </ol>
+            </div>
+          )}
+
+          {/* Leçons apprises (rapport final) */}
+          {report.lecons_apprises && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h4 className="font-medium text-amber-900 mb-1">{t('reporting.lessons_learned')}</h4>
+              <p className="text-sm text-amber-800 whitespace-pre-line">{report.lecons_apprises}</p>
             </div>
           )}
         </CardContent></Card>

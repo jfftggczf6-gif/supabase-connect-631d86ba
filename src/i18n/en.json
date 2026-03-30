@@ -426,7 +426,11 @@
     "recommendations": "Recommendations",
     "export_data": "Data export",
     "export_desc": "Applications, scores, enterprises, coaching notes",
-    "download_data": "Download data"
+    "download_data": "Download data",
+    "cohort_analysis": "Cohort analysis",
+    "at_risk": "At-risk enterprises",
+    "next_steps": "Next steps",
+    "lessons_learned": "Lessons learned"
   },
   "impact": {
     "kpis_donors": "Donor KPIs",

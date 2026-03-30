@@ -426,7 +426,11 @@
     "recommendations": "Recommandations",
     "export_data": "Export des données",
     "export_desc": "Candidatures, scores, entreprises, notes de coaching",
-    "download_data": "Télécharger les données"
+    "download_data": "Télécharger les données",
+    "cohort_analysis": "Analyse de la cohorte",
+    "at_risk": "Entreprises à risque",
+    "next_steps": "Prochaines étapes",
+    "lessons_learned": "Leçons apprises"
   },
   "impact": {
     "kpis_donors": "KPIs Bailleurs",
