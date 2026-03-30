@@ -119,10 +119,14 @@ serve(async (req) => {
 
     const enterpriseIds = (candidatures || []).map(c => c.enterprise_id).filter(Boolean);
 
+    if (!enterpriseIds.length) {
+      return jsonRes({ error: "Aucune entreprise sélectionnée dans ce programme. Sélectionnez des candidatures avant de générer un rapport." }, 400);
+    }
+
     const [entRes, delivRes, modRes, profilesRes] = await Promise.all([
-      supabase.from("enterprises").select("id, name, coach_id, sector, country, updated_at").in("id", enterpriseIds.length ? enterpriseIds : ["00000000-0000-0000-0000-000000000000"]),
-      supabase.from("deliverables").select("enterprise_id, type, score, updated_at").in("enterprise_id", enterpriseIds.length ? enterpriseIds : ["00000000-0000-0000-0000-000000000000"]),
-      supabase.from("enterprise_modules").select("enterprise_id, module, status, progress").in("enterprise_id", enterpriseIds.length ? enterpriseIds : ["00000000-0000-0000-0000-000000000000"]),
+      supabase.from("enterprises").select("id, name, coach_id, sector, country, updated_at").in("id", enterpriseIds),
+      supabase.from("deliverables").select("enterprise_id, type, score, updated_at").in("enterprise_id", enterpriseIds),
+      supabase.from("enterprise_modules").select("enterprise_id, module, status, progress").in("enterprise_id", enterpriseIds),
       supabase.from("profiles").select("user_id, full_name"),
     ]);
 
@@ -214,7 +218,7 @@ ${report_type === "final" ? FINAL_SCHEMA : PROGRESS_SCHEMA}`;
     if (start === -1 || end === -1) throw new Error("No JSON in AI response");
     const report = JSON.parse(cleaned.substring(start, end + 1));
 
-    // Save report
+    // Save report metadata
     report._metadata = {
       programme_id,
       report_type: report_type || "progress",
@@ -222,6 +226,13 @@ ${report_type === "final" ? FINAL_SCHEMA : PROGRESS_SCHEMA}`;
       generated_by: user.id,
       enterprises_count: entSummaries.length,
     };
+
+    // Persist report in programmes table
+    await supabase.from("programmes").update({
+      last_report: report,
+      last_report_type: report_type || "progress",
+      last_report_at: new Date().toISOString(),
+    }).eq("id", programme_id);
 
     // Generate HTML if requested
     if (format === "html") {

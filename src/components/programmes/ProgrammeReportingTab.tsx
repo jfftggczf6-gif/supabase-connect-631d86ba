@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, FileText, Download, BarChart3, ClipboardList, Lock, AlertTriangle } from 'lucide-react';
+import { Loader2, FileText, Download, BarChart3, ClipboardList, Lock, AlertTriangle, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -19,9 +19,21 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
   const { t } = useTranslation();
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [report, setReport] = useState<any>(null);
+  const [lastReportAt, setLastReportAt] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showClotureConfirm, setShowClotureConfirm] = useState(false);
   const [closing, setClosing] = useState(false);
+
+  // Load last saved report on mount
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('programmes').select('last_report, last_report_at').eq('id', programmeId).single();
+      if (data?.last_report && typeof data.last_report === 'object') {
+        setReport(data.last_report);
+        setLastReportAt(data.last_report_at);
+      }
+    })();
+  }, [programmeId]);
 
   const handleGenerateReport = async (reportType: 'progress' | 'final') => {
     setGeneratingReport(reportType);
@@ -33,6 +45,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       if (error) throw error;
       if (data?.report) {
         setReport(data.report);
+        setLastReportAt(new Date().toISOString());
         toast.success('Rapport généré');
       } else if (data?.download_url) {
         window.open(data.download_url, '_blank');
@@ -130,7 +143,15 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
       {/* Rapport généré */}
       {report && (
         <Card><CardContent className="p-6 space-y-5">
-          <h3 className="font-semibold text-lg">{report.titre || t('reporting.report')}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-lg">{report.titre || t('reporting.report')}</h3>
+            {lastReportAt && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {new Date(lastReportAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
 
           {/* Résumé exécutif */}
           {report.resume_executif && (
