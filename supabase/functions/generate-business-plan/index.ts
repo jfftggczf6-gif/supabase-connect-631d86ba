@@ -8,7 +8,7 @@ import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, Headi
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 
-const OPUS_MODEL = "claude-sonnet-4-20250514";
+const BP_MODEL = "claude-sonnet-4-6";
 
 // ── SYSTEM PROMPT ──────────────────────────────────────────────────────
 const BP_SYSTEM_PROMPT = `Tu es un consultant senior en business plan avec 20+ ans d'expérience auprès de PME africaines. Tu rédiges des business plans professionnels pour OVO.
@@ -870,7 +870,7 @@ serve(async (req) => {
 
     // PART 1: Sections 1-8
     console.log("[BP] AI Call 1/2: Sections 1-8...");
-    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext + coachingContext + webMarketContext, 16384, OPUS_MODEL, 0.4);
+    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext + coachingContext + webMarketContext, 16384, BP_MODEL, 0.2);
     console.log("[BP] Part 1 OK, keys:", Object.keys(part1).length);
 
     // Build summary of part1 for context in part2
@@ -878,7 +878,7 @@ serve(async (req) => {
 
     // PART 2: Sections 9-14
     console.log("[BP] AI Call 2/2: Sections 9-14...");
-    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, OPUS_MODEL, 0.4);
+    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, BP_MODEL, 0.2);
     console.log("[BP] Part 2 OK, keys:", Object.keys(part2).length);
 
     // Merge
