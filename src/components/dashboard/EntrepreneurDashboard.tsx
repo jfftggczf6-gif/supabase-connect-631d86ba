@@ -1723,24 +1723,42 @@ export default function EntrepreneurDashboard({
                   </div>
                 )}
 
-                {/* Viewers */}
-                {selectedModule === 'bmc' ? (
-                  <BmcViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
-                ) : selectedModule === 'sic' ? (
-                  <SicViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
-                ) : selectedModule === 'plan_financier' ? (
-                  <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
-                ) : selectedModule === 'business_plan' ? (
-                  <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
-                ) : selectedModule === 'valuation' ? (
-                  <ValuationViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} enterpriseName={enterprise?.name} onRegenerate={() => handleGenerateModule('valuation')} onUpdated={fetchData} />
-                ) : selectedModule === 'onepager' ? (
-                  <OnePagerViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('onepager')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
-                ) : selectedModule === 'investment_memo' ? (
-                  <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
-                ) : (
-                  <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} deliverableUpdatedAt={selectedDeliv.updated_at} dataChangedAt={(enterprise as any)?.data_changed_at} />
-                )}
+                {/* Stale banner + Viewers */}
+                {(() => {
+                  const isStale = selectedDeliv.updated_at && (enterprise as any)?.data_changed_at &&
+                    new Date((enterprise as any).data_changed_at).getTime() > new Date(selectedDeliv.updated_at).getTime();
+                  const staleBanner = isStale ? (
+                    <div className="flex items-center gap-3 p-3 mb-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                      <span className="text-amber-800 flex-1">
+                        {t('viewers.stale_banner')} ({new Date((enterprise as any).data_changed_at).toLocaleDateString('fr-FR')})
+                      </span>
+                      <button onClick={() => handleGenerateModule(selectedModule)} className="text-xs font-medium text-amber-700 hover:text-amber-900 underline shrink-0">
+                        {t('dashboard_coach.regenerate')}
+                      </button>
+                    </div>
+                  ) : null;
+
+                  const viewer = selectedModule === 'bmc' ? (
+                    <BmcViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
+                  ) : selectedModule === 'sic' ? (
+                    <SicViewer data={selectedDeliv.data} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
+                  ) : selectedModule === 'plan_financier' ? (
+                    <PlanFinancierViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} onUpdated={fetchData} />
+                  ) : selectedModule === 'business_plan' ? (
+                    <BusinessPlanPreview data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
+                  ) : selectedModule === 'valuation' ? (
+                    <ValuationViewer data={selectedDeliv.data as Record<string, any>} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} enterpriseName={enterprise?.name} onRegenerate={() => handleGenerateModule('valuation')} onUpdated={fetchData} />
+                  ) : selectedModule === 'onepager' ? (
+                    <OnePagerViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('onepager')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
+                  ) : selectedModule === 'investment_memo' ? (
+                    <InvestmentMemoViewer data={selectedDeliv.data as Record<string, any>} onRegenerate={() => handleGenerateModule('investment_memo')} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} />
+                  ) : (
+                    <DeliverableViewer moduleCode={selectedModule} data={selectedDeliv.data} allDeliverables={deliverables} onRegenerate={() => handleGenerateModule(selectedModule)} enterpriseId={enterprise?.id} deliverableId={selectedDeliv.id} onUpdated={fetchData} deliverableUpdatedAt={selectedDeliv.updated_at} dataChangedAt={(enterprise as any)?.data_changed_at} />
+                  );
+
+                  return <>{staleBanner}{viewer}</>;
+                })()}
               </div>
             ) : selectedModule === 'investment_memo' ? (
               <div className="flex flex-col items-center justify-center h-64 text-center px-6">
