@@ -70,7 +70,7 @@ export default function ProgrammeListPage() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(p => (
-            <ProgrammeCard key={p.id} programme={p} showChef={isSuperAdmin} />
+            <ProgrammeCard key={p.id} programme={p} showChef={isSuperAdmin} onDeleted={() => setProgrammes(prev => prev.filter(x => x.id !== p.id))} />
           ))}
         </div>
       )}

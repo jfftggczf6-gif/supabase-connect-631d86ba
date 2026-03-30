@@ -377,7 +377,25 @@ export default function ProgrammeCreatePage() {
                   <Label>{t('programme.currency_label')}</Label>
                   <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="XOF">XOF</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent>
+                    <SelectContent>
+                      <SelectItem value="XOF">XOF (FCFA UEMOA)</SelectItem>
+                      <SelectItem value="XAF">XAF (FCFA CEMAC)</SelectItem>
+                      <SelectItem value="CDF">CDF (Franc congolais)</SelectItem>
+                      <SelectItem value="GNF">GNF (Franc guinéen)</SelectItem>
+                      <SelectItem value="MGA">MGA (Ariary malgache)</SelectItem>
+                      <SelectItem value="RWF">RWF (Franc rwandais)</SelectItem>
+                      <SelectItem value="KES">KES (Shilling kenyan)</SelectItem>
+                      <SelectItem value="NGN">NGN (Naira nigérian)</SelectItem>
+                      <SelectItem value="GHS">GHS (Cedi ghanéen)</SelectItem>
+                      <SelectItem value="TZS">TZS (Shilling tanzanien)</SelectItem>
+                      <SelectItem value="ZAR">ZAR (Rand sud-africain)</SelectItem>
+                      <SelectItem value="MAD">MAD (Dirham marocain)</SelectItem>
+                      <SelectItem value="TND">TND (Dinar tunisien)</SelectItem>
+                      <SelectItem value="ETB">ETB (Birr éthiopien)</SelectItem>
+                      <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                      <SelectItem value="USD">USD (Dollar US)</SelectItem>
+                      <SelectItem value="GBP">GBP (Livre sterling)</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>

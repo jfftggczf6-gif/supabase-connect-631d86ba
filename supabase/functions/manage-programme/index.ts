@@ -403,6 +403,24 @@ serve(async (req) => {
       return jsonRes({ success: true, message: "Entreprise retirée du programme" });
     }
 
+    if (action === "delete") {
+      if (!body.id) return jsonRes({ error: "id requis" }, 400);
+      const { data: prog } = await supabase.from("programmes").select("chef_programme_id, status").eq("id", body.id).single();
+      if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
+      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (prog.status !== "draft") return jsonRes({ error: "Seuls les programmes en brouillon peuvent être supprimés" }, 400);
+
+      // Delete candidatures first (FK constraint)
+      await supabase.from("candidatures").delete().eq("programme_id", body.id);
+      // Delete programme_kpis
+      await supabase.from("programme_kpis").delete().eq("programme_id", body.id);
+      // Delete programme
+      const { error: delErr } = await supabase.from("programmes").delete().eq("id", body.id);
+      if (delErr) return jsonRes({ error: delErr.message }, 500);
+
+      return jsonRes({ success: true, message: "Programme supprimé" });
+    }
+
     return jsonRes({ error: `Action inconnue: ${action}` }, 400);
 
   } catch (e: any) {

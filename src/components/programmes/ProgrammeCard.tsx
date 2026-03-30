@@ -2,10 +2,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import ProgrammeStatusBadge from './ProgrammeStatusBadge';
-import { MapPin, Banknote, Users, CalendarDays } from 'lucide-react';
+import { MapPin, Banknote, Users, CalendarDays, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Programme {
   id: string;
@@ -23,9 +26,20 @@ interface Programme {
   type?: string | null;
 }
 
-export default function ProgrammeCard({ programme, showChef }: { programme: Programme; showChef?: boolean }) {
+export default function ProgrammeCard({ programme, showChef, onDeleted }: { programme: Programme; showChef?: boolean; onDeleted?: () => void }) {
   const nav = useNavigate();
+  const { t } = useTranslation();
   const fmt = (d: string | null | undefined) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
+
+  const handleDelete = async () => {
+    if (!confirm(`${t('common.delete')} "${programme.name}" ?`)) return;
+    const { error } = await supabase.functions.invoke('manage-programme', {
+      body: { action: 'delete', id: programme.id }
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${programme.name} ${t('common.delete').toLowerCase()}`);
+    onDeleted?.();
+  };
 
   return (
     <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav(`/programmes/${programme.id}`)}>
@@ -63,8 +77,13 @@ export default function ProgrammeCard({ programme, showChef }: { programme: Prog
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <span className="text-xs font-medium">{programme.candidatures_count ?? 0} candidatures</span>
           <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+            {programme.status === 'draft' && (
+              <Button size="sm" variant="ghost" className="text-destructive h-7 px-2" onClick={handleDelete}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => nav(`/programmes/${programme.id}`)}>
-              Voir
+              {t('dashboard_coach.view')}
             </Button>
           </div>
         </div>
