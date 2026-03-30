@@ -13,7 +13,7 @@ export default function Dashboard() {
   // If user is logged in but role is null after loading, wait 3s then give up
   useEffect(() => {
     if (user && !role && !loading && !roleLoading) {
-      const timer = setTimeout(() => setWaited(true), 3000);
+      const timer = setTimeout(() => setWaited(true), 5000);
       return () => clearTimeout(timer);
     }
   }, [user, role, loading, roleLoading]);

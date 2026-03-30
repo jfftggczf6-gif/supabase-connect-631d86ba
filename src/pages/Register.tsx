@@ -48,6 +48,8 @@ export default function Register() {
     try {
       await signUp(email, password, fullName, selectedRole);
       toast.success(t('auth.account_created'));
+      // Wait for DB trigger to create the role before navigating
+      await new Promise(r => setTimeout(r, 2000));
       navigate('/dashboard');
     } catch (err: any) {
       toast.error(err.message || t('auth.register_error'));
