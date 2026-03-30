@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Loader2, FileUp, PenLine, Sparkles } from 'lucide-react';
+import { Loader2, FileUp, PenLine, Sparkles, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import SuiviReportModal from './SuiviReportModal';
@@ -21,11 +21,38 @@ interface CoachingTabProps {
 
 type NoteMode = 'idle' | 'write' | 'processing' | 'review';
 
+interface Correction {
+  info: string;
+  type: string;
+  deliverable: string;
+  field_path: string;
+  action: string;
+  value: any;
+  priorite: string;
+  applied?: boolean;
+}
+
 interface IAResult {
   titre: string;
   resume: string;
+  corrections?: Correction[];
+  contexte?: string[];
+  actions_coach?: string[];
   infos_extraites: { info: string; categorie: string; injecter: boolean }[];
 }
+
+const DELIVERABLE_LABELS: Record<string, string> = {
+  inputs_data: "Données Financières",
+  bmc_analysis: "Business Model Canvas",
+  sic_analysis: "Social Impact Canvas",
+  plan_financier: "Plan Financier",
+  business_plan: "Business Plan",
+  odd_analysis: "ODD",
+  diagnostic_data: "Diagnostic",
+  valuation: "Valorisation",
+  onepager: "One-Pager",
+  investment_memo: "Mémo Investissement",
+};
 
 export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTabProps) {
   const { t } = useTranslation();
@@ -34,7 +61,6 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
   const [loading, setLoading] = useState(true);
   const [showReport, setShowReport] = useState<'suivi' | 'final' | null>(null);
 
-  // Note input state
   const [mode, setMode] = useState<NoteMode>('idle');
   const [text, setText] = useState('');
   const [dateRdv, setDateRdv] = useState('');
@@ -42,6 +68,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
   const [iaResult, setIaResult] = useState<IAResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [applyingCorrections, setApplyingCorrections] = useState(false);
 
   const loadNotes = async () => {
     const { data } = await supabase
@@ -71,12 +98,9 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
 
     try {
       let content = text;
-
-      // If file, upload to coaching-files bucket
       if (file) {
         const filePath = `${enterpriseId}/${Date.now()}_${file.name}`;
         await supabase.storage.from('coaching-files').upload(filePath, file, { upsert: true });
-
         if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
           content = await file.text() + '\n\n' + text;
         } else {
@@ -94,12 +118,17 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
             raw_content: content,
             date_rdv: dateRdv || null,
             file_name: file?.name || null,
+            enterprise_id: enterpriseId,
           }),
         }
       );
 
       if (!resp.ok) throw new Error('Erreur analyse');
       const result = await resp.json();
+      // Mark all corrections as not applied
+      if (result.corrections) {
+        result.corrections = result.corrections.map((c: Correction) => ({ ...c, applied: false }));
+      }
       setIaResult(result);
       setMode('review');
     } catch (err: any) {
@@ -118,6 +147,85 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
     setIaResult(updated);
   };
 
+  const applyCorrection = async (correction: Correction, index: number) => {
+    try {
+      // Fetch the deliverable
+      const { data: deliv } = await supabase
+        .from('deliverables')
+        .select('id, data')
+        .eq('enterprise_id', enterpriseId)
+        .eq('type', correction.deliverable)
+        .maybeSingle();
+
+      if (!deliv?.data) {
+        toast.error(`Livrable "${DELIVERABLE_LABELS[correction.deliverable] || correction.deliverable}" non trouvé`);
+        return;
+      }
+
+      const newData = { ...(deliv.data as any) };
+
+      // Navigate to the field path and set the value
+      const parts = correction.field_path.split('.');
+      let obj = newData;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!obj[parts[i]]) obj[parts[i]] = {};
+        obj = obj[parts[i]];
+      }
+      const lastKey = parts[parts.length - 1];
+
+      if (correction.action === 'enrichir' && typeof obj[lastKey] === 'string') {
+        obj[lastKey] = obj[lastKey] + '\n' + String(correction.value);
+      } else {
+        obj[lastKey] = correction.value;
+      }
+
+      // Save
+      await supabase.from('deliverables').update({ data: newData }).eq('id', deliv.id);
+
+      // Bump data_changed_at to trigger pipeline staleness
+      await supabase.from('enterprises').update({
+        data_changed_at: new Date().toISOString(),
+      }).eq('id', enterpriseId);
+
+      // Log correction
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('deliverable_corrections' as any).insert({
+        enterprise_id: enterpriseId,
+        deliverable_id: deliv.id,
+        field_path: correction.field_path,
+        corrected_value: correction.value,
+        correction_reason: correction.info,
+        corrected_by: user?.id,
+      } as any).catch(() => {});
+
+      // Mark as applied
+      if (iaResult) {
+        const updated = { ...iaResult };
+        updated.corrections = [...(updated.corrections || [])];
+        updated.corrections[index] = { ...updated.corrections[index], applied: true };
+        setIaResult(updated);
+      }
+
+      toast.success(`${correction.info} — appliqué`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur');
+    }
+  };
+
+  const applyAllCorrections = async () => {
+    if (!iaResult?.corrections?.length) return;
+    setApplyingCorrections(true);
+    const toApply = iaResult.corrections.filter(c => !c.applied && c.priorite !== 'basse');
+    for (let i = 0; i < iaResult.corrections.length; i++) {
+      const c = iaResult.corrections[i];
+      if (!c.applied && c.priorite !== 'basse') {
+        await applyCorrection(c, i);
+      }
+    }
+    setApplyingCorrections(false);
+    toast.success(`${toApply.length} correction(s) appliquée(s)`);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -125,7 +233,6 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       if (!user) throw new Error('Non connecté');
 
       const filePath = file ? `${enterpriseId}/${Date.now()}_${file.name}` : null;
-
       const noteTitle = iaResult?.titre || (dateRdv ? `RDV du ${dateRdv}` : 'Note');
 
       await supabase.from('coaching_notes' as any).insert({
@@ -137,18 +244,25 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         file_name: file?.name || null,
         resume_ia: iaResult?.resume || null,
         infos_extraites: iaResult?.infos_extraites || [],
+        corrections_applied: iaResult?.corrections?.filter(c => c.applied).map(c => ({
+          info: c.info, deliverable: c.deliverable, field_path: c.field_path, value: c.value,
+        })) || [],
         date_rdv: dateRdv || null,
         titre: noteTitle,
       } as any);
 
-      // Log to activity_log
       await supabase.from('activity_log' as any).insert({
         enterprise_id: enterpriseId,
         actor_id: user.id,
         actor_role: 'coach',
         action: 'coaching_note',
         resource_type: 'coaching_note',
-        metadata: { titre: noteTitle, date_rdv: dateRdv, has_file: !!file },
+        metadata: {
+          titre: noteTitle,
+          date_rdv: dateRdv,
+          has_file: !!file,
+          corrections_count: iaResult?.corrections?.filter(c => c.applied).length || 0,
+        },
       } as any).then(() => {}).catch(() => {});
 
       toast.success(t('coaching.note_saved'));
@@ -174,9 +288,12 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
     catch { return d; }
   };
 
+  const appliedCount = iaResult?.corrections?.filter(c => c.applied).length || 0;
+  const totalCorrections = iaResult?.corrections?.length || 0;
+
   return (
     <div className="space-y-4">
-      {/* A — Report buttons */}
+      {/* Report buttons */}
       <div className="flex gap-2">
         <Button variant="default" size="sm" onClick={() => setShowReport('suivi')}>
           {t('coaching.suivi_report')}
@@ -186,20 +303,14 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         </Button>
       </div>
 
-      {/* B — Note input */}
+      {/* Note input — idle */}
       {mode === 'idle' && (
         <div className="space-y-3">
           <div
             className="p-5 rounded-lg border-2 border-dashed border-border text-center cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => document.getElementById('coaching-file-input')?.click()}
           >
-            <input
-              id="coaching-file-input"
-              type="file"
-              className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-              onChange={handleFileChange}
-            />
+            <input id="coaching-file-input" type="file" className="hidden" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" onChange={handleFileChange} />
             <FileUp className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
             <p className="text-sm font-medium">{t('coaching.drop_report')}</p>
             <p className="text-xs text-muted-foreground mt-1">{t('coaching.drop_hint')}</p>
@@ -215,6 +326,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         </div>
       )}
 
+      {/* Note input — write */}
       {mode === 'write' && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-4 space-y-3">
@@ -226,8 +338,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
               </div>
             )}
             <Input type="date" value={dateRdv} onChange={e => setDateRdv(e.target.value)} placeholder={t('coaching.date_rdv')} />
-            <Textarea value={text} onChange={e => setText(e.target.value)}
-              placeholder={t('coaching.note_placeholder')} rows={5} />
+            <Textarea value={text} onChange={e => setText(e.target.value)} placeholder={t('coaching.note_placeholder')} rows={5} />
             <div className="flex gap-2">
               <Button onClick={handleAnalyze} className="flex-1" disabled={analyzing}>
                 {analyzing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t('coaching.analyzing')}</> : t('coaching.analyze')}
@@ -238,6 +349,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         </Card>
       )}
 
+      {/* Processing */}
       {mode === 'processing' && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-8 text-center">
@@ -247,17 +359,102 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         </Card>
       )}
 
+      {/* Review — enriched with corrections */}
       {mode === 'review' && iaResult && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">IA</Badge>
-              <span className="text-sm font-medium">{iaResult.titre}</span>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">{iaResult.resume}</p>
+        <div className="space-y-3">
+          {/* Title + Resume */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="py-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-indigo-100 text-indigo-700">IA</Badge>
+                <span className="text-sm font-medium">{iaResult.titre}</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{iaResult.resume}</p>
+            </CardContent>
+          </Card>
 
-            {iaResult.infos_extraites?.length > 0 && (
-              <div className="space-y-2">
+          {/* Corrections */}
+          {iaResult.corrections && iaResult.corrections.length > 0 && (
+            <Card>
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <ArrowRight className="h-4 w-4 text-primary" />
+                    Corrections à appliquer ({appliedCount}/{totalCorrections})
+                  </h4>
+                  {totalCorrections > 1 && appliedCount < totalCorrections && (
+                    <Button size="sm" variant="outline" onClick={applyAllCorrections} disabled={applyingCorrections} className="text-xs">
+                      {applyingCorrections ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      Tout appliquer
+                    </Button>
+                  )}
+                </div>
+                {iaResult.corrections.map((corr, i) => (
+                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${
+                    corr.applied ? 'bg-emerald-50 border-emerald-200' :
+                    corr.priorite === 'haute' ? 'bg-red-50 border-red-200' :
+                    'bg-amber-50 border-amber-200'
+                  }`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {corr.applied ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <AlertTriangle className={`h-4 w-4 shrink-0 ${corr.priorite === 'haute' ? 'text-red-500' : 'text-amber-500'}`} />
+                        )}
+                        <span className="text-sm font-medium">{corr.info}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        → {DELIVERABLE_LABELS[corr.deliverable] || corr.deliverable} &gt; {corr.field_path.replace(/\./g, ' > ')}
+                      </p>
+                      {corr.value != null && (
+                        <p className="text-xs font-mono mt-0.5 text-muted-foreground">
+                          = {typeof corr.value === 'number' ? corr.value.toLocaleString('fr-FR') : String(corr.value).substring(0, 100)}
+                        </p>
+                      )}
+                    </div>
+                    {!corr.applied && (
+                      <Button size="sm" variant="outline" className="shrink-0 text-xs h-7" onClick={() => applyCorrection(corr, i)}>
+                        Appliquer
+                      </Button>
+                    )}
+                    {corr.applied && (
+                      <Badge variant="outline" className="text-emerald-700 border-emerald-300 text-[10px] shrink-0">Appliqué</Badge>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Contexte */}
+          {iaResult.contexte && iaResult.contexte.length > 0 && (
+            <Card>
+              <CardContent className="py-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">Contexte</p>
+                <ul className="text-xs space-y-0.5">
+                  {iaResult.contexte.map((c, i) => <li key={i} className="text-muted-foreground">• {c}</li>)}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Actions coach */}
+          {iaResult.actions_coach && iaResult.actions_coach.length > 0 && (
+            <Card>
+              <CardContent className="py-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">Actions coach</p>
+                <ul className="text-xs space-y-0.5">
+                  {iaResult.actions_coach.map((a, i) => <li key={i}>☐ {a}</li>)}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Legacy infos_extraites (backward compat) */}
+          {iaResult.infos_extraites?.length > 0 && !iaResult.corrections?.length && (
+            <Card>
+              <CardContent className="py-3 space-y-2">
                 <p className="text-xs font-medium">{t('coaching.integrate_pipeline')}</p>
                 {iaResult.infos_extraites.map((info, i) => (
                   <div key={i} className="flex items-start gap-3 p-2 bg-background rounded-lg border">
@@ -268,20 +465,21 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+              </CardContent>
+            </Card>
+          )}
 
-            <div className="flex gap-2">
-              <Button onClick={handleSave} className="flex-1" disabled={saving}>
-                {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t('coaching.saving_note')}</> : t('coaching.save_note')}
-              </Button>
-              <Button variant="outline" onClick={() => setMode('write')}>{t('coaching.modify')}</Button>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Save button */}
+          <div className="flex gap-2">
+            <Button onClick={handleSave} className="flex-1" disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t('coaching.saving_note')}</> : t('coaching.save_note')}
+            </Button>
+            <Button variant="outline" onClick={() => setMode('write')}>{t('coaching.modify')}</Button>
+          </div>
+        </div>
       )}
 
-      {/* C — History */}
+      {/* History */}
       {!loading && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
@@ -293,26 +491,27 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] ${
-                      note.date_rdv ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                      : note.file_name ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
-                      : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400'
+                      note.date_rdv ? 'bg-emerald-50 text-emerald-700' : note.file_name ? 'bg-blue-50 text-blue-700' : 'bg-indigo-50 text-indigo-700'
                     }`}>
                       {note.date_rdv ? t('coaching.rdv_label') : note.file_name ? t('coaching.file_label') : t('coaching.note_label')}
                     </Badge>
                     <span className="text-xs font-medium">{note.titre}</span>
+                    {note.corrections_applied?.length > 0 && (
+                      <Badge variant="outline" className="text-[9px] text-emerald-700 border-emerald-300">
+                        {note.corrections_applied.length} correction(s)
+                      </Badge>
+                    )}
                   </div>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                    {formatDate(note.created_at)}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatDate(note.created_at)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                   {note.resume_ia || note.raw_content?.substring(0, 200)}
                 </p>
                 {note.infos_extraites?.filter((i: any) => i.injecter)?.length > 0 && (
                   <div className="mt-2 pt-2 border-t">
-                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mb-1">{t('coaching.integrated_pipeline')}</p>
+                    <p className="text-[10px] text-indigo-600 font-medium mb-1">{t('coaching.integrated_pipeline')}</p>
                     {note.infos_extraites.filter((i: any) => i.injecter).map((info: any, j: number) => (
-                      <p key={j} className="text-[10px] text-indigo-600 dark:text-indigo-400">• {info.info}</p>
+                      <p key={j} className="text-[10px] text-indigo-600">• {info.info}</p>
                     ))}
                   </div>
                 )}
@@ -320,28 +519,14 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
             </Card>
           ))}
           {notes.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              {t('coaching.no_notes')}
-            </p>
+            <p className="text-xs text-muted-foreground text-center py-4">{t('coaching.no_notes')}</p>
           )}
         </div>
       )}
 
       {/* Modals */}
-      {showReport === 'suivi' && (
-        <SuiviReportModal
-          enterpriseId={enterpriseId}
-          enterpriseName={enterpriseName}
-          onClose={() => setShowReport(null)}
-        />
-      )}
-      {showReport === 'final' && (
-        <FinalReportModal
-          enterpriseId={enterpriseId}
-          enterpriseName={enterpriseName}
-          onClose={() => setShowReport(null)}
-        />
-      )}
+      {showReport === 'suivi' && <SuiviReportModal enterpriseId={enterpriseId} enterpriseName={enterpriseName} onClose={() => setShowReport(null)} />}
+      {showReport === 'final' && <FinalReportModal enterpriseId={enterpriseId} enterpriseName={enterpriseName} onClose={() => setShowReport(null)} />}
     </div>
   );
 }
