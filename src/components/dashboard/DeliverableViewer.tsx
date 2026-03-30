@@ -6,10 +6,15 @@ import { Progress } from '@/components/ui/progress';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import SectionEditButton from './SectionEditButton';
 import TranslateButton from './TranslateButton';
+import BmcViewerComponent from './BmcViewer';
 import FrameworkViewerComponent from './FrameworkViewer';
 import PlanOvoViewerComponent from './PlanOvoViewer';
 import { OddViewer as OddViewerComponent } from './OddViewer';
 import PlanFinancierViewerComponent from './PlanFinancierViewer';
+import ValuationViewerComponent from './ValuationViewer';
+import OnePagerViewerComponent from './OnePagerViewer';
+import InvestmentMemoViewerComponent from './InvestmentMemoViewer';
+import BusinessPlanPreviewComponent from './BusinessPlanPreview';
 
 interface DeliverableViewerProps {
   moduleCode: string;
@@ -68,6 +73,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
   );
 
   switch (moduleCode) {
+    case 'bmc': return wrapWithRegenerate(<BmcViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
     case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
@@ -82,8 +88,11 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
       return wrapWithRegenerate(<PlanOvoViewerComponent data={data} staleness={staleness} />);
     }
     case 'plan_financier': return wrapWithRegenerate(<PlanFinancierViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
-    case 'business_plan': return wrapWithRegenerate(<BusinessPlanViewer data={data} />);
+    case 'business_plan': return wrapWithRegenerate(<BusinessPlanPreviewComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'odd': return wrapWithRegenerate(<OddViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
+    case 'valuation': return wrapWithRegenerate(<ValuationViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
+    case 'onepager': return wrapWithRegenerate(<OnePagerViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
+    case 'investment_memo': return wrapWithRegenerate(<InvestmentMemoViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     default: return wrapWithRegenerate(<GenericJsonViewer data={data} />);
   }
 }
