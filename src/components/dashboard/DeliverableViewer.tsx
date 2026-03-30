@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import SectionEditButton from './SectionEditButton';
 import TranslateButton from './TranslateButton';
 import BmcViewerComponent from './BmcViewer';
+import SicViewerComponent from './SicViewer';
 import FrameworkViewerComponent from './FrameworkViewer';
 import PlanOvoViewerComponent from './PlanOvoViewer';
 import { OddViewer as OddViewerComponent } from './OddViewer';
@@ -74,7 +75,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
 
   switch (moduleCode) {
     case 'bmc': return wrapWithRegenerate(<BmcViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
-    case 'sic': return wrapWithRegenerate(<SicViewer data={data} />);
+    case 'sic': return wrapWithRegenerate(<SicViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'inputs': return wrapWithRegenerate(<InputsViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'framework': return wrapWithRegenerate(<FrameworkViewerComponent data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
     case 'diagnostic': return wrapWithRegenerate(<DiagnosticViewer data={data} enterpriseId={enterpriseId} onUpdated={onUpdated} />);
