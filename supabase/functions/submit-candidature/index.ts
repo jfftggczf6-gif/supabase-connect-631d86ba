@@ -118,7 +118,7 @@ Produis le diagnostic complet pour le comité de sélection.`;
       system: SCREENING_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     }),
-    signal: AbortSignal.timeout(90_000),
+    // Pas de timeout — EdgeRuntime.waitUntil gère la durée, l'API peut prendre le temps qu'il faut
   });
 
   if (!resp.ok) {
