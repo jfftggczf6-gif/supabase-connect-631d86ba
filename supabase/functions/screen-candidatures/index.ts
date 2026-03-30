@@ -102,7 +102,7 @@ Réponds UNIQUEMENT en JSON valide :
 
   "marche_positionnement": {
     "marche_cible": "string — description du marché adressé",
-    "taille_estimee": "string — ex: 'Marché local estimé à ~2Mds FCFA'",
+    "taille_estimee": "string — ex: 'Marché local estimé à ~2Mds (devise locale)'",
     "positionnement": "string — comment l'entreprise se différencie",
     "concurrence": "string — niveau de concurrence et principaux acteurs",
     "avantage_competitif": "string ou null",
