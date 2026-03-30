@@ -193,10 +193,8 @@ export default function PublicCandidatureForm() {
                         onChange={e => {
                           const files = e.target.files;
                           if (files) {
-                            // Support multiple files per field
-                            const existing = fileUploads[field.label] ? [fileUploads[field.label]] : [];
-                            const allFiles = [...(Array.isArray(existing) ? existing : [existing]), ...Array.from(files)].flat();
-                            setFileUploads(prev => ({ ...prev, [field.label]: allFiles as any }));
+                            const existing = Array.isArray(fileUploads[field.label]) ? fileUploads[field.label] : fileUploads[field.label] ? [fileUploads[field.label]] : [];
+                            setFileUploads(prev => ({ ...prev, [field.label]: [...existing, ...Array.from(files)] as any }));
                           }
                         }}
                       />

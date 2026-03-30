@@ -118,7 +118,7 @@ Produis le diagnostic complet pour le comité de sélection.`;
       system: SCREENING_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(90_000),
   });
 
   if (!resp.ok) {
@@ -158,12 +158,27 @@ serve(async (req) => {
 
     const body = await req.json();
 
-    // Handle document update (after initial submission)
+    // Handle document update (after initial submission) — re-trigger screening with docs
     if (body.action === 'update_documents' && body.candidature_id) {
       await supabase.from("candidatures").update({
         documents: body.documents || [],
         updated_at: new Date().toISOString(),
       }).eq("id", body.candidature_id);
+
+      // Re-screen with documents info (non-blocking)
+      // @ts-ignore
+      EdgeRuntime.waitUntil((async () => {
+        try {
+          const { data: cand } = await supabase.from("candidatures").select("*").eq("id", body.candidature_id).single();
+          if (cand) {
+            await autoScreen(supabase, cand.id, cand, cand.programme_id);
+            console.log(`[update_documents] Re-screened ${cand.company_name} with ${(body.documents || []).length} docs`);
+          }
+        } catch (e: any) {
+          console.warn("[update_documents] re-screen failed:", e.message);
+        }
+      })());
+
       return jsonRes({ success: true });
     }
 
@@ -228,12 +243,21 @@ serve(async (req) => {
 
     console.log(`[submit-candidature] ✅ ${company_name} → ${prog.name} (${candidature.id})`);
 
-    // Auto-screen in background
+    // Auto-screen in background (with retry on failure)
     // @ts-ignore
-    EdgeRuntime.waitUntil(
-      autoScreen(supabase, candidature.id, { ...candidatureData, company_name, contact_name, contact_email }, prog.id)
-        .catch(e => console.error("[auto-screen] failed:", e.message))
-    );
+    EdgeRuntime.waitUntil((async () => {
+      try {
+        await autoScreen(supabase, candidature.id, { ...candidatureData, company_name, contact_name, contact_email }, prog.id);
+      } catch (e: any) {
+        console.warn("[auto-screen] first attempt failed, retrying in 10s:", e.message);
+        await new Promise(r => setTimeout(r, 10000));
+        try {
+          await autoScreen(supabase, candidature.id, { ...candidatureData, company_name, contact_name, contact_email }, prog.id);
+        } catch (e2: any) {
+          console.error("[auto-screen] retry failed:", e2.message);
+        }
+      }
+    })());
 
     return jsonRes({ success: true, candidature_id: candidature.id });
 
