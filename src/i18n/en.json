@@ -93,7 +93,9 @@
     "passwords_mismatch": "Passwords do not match",
     "password_updated": "Password updated successfully!",
     "updating": "Updating...",
-    "update_password": "Update password"
+    "update_password": "Update password",
+    "checking_link": "Verifying link...",
+    "link_expired_hint": "If this page stays stuck, the link may have expired. Request a new link from the login page."
   },
   "modules": {
     "diagnostic": "Progress Report",

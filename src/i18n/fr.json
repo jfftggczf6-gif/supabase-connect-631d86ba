@@ -93,7 +93,9 @@
     "passwords_mismatch": "Les mots de passe ne correspondent pas",
     "password_updated": "Mot de passe mis à jour avec succès !",
     "updating": "Mise à jour...",
-    "update_password": "Mettre à jour le mot de passe"
+    "update_password": "Mettre à jour le mot de passe",
+    "checking_link": "Vérification du lien...",
+    "link_expired_hint": "Si cette page reste bloquée, le lien a peut-être expiré. Demandez un nouveau lien depuis la page de connexion."
   },
   "modules": {
     "diagnostic": "Bilan de progression",

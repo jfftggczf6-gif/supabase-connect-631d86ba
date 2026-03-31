@@ -17,10 +17,21 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check if we have a recovery token in the URL hash
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('access_token')) {
+      setReady(true);
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true);
     });
-    setReady(true);
+
+    // Also check current session — user might already be in recovery state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -35,7 +46,17 @@ export default function ResetPassword() {
     navigate('/dashboard');
   };
 
-  if (!ready) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (!ready) return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+        <p className="text-sm text-muted-foreground">{t('auth.checking_link')}</p>
+        <p className="text-xs text-muted-foreground mt-4">
+          {t('auth.link_expired_hint')}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
