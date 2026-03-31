@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Globe, Loader2, Undo2 } from 'lucide-react';
@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface TranslateButtonProps {
-  /** Ref to the container element whose text content will be translated */
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -14,68 +13,81 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
   const { t, i18n } = useTranslation();
   const [translating, setTranslating] = useState(false);
   const [translated, setTranslated] = useState(false);
-  const cloneRef = useRef<HTMLDivElement | null>(null);
+  const originalsRef = useRef<Map<Text, string>>(new Map());
 
   const targetLang = i18n.language === 'fr' ? 'en' : 'fr';
   const label = targetLang === 'en' ? 'EN' : 'FR';
 
-  const handleTranslate = async () => {
-    if (!containerRef.current) return;
+  // Auto-reset when container content changes (tab switch, re-render)
+  useEffect(() => {
+    if (!translated) return;
+    const observer = new MutationObserver(() => {
+      // React re-rendered — our text nodes may be gone, reset state
+      originalsRef.current.clear();
+      setTranslated(false);
+    });
+    if (containerRef.current) {
+      observer.observe(containerRef.current, { childList: true, subtree: true });
+    }
+    return () => observer.disconnect();
+  }, [translated, containerRef]);
 
-    // Clone the entire container so we never touch React's DOM
-    const clone = containerRef.current.cloneNode(true) as HTMLDivElement;
-
-    // Collect all text nodes from the clone
-    const textNodes: { node: Text; text: string }[] = [];
-    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT, {
+  const collectTextNodes = (root: Node): Text[] => {
+    const nodes: Text[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => {
         const text = node.textContent?.trim();
         if (!text || text.length < 3) return NodeFilter.FILTER_REJECT;
         const parent = node.parentElement;
-        if (parent?.tagName === 'SCRIPT' || parent?.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
+        if (parent?.tagName === 'SCRIPT' || parent?.tagName === 'STYLE' || parent?.tagName === 'BUTTON') return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       },
     });
-
     let node: Text | null;
-    while ((node = walker.nextNode() as Text | null)) {
-      textNodes.push({ node, text: node.textContent || '' });
-    }
+    while ((node = walker.nextNode() as Text | null)) nodes.push(node);
+    return nodes;
+  };
 
+  const handleTranslate = async () => {
+    if (!containerRef.current) return;
+
+    const textNodes = collectTextNodes(containerRef.current);
     if (textNodes.length === 0) return;
 
-    // Batch text into chunks of ~2000 chars
-    const chunks: { texts: string[]; nodes: Text[] }[] = [];
-    let currentChunk: { texts: string[]; nodes: Text[] } = { texts: [], nodes: [] };
-    let currentLen = 0;
-
-    for (const { node: tn, text } of textNodes) {
-      if (currentLen + text.length > 2000 && currentChunk.texts.length > 0) {
-        chunks.push(currentChunk);
-        currentChunk = { texts: [], nodes: [] };
-        currentLen = 0;
-      }
-      currentChunk.texts.push(text);
-      currentChunk.nodes.push(tn);
-      currentLen += text.length;
+    // Store originals
+    const originals = new Map<Text, string>();
+    for (const tn of textNodes) {
+      originals.set(tn, tn.textContent || '');
     }
-    if (currentChunk.texts.length > 0) chunks.push(currentChunk);
+
+    // Batch into chunks
+    const chunks: { texts: string[]; nodes: Text[] }[] = [];
+    let chunk: { texts: string[]; nodes: Text[] } = { texts: [], nodes: [] };
+    let len = 0;
+    for (const tn of textNodes) {
+      const text = tn.textContent || '';
+      if (len + text.length > 2000 && chunk.texts.length > 0) {
+        chunks.push(chunk);
+        chunk = { texts: [], nodes: [] };
+        len = 0;
+      }
+      chunk.texts.push(text);
+      chunk.nodes.push(tn);
+      len += text.length;
+    }
+    if (chunk.texts.length > 0) chunks.push(chunk);
 
     setTranslating(true);
 
     try {
-      for (const chunk of chunks) {
-        const joined = chunk.texts.map((t, i) => `[${i}] ${t}`).join('\n');
+      for (const ch of chunks) {
+        const joined = ch.texts.map((t, i) => `[${i}] ${t}`).join('\n');
         const { data, error } = await supabase.functions.invoke('translate-content', {
           body: { text: joined, target_lang: targetLang },
         });
 
-        if (error || !data?.translated) {
-          toast.error(t('common.error'));
-          continue;
-        }
+        if (error || !data?.translated) continue;
 
-        // Parse translated text back by [index] markers
         const lines = data.translated.split('\n');
         const translatedMap: Record<number, string> = {};
         let currentIdx = -1;
@@ -93,21 +105,14 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
         }
         if (currentIdx >= 0) translatedMap[currentIdx] = currentText.trim();
 
-        // Apply translations to clone's DOM nodes (not React's DOM)
-        for (let i = 0; i < chunk.nodes.length; i++) {
-          if (translatedMap[i]) {
-            chunk.nodes[i].textContent = translatedMap[i];
+        for (let i = 0; i < ch.nodes.length; i++) {
+          if (translatedMap[i] && ch.nodes[i].parentNode) {
+            ch.nodes[i].textContent = translatedMap[i];
           }
         }
       }
 
-      // Swap: hide React's original, show translated clone
-      if (containerRef.current) {
-        containerRef.current.style.display = 'none';
-        cloneRef.current = clone;
-        containerRef.current.parentElement?.insertBefore(clone, containerRef.current.nextSibling);
-      }
-
+      originalsRef.current = originals;
       setTranslated(true);
     } catch (e: any) {
       toast.error(e.message || t('common.error'));
@@ -117,14 +122,13 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
   };
 
   const handleUndo = () => {
-    // Remove clone, show React's original
-    if (cloneRef.current) {
-      cloneRef.current.remove();
-      cloneRef.current = null;
+    // Restore original text content node by node
+    for (const [node, original] of originalsRef.current) {
+      if (node.parentNode) {
+        node.textContent = original;
+      }
     }
-    if (containerRef.current) {
-      containerRef.current.style.display = '';
-    }
+    originalsRef.current.clear();
     setTranslated(false);
   };
 
