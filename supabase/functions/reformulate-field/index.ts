@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-6";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -94,17 +94,19 @@ Reformule le texte selon l'instruction. Retourne UNIQUEMENT le nouveau texte.`;
       .map((b: any) => b.text)
       .join("\n") || "";
 
-    // Log activity
-    await supabase.from("activity_log").insert({
-      enterprise_id,
-      actor_id: user.id,
-      actor_role: "coach",
-      action: "reformulation",
-      resource_type: "deliverable",
-      resource_id: deliverable_id,
-      deliverable_type,
-      metadata: { field_path, instruction },
-    }).catch(() => {});
+    // Log activity (non-blocking)
+    try {
+      await supabase.from("activity_log").insert({
+        enterprise_id,
+        actor_id: user.id,
+        actor_role: "coach",
+        action: "reformulation",
+        resource_type: "deliverable",
+        resource_id: deliverable_id,
+        deliverable_type,
+        metadata: { field_path, instruction },
+      });
+    } catch { /* non-blocking */ }
 
     return new Response(JSON.stringify({ success: true, reformulated }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -95,16 +95,18 @@ export default function DeliverableReformulator({
 
         // Record correction
         const { data: { user } } = await supabase.auth.getUser();
-        await supabase.from('deliverable_corrections').insert({
-          enterprise_id: enterpriseId,
-          deliverable_id: deliverableId,
-          deliverable_type: deliverableType,
-          corrected_by: user?.id,
-          field_path: fieldPath,
-          original_value: currentText,
-          corrected_value: preview,
-          correction_reason: `Reformulation IA : ${instruction}`,
-        } as any).catch(() => {});
+        try {
+          await supabase.from('deliverable_corrections').insert({
+            enterprise_id: enterpriseId,
+            deliverable_id: deliverableId,
+            deliverable_type: deliverableType,
+            corrected_by: user?.id,
+            field_path: fieldPath,
+            original_value: currentText,
+            corrected_value: preview,
+            correction_reason: `Reformulation IA : ${instruction}`,
+          });
+        } catch { /* non-blocking */ }
       }
 
       toast.success('Texte reformulé et enregistré');
