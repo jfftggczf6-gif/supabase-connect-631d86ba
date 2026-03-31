@@ -408,12 +408,14 @@ serve(async (req) => {
       const { data: prog } = await supabase.from("programmes").select("chef_programme_id, status").eq("id", body.id).single();
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
       if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
-      if (prog.status !== "draft") return jsonRes({ error: "Seuls les programmes en brouillon peuvent être supprimés" }, 400);
 
-      // Delete candidatures first (FK constraint)
-      await supabase.from("candidatures").delete().eq("programme_id", body.id);
-      // Delete programme_kpis
+      // Delete related data first (FK constraints — order matters)
+      const { data: kpiIds } = await supabase.from("programme_kpis").select("id").eq("programme_id", body.id);
+      if (kpiIds?.length) {
+        await supabase.from("programme_kpi_history").delete().in("kpi_id", kpiIds.map((k: any) => k.id));
+      }
       await supabase.from("programme_kpis").delete().eq("programme_id", body.id);
+      await supabase.from("candidatures").delete().eq("programme_id", body.id);
       // Delete programme
       const { error: delErr } = await supabase.from("programmes").delete().eq("id", body.id);
       if (delErr) return jsonRes({ error: delErr.message }, 500);

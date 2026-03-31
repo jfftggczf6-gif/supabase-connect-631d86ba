@@ -33,7 +33,7 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
 
 
-  const { signUp } = useAuth();
+  const { signUp, setRole } = useAuth();
   const navigate = useNavigate();
 
   const roleLabel = selectedRole === 'coach' ? t('auth.role_coach') : t('auth.role_entrepreneur');
@@ -47,9 +47,9 @@ export default function Register() {
     setIsLoading(true);
     try {
       await signUp(email, password, fullName, selectedRole);
+      // Explicitly create the role — don't rely on DB trigger timing
+      await setRole(selectedRole);
       toast.success(t('auth.account_created'));
-      // Wait for DB trigger to create the role before navigating
-      await new Promise(r => setTimeout(r, 2000));
       navigate('/dashboard');
     } catch (err: any) {
       toast.error(err.message || t('auth.register_error'));

@@ -77,11 +77,9 @@ export default function ProgrammeCard({ programme, showChef, onDeleted }: { prog
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <span className="text-xs font-medium">{programme.candidatures_count ?? 0} candidatures</span>
           <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-            {programme.status === 'draft' && (
-              <Button size="sm" variant="ghost" className="text-destructive h-7 px-2" onClick={handleDelete}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
+            <Button size="sm" variant="ghost" className="text-destructive h-7 px-2" onClick={handleDelete}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
             <Button size="sm" variant="outline" onClick={() => nav(`/programmes/${programme.id}`)}>
               {t('dashboard_coach.view')}
             </Button>

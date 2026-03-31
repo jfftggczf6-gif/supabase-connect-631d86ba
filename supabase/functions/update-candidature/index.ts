@@ -248,7 +248,7 @@ serve(async (req) => {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  from: "ESONO <onboarding@resend.dev>",
+                  from: "ESONO <noreply@esono.tech>",
                   to: [candidature.contact_email],
                   subject: `Bienvenue sur ESONO — Programme ${programme.name}`,
                   html: emailHtml,

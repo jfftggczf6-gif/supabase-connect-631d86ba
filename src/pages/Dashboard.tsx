@@ -10,12 +10,14 @@ export default function Dashboard() {
   const { role, loading, roleLoading, user } = useAuth();
   const [waited, setWaited] = useState(false);
 
-  // If user is logged in but role is null after loading, wait 3s then give up
+  // If user is logged in but role is null after loading, wait then give up
   useEffect(() => {
     if (user && !role && !loading && !roleLoading) {
-      const timer = setTimeout(() => setWaited(true), 5000);
+      const timer = setTimeout(() => setWaited(true), 6000);
       return () => clearTimeout(timer);
     }
+    // Reset waited if role arrives
+    if (role) setWaited(false);
   }, [user, role, loading, roleLoading]);
 
   // Still loading

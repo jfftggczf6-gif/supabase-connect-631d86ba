@@ -26,7 +26,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: from || "ESONO <onboarding@resend.dev>",
+        from: from || "ESONO <noreply@esono.tech>",
         to: [to],
         subject,
         html,
