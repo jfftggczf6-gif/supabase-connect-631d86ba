@@ -300,7 +300,7 @@ serve(async (req) => {
     const [inputsRes, ragContext, pcRes] = await Promise.all([
       ctx.supabase.from("deliverables").select("data, score")
         .eq("enterprise_id", ctx.enterprise_id).eq("type", "inputs_data").maybeSingle(),
-      buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "pre_screening"),
+      buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "pre_screening", ctx.enterprise_id),
       programmeCriteriaId && !programmeCriteria
         ? ctx.supabase.from("programme_criteria").select("*").eq("id", programmeCriteriaId).maybeSingle()
         : Promise.resolve({ data: null }),

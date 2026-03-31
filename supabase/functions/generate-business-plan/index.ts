@@ -819,7 +819,7 @@ serve(async (req) => {
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 
     // RAG: enrichir avec données bailleurs et benchmarks
-    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["bailleurs", "benchmarks", "secteurs", "reglementation"], "business_plan");
+    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["bailleurs", "benchmarks", "secteurs", "reglementation"], "business_plan", ctx.enterprise_id);
 
     // Financial knowledge (no examples to save tokens)
     const knowledgeBase = getFinancialKnowledgePrompt(

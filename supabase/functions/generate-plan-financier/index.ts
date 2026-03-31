@@ -90,7 +90,7 @@ serve(async (req: Request) => {
 
     // Knowledge base + RAG (benchmarks + feedback loop corrections)
     const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework');
-    const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier");
+    const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
 
     // Documents NON injectés dans plan_financier (trop lourd pour Sonnet + tools).
     // Les données sont déjà extraites par Opus dans inputs_data + BMC + SIC.

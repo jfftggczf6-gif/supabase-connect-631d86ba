@@ -327,7 +327,7 @@ serve(async (req) => {
     }
 
     // RAG: enrichir avec benchmarks sectoriels et données fiscales
-    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "bailleurs", "secteurs"], "framework_data");
+    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "bailleurs", "secteurs"], "framework_data", ctx.enterprise_id);
     const fiscalParams = getFiscalParams(ent.country || '');
 
     // Inject centralized financial knowledge (without examples to save context)

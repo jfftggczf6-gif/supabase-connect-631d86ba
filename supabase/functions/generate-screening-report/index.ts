@@ -159,7 +159,7 @@ serve(async (req) => {
     const preScreeningData = getDelivData("pre_screening");
 
     const ragContext = await buildRAGContext(
-      ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur", "bailleurs"], "screening_report"
+      ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur", "bailleurs"], "screening_report", ctx.enterprise_id
     );
 
     // Financial Truth Anchor

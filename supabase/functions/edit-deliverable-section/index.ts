@@ -116,7 +116,25 @@ ${instruction}
 
 Retourne UNIQUEMENT le JSON modifié de cette section (pas d'explication, pas de markdown).`;
 
-    const newValue = await callAI(systemPrompt, userPrompt, 8192);
+    let newValue: any;
+    if (typeof originalValue === 'string') {
+      // For string fields, get raw text response (don't parse as JSON)
+      const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+      const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": anthropicApiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6", max_tokens: 4096, temperature: 0.2,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+      if (!aiResp.ok) throw new Error(`AI error ${aiResp.status}`);
+      const aiResult = await aiResp.json();
+      newValue = (aiResult.content?.[0]?.text || "").trim();
+    } else {
+      newValue = await callAI(systemPrompt, userPrompt, 8192);
+    }
 
     // Update the deliverable data
     const updatedData = setNestedValue(currentData, section_path, newValue);

@@ -70,13 +70,15 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
   const [saving, setSaving] = useState(false);
   const [applyingCorrections, setApplyingCorrections] = useState(false);
 
+  const [directCorrections, setDirectCorrections] = useState<any[]>([]);
+
   const loadNotes = async () => {
-    const { data } = await supabase
-      .from('coaching_notes' as any)
-      .select('*')
-      .eq('enterprise_id', enterpriseId)
-      .order('created_at', { ascending: false });
-    setNotes((data as any[]) || []);
+    const [{ data: notesData }, { data: corr }] = await Promise.all([
+      supabase.from('coaching_notes' as any).select('*').eq('enterprise_id', enterpriseId).order('created_at', { ascending: false }),
+      supabase.from('deliverable_corrections').select('*, profiles:corrected_by(full_name)').eq('enterprise_id', enterpriseId).order('created_at', { ascending: false }).limit(50),
+    ]);
+    setNotes((notesData as any[]) || []);
+    setDirectCorrections((corr as any[]) || []);
     setLoading(false);
   };
 
@@ -518,11 +520,57 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
                     ))}
                   </div>
                 )}
+                {note.corrections_applied?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t space-y-1">
+                    <p className="text-[10px] text-emerald-700 font-medium">Corrections appliquées :</p>
+                    {note.corrections_applied.map((c: any, j: number) => (
+                      <div key={j} className="text-[10px] flex items-start gap-1.5 p-1.5 rounded bg-emerald-50">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="font-medium">{DELIVERABLE_LABELS[c.deliverable] || c.deliverable}</span>
+                          <span className="text-muted-foreground"> &gt; {c.field_path}</span>
+                          <p className="text-muted-foreground">{c.info}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
           {notes.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">{t('coaching.no_notes')}</p>
+          )}
+
+          {/* Modifications directes (bouton ✨, édition section) */}
+          {directCorrections.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">
+                Modifications directes — {directCorrections.length} modification(s)
+              </p>
+              <div className="space-y-1.5">
+                {directCorrections.map((c: any) => (
+                  <div key={c.id} className="flex items-start gap-2 p-2 rounded border text-[10px]">
+                    <Sparkles className="h-3 w-3 text-indigo-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-[9px]">{DELIVERABLE_LABELS[c.deliverable_type] || c.deliverable_type}</Badge>
+                        <span className="text-muted-foreground">{c.field_path}</span>
+                        <span className="text-muted-foreground ml-auto whitespace-nowrap">{formatDate(c.created_at)}</span>
+                      </div>
+                      {c.correction_reason && <p className="text-muted-foreground mt-0.5">{c.correction_reason}</p>}
+                      {c.original_value && c.corrected_value && (
+                        <div className="mt-1 grid grid-cols-2 gap-2">
+                          <div className="p-1 rounded bg-red-50 truncate"><span className="text-red-600">Avant :</span> {typeof c.original_value === 'string' ? c.original_value.substring(0, 80) : JSON.stringify(c.original_value).substring(0, 80)}</div>
+                          <div className="p-1 rounded bg-emerald-50 truncate"><span className="text-emerald-600">Après :</span> {typeof c.corrected_value === 'string' ? c.corrected_value.substring(0, 80) : JSON.stringify(c.corrected_value).substring(0, 80)}</div>
+                        </div>
+                      )}
+                      {c.profiles?.full_name && <span className="text-muted-foreground">par {c.profiles.full_name}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}

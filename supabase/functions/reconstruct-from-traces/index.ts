@@ -113,7 +113,7 @@ serve(async (req) => {
     let ragContext = "";
     try {
       ragContext = await buildRAGContext(
-        ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data"
+        ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data", ctx.enterprise_id
       );
     } catch (e) {
       console.warn("[reconstruct] RAG context failed, continuing without:", e);

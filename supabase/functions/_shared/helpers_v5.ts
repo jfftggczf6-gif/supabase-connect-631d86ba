@@ -701,7 +701,8 @@ export async function buildRAGContext(
   country: string,
   sector: string,
   categories: string[],
-  deliverableType?: string
+  deliverableType?: string,
+  enterpriseId?: string
 ): Promise<string> {
   try {
     const queryText = `PME ${sector || "entreprise"} en ${country || "Afrique"} : benchmarks financiers, conditions bancaires, fiscalité, bailleurs de fonds, cours matières premières, réglementation`;
@@ -761,12 +762,15 @@ export async function buildRAGContext(
     // ── Feedback loop: inject recent corrections as few-shot examples ──
     if (deliverableType) {
       try {
-        const { data: recentCorrections } = await supabase
+        let corrQuery = supabase
           .from("deliverable_corrections")
           .select("field_path, original_value, corrected_value, correction_reason, deliverable_type")
           .eq("deliverable_type", deliverableType)
           .order("created_at", { ascending: false })
           .limit(10);
+        // Compartmentalize: only this enterprise's corrections
+        if (enterpriseId) corrQuery = corrQuery.eq("enterprise_id", enterpriseId);
+        const { data: recentCorrections } = await corrQuery;
 
         if (recentCorrections && recentCorrections.length > 0) {
           ragText += "\n\n══════ CORRECTIONS HISTORIQUES (apprends de ces erreurs) ══════\n";

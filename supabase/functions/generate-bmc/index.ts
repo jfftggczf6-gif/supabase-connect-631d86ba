@@ -143,7 +143,7 @@ serve(async (req) => {
     try {
 
     // RAG: enrichir avec benchmarks sectoriels
-    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "secteurs"], "bmc_analysis");
+    const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "secteurs"], "bmc_analysis", ctx.enterprise_id);
 
     const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
     const contextBenchmarks = getContextualBenchmarks(ent.country || '', ent.sector || "services_b2b");
