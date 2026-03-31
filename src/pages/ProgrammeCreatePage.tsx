@@ -637,7 +637,7 @@ export default function ProgrammeCreatePage() {
 
         {/* Preview sidebar */}
         <div className="space-y-4">
-          <Card className="sticky top-20">
+          <Card className="sticky top-20 max-h-[calc(100vh-120px)] overflow-y-auto">
             <CardHeader><CardTitle className="text-base">{t('programme.form_preview')}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground italic">{t('programme.fixed_fields')}</p>
@@ -654,17 +654,17 @@ export default function ProgrammeCreatePage() {
                   {f.type === 'textarea' ? <Textarea disabled className="h-16" /> : <Input disabled className="h-8" />}
                 </div>
               ))}
+
+              <div className="flex flex-col gap-2 pt-4 border-t mt-4">
+                <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="w-full">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.save_draft')}
+                </Button>
+                <Button onClick={() => handleSave(true)} disabled={saving} className="w-full">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.publish_call')}
+                </Button>
+              </div>
             </CardContent>
           </Card>
-
-          <div className="flex flex-col gap-2">
-            <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="w-full">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.save_draft')}
-            </Button>
-            <Button onClick={() => handleSave(true)} disabled={saving} className="w-full">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.publish_call')}
-            </Button>
-          </div>
         </div>
       </div>
     </DashboardLayout>
