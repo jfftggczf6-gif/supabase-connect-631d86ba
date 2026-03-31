@@ -111,11 +111,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setRole = async (newRole: AppRole) => {
     // Use state user first, fall back to supabase.auth.getUser() (needed right after signup)
     let userId = user?.id;
+    let userEmail = user?.email;
+    let fullName = user?.user_metadata?.full_name;
     if (!userId) {
       const { data } = await supabase.auth.getUser();
       userId = data?.user?.id;
+      userEmail = data?.user?.email;
+      fullName = data?.user?.user_metadata?.full_name;
     }
     if (!userId) throw new Error('Not authenticated');
+    // Ensure profile exists with full_name
+    await supabase.from('profiles').upsert({
+      user_id: userId,
+      full_name: fullName || null,
+      email: userEmail || null,
+    }, { onConflict: 'user_id' });
     // Remove existing coach/entrepreneur roles before inserting the new one
     await supabase.from('user_roles')
       .delete()
