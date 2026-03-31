@@ -23,7 +23,7 @@ const SECTORS = ['Agriculture', 'Agro-industrie', 'Énergie', 'Fintech', 'Santé
 
 interface FormField {
   id: string;
-  type: 'text' | 'number' | 'select' | 'textarea' | 'date' | 'file';
+  type: 'text' | 'number' | 'select' | 'textarea' | 'date' | 'file' | 'checkbox' | 'radio';
   label: string;
   required: boolean;
   options?: string[];
@@ -543,7 +543,7 @@ export default function ProgrammeCreatePage() {
                     const newFields: FormField[] = fields.map((f: any, i: number) => ({
                       id: `ext-${i}-${Date.now()}`,
                       label: f.label || `Champ ${i + 1}`,
-                      type: (['text','number','select','textarea','date','file'].includes(f.type) ? f.type : 'text') as FormField['type'],
+                      type: (['text','number','select','textarea','date','file','checkbox','radio'].includes(f.type) ? f.type : 'text') as FormField['type'],
                       required: !!f.required,
                       options: f.options,
                     }));
@@ -578,7 +578,7 @@ export default function ProgrammeCreatePage() {
                       const newFields: FormField[] = fields.map((f: any, i: number) => ({
                         id: `ext-${i}-${Date.now()}`,
                         label: f.label || `Champ ${i + 1}`,
-                        type: (['text','number','select','textarea','date','file'].includes(f.type) ? f.type : 'text') as FormField['type'],
+                        type: (['text','number','select','textarea','date','file','checkbox','radio'].includes(f.type) ? f.type : 'text') as FormField['type'],
                         required: !!f.required,
                         options: f.options,
                       }));
@@ -609,11 +609,26 @@ export default function ProgrammeCreatePage() {
 
               <p className="text-xs text-muted-foreground">{t('programme.fixed_fields_hint')}</p>
               {formFields.map(f => (
-                <div key={f.id} className="flex items-center gap-2 p-2 border rounded-md">
-                  <span className="text-sm flex-1">{f.label}</span>
-                  <Badge variant="outline" className="text-[10px]">{f.type}</Badge>
-                  <Badge variant={f.required ? 'default' : 'outline'} className="cursor-pointer text-[10px]" onClick={() => toggleFieldRequired(f.id)}>{f.required ? t('programme.required_field') : t('programme.optional_field')}</Badge>
-                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeField(f.id)}><X className="h-3 w-3" /></Button>
+                <div key={f.id} className="space-y-1">
+                  <div className="flex items-center gap-2 p-2 border rounded-md">
+                    <span className="text-sm flex-1">{f.label}</span>
+                    <Badge variant="outline" className="text-[10px]">{f.type}</Badge>
+                    <Badge variant={f.required ? 'default' : 'outline'} className="cursor-pointer text-[10px]" onClick={() => toggleFieldRequired(f.id)}>{f.required ? t('programme.required_field') : t('programme.optional_field')}</Badge>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeField(f.id)}><X className="h-3 w-3" /></Button>
+                  </div>
+                  {['select', 'checkbox', 'radio'].includes(f.type) && (
+                    <div className="ml-4">
+                      <Input
+                        placeholder="Options (séparées par des virgules)"
+                        value={(f.options || []).join(', ')}
+                        onChange={e => {
+                          const opts = e.target.value.split(',').map(o => o.trim()).filter(Boolean);
+                          setFormFields(fields => fields.map(ff => ff.id === f.id ? { ...ff, options: opts } : ff));
+                        }}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
               <div className="flex gap-2">
@@ -625,6 +640,8 @@ export default function ProgrammeCreatePage() {
                     <SelectItem value="number">{t('programme.field_number')}</SelectItem>
                     <SelectItem value="textarea">{t('programme.field_textarea')}</SelectItem>
                     <SelectItem value="select">{t('programme.field_list')}</SelectItem>
+                    <SelectItem value="checkbox">Cases à cocher (multi-réponse)</SelectItem>
+                    <SelectItem value="radio">Choix unique</SelectItem>
                     <SelectItem value="date">{t('programme.field_date')}</SelectItem>
                     <SelectItem value="file">{t('programme.field_file')}</SelectItem>
                   </SelectContent>

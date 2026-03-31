@@ -249,6 +249,39 @@ export default function PublicCandidatureForm() {
                       <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                       <SelectContent>{field.options.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                     </Select>
+                  ) : field.type === 'checkbox' && field.options?.length ? (
+                    <div className="space-y-2 mt-1">
+                      {field.options.map((o: string) => (
+                        <label key={o} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={(formData[field.label] || []).includes(o)}
+                            onChange={e => {
+                              const current: string[] = formData[field.label] || [];
+                              setField(field.label, e.target.checked ? [...current, o] : current.filter((v: string) => v !== o));
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          {o}
+                        </label>
+                      ))}
+                    </div>
+                  ) : field.type === 'radio' && field.options?.length ? (
+                    <div className="space-y-2 mt-1">
+                      {field.options.map((o: string) => (
+                        <label key={o} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            name={field.label}
+                            value={o}
+                            checked={formData[field.label] === o}
+                            onChange={() => setField(field.label, o)}
+                            className="border-gray-300"
+                          />
+                          {o}
+                        </label>
+                      ))}
+                    </div>
                   ) : (
                     <Input type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} required={field.required} value={formData[field.label] || ''} onChange={e => setField(field.label, e.target.value)} />
                   )}

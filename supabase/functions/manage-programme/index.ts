@@ -152,7 +152,27 @@ serve(async (req) => {
 
       const { data: programmes, error: listErr } = await query;
       if (listErr) return jsonRes({ error: listErr.message }, 500);
-      return jsonRes({ success: true, programmes: programmes || [] });
+
+      // Count candidatures per programme
+      const progIds = (programmes || []).map((p: any) => p.id);
+      let countsMap: Record<string, number> = {};
+      if (progIds.length > 0) {
+        const { data: countRows } = await supabase
+          .from("candidatures")
+          .select("programme_id")
+          .in("programme_id", progIds);
+        if (countRows) {
+          for (const row of countRows) {
+            countsMap[row.programme_id] = (countsMap[row.programme_id] || 0) + 1;
+          }
+        }
+      }
+      const programmesWithCounts = (programmes || []).map((p: any) => ({
+        ...p,
+        candidatures_count: countsMap[p.id] || 0,
+      }));
+
+      return jsonRes({ success: true, programmes: programmesWithCounts });
     }
 
     // ═══════ PUBLISH ═══════

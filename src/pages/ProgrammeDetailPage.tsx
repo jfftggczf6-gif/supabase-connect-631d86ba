@@ -19,7 +19,7 @@ import CohorteEnterprisesTab from '@/components/programmes/CohorteEnterprisesTab
 import ProgrammeImpactTab from '@/components/programmes/ProgrammeImpactTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -198,6 +198,9 @@ export default function ProgrammeDetailPage() {
   return (
     <DashboardLayout title={programme.name} subtitle={programme.organization || ''}>
       <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => nav('/programmes')} className="shrink-0">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
         <ProgrammeStatusBadge status={status} />
         {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.publish')}</Button>}
         {status === 'open' && <Button variant="outline" onClick={handleClose}>{t('programme.close_candidatures')}</Button>}
