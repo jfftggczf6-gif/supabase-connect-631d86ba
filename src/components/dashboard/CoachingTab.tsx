@@ -188,15 +188,18 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       }).eq('id', enterpriseId);
 
       // Log correction
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('deliverable_corrections' as any).insert({
-        enterprise_id: enterpriseId,
-        deliverable_id: deliv.id,
-        field_path: correction.field_path,
-        corrected_value: correction.value,
-        correction_reason: correction.info,
-        corrected_by: user?.id,
-      } as any).catch(() => {});
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('deliverable_corrections').insert({
+          enterprise_id: enterpriseId,
+          deliverable_id: deliv.id,
+          deliverable_type: correction.deliverable,
+          field_path: correction.field_path,
+          corrected_value: correction.value,
+          correction_reason: correction.info,
+          corrected_by: user?.id,
+        });
+      } catch { /* non-blocking */ }
 
       // Mark as applied
       if (iaResult) {
