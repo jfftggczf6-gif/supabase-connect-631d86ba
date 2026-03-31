@@ -218,6 +218,51 @@ serve(async (req) => {
             candidature, coach_id, programme.id, programme.name, supabase
           );
           console.log(`[update-candidature] ✅ Entreprise créée: ${result.enterprise.name} (${result.enterprise.id})`);
+
+          // Send welcome email with credentials (non-blocking)
+          try {
+            const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+            if (RESEND_API_KEY && candidature.contact_email) {
+              const siteUrl = "https://esono.tech";
+              const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Segoe UI',system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1e293b">
+<div style="text-align:center;margin-bottom:24px">
+  <div style="display:inline-block;background:#1a2744;color:white;font-weight:bold;padding:12px 16px;border-radius:12px;font-size:18px">ES</div>
+  <h1 style="font-size:22px;margin:12px 0 4px">Bienvenue sur ESONO !</h1>
+  <p style="color:#64748b;font-size:14px">Votre candidature au programme <strong>${programme.name}</strong> a été retenue.</p>
+</div>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:20px 0">
+  <p style="font-size:14px;margin:0 0 12px"><strong>Vos identifiants de connexion :</strong></p>
+  <p style="font-size:14px;margin:4px 0">📧 Email : <strong>${candidature.contact_email}</strong></p>
+  <p style="font-size:14px;margin:4px 0">🔑 Mot de passe : <strong>${result.tempPassword}</strong></p>
+  <p style="font-size:12px;color:#64748b;margin:12px 0 0">Changez votre mot de passe après votre première connexion.</p>
+</div>
+<div style="text-align:center;margin:24px 0">
+  <a href="${siteUrl}/login" style="display:inline-block;background:#1a2744;color:white;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Se connecter</a>
+</div>
+<p style="font-size:13px;color:#64748b;text-align:center">Un coach vous accompagnera tout au long du programme. Vous pourrez uploader vos documents et suivre votre progression directement sur la plateforme.</p>
+<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+<p style="font-size:11px;color:#94a3b8;text-align:center">ESONO — L'assistant IA des coachs d'entreprises en Afrique</p>
+</body></html>`;
+
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  from: "ESONO <onboarding@resend.dev>",
+                  to: [candidature.contact_email],
+                  subject: `Bienvenue sur ESONO — Programme ${programme.name}`,
+                  html: emailHtml,
+                }),
+              }).then(r => r.json()).then(d => {
+                console.log(`[update-candidature] ✅ Welcome email sent to ${candidature.contact_email}`, d);
+              }).catch(e => {
+                console.warn(`[update-candidature] ⚠ Email failed:`, e.message);
+              });
+            }
+          } catch (emailErr: any) {
+            console.warn("[update-candidature] Email error (non-blocking):", emailErr.message);
+          }
+
           return jsonRes({
             success: true,
             status: "selected",
