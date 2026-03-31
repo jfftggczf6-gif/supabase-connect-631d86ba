@@ -14,7 +14,7 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
   const { t, i18n } = useTranslation();
   const [translating, setTranslating] = useState(false);
   const [translated, setTranslated] = useState(false);
-  const originalHtmlRef = useRef<string>('');
+  const cloneRef = useRef<HTMLDivElement | null>(null);
 
   const targetLang = i18n.language === 'fr' ? 'en' : 'fr';
   const label = targetLang === 'en' ? 'EN' : 'FR';
@@ -22,16 +22,15 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
   const handleTranslate = async () => {
     if (!containerRef.current) return;
 
-    // Save original HTML for undo
-    originalHtmlRef.current = containerRef.current.innerHTML;
+    // Clone the entire container so we never touch React's DOM
+    const clone = containerRef.current.cloneNode(true) as HTMLDivElement;
 
-    // Collect all text nodes
+    // Collect all text nodes from the clone
     const textNodes: { node: Text; text: string }[] = [];
-    const walker = document.createTreeWalker(containerRef.current, NodeFilter.SHOW_TEXT, {
+    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => {
         const text = node.textContent?.trim();
         if (!text || text.length < 3) return NodeFilter.FILTER_REJECT;
-        // Skip script/style content
         const parent = node.parentElement;
         if (parent?.tagName === 'SCRIPT' || parent?.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
@@ -45,7 +44,7 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
 
     if (textNodes.length === 0) return;
 
-    // Batch text into chunks of ~2000 chars for efficient translation
+    // Batch text into chunks of ~2000 chars
     const chunks: { texts: string[]; nodes: Text[] }[] = [];
     let currentChunk: { texts: string[]; nodes: Text[] } = { texts: [], nodes: [] };
     let currentLen = 0;
@@ -94,12 +93,19 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
         }
         if (currentIdx >= 0) translatedMap[currentIdx] = currentText.trim();
 
-        // Apply translations to DOM nodes
+        // Apply translations to clone's DOM nodes (not React's DOM)
         for (let i = 0; i < chunk.nodes.length; i++) {
           if (translatedMap[i]) {
             chunk.nodes[i].textContent = translatedMap[i];
           }
         }
+      }
+
+      // Swap: hide React's original, show translated clone
+      if (containerRef.current) {
+        containerRef.current.style.display = 'none';
+        cloneRef.current = clone;
+        containerRef.current.parentElement?.insertBefore(clone, containerRef.current.nextSibling);
       }
 
       setTranslated(true);
@@ -111,10 +117,15 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
   };
 
   const handleUndo = () => {
-    if (containerRef.current && originalHtmlRef.current) {
-      containerRef.current.innerHTML = originalHtmlRef.current;
-      setTranslated(false);
+    // Remove clone, show React's original
+    if (cloneRef.current) {
+      cloneRef.current.remove();
+      cloneRef.current = null;
     }
+    if (containerRef.current) {
+      containerRef.current.style.display = '';
+    }
+    setTranslated(false);
   };
 
   if (translated) {
