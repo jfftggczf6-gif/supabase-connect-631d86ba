@@ -11,12 +11,16 @@ import { toast } from '@/hooks/use-toast';
 
 const COLUMN_IDS = [
   { id: 'received', labelKey: 'candidature.received', color: 'bg-blue-50 border-blue-200' },
-  { id: 'in_review', labelKey: 'candidature.in_review', color: 'bg-amber-50 border-amber-200' },
   { id: 'pre_selected', labelKey: 'candidature.pre_selected', color: 'bg-violet-50 border-violet-200' },
-  { id: 'rejected', labelKey: 'candidature.rejected', color: 'bg-red-50 border-red-200' },
   { id: 'selected', labelKey: 'candidature.selected', color: 'bg-emerald-50 border-emerald-200' },
-  { id: 'waitlisted', labelKey: 'candidature.waitlisted', color: 'bg-gray-50 border-gray-200' },
+  { id: 'rejected', labelKey: 'candidature.rejected', color: 'bg-red-50 border-red-200' },
 ];
+
+// Map legacy statuses to display columns
+function getColumnId(status: string): string {
+  if (status === 'in_review' || status === 'waitlisted') return 'received';
+  return status;
+}
 
 interface Candidature {
   id: string;
@@ -118,12 +122,12 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
     let targetStatus = targetColumn?.id;
     if (!targetStatus) {
       const overCard = candidatures.find(c => c.id === overId);
-      if (overCard) targetStatus = overCard.status;
+      if (overCard) targetStatus = getColumnId(overCard.status);
     }
     if (!targetStatus) return;
 
     const card = candidatures.find(c => c.id === active.id);
-    if (!card || card.status === targetStatus) return;
+    if (!card || getColumnId(card.status) === targetStatus) return;
 
     if (targetStatus === 'rejected') {
       setConfirmReject({ id: card.id, name: card.company_name });
@@ -142,9 +146,9 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-6 gap-3 min-h-[400px]">
+        <div className="grid grid-cols-4 gap-3 min-h-[400px]">
           {COLUMN_IDS.map(col => {
-            const items = candidatures.filter(c => c.status === col.id);
+            const items = candidatures.filter(c => getColumnId(c.status) === col.id);
             return (
               <DroppableColumn key={col.id} col={col}>
                 <div className="flex items-center justify-between px-1">

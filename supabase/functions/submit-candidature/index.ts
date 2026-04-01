@@ -56,6 +56,7 @@ RÈGLES :
 - Documents joints = source la plus fiable — privilégie-les sur le déclaratif
 - Sois DIRECT et HONNÊTE
 - Si une donnée manque, dis-le clairement
+- L'analyse doit rester OBJECTIVE et FACTUELLE. Tu donnes un avis analytique, pas une décision. C'est le chef de programme qui décide.
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
@@ -94,7 +95,7 @@ const SCREENING_SCHEMA = `{
   "points_forts": [{"titre": "string", "detail": "string", "impact": "string"}],
   "points_vigilance": [{"titre": "string", "detail": "string", "risque": "string", "mitigation": "string"}],
   "incoherences_detectees": [{"observation": "string", "severite": "INFO | ATTENTION | BLOQUANT"}],
-  "recommandation_accompagnement": { "verdict": "SÉLECTIONNER | SÉLECTIONNER SOUS CONDITION | LISTE D'ATTENTE | REJETER", "justification": "string", "priorites_si_selectionnee": ["string"], "conditions_prealables": ["string"], "potentiel_6_mois": "string", "profil_coach_ideal": "string" },
+  "recommandation_accompagnement": { "avis": "FAVORABLE | FAVORABLE SOUS RÉSERVE | À APPROFONDIR | DÉFAVORABLE", "justification": "string", "priorites_si_selectionnee": ["string"], "conditions_prealables": ["string"], "potentiel_6_mois": "string", "profil_coach_ideal": "string" },
   "resume_comite": "string — 4-5 phrases pour décider en 30 secondes"
 }`;
 
@@ -238,7 +239,6 @@ ${SCREENING_SCHEMA}`;
     screening_score: diagnostic.score || 0,
     screening_data: diagnostic,
     screening_date: new Date().toISOString(),
-    status: "in_review",
     updated_at: new Date().toISOString(),
   }).eq("id", candidatureId);
 

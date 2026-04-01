@@ -64,6 +64,7 @@ Tu dois produire un DIAGNOSTIC COMPLET qui permet au chef de programme de DÉCID
 - HONNÊTETÉ : un dossier faible est un dossier faible
 - Documents joints = source la plus fiable — privilégie-les sur le déclaratif
 - Si une donnée manque, dis-le clairement
+- L'analyse doit rester OBJECTIVE et FACTUELLE. Tu donnes un avis analytique, pas une décision. C'est le chef de programme qui décide.
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
@@ -200,7 +201,7 @@ const SCREENING_SCHEMA = `{
   "incoherences_detectees": [{"observation": "string", "severite": "INFO | ATTENTION | BLOQUANT"}],
 
   "recommandation_accompagnement": {
-    "verdict": "SÉLECTIONNER | SÉLECTIONNER SOUS CONDITION | LISTE D'ATTENTE | REJETER",
+    "avis": "FAVORABLE | FAVORABLE SOUS RÉSERVE | À APPROFONDIR | DÉFAVORABLE",
     "justification": "string — 2-3 phrases", "priorites_si_selectionnee": ["string × 3-4"],
     "conditions_prealables": ["string"], "potentiel_6_mois": "string", "profil_coach_ideal": "string"
   },
@@ -446,7 +447,6 @@ serve(async (req) => {
             screening_score: diagnostic.score || 0,
             screening_data: diagnostic,
             screening_date: new Date().toISOString(),
-            status: "in_review",
             updated_at: new Date().toISOString(),
           }).eq("id", cand.id);
 

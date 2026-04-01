@@ -181,7 +181,6 @@ export default function ProgrammeDetailPage() {
   } else {
     if (['open', 'closed'].includes(status)) {
       tabs.push('selection');
-      if (status === 'open') tabs.push('diffusion');
     }
     if (['in_progress', 'completed'].includes(status)) {
       tabs.push('suivi', 'reporting', 'impact');
@@ -211,7 +210,7 @@ export default function ProgrammeDetailPage() {
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
         <TabsList className="flex-wrap">
           {tabs.map(tab => <TabsTrigger key={tab} value={tab}>{
-            { apercu: t('programme.overview'), enterprises: t('programme.enterprises'), selection: t('programme.selection'), diffusion: t('programme.diffusion'), suivi: t('programme.monitoring'), reporting: t('programme.reporting'), impact: t('programme.impact'), parametres: t('programme.settings') }[tab]
+            { apercu: t('programme.overview'), enterprises: t('programme.enterprises'), selection: t('programme.selection'), suivi: t('programme.monitoring'), reporting: t('programme.reporting'), impact: t('programme.impact'), parametres: t('programme.settings') }[tab]
           }</TabsTrigger>)}
         </TabsList>
 
@@ -300,6 +299,46 @@ export default function ProgrammeDetailPage() {
               )}
             </div>
           )}
+
+          {candidatureUrl && status !== 'draft' && (
+            <Card className="mt-4"><CardContent className="p-5 space-y-4">
+              <h3 className="font-semibold">{t('programme.diffusion_title')}</h3>
+              <div className="flex items-center gap-2">
+                <Input value={candidatureUrl} readOnly className="flex-1" />
+                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(candidatureUrl); toast({ title: '📋 Lien copié' }); }}><Copy className="h-4 w-4" /></Button>
+                <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
+              </div>
+              <div className="flex items-center gap-4">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`}
+                  alt="QR Code"
+                  className="w-32 h-32 border rounded-lg p-1 cursor-pointer hover:opacity-80 transition-opacity"
+                  title="Cliquer pour télécharger"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
+                    link.download = `qr-${programme.form_slug}.png`;
+                    link.click();
+                  }}
+                />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{t('programme.qr_code')}</p>
+                  <p className="text-xs text-muted-foreground">{t('programme.qr_scan')}</p>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
+                    link.download = `qr-${programme.form_slug}.png`;
+                    link.click();
+                  }}>{t('programme.download_qr')}</Button>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <strong>{t('programme.embed')} :</strong>
+                <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
+              </div>
+              <p className="text-sm font-medium">{candidatures.length} {t('programme.candidatures_received')}</p>
+            </CardContent></Card>
+          )}
         </TabsContent>
 
         {/* Entreprises (cohorte) */}
@@ -317,11 +356,9 @@ export default function ProgrammeDetailPage() {
                 <SelectContent>
                   <SelectItem value="all">{t('common.all')}</SelectItem>
                   <SelectItem value="received">{t('candidature.received')}</SelectItem>
-                  <SelectItem value="in_review">{t('candidature.in_review')}</SelectItem>
                   <SelectItem value="pre_selected">{t('candidature.pre_selected')}</SelectItem>
                   <SelectItem value="selected">{t('candidature.selected')}</SelectItem>
                   <SelectItem value="rejected">{t('candidature.rejected')}</SelectItem>
-                  <SelectItem value="waitlisted">{t('candidature.waitlisted')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" className="gap-2" onClick={handleScreen} disabled={screening}>
@@ -358,51 +395,6 @@ export default function ProgrammeDetailPage() {
               </Table>
             </details>
           </div>
-        </TabsContent>
-
-        {/* Diffusion */}
-        <TabsContent value="diffusion">
-          <Card><CardContent className="p-5 space-y-4">
-            <h3 className="font-semibold">{t('programme.diffusion_title')}</h3>
-            {candidatureUrl ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Input value={candidatureUrl} readOnly className="flex-1" />
-                  <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(candidatureUrl); toast({ title: '📋 Lien copié' }); }}><Copy className="h-4 w-4" /></Button>
-                  <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
-                </div>
-                <div className="flex items-center gap-4">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`}
-                    alt="QR Code"
-                    className="w-32 h-32 border rounded-lg p-1 cursor-pointer hover:opacity-80 transition-opacity"
-                    title="Cliquer pour télécharger"
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
-                      link.download = `qr-${programme.form_slug}.png`;
-                      link.click();
-                    }}
-                  />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{t('programme.qr_code')}</p>
-                    <p className="text-xs text-muted-foreground">{t('programme.qr_scan')}</p>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
-                      link.download = `qr-${programme.form_slug}.png`;
-                      link.click();
-                    }}>{t('programme.download_qr')}</Button>
-                  </div>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <strong>{t('programme.embed')} :</strong>
-                  <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
-                </div>
-                <p className="text-sm font-medium">{candidatures.length} {t('programme.candidatures_received')}</p>
-              </>
-            ) : <p className="text-sm text-muted-foreground">{t('programme.link_available_after_publish')}</p>}
-          </CardContent></Card>
         </TabsContent>
 
         {/* Suivi (dashboard + comparatif fusionnés) */}
