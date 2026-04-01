@@ -11,7 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw, Target, Database, Server, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react';
+import { Users, Building2, FileText, Trash2, UserCog, Search, RefreshCw, Target, Database, Server, AlertTriangle, TrendingUp, DollarSign, Plus, X, Shield } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DialogFooter } from '@/components/ui/dialog';
 import CoachesTab from './CoachesTab';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import ScreeningDashboard from './ScreeningDashboard';
@@ -85,6 +88,10 @@ export default function SuperAdminDashboard() {
   const [parserStatus, setParserStatus] = useState<'checking' | 'up' | 'down'>('checking');
   const [parserVersion, setParserVersion] = useState('');
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[] });
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [managingRole, setManagingRole] = useState<{ userId: string; action: 'add' | 'remove'; role: string } | null>(null);
 
   // --- Helpers declared early ---
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -336,9 +343,14 @@ export default function SuperAdminDashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-4">
                 <CardTitle className="text-lg">{t('admin.all_users')}</CardTitle>
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder={t('admin.search')} className="pl-8" value={searchUsers} onChange={e => setSearchUsers(e.target.value)} />
+                <div className="flex items-center gap-2">
+                  <div className="relative w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder={t('admin.search')} className="pl-8" value={searchUsers} onChange={e => setSearchUsers(e.target.value)} />
+                  </div>
+                  <Button size="sm" onClick={() => { setNewUser({ full_name: '', email: '', password: `ESONO-${Date.now().toString(36)}`, roles: [] }); setShowCreateUser(true); }}>
+                    <Plus className="h-4 w-4 mr-1" /> Créer un utilisateur
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -350,31 +362,123 @@ export default function SuperAdminDashboard() {
                     <TableHead>{t('admin.col_email')}</TableHead>
                     <TableHead>{t('admin.col_roles')}</TableHead>
                     <TableHead>{t('admin.col_registration')}</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map(p => (
-                    <TableRow key={p.user_id}>
-                      <TableCell className="font-medium">{p.full_name || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{p.email}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {(roleMap[p.user_id] || []).map(r => (
-                            <Badge key={r} variant={roleBadgeVariant(r)} className="text-xs">{r}</Badge>
-                          ))}
-                          {!roleMap[p.user_id]?.length && <span className="text-xs text-muted-foreground">{t('admin.no_role')}</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{formatDate(p.created_at)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredUsers.map(p => {
+                    const userRoles = roleMap[p.user_id] || [];
+                    const allRoles = ['coach', 'chef_programme', 'entrepreneur', 'super_admin'];
+                    const missingRoles = allRoles.filter(r => !userRoles.includes(r));
+                    return (
+                      <TableRow key={p.user_id}>
+                        <TableCell className="font-medium">{p.full_name || '—'}</TableCell>
+                        <TableCell className="text-muted-foreground">{p.email}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {userRoles.map(r => (
+                              <Badge key={r} variant={roleBadgeVariant(r)} className="text-xs cursor-pointer group" onClick={async () => {
+                                if (userRoles.length <= 1) { toast({ title: 'Impossible', description: 'Dernier rôle — ne peut pas être retiré', variant: 'destructive' }); return; }
+                                if (!confirm(`Retirer le rôle "${r}" ?`)) return;
+                                const { error } = await supabase.functions.invoke('admin-manage-users', { body: { action: 'remove_role', user_id: p.user_id, role: r } });
+                                if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+                                else { toast({ title: `Rôle ${r} retiré` }); fetchAll(); }
+                              }}>
+                                {r} <X className="h-2.5 w-2.5 ml-0.5 opacity-0 group-hover:opacity-100" />
+                              </Badge>
+                            ))}
+                            {!userRoles.length && <span className="text-xs text-muted-foreground">{t('admin.no_role')}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{formatDate(p.created_at)}</TableCell>
+                        <TableCell>
+                          {missingRoles.length > 0 && (
+                            <Select onValueChange={async (role) => {
+                              const { error } = await supabase.functions.invoke('admin-manage-users', { body: { action: 'add_role', user_id: p.user_id, role } });
+                              if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+                              else { toast({ title: `Rôle ${role} ajouté` }); fetchAll(); }
+                            }}>
+                              <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="+ Ajouter rôle" /></SelectTrigger>
+                              <SelectContent>
+                                {missingRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {!filteredUsers.length && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{t('admin.no_user_found')}</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{t('admin.no_user_found')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          {/* Create User Dialog */}
+          <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Créer un utilisateur</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label>Nom complet *</Label>
+                  <Input value={newUser.full_name} onChange={e => setNewUser({ ...newUser, full_name: e.target.value })} placeholder="Awa Traoré" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Email *</Label>
+                  <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="awa@exemple.com" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Mot de passe temporaire</Label>
+                  <Input value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rôles *</Label>
+                  {[
+                    { value: 'coach', label: 'Coach', desc: 'Accompagne les entrepreneurs' },
+                    { value: 'chef_programme', label: 'Chef de programme', desc: 'Gère les programmes et candidatures' },
+                    { value: 'entrepreneur', label: 'Entrepreneur', desc: 'Développe son business plan' },
+                  ].map(r => (
+                    <label key={r.value} className="flex items-start gap-3 p-2 rounded border cursor-pointer hover:bg-muted/50">
+                      <Checkbox
+                        checked={newUser.roles.includes(r.value)}
+                        onCheckedChange={(checked) => {
+                          setNewUser(prev => ({
+                            ...prev,
+                            roles: checked ? [...prev.roles, r.value] : prev.roles.filter(x => x !== r.value),
+                          }));
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{r.label}</p>
+                        <p className="text-xs text-muted-foreground">{r.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateUser(false)}>Annuler</Button>
+                <Button disabled={creatingUser || !newUser.full_name || !newUser.email || !newUser.roles.length} onClick={async () => {
+                  setCreatingUser(true);
+                  const { data, error } = await supabase.functions.invoke('admin-manage-users', {
+                    body: { action: 'create_user', ...newUser },
+                  });
+                  setCreatingUser(false);
+                  if (error || data?.error) {
+                    toast({ title: 'Erreur', description: data?.error || error?.message, variant: 'destructive' });
+                  } else {
+                    toast({ title: 'Compte créé', description: `${newUser.full_name} — ${newUser.roles.join(', ')}. Mot de passe : ${newUser.password}` });
+                    setShowCreateUser(false);
+                    fetchAll();
+                  }
+                }}>
+                  {creatingUser ? 'Création...' : 'Créer le compte'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* COACHES TAB */}
