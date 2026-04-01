@@ -89,7 +89,9 @@ export default function ProgrammeCreatePage() {
   const [conditionsSpecifiques, setConditionsSpecifiques] = useState<string[]>([]);
   const [newCritere, setNewCritere] = useState('');
   const [newCritereType, setNewCritereType] = useState<'eligibilite' | 'selection' | 'condition'>('eligibilite');
-  const [formFields, setFormFields] = useState<FormField[]>([]);
+  const [formFields, setFormFields] = useState<FormField[]>([
+    { id: 'default-file', type: 'file', label: 'Documents à joindre (business plan, états financiers, etc.)', required: false }
+  ]);
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldType, setNewFieldType] = useState<FormField['type']>('text');
 

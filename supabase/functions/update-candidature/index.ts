@@ -206,12 +206,7 @@ serve(async (req) => {
         return jsonRes({ error: `Transition ${candidature.status} → ${new_status} non autorisée` }, 400);
       }
 
-      // Selection requires coach
-      if (new_status === "selected" && !coach_id) {
-        return jsonRes({ error: "Un coach doit être assigné pour sélectionner une candidature" }, 400);
-      }
-
-      // If selecting → create enterprise
+      // If selecting with a coach → create enterprise
       if (new_status === "selected" && coach_id) {
         try {
           const result = await createEnterpriseFromCandidature(

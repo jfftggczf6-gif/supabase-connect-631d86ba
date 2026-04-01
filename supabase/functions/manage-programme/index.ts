@@ -243,7 +243,7 @@ serve(async (req) => {
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
       if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
-      if (prog.status !== "closed") return jsonRes({ error: "Clôturez d'abord les candidatures avant de démarrer le programme" }, 400);
+      if (prog.status !== "closed" && prog.status !== "open") return jsonRes({ error: "Le programme doit être ouvert ou clôturé pour être démarré" }, 400);
 
       const { data: updated, error: startErr } = await supabase
         .from("programmes")

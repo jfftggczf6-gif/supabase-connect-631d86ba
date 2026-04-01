@@ -176,6 +176,17 @@ export default function PublicCandidatureForm() {
               <div><Label>Nom du contact *</Label><Input required value={contactName} onChange={e => setContactName(e.target.value)} /></div>
               <div><Label>Email *</Label><Input type="email" required value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>
               <div><Label>Téléphone</Label><Input value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>
+              <div>
+                <Label>Pays</Label>
+                <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner un pays..." /></SelectTrigger>
+                  <SelectContent>
+                    {["Côte d'Ivoire", 'Sénégal', 'Cameroun', 'Burkina Faso', 'Mali', 'Togo', 'Bénin', 'Guinée', 'Niger', 'Congo', 'RDC', 'Gabon', 'Madagascar', 'Rwanda', 'Kenya', 'Tchad', 'Mauritanie', 'Comores', 'Djibouti', 'Autre'].map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Dynamic fields */}
               {formFields.length > 0 && <hr className="my-4" />}

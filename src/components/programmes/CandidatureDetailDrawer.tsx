@@ -155,13 +155,12 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 </div>
               )}
               {s.classification && <Badge variant="outline" className="text-sm h-8">{s.classification}</Badge>}
-              <div className="ml-auto flex gap-2">
-                <Button size="sm" variant="destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
+              <div className="ml-auto flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
                 <Button size="sm" onClick={() => {
-                  if (!selectedCoach) { toast({ title: t('candidature.assign_coach_required'), description: t('candidature.assign_coach_required_desc'), variant: 'destructive' }); return; }
-                  updateCandidature('move', { new_status: 'selected', coach_id: selectedCoach });
+                  updateCandidature('move', { new_status: 'selected', ...(selectedCoach ? { coach_id: selectedCoach } : {}) });
                 }} disabled={saving}>{t('candidature.select')}</Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
               </div>
             </div>
 

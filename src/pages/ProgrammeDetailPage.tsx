@@ -198,13 +198,14 @@ export default function ProgrammeDetailPage() {
   return (
     <DashboardLayout title={programme.name} subtitle={programme.organization || ''}>
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => nav('/programmes')} className="shrink-0">
-          <ArrowLeft className="h-5 w-5" />
+        <Button variant="outline" onClick={() => nav('/programmes')} className="shrink-0 gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Retour aux programmes
         </Button>
         <ProgrammeStatusBadge status={status} />
         {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.publish')}</Button>}
         {status === 'open' && <Button variant="outline" onClick={handleClose}>{t('programme.close_candidatures')}</Button>}
-        {status === 'closed' && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.start_programme')}</Button>}
+        {(status === 'open' || status === 'closed') && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.start_programme')}</Button>}
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
@@ -232,6 +233,19 @@ export default function ProgrammeDetailPage() {
               {programme.description && <><h3 className="font-semibold pt-2">{t('programme_tabs.description')}</h3><p className="text-sm text-muted-foreground">{programme.description}</p></>}
             </CardContent></Card>
           </div>
+
+          {status === 'in_progress' && (
+            <div className="mt-4">
+              <Button variant="destructive" onClick={async () => {
+                if (!confirm(t('programme.close_confirm', { name: programme.name }))) return;
+                const { error } = await supabase.functions.invoke('manage-programme', {
+                  body: { action: 'complete', id: id! }
+                });
+                if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+                else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
+              }}>{t('programme.close_programme')}</Button>
+            </div>
+          )}
 
           {/* Critères d'éligibilité, sélection, conditions */}
           {(eligibilite.length > 0 || selection.length > 0 || conditions.length > 0) && (
@@ -358,7 +372,18 @@ export default function ProgrammeDetailPage() {
                   <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
                 </div>
                 <div className="flex items-center gap-4">
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`} alt="QR Code" className="w-32 h-32 border rounded-lg p-1" />
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`}
+                    alt="QR Code"
+                    className="w-32 h-32 border rounded-lg p-1 cursor-pointer hover:opacity-80 transition-opacity"
+                    title="Cliquer pour télécharger"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
+                      link.download = `qr-${programme.form_slug}.png`;
+                      link.click();
+                    }}
+                  />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">{t('programme.qr_code')}</p>
                     <p className="text-xs text-muted-foreground">{t('programme.qr_scan')}</p>
