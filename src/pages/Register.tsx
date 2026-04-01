@@ -15,8 +15,11 @@ type AppRole = Database['public']['Enums']['app_role'];
 
 const COUNTRIES = [
   'Sénégal', "Côte d'Ivoire", 'Burkina Faso', 'Mali', 'Bénin', 'Togo',
-  'Niger', 'Cameroun', 'RD Congo', 'Maroc', 'Algérie', 'Tunisie',
-  'Kenya', 'Nigeria', 'Ghana', 'Rwanda',
+  'Niger', 'Cameroun', 'RD Congo', 'Congo', 'Gabon', 'Guinée', 'Guinée-Bissau',
+  'Maroc', 'Algérie', 'Tunisie', 'Madagascar', 'Rwanda', 'Éthiopie',
+  'Kenya', 'Nigeria', 'Ghana', 'Tanzanie', 'Ouganda', 'Afrique du Sud', 'Mozambique',
+  'France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada',
+  'Allemagne', 'Pays-Bas', 'Royaume-Uni', 'Espagne', 'Portugal', 'Italie',
 ];
 
 export default function Register() {
