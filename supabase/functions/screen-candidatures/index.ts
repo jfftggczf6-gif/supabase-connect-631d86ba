@@ -368,6 +368,22 @@ async function screenOne(anthropicKey: string, programme: any, criteria: any, ca
   const result = await resp.json();
   const content = result.content?.[0]?.text || "";
 
+  // Log cost
+  const usage = result.usage;
+  if (usage) {
+    const cost = (usage.input_tokens || 0) * 3 / 1_000_000 + (usage.output_tokens || 0) * 15 / 1_000_000;
+    console.log(`[cost] screen-candidatures: ${usage.input_tokens} in + ${usage.output_tokens} out = $${cost.toFixed(4)}`);
+    try {
+      await supabase.from("ai_cost_log").insert({
+        function_name: "screen-candidatures",
+        model: "claude-sonnet-4-6",
+        input_tokens: usage.input_tokens || 0,
+        output_tokens: usage.output_tokens || 0,
+        cost_usd: cost,
+      });
+    } catch (_) {}
+  }
+
   // Parse JSON
   let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = cleaned.indexOf("{");

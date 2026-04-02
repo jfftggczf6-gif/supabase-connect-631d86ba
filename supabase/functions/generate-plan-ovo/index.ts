@@ -262,7 +262,7 @@ UTILISE CETTE CHAÎNE pour le current_year. Projette chaque poste séparément.
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawData = await callAI(injectGuardrails(buildSystemPrompt(country, ent.sector || "")), buildUserPrompt(
       ent.name, ent.sector || "", country, agentDocs, allData, ctx.baseYear
-    ) + truthBlock + ragContext + kbContext + coachingContext);
+    ) + truthBlock + ragContext + kbContext + coachingContext, undefined, undefined, undefined, { functionName: "generate-plan-ovo", enterpriseId: ctx.enterprise_id });
     
     // Normalize: fix years, ensure consistency, fill gaps
     let data = normalizePlanOvo(rawData);

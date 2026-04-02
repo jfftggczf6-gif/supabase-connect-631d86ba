@@ -243,7 +243,7 @@ serve(async (req) => {
 
     const rawAiData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData
-    ) + ragContext + kbContext + coachingContext + impactContext, 16384, "claude-sonnet-4-20250514", 0.3);
+    ) + ragContext + kbContext + coachingContext + impactContext, 16384, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-sic", enterpriseId: ctx.enterprise_id });
 
     // Normalize AI response
     const sicData = normalizeSic(rawAiData);

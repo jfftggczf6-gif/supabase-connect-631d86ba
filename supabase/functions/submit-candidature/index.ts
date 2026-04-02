@@ -228,6 +228,22 @@ ${SCREENING_SCHEMA}`;
 
   const result = await resp.json();
   const content = result.content?.[0]?.text || "";
+
+  // Log cost
+  const usage = result.usage;
+  if (usage) {
+    const cost = (usage.input_tokens || 0) * 3 / 1_000_000 + (usage.output_tokens || 0) * 15 / 1_000_000;
+    try {
+      await supabase.from("ai_cost_log").insert({
+        function_name: "auto-screen-candidature",
+        model: "claude-sonnet-4-6",
+        input_tokens: usage.input_tokens || 0,
+        output_tokens: usage.output_tokens || 0,
+        cost_usd: cost,
+      });
+    } catch (_) {}
+  }
+
   let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");

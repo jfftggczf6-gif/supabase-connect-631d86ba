@@ -153,7 +153,7 @@ Indique la source de chaque valeur (nom du document ou "estimation benchmark").
 Réponds en JSON selon ce schéma :
 ${OUTPUT_SCHEMA}`;
 
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 8192);
+    const rawData = await callAI(SYSTEM_PROMPT, prompt, 8192, undefined, undefined, { functionName: "reconstruct-from-traces", enterpriseId: ctx.enterprise_id });
     const normalizedData = normalizeReconstruction(rawData);
 
     if (normalizedData.compte_resultat && !normalizedData.compte_resultat.source) {

@@ -161,7 +161,7 @@ Réponds en JSON selon ce schéma :
 ${ONEPAGER_SCHEMA}`;
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext, 8192, "claude-sonnet-4-20250514", 0.3);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext, 8192, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-onepager", enterpriseId: ctx.enterprise_id });
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "onepager", rawData, "onepager");
 

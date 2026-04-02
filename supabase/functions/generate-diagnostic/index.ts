@@ -293,7 +293,8 @@ Indique lesquels sont levés et lesquels persistent.
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
         + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}`
         + ragContext + kbContext,
-      16384, "claude-sonnet-4-20250514", 0.3
+      16384, "claude-sonnet-4-20250514", 0.3,
+      { functionName: "generate-diagnostic", enterpriseId: ctx.enterprise_id }
     );
 
     const data = normalizeDiagnostic(rawData);

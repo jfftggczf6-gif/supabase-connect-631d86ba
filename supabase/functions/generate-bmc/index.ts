@@ -176,7 +176,7 @@ serve(async (req) => {
 
     const rawBmcData = await callAI(injectGuardrails(BMC_SYSTEM_PROMPT, ent.country), BMC_USER_PROMPT(
       ent.name, ent.sector || "", ent.country || "", ent.city || "", agentDocs
-    ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}` + ragContext + kbContext + coachingContext + upstreamContext, 32768, "claude-sonnet-4-20250514", 0.3);
+    ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}` + ragContext + kbContext + coachingContext + upstreamContext, 32768, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-bmc", enterpriseId: ctx.enterprise_id });
 
     // Normalize AI response
     const bmcData = normalizeBmc(rawBmcData);

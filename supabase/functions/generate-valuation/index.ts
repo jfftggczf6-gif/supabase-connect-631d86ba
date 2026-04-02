@@ -130,7 +130,7 @@ Produis l'analyse qualitative en JSON :
       preScreenContext += "\n";
     }
 
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT, ent.country), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.2);
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT, ent.country), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.2, { functionName: "generate-valuation", enterpriseId: ctx.enterprise_id });
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {

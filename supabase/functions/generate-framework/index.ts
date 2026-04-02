@@ -496,7 +496,7 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
     const enrichedSystemPrompt = injectGuardrails(SYSTEM_PROMPT + "\n\n" + knowledgeBase, ent.country);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 
-    const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt + kbContext + coachingContext, 16384, OPUS_MODEL);
+    const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt + kbContext + coachingContext, 16384, OPUS_MODEL, undefined, { functionName: "generate-framework", enterpriseId: ctx.enterprise_id });
     
     // Post-force CA année N from truth
     if (truth && rawData.kpis) {

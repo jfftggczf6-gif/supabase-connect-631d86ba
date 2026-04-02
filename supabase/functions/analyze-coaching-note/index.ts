@@ -106,7 +106,7 @@ Réponds en JSON :
   "contexte": ["string — infos de contexte non-actionnables"],
   "actions_coach": ["string — tâches/rappels pour le coach"],
   "infos_extraites": [{"info": "string", "categorie": "string", "injecter": true|false}]
-}`, 4096, "claude-sonnet-4-20250514", 0);
+}`, 4096, "claude-sonnet-4-20250514", 0, { functionName: "analyze-coaching-note", enterpriseId: "" });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

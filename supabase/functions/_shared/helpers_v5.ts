@@ -254,7 +254,7 @@ export function getDocumentContentForAgent(
   return reordered.trim() || fullContent.substring(0, maxChars);
 }
 
-export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-6", temperature = 0) {
+export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 16384, model = "claude-sonnet-4-6", temperature = 0, costContext?: { functionName?: string; enterpriseId?: string }) {
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
   const doCall = async (mt: number): Promise<string> => {
@@ -301,13 +301,14 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
       // Log to DB (non-blocking)
       try {
         const svc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-        svc.from("ai_cost_log").insert({
-          function_name: new Error().stack?.split('\n')[2]?.trim()?.slice(3, 50) || 'callAI',
+        await svc.from("ai_cost_log").insert({
+          function_name: costContext?.functionName || 'callAI',
+          enterprise_id: costContext?.enterpriseId || null,
           model,
           input_tokens: usage.input_tokens || 0,
           output_tokens: usage.output_tokens || 0,
           cost_usd: totalCost,
-        }).then(() => {}).catch(() => {});
+        });
       } catch (_) {}
     }
     return aiResult.content?.[0]?.text || "";

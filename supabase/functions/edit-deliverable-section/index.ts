@@ -133,7 +133,7 @@ Retourne UNIQUEMENT le JSON modifié de cette section (pas d'explication, pas de
       const aiResult = await aiResp.json();
       newValue = (aiResult.content?.[0]?.text || "").trim();
     } else {
-      newValue = await callAI(systemPrompt, userPrompt, 8192);
+      newValue = await callAI(systemPrompt, userPrompt, 8192, undefined, undefined, { functionName: "edit-deliverable-section", enterpriseId: enterprise_id });
     }
 
     // Update the deliverable data

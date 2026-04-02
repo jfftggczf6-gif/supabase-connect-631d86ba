@@ -112,7 +112,7 @@ La slide "Ask" (11) doit inclure la valorisation si disponible dans les livrable
 Réponds en JSON selon ce schéma :
 ${PITCH_SCHEMA}`;
 
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt, 16384);
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt, 16384, undefined, undefined, { functionName: "generate-pitch-deck", enterpriseId: ctx.enterprise_id });
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "pitch_deck", rawData, "pitch_deck");
 
