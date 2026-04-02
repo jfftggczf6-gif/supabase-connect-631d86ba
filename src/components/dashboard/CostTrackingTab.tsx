@@ -10,16 +10,19 @@ export default function CostTrackingTab() {
   const [costs, setCosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [enterpriseNames, setEnterpriseNames] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    supabase
-      .from('ai_cost_log')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-      .then(({ data }) => {
-        setCosts(data || []);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('ai_cost_log').select('*').order('created_at', { ascending: false }).limit(500),
+      supabase.from('enterprises').select('id, name'),
+    ]).then(([{ data: costData }, { data: entData }]) => {
+      setCosts(costData || []);
+      const names: Record<string, string> = {};
+      (entData || []).forEach((e: any) => { names[e.id] = e.name; });
+      setEnterpriseNames(names);
+      setLoading(false);
+    });
   }, []);
 
   if (loading) return <p className="text-sm text-muted-foreground">Chargement...</p>;
@@ -48,6 +51,32 @@ export default function CostTrackingTab() {
     byDay[day] = (byDay[day] || 0) + Number(c.cost_usd || 0);
   });
 
+  // By agent (function_name)
+  const byAgent: Record<string, { calls: number; cost: number }> = {};
+  costs.forEach(c => {
+    const fn = c.function_name || 'unknown';
+    if (fn.includes('eventLoop')) return; // skip old bad logs
+    if (!byAgent[fn]) byAgent[fn] = { calls: 0, cost: 0 };
+    byAgent[fn].calls++;
+    byAgent[fn].cost += Number(c.cost_usd || 0);
+  });
+
+  // By enterprise
+  const byEnterprise: Record<string, { name: string; calls: number; cost: number }> = {};
+  costs.forEach(c => {
+    if (!c.enterprise_id) return;
+    if (!byEnterprise[c.enterprise_id]) byEnterprise[c.enterprise_id] = { name: enterpriseNames[c.enterprise_id] || c.enterprise_id.slice(0, 8), calls: 0, cost: 0 };
+    byEnterprise[c.enterprise_id].calls++;
+    byEnterprise[c.enterprise_id].cost += Number(c.cost_usd || 0);
+  });
+
+  // Estimated costs
+  const avgSonnet = byModel['claude-sonnet-4-6']?.calls ? byModel['claude-sonnet-4-6'].cost / byModel['claude-sonnet-4-6'].calls : 0.18;
+  const avgOpus = byModel['claude-opus-4-6']?.calls ? byModel['claude-opus-4-6'].cost / byModel['claude-opus-4-6'].calls : 1.66;
+  const avgSonnet4 = byModel['claude-sonnet-4-20250514']?.calls ? byModel['claude-sonnet-4-20250514'].cost / byModel['claude-sonnet-4-20250514'].calls : 0.08;
+  const pipelineCost = avgOpus * 1 + avgSonnet * 10 + avgSonnet4 * 3;
+  const diagnosticCost = avgSonnet;
+
   return (
     <div className="space-y-4">
       {/* KPIs */}
@@ -70,6 +99,20 @@ export default function CostTrackingTab() {
         <Card><CardContent className="py-3 text-center">
           <p className="text-2xl font-bold">{(totalOutput / 1000).toFixed(0)}K</p>
           <p className="text-[10px] text-muted-foreground">Tokens output</p>
+        </CardContent></Card>
+      </div>
+
+      {/* Estimations */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="border-primary/20 bg-primary/5"><CardContent className="py-3 text-center">
+          <p className="text-xs text-muted-foreground mb-1">Pipeline complet (1 entreprise)</p>
+          <p className="text-2xl font-bold">${pipelineCost.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground">1 Opus + 10 Sonnet 4.6 + 3 Sonnet 4.0</p>
+        </CardContent></Card>
+        <Card className="border-primary/20 bg-primary/5"><CardContent className="py-3 text-center">
+          <p className="text-xs text-muted-foreground mb-1">Diagnostic candidature</p>
+          <p className="text-2xl font-bold">${diagnosticCost.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground">1 appel Sonnet 4.6</p>
         </CardContent></Card>
       </div>
 
@@ -104,6 +147,42 @@ export default function CostTrackingTab() {
           ))}
         </CardContent>
       </Card>
+
+      {/* By agent */}
+      {Object.keys(byAgent).length > 0 && (
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs font-semibold mb-2">Par agent</p>
+            {Object.entries(byAgent).sort(([,a], [,b]) => b.cost - a.cost).map(([fn, stats]) => (
+              <div key={fn} className="flex items-center justify-between py-1 border-b border-border/30">
+                <span className="text-xs">{fn}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">{stats.calls} appels</span>
+                  <span className="text-xs font-semibold">${stats.cost.toFixed(3)}</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* By enterprise */}
+      {Object.keys(byEnterprise).length > 0 && (
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs font-semibold mb-2">Par entreprise</p>
+            {Object.entries(byEnterprise).sort(([,a], [,b]) => b.cost - a.cost).map(([id, stats]) => (
+              <div key={id} className="flex items-center justify-between py-1 border-b border-border/30">
+                <span className="text-xs">{stats.name}...</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">{stats.calls} appels</span>
+                  <span className="text-xs font-semibold">${stats.cost.toFixed(3)}</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent calls */}
       <Card>
