@@ -101,7 +101,71 @@ async function createEnterpriseFromCandidature(
     console.log(`[update-candidature] Diagnostic transféré → pre_screening pour ${enterprise.name}`);
   }
 
-  // 6. Link candidature to enterprise
+  // 6. Transfer candidature documents to enterprise
+  const docs = Array.isArray(candidature.documents) ? candidature.documents : [];
+  if (docs.length > 0) {
+    const RAILWAY_URL = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
+    const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
+    const parsedContents: string[] = [];
+
+    for (const doc of docs) {
+      if (!doc.storage_path) continue;
+      try {
+        // Download from candidature-documents bucket
+        const parts = doc.storage_path.split("/");
+        const bucket = parts[0];
+        const filePath = parts.slice(1).join("/");
+        const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
+        if (dlErr || !fileData) { console.warn(`[transfer-doc] Download failed: ${doc.file_name}`); continue; }
+
+        // Upload to enterprise documents bucket
+        const entPath = `${enterprise.id}/${doc.file_name}`;
+        await supabase.storage.from("documents").upload(entPath, fileData, { upsert: true });
+
+        // Parse via Railway for document_content
+        try {
+          const arrayBuf = await fileData.arrayBuffer();
+          const blob = new Blob([new Uint8Array(arrayBuf)]);
+          const formData = new FormData();
+          formData.append("file", blob, doc.file_name);
+          const parseResp = await fetch(`${RAILWAY_URL}/parse`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${PARSER_API_KEY}` },
+            body: formData,
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (parseResp.ok) {
+            const parsed = await parseResp.json();
+            if (parsed.content && parsed.content.length > 10) {
+              parsedContents.push(`\n══════ ${doc.file_name} (${parsed.category || 'candidature'}) ══════\n${parsed.content}`);
+            }
+          }
+        } catch (parseErr: any) {
+          console.warn(`[transfer-doc] Parse failed for ${doc.file_name}:`, parseErr.message);
+        }
+
+        console.log(`[transfer-doc] ✅ ${doc.file_name} → enterprise ${enterprise.name}`);
+      } catch (e: any) {
+        console.warn(`[transfer-doc] Error transferring ${doc.file_name}:`, e.message);
+      }
+    }
+
+    // Save parsed content to enterprise
+    if (parsedContents.length > 0) {
+      await supabase.from("enterprises").update({
+        document_content: parsedContents.join("\n").slice(0, 300000),
+        document_parsing_report: JSON.stringify({
+          parsed_at: new Date().toISOString(),
+          source: "candidature_transfer",
+          files: docs.map((d: any) => d.file_name),
+        }),
+        data_changed_at: new Date().toISOString(),
+      }).eq("id", enterprise.id);
+      console.log(`[transfer-doc] ${parsedContents.length} doc(s) parsed and saved to document_content`);
+    }
+  }
+
+  // 7. Link candidature to enterprise
   await supabase.from("candidatures").update({
     enterprise_id: enterprise.id,
     assigned_coach_id: coachId,
