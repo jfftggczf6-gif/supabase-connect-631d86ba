@@ -20,17 +20,24 @@ export default function ProgrammeListPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCohorte, setShowCohorte] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
+  const fetchProgrammes = async () => {
+    setLoading(true);
+    try {
       const { data, error } = await supabase.functions.invoke('manage-programme', {
         body: { action: 'list' }
       });
       if (error) { toast({ title: t('common.error'), description: error.message, variant: 'destructive' }); }
-      setProgrammes(data?.programmes || data || []);
-      setLoading(false);
-    })();
-  }, []);
+      const list = Array.isArray(data?.programmes) ? data.programmes : Array.isArray(data) ? data : [];
+      setProgrammes(list);
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      setProgrammes([]);
+    }
+    setLoading(false);
+  };
+
+  // Reload on every mount (navigation back)
+  useEffect(() => { fetchProgrammes(); }, []);
 
   const filtered = statusFilter === 'all'
     ? programmes
