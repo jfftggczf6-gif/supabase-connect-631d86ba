@@ -110,7 +110,7 @@ export function scoreDiagnostic(data: any): ScoringResult {
 export function scorePlanFinancier(data: any): ScoringResult {
   const kpis = data?.kpis || {};
   const indic = data?.indicateurs_decision || {};
-  const margeBrute = safe(kpis.marge_brute_pct);
+  const margeBrute = safe(data?.sante_financiere?.rentabilite?.marge_brute_pct ?? kpis.marge_brute_pct);
   const tri = safe(indic.tri);
 
   return computeWeighted([

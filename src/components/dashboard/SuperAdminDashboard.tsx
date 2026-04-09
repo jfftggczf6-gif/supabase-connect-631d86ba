@@ -27,6 +27,8 @@ import ExportTab from './ExportTab';
 import CostTrackingTab from './CostTrackingTab';
 import { useTranslation } from 'react-i18next';
 import { PIPELINE } from '@/lib/dashboard-config';
+import EntrepreneurDashboard from './EntrepreneurDashboard';
+import { ArrowLeft, Eye } from 'lucide-react';
 
 interface Profile {
   user_id: string;
@@ -88,6 +90,7 @@ export default function SuperAdminDashboard() {
   const [parserStatus, setParserStatus] = useState<'checking' | 'up' | 'down'>('checking');
   const [parserVersion, setParserVersion] = useState('');
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
+  const [viewingEnterprise, setViewingEnterprise] = useState<Enterprise | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[] });
   const [creatingUser, setCreatingUser] = useState(false);
@@ -262,6 +265,46 @@ export default function SuperAdminDashboard() {
     if (role === 'coach') return 'secondary';
     return 'outline';
   };
+
+  // --- Drill-down: full enterprise view ---
+  if (viewingEnterprise) {
+    const veCoach = coaches.find(c => c.user_id === viewingEnterprise.coach_id);
+    const veOwner = profileMap[viewingEnterprise.user_id];
+    return (
+      <DashboardLayout title={t('admin.title')} subtitle={viewingEnterprise.name}>
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setViewingEnterprise(null)}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Retour admin
+          </Button>
+          <Badge variant="secondary" className="text-xs">
+            {viewingEnterprise.name}
+          </Badge>
+          {veOwner && (
+            <Badge variant="outline" className="text-xs">
+              Entrepreneur : {veOwner.full_name || veOwner.email || '—'}
+            </Badge>
+          )}
+          {veCoach && (
+            <Badge variant="outline" className="text-xs">
+              Coach : {veCoach.full_name || veCoach.email || '—'}
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-xs">
+            Secteur : {viewingEnterprise.sector || '—'}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            Score IR : {viewingEnterprise.score_ir ?? '—'}
+          </Badge>
+        </div>
+        <EntrepreneurDashboard
+          enterpriseId={viewingEnterprise.id}
+          showBackButton={false}
+          coachMode={true}
+          readOnly={true}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title={t('admin.title')} subtitle={t('admin.subtitle')}>
@@ -524,11 +567,22 @@ export default function SuperAdminDashboard() {
                     const owner = profileMap[e.user_id];
                     return (
                       <TableRow key={e.id}>
-                        <TableCell
-                          className="font-medium cursor-pointer hover:text-primary hover:underline"
-                          onClick={() => setSelectedEnterprise(e)}
-                        >
-                          {e.name}
+                        <TableCell className="font-medium">
+                          <span
+                            className="cursor-pointer hover:text-primary hover:underline"
+                            onClick={() => setViewingEnterprise(e)}
+                          >
+                            {e.name}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 ml-2 text-muted-foreground hover:text-primary"
+                            onClick={() => setSelectedEnterprise(e)}
+                            title="Pipeline rapide"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{owner?.full_name || owner?.email || e.user_id.slice(0, 8)}</TableCell>
                         <TableCell>
