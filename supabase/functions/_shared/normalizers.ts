@@ -163,7 +163,7 @@ export function normalizeBmc(raw: any): any {
     if (typeof c.proposition_valeur === 'string') c.proposition_valeur = { enonce: c.proposition_valeur, avantages: [] };
 
     // segments_clients might be array
-    if (Array.isArray(c.segments_clients)) c.segments_clients = { principal: c.segments_clients[0] || '' };
+    if (Array.isArray(c.segments_clients)) c.segments_clients = { principal: c.segments_clients[0] || '', tous: c.segments_clients };
 
     // structure_couts might be array of strings
     if (Array.isArray(c.structure_couts)) c.structure_couts = { postes: c.structure_couts.map((s: any) => typeof s === 'string' ? { libelle: s } : s) };
@@ -256,37 +256,33 @@ export function normalizeInputs(raw: any): any {
     stocks: toNumber(pick(rawActif, 'stocks', 'inventories', 'inventory')),
     creances_clients: toNumber(pick(rawActif, 'creances_clients', 'créances_clients', 'receivables', 'creances')),
     tresorerie: toNumber(pick(rawActif, 'tresorerie', 'trésorerie', 'cash', 'disponibilites')),
-    total_actif: toNumber(pick(rawActif, 'total_actif', 'total_assets', 'total')),
+    total_actif: 0, // sera recalculé ci-dessous
   };
   const passif = {
     capitaux_propres: toNumber(pick(rawPassif, 'capitaux_propres', 'equity', 'fonds_propres')),
     dettes_lt: toNumber(pick(rawPassif, 'dettes_lt', 'long_term_debt', 'dettes_long_terme')),
     dettes_ct: toNumber(pick(rawPassif, 'dettes_ct', 'short_term_debt', 'dettes_court_terme')),
     fournisseurs: toNumber(pick(rawPassif, 'fournisseurs', 'payables', 'accounts_payable')),
-    total_passif: toNumber(pick(rawPassif, 'total_passif', 'total_liabilities', 'total')),
+    total_passif: 0, // sera recalculé ci-dessous
   };
 
-  // Validation: Total Actif == Total Passif
-  if (actif.total_actif > 0 && passif.total_passif > 0 && actif.total_actif !== passif.total_passif) {
-    const ecartPct = Math.abs(actif.total_actif - passif.total_passif) / Math.max(actif.total_actif, passif.total_passif);
-    console.warn(`[normalizeInputs] Bilan déséquilibré: Actif=${actif.total_actif}, Passif=${passif.total_passif} (écart ${(ecartPct*100).toFixed(1)}%). Ajustement proportionnel.`);
-    const maxTotal = Math.max(actif.total_actif, passif.total_passif);
-    // Adjust sub-items proportionally rather than just forcing totals
-    if (actif.total_actif < maxTotal) {
-      const ratioActif = maxTotal / actif.total_actif;
-      actif.immobilisations = Math.round(actif.immobilisations * ratioActif);
-      actif.stocks = Math.round(actif.stocks * ratioActif);
-      actif.creances_clients = Math.round(actif.creances_clients * ratioActif);
-      actif.tresorerie = Math.round(actif.tresorerie * ratioActif);
-    } else {
-      const ratioPassif = maxTotal / passif.total_passif;
-      passif.capitaux_propres = Math.round(passif.capitaux_propres * ratioPassif);
-      passif.dettes_lt = Math.round(passif.dettes_lt * ratioPassif);
-      passif.dettes_ct = Math.round(passif.dettes_ct * ratioPassif);
-      passif.fournisseurs = Math.round(passif.fournisseurs * ratioPassif);
-    }
-    actif.total_actif = maxTotal;
-    passif.total_passif = maxTotal;
+  // Recalculer les totaux depuis les sous-postes (ne PAS faire confiance aux totaux IA)
+  const sumActif = actif.immobilisations + actif.stocks + actif.creances_clients + actif.tresorerie;
+  const sumPassif = passif.capitaux_propres + passif.dettes_lt + passif.dettes_ct + passif.fournisseurs;
+
+  // Si les sous-postes sont tous à 0 mais l'IA a donné un total, utiliser le total IA comme fallback
+  const aiTotalActif = toNumber(pick(rawActif, 'total_actif', 'total_assets', 'total'));
+  const aiTotalPassif = toNumber(pick(rawPassif, 'total_passif', 'total_liabilities', 'total'));
+
+  actif.total_actif = sumActif > 0 ? sumActif : aiTotalActif;
+  passif.total_passif = sumPassif > 0 ? sumPassif : aiTotalPassif;
+
+  // Équilibrage : ajuster capitaux_propres (le poste d'équilibre naturel en comptabilité)
+  if (actif.total_actif > 0 && actif.total_actif !== passif.total_passif) {
+    const ecart = actif.total_actif - passif.total_passif;
+    console.warn(`[normalizeInputs] Bilan déséquilibré: Actif=${actif.total_actif}, Passif=${passif.total_passif} (écart ${ecart}). Ajustement via capitaux_propres.`);
+    passif.capitaux_propres += ecart;
+    passif.total_passif = actif.total_actif;
   }
 
   d.bilan = { actif, passif };
@@ -1398,17 +1394,40 @@ export function normalizeReconstruction(raw: any): any {
   const b = pick(d, 'bilan', 'balance_sheet') || {};
   const ba = b.actif || b;
   const bp = b.passif || b;
-  d.bilan = {
+  // Format imbriqué standardisé (même structure que normalizeInputs)
+  const actifR = {
     immobilisations: toNumber(pick(ba, 'immobilisations', 'fixed_assets'), 0),
     stocks: toNumber(pick(ba, 'stocks', 'inventories', 'inventory'), 0),
     creances_clients: toNumber(pick(ba, 'creances_clients', 'creances', 'receivables'), 0),
-    tresorerie_actif: toNumber(pick(ba, 'tresorerie_actif', 'tresorerie', 'cash'), 0),
-    total_actif: toNumber(pick(ba, 'total_actif', 'total_assets', 'actif_total'), 0),
-    capitaux_propres: toNumber(pick(bp, 'capitaux_propres', 'equity', 'fonds_propres'), 0),
-    dettes_financieres: toNumber(pick(bp, 'dettes_financieres', 'dettes_lt', 'long_term_debt'), 0),
-    dettes_fournisseurs: toNumber(pick(bp, 'dettes_fournisseurs', 'fournisseurs', 'payables'), 0),
-    total_passif: toNumber(pick(bp, 'total_passif', 'total_liabilities', 'passif_total'), 0),
+    tresorerie: toNumber(pick(ba, 'tresorerie_actif', 'tresorerie', 'cash'), 0),
+    total_actif: 0,
   };
+  const passifR = {
+    capitaux_propres: toNumber(pick(bp, 'capitaux_propres', 'equity', 'fonds_propres'), 0),
+    dettes_lt: toNumber(pick(bp, 'dettes_financieres', 'dettes_lt', 'long_term_debt'), 0),
+    dettes_ct: 0,
+    fournisseurs: toNumber(pick(bp, 'dettes_fournisseurs', 'fournisseurs', 'payables'), 0),
+    total_passif: 0,
+  };
+
+  // Recalculer les totaux depuis les sous-postes
+  const sumA = actifR.immobilisations + actifR.stocks + actifR.creances_clients + actifR.tresorerie;
+  const sumP = passifR.capitaux_propres + passifR.dettes_lt + passifR.dettes_ct + passifR.fournisseurs;
+  const aiTA = toNumber(pick(ba, 'total_actif', 'total_assets', 'actif_total'), 0);
+  const aiTP = toNumber(pick(bp, 'total_passif', 'total_liabilities', 'passif_total'), 0);
+
+  actifR.total_actif = sumA > 0 ? sumA : aiTA;
+  passifR.total_passif = sumP > 0 ? sumP : aiTP;
+
+  // Équilibrage via capitaux_propres
+  if (actifR.total_actif > 0 && actifR.total_actif !== passifR.total_passif) {
+    const ecart = actifR.total_actif - passifR.total_passif;
+    console.warn(`[normalizeReconstruction] Bilan déséquilibré: Actif=${actifR.total_actif}, Passif=${passifR.total_passif} (écart ${ecart}). Ajustement via capitaux_propres.`);
+    passifR.capitaux_propres += ecart;
+    passifR.total_passif = actifR.total_actif;
+  }
+
+  d.bilan = { actif: actifR, passif: passifR };
 
   const ef = pick(d, 'effectifs', 'employees', 'staff') || {};
   d.effectifs = {

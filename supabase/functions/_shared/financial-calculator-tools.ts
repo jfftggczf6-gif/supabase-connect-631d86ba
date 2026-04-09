@@ -174,6 +174,11 @@ function executeCalc(input: { expression: string; label?: string }): Record<stri
       .replace(/sqrt\(/g, "Math.sqrt(")
       .replace(/pow\(/g, "Math.pow(");
 
+    // Block dangerous JS keywords before any evaluation
+    if (/\b(constructor|prototype|__proto__|this|window|global|globalThis|import|require|eval|Function|fetch|Deno|process|Buffer)\b/i.test(expr)) {
+      return { error: "Expression contient un mot-clé interdit", expression: input.expression };
+    }
+
     // Validate: only numbers, operators, Math functions, parentheses, commas, dots, spaces, minus
     if (!/^[\d\s+\-*/().,%eE^Math.roundabsminmaxflceilsqrtpow]+$/.test(expr.replace(/Math\.\w+/g, ""))) {
       return { error: "Expression invalide — uniquement arithmétique autorisée", expression: input.expression };
@@ -194,6 +199,10 @@ function executeCalc(input: { expression: string; label?: string }): Record<stri
     );
 
     const result = new Function(`"use strict"; return (${safeExpr})`)();
+
+    if (typeof result === "number" && !isFinite(result)) {
+      return { error: "Division par zéro ou résultat infini", expression: input.expression, label: input.label || "" };
+    }
 
     return {
       resultat: result,
@@ -323,7 +332,7 @@ function executeProjectSeries(input: {
   // Projections
   for (let i = 1; i <= n; i++) {
     series.push({
-      annee: `YEAR${i + 1}`,
+      annee: `Y+${i}`,
       valeur: Math.round((v0 * Math.pow(1 + g, i)) / arrondi) * arrondi,
     });
   }
@@ -347,7 +356,10 @@ function executeRatioCheck(input: {
   benchmark_max?: number;
   format?: string;
 }): Record<string, any> {
-  const val = input.denominateur !== 0 ? input.numerateur / input.denominateur : 0;
+  if (input.denominateur === 0) {
+    return { error: "Dénominateur est zéro — ratio impossible à calculer", nom: input.nom_ratio, valeur: null, valeur_affichee: "N/A", statut: "erreur" };
+  }
+  const val = input.numerateur / input.denominateur;
   const fmt = input.format || "pct";
 
   let valeur_affichee: string;

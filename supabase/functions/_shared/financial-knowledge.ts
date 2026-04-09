@@ -109,7 +109,7 @@ const PROJECTION_FORMULAS = `
 
 ### VAN (Valeur Actuelle Nette)
   VAN = Σ_{t=1}^{n}(CF_t / (1+r)^t) - I₀
-  Defaults : r = 12 % | n = 5 ans | I₀ = Σ CAPEX + BFR initial
+  Defaults : r = WACC par zone (18% FCFA, 20% XAF, 25% CDF — voir table WACC) | n = 5 ans | I₀ = Σ CAPEX + BFR initial
   VAN > 0 → créateur de valeur  |  VAN < 0 → à restructurer
 
 ### TRI (Taux de Rentabilité Interne)
@@ -656,7 +656,7 @@ const ZONE_ADJUSTMENTS: Record<string, { label: string; cost_factor: number; gro
   rdc: {
     label: "RDC (USD)", cost_factor: 1.3, growth_factor: 0.8,
     bfr_dso: 60, bfr_dpo: 45, bfr_stock: 45,
-    smig_mensuel: 7080, loyer_bureau_min: 200, loyer_bureau_max: 1500,
+    smig_mensuel: 130, loyer_bureau_min: 200, loyer_bureau_max: 1500, // SMIG RDC ≈ 7 075 CDF/jour ≈ 212K CDF/mois ≈ 80-130 USD/mois
     electricite_min: 50, electricite_max: 300,
     source: "BCC Rapport Monétaire 2024 + Banque Mondiale RDC"
   },

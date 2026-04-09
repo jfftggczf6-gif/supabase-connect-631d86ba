@@ -127,7 +127,13 @@ RÈGLES D'EXTRACTION:
 2. NIVEAU 1 d'abord : extrais les chiffres présents dans les documents.
 3. NIVEAU 2 ensuite : déduis par calcul croisé ce qui manque.
 4. NIVEAU 3 enfin : estime depuis les benchmarks sectoriels les postes manquants.
-5. Vérifie la cohérence: Total Actif = Total Passif, Résultat net cohérent.
+5. CONTRAINTE ABSOLUE BILAN :
+   - total_actif DOIT être EXACTEMENT = immobilisations + stocks + creances_clients + tresorerie
+   - total_passif DOIT être EXACTEMENT = capitaux_propres + dettes_lt + dettes_ct + fournisseurs
+   - total_actif DOIT être EXACTEMENT = total_passif (équilibre comptable obligatoire)
+   - Si un sous-poste est inconnu, mets 0 et ajuste capitaux_propres pour équilibrer
+   - JAMAIS retourner un bilan où total_actif ≠ total_passif
+   - Vérifie aussi : Résultat net cohérent avec le compte de résultat.
 6. Tous les montants en ${devise} sans séparateurs de milliers.
 7. Le score reflète : 90-100 = niveau 1 complet, 60-89 = niveaux 1+2, 30-59 = niveaux 1+2+3, 0-29 = presque tout estimé.
 
@@ -245,14 +251,14 @@ Analyse CHAQUE feuille/section du document. Extrais et retourne ce JSON COMPLET:
       "stocks": <number>,
       "creances_clients": <number>,
       "tresorerie": <number>,
-      "total_actif": <number>
+      "total_actif": <number — DOIT être = somme des 4 postes ci-dessus>
     },
     "passif": {
-      "capitaux_propres": <number>,
+      "capitaux_propres": <number — poste d'ajustement si nécessaire pour équilibrer>,
       "dettes_lt": <number>,
       "dettes_ct": <number>,
       "fournisseurs": <number>,
-      "total_passif": <number>
+      "total_passif": <number — DOIT être = somme des 4 postes ci-dessus ET = total_actif>
     }
   },
 

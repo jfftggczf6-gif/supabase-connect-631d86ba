@@ -27,20 +27,39 @@ export function validateFinancialData(data: any, _country?: string, _sector?: st
   // ═══ INVARIANT 1: Bilan équilibré ═══
   if (data.bilan) {
     const b = data.bilan;
-    const totalActif = (b.immobilisations || 0) + (b.stocks || 0) + (b.creances_clients || 0) + (b.tresorerie_actif || b.tresorerie || 0);
-    const totalPassif = (b.capitaux_propres || 0) + (b.dettes_financieres || b.dettes_lt || 0) + (b.dettes_fournisseurs || b.fournisseurs || 0) + (b.dettes_ct || 0);
+    // Support both nested (actif/passif) and flat structures
+    const ba = b.actif || b;
+    const bp = b.passif || b;
+    const totalActif = (ba.immobilisations || 0) + (ba.stocks || 0) + (ba.creances_clients || 0) + (ba.tresorerie_actif || ba.tresorerie || 0);
+    const totalPassif = (bp.capitaux_propres || 0) + (bp.dettes_financieres || bp.dettes_lt || 0) + (bp.dettes_fournisseurs || bp.fournisseurs || 0) + (bp.dettes_ct || 0);
 
-    if (totalActif > 0 && totalPassif > 0) {
-      const ecart = Math.abs(totalActif - totalPassif);
-      const ecartPct = (ecart / Math.max(totalActif, totalPassif)) * 100;
-      if (ecartPct > 2) {
-        issues.push({
-          severity: 'error',
-          field: 'bilan',
-          message: `Bilan déséquilibré : Actif ${totalActif.toLocaleString()} ≠ Passif ${totalPassif.toLocaleString()} (écart ${ecartPct.toFixed(1)}%)`,
-          auto_corrected: false,
-        });
-      }
+    if (totalActif > 0 && totalActif !== totalPassif) {
+      const ecart = totalActif - totalPassif;
+      const ecartPct = (Math.abs(ecart) / Math.max(totalActif, totalPassif)) * 100;
+      // Auto-correction : ajuster capitaux_propres pour équilibrer
+      bp.capitaux_propres = (bp.capitaux_propres || 0) + ecart;
+      if (b.actif) { bp.total_passif = totalActif; ba.total_actif = totalActif; }
+      else { b.total_passif = totalActif; b.total_actif = totalActif; }
+      corrections++;
+      issues.push({
+        severity: ecartPct > 10 ? 'error' : 'warning',
+        field: 'bilan',
+        message: `Bilan déséquilibré (écart ${ecartPct.toFixed(1)}%). Auto-corrigé via capitaux_propres (${ecart > 0 ? '+' : ''}${ecart.toLocaleString()}).`,
+        auto_corrected: true,
+      });
+    }
+  }
+
+  // ═══ INVARIANT 1b: CA > 0 ═══
+  if (data.compte_resultat) {
+    const caCheck = data.compte_resultat.chiffre_affaires || data.compte_resultat.ca || 0;
+    if (caCheck <= 0) {
+      issues.push({
+        severity: 'warning',
+        field: 'compte_resultat.chiffre_affaires',
+        message: `Chiffre d'affaires absent ou nul (${caCheck}). Les ratios financiers seront incalculables.`,
+        auto_corrected: false,
+      });
     }
   }
 

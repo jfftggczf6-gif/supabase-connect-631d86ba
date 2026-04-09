@@ -53,11 +53,11 @@ const OUTPUT_SCHEMA = `{
     "stocks": <number>,
     "creances_clients": <number>,
     "tresorerie_actif": <number>,
-    "total_actif": <number>,
+    "total_actif": <number — DOIT être = immobilisations + stocks + creances_clients + tresorerie_actif>,
     "capitaux_propres": <number>,
     "dettes_financieres": <number>,
     "dettes_fournisseurs": <number>,
-    "total_passif": <number>
+    "total_passif": <number — DOIT être = capitaux_propres + dettes_financieres + dettes_fournisseurs>
   },
 
   "effectifs": {
@@ -140,6 +140,13 @@ ${ragContext}
 Analyse TOUS les documents ci-dessus. Reconstitue un compte de résultat, un bilan et les KPIs.
 Pour chaque valeur, indique dans reconstruction_report.hypotheses si c'est une donnée extraite ou une estimation.
 Le score_confiance reflète le % de données réellement extraites vs estimées.
+
+CONTRAINTE ABSOLUE BILAN :
+- total_actif DOIT être EXACTEMENT = immobilisations + stocks + creances_clients + tresorerie_actif
+- total_passif DOIT être EXACTEMENT = capitaux_propres + dettes_financieres + dettes_fournisseurs
+- total_actif DOIT être EXACTEMENT = total_passif (équilibre comptable obligatoire)
+- Si tu ne trouves pas un sous-poste, mets 0 et ajuste capitaux_propres pour équilibrer
+- JAMAIS retourner un bilan où total_actif ≠ total_passif
 
 CONFIDENCE PAR CHAMP :
 Pour CHAQUE valeur financière, évalue ta confiance (0-100) dans le champ _confidence :

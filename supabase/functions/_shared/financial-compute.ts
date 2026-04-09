@@ -198,6 +198,10 @@ export interface SeuilRentabilite {
   seuil_annuel: number;
   ca_actuel: number;
   marge_securite_pct: number;
+  couts_variables: number;
+  couts_fixes: number;
+  taux_cv: number;
+  methode: 'classification_ia' | 'ratio_sectoriel' | 'brute';
 }
 
 export interface PlanFinancierComputed {
@@ -307,7 +311,6 @@ export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
   const achats = safe(cr.achats_matieres || cr.achats);
   const charges_personnel = safe(cr.charges_personnel || cr.salaires);
   const charges_externes = safe(cr.charges_externes);
-  const amort = safe(cr.dotations_amortissements);
   const charges_fin = safe(cr.charges_financieres);
   const RN = safe(cr.resultat_net);
   const RE = safe(cr.resultat_exploitation);
@@ -330,14 +333,17 @@ export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
   // Charges mensuelles pour runway
   const charges_mensuelles = (achats + charges_personnel + charges_externes) / 12;
 
-  // Service dette annuel (capital + intérêts)
+  // Service dette annuel (capital + intérêts sur solde restant moyen)
   let service_dette_annuel = 0;
   if (inputs.financement?.prets) {
     for (const p of inputs.financement.prets) {
       const montant = safe(p.montant);
       const duree_ans = safe(p.duree_mois) / 12 || 3;
       const taux = safe(p.taux_pct) / 100;
-      service_dette_annuel += (montant / duree_ans) + (montant * taux);
+      const capitalAnnuel = montant / duree_ans;
+      // Intérêts sur le solde restant moyen (≈ montant / 2 sur la durée totale)
+      const interetsAnnuels = (montant / 2) * taux;
+      service_dette_annuel += capitalAnnuel + interetsAnnuels;
     }
   }
 
@@ -346,7 +352,7 @@ export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
   const dio = safe(bfr.stock_moyen_jours) || (achats > 0 ? (stocks / achats) * 365 : 0);
   const dpo = safe(bfr.delai_fournisseurs_jours) || (achats > 0 ? (fournisseurs / achats) * 365 : 0);
 
-  const cashflow_op = EBITDA - impots + amort; // simplified
+  const cashflow_op = EBITDA - impots; // EBITDA exclut déjà les amortissements, pas besoin de les rajouter
 
   return {
     rentabilite: {
@@ -384,17 +390,63 @@ export function computeRatios(inputs: InputsData): RatiosSanteFinanciere {
 
 // ─── SEUIL DE RENTABILITÉ ──────────────────────────────────────────
 
-export function computeSeuilRentabilite(inputs: InputsData): SeuilRentabilite {
+export function computeSeuilRentabilite(inputs: InputsData, sector?: string): SeuilRentabilite {
   const cr = inputs.compte_resultat || {};
   const CA = safe(cr.chiffre_affaires || cr.ca || inputs.revenue);
 
-  // Coûts variables = achats matières (TOUJOURS depuis le CdR)
-  const couts_variables = safe(cr.achats_matieres || cr.achats);
+  let couts_variables = 0;
+  let couts_fixes = 0;
+  let methode: 'classification_ia' | 'ratio_sectoriel' | 'brute' = 'brute';
 
-  // Coûts fixes = charges personnel + charges externes + amortissements (TOUJOURS depuis le CdR)
-  const couts_fixes = safe(cr.charges_personnel || cr.salaires)
+  // Niveau 1 : Classification IA (couts_variables[] et couts_fixes[] remplis par l'IA)
+  const cvIA = (inputs.couts_variables || []).reduce((s, c) => s + safe(c.montant_annuel || ((c as any).montant_mensuel || 0) * 12), 0);
+  const cfIA = (inputs.couts_fixes || []).reduce((s, c) => s + safe(c.montant_annuel || ((c as any).montant_mensuel || 0) * 12), 0);
+
+  const totalChargesCdR = safe(cr.achats_matieres || cr.achats)
+    + safe(cr.charges_personnel || cr.salaires)
     + safe(cr.charges_externes)
     + safe(cr.dotations_amortissements);
+
+  if (cvIA > 0 && cfIA > 0) {
+    // Validation croisée : la somme IA doit être dans les ±30% du total CdR
+    const totalIA = cvIA + cfIA;
+    const ecartPct = totalChargesCdR > 0 ? Math.abs(totalIA - totalChargesCdR) / totalChargesCdR : 0;
+    if (ecartPct < 0.30) {
+      couts_variables = cvIA;
+      couts_fixes = cfIA;
+      methode = 'classification_ia';
+    }
+  }
+
+  // Niveau 2 : Ratio sectoriel (si classification IA absente ou incohérente)
+  if (methode === 'brute' && sector) {
+    // % des charges_externes qui sont variables, par secteur
+    const RATIO_VARIABLE_CHARGES_EXT: Record<string, number> = {
+      restauration: 0.50, agro_industrie: 0.35, aviculture: 0.40,
+      agriculture: 0.35, agriculture_rente: 0.30, commerce_detail: 0.60,
+      commerce_alimentaire: 0.55, services_b2b: 0.15, services_it: 0.15,
+      imprimerie: 0.45, energie: 0.30, tic: 0.15, sante: 0.25,
+      btp: 0.50, transport_logistique: 0.70, education_formation: 0.15,
+      immobilier: 0.15, textile_mode: 0.45, mines_extraction: 0.40,
+      industrie_manufacturiere: 0.40,
+    };
+    const ratioVar = RATIO_VARIABLE_CHARGES_EXT[sector] ?? 0.30;
+    const chargesExt = safe(cr.charges_externes);
+
+    couts_variables = safe(cr.achats_matieres || cr.achats) + chargesExt * ratioVar;
+    couts_fixes = safe(cr.charges_personnel || cr.salaires)
+      + chargesExt * (1 - ratioVar)
+      + safe(cr.dotations_amortissements);
+    methode = 'ratio_sectoriel';
+  }
+
+  // Niveau 3 : Classification brute (fallback ultime)
+  if (methode === 'brute') {
+    couts_variables = safe(cr.achats_matieres || cr.achats);
+    couts_fixes = safe(cr.charges_personnel || cr.salaires)
+      + safe(cr.charges_externes)
+      + safe(cr.dotations_amortissements);
+  }
 
   const taux_cv = CA > 0 ? couts_variables / CA : 0.5;
   const seuil = taux_cv < 1 ? couts_fixes / (1 - taux_cv) : 0;
@@ -403,6 +455,10 @@ export function computeSeuilRentabilite(inputs: InputsData): SeuilRentabilite {
     seuil_annuel: round(seuil),
     ca_actuel: round(CA),
     marge_securite_pct: CA > 0 && seuil > 0 ? round(((CA - seuil) / CA) * 100, 1) : 0,
+    couts_variables: round(couts_variables),
+    couts_fixes: round(couts_fixes),
+    taux_cv: round(taux_cv * 100, 1),
+    methode,
   };
 }
 
@@ -617,7 +673,7 @@ export function computeEcheancier(
 export function computeBfrDetail(
   inputs: InputsData,
   projections: Projection[],
-): { delai_clients_jours: number; delai_fournisseurs_jours: number; stock_moyen_jours: number; bfr_montant: number; bfr_jours: number; variation_bfr: number } | null {
+): { delai_clients_jours: number; delai_fournisseurs_jours: number; stock_moyen_jours: number; bfr_montant: number; bfr_jours: number; variation_bfr: number; par_annee?: Array<{ annee: string; ca: number; bfr: number; variation: number }> } | null {
   const bfr = inputs.bfr;
   if (!bfr) return null;
 
@@ -635,6 +691,21 @@ export function computeBfrDetail(
   const bfr_ym1 = Math.round(ca_mens_ym1 * bfrJours / 30);
   const variation = bfr_montant - bfr_ym1;
 
+  // BFR par année projetée (dynamique : évolue avec le CA)
+  const parAnnee: Array<{ annee: string; ca: number; bfr: number; variation: number }> = [];
+  let prevBfr = bfr_montant;
+  for (const proj of projections) {
+    if (proj.is_reel) continue;
+    const bfrAnnee = Math.round((proj.ca / 12) * bfrJours / 30);
+    parAnnee.push({
+      annee: proj.annee,
+      ca: proj.ca,
+      bfr: bfrAnnee,
+      variation: bfrAnnee - prevBfr,
+    });
+    prevBfr = bfrAnnee;
+  }
+
   return {
     delai_clients_jours: dso,
     delai_fournisseurs_jours: dpo,
@@ -642,6 +713,7 @@ export function computeBfrDetail(
     bfr_montant,
     bfr_jours: bfrJours,
     variation_bfr: variation,
+    par_annee: parAnnee,
   };
 }
 
@@ -740,14 +812,40 @@ export function computeProjections(
       const projIdx = i - 3; // 0,1,2,3,4
       const prevProj = projections[i - 1];
 
-      const growthCa = hyp.taux_croissance_ca[Math.min(projIdx, hyp.taux_croissance_ca.length - 1)] || 0.15;
+      const growthCa = hyp.taux_croissance_ca[Math.min(projIdx, hyp.taux_croissance_ca.length - 1)] || 0.08;
       const cogsRate = hyp.taux_cogs_cible[Math.min(projIdx, hyp.taux_cogs_cible.length - 1)] || (achats_reel / (CA_reel || 1));
 
       ca = roundK(prevProj.ca * (1 + growthCa));
       cogs = roundK(ca * cogsRate);
       opex = roundK(prevProj.opex_total * (1 + hyp.taux_croissance_opex));
-      amort = roundK(amort_reel * (1 + 0.05 * (projIdx + 1)));
-      charges_fin = roundK(charges_fin_reel * Math.max(0.3, 1 - projIdx * 0.15));
+      // Amort = base existante + amort des nouveaux CAPEX en cours sur cette année
+      let amortCapex = 0;
+      for (const inv of (inputs.investissements || [])) {
+        const invMontant = safe(inv.montant);
+        const invDuree = safe(inv.duree_amortissement_ans) || 5;
+        const invAnnee = safe(inv.annee_achat) || (yearNums[3]); // défaut = Y+1
+        const anneesFin = invAnnee + invDuree;
+        if (invMontant > 0 && yearNums[i] >= invAnnee && yearNums[i] < anneesFin) {
+          amortCapex += invMontant / invDuree;
+        }
+      }
+      amort = roundK(amort_reel + amortCapex);
+      // Charges financières = intérêts sur solde restant de chaque prêt
+      let chargesFinPrets = 0;
+      let hasPrets = false;
+      for (const p of (inputs.financement?.prets || [])) {
+        const montant = safe(p.montant);
+        const duree_ans = safe(p.duree_mois) / 12 || 3;
+        const rawTaux = p.taux_pct;
+        const taux = rawTaux != null ? safe(rawTaux) / 100 : 0.07;
+        if (montant > 0) {
+          hasPrets = true;
+          const capitalAnnuel = montant / duree_ans;
+          const soldeRestant = Math.max(0, montant - capitalAnnuel * projIdx);
+          chargesFinPrets += soldeRestant * taux;
+        }
+      }
+      charges_fin = hasPrets ? roundK(chargesFinPrets) : roundK(charges_fin_reel);
       const re_proj = (ca - cogs) - opex - amort - charges_fin;
       impots_y = re_proj > 0 ? roundK(re_proj * taxRate) : 0;
     }
@@ -766,6 +864,30 @@ export function computeProjections(
         impots_y = RE_reel > 0 ? RE_reel - RN_reel - charges_fin : Math.max(0, re - rn - charges_fin);
       }
       cf = rn + amort;
+    }
+
+    // Free Cash Flow ajusté pour Y+1..Y+5 : soustraire delta BFR, CAPEX et remboursement prêts
+    if (i >= 3) {
+      const projIdx = i - 3;
+      const prevCa = projections[i - 1].ca;
+      // Delta BFR : le BFR augmente proportionnellement au CA
+      const bfrData = inputs.bfr;
+      const bfrJours = (safe(bfrData?.delai_clients_jours) || 30) + (safe(bfrData?.stock_moyen_jours) || 30) - (safe(bfrData?.delai_fournisseurs_jours) || 45);
+      const deltaBfr = roundK((ca - prevCa) * bfrJours / 360);
+      // CAPEX : investissements prévus pour cette année
+      const capexYear = (inputs.investissements || [])
+        .filter(inv => safe(inv.annee_achat) === yearNums[i] || (projIdx === 0 && !inv.annee_achat))
+        .reduce((s, inv) => s + safe(inv.montant), 0);
+      // Remboursement principal des prêts
+      let remboursementPrincipal = 0;
+      for (const p of (inputs.financement?.prets || [])) {
+        const montant = safe(p.montant);
+        const duree_ans = safe(p.duree_mois) / 12 || 3;
+        if (projIdx < duree_ans) {
+          remboursementPrincipal += montant / duree_ans;
+        }
+      }
+      cf = roundK(cf - deltaBfr - capexYear - remboursementPrincipal);
     }
 
     projections.push({
@@ -797,6 +919,7 @@ export function computeIndicateurs(
   projections: Projection[],
   investissement_total: number,
   taux_actualisation: number = 0.15,
+  dette_totale?: number,
 ): IndicateursDecision {
   // Cashflows projetés (Y+1 à Y+5)
   const cashflows = projections.filter(p => !p.is_reel).map(p => p.cashflow);
@@ -845,10 +968,14 @@ export function computeIndicateurs(
   }
 
   // DSCR moyen sur la période
-  // Simplified: cashflow / service dette estimé
-  const dscr_values = projections.filter(p => !p.is_reel).map(p => {
-    const service = p.charges_financieres + (investissement_total / 5); // rough capital + interest
-    return service > 0 ? p.cashflow / service : 0;
+  // Service dette = remboursement capital (prêts uniquement) + intérêts
+  const dettePourDscr = dette_totale ?? investissement_total;
+  const dscr_values = projections.filter(p => !p.is_reel).map((p, idx) => {
+    const duree = 5; // durée moyenne estimée
+    const remaining = Math.max(0, duree - idx);
+    const capitalRembourse = remaining > 0 ? dettePourDscr / duree : 0;
+    const service = p.charges_financieres + capitalRembourse;
+    return service > 0 ? p.ebitda / service : 0;
   });
   const dscr_moyen = dscr_values.length > 0 ? round(dscr_values.reduce((a, b) => a + b, 0) / dscr_values.length, 2) : null;
 
@@ -1130,13 +1257,44 @@ export function computeFullPlan(
   employeesCount?: number,
 ): PlanFinancierComputed {
 
+  // Calculer la croissance historique dynamique si l'IA n'en fournit pas
+  const histData = inputs.historique_3ans || {};
+  const crData = inputs.compte_resultat || {};
+  const caN = safe(crData.chiffre_affaires || crData.ca || inputs.revenue);
+  const caNm1 = safe(histData.n_moins_1?.ca_total);
+  const caNm2 = safe(histData.n_moins_2?.ca_total);
+  const inflationDefault = 0.06; // 6% défaut Afrique subsaharienne
+
+  let defaultGrowth: number[];
+  if (caN > 0 && caNm1 > 0 && caNm2 > 0) {
+    // CAGR sur 2 ans (lissé)
+    const cagr = Math.pow(caN / caNm2, 1 / 2) - 1;
+    // Plafonner entre inflation et 30%, puis décélérer progressivement
+    const g = Math.max(inflationDefault, Math.min(cagr, 0.30));
+    defaultGrowth = [g, g * 0.95, g * 0.90, g * 0.85, g * 0.80];
+  } else if (caN > 0 && caNm1 > 0) {
+    // Croissance sur 1 an
+    const g1 = Math.max(inflationDefault, Math.min((caN / caNm1) - 1, 0.30));
+    defaultGrowth = [g1, g1 * 0.95, g1 * 0.90, g1 * 0.85, g1 * 0.80];
+  } else if (caN > 0 && caN < 50_000_000) {
+    // Startup / micro-entreprise sans historique → profil décroissant
+    defaultGrowth = [0.20, 0.18, 0.15, 0.12, 0.10];
+  } else {
+    // Pas d'historique, entreprise établie → inflation + croissance réelle modérée
+    defaultGrowth = [0.08, 0.08, 0.08, 0.07, 0.07];
+  }
+
+  const cogsActuel = safe(crData.achats_matieres || crData.achats);
+  const cogsRatioActuel = caN > 0 ? cogsActuel / caN : 0.70;
+  const defaultCogs = [cogsRatioActuel, cogsRatioActuel, cogsRatioActuel * 0.99, cogsRatioActuel * 0.98, cogsRatioActuel * 0.98];
+
   const hyp: AIHypotheses = {
-    taux_croissance_ca: aiAnalysis.hypotheses?.taux_croissance_ca || [0.15, 0.15, 0.15, 0.12, 0.12],
-    taux_croissance_prix: aiAnalysis.hypotheses?.taux_croissance_prix || 0.03,
-    taux_croissance_opex: aiAnalysis.hypotheses?.taux_croissance_opex || 0.08,
-    taux_croissance_salariale: aiAnalysis.hypotheses?.taux_croissance_salariale || 0.05,
-    taux_cogs_cible: aiAnalysis.hypotheses?.taux_cogs_cible || [0.72, 0.71, 0.70, 0.70, 0.70],
-    inflation: aiAnalysis.hypotheses?.inflation || 0.03,
+    taux_croissance_ca: aiAnalysis.hypotheses?.taux_croissance_ca || defaultGrowth,
+    taux_croissance_prix: aiAnalysis.hypotheses?.taux_croissance_prix || inflationDefault,
+    taux_croissance_opex: aiAnalysis.hypotheses?.taux_croissance_opex || inflationDefault + 0.02,
+    taux_croissance_salariale: aiAnalysis.hypotheses?.taux_croissance_salariale || inflationDefault,
+    taux_cogs_cible: aiAnalysis.hypotheses?.taux_cogs_cible || defaultCogs,
+    inflation: aiAnalysis.hypotheses?.inflation || inflationDefault,
   };
 
   // 0. Base year from historique
@@ -1144,7 +1302,8 @@ export function computeFullPlan(
 
   // 1. Ratios situation actuelle
   const ratios = computeRatios(inputs);
-  const seuil = computeSeuilRentabilite(inputs);
+  const sectorForSeuil = aiAnalysis?.secteur || aiAnalysis?.sector || (inputs as any)?.sector;
+  const seuil = computeSeuilRentabilite(inputs, sectorForSeuil);
 
   // 2. Projections 8 ans
   const projections = computeProjections(inputs, hyp, baseYearEarly, fiscalParams.is / 100);
@@ -1153,19 +1312,58 @@ export function computeFullPlan(
   const capexItems = aiAnalysis.capex || [];
   const capex_total = capexItems.reduce((s: number, c: any) => s + safe(c.montant || c.acquisition_value), 0);
 
-  // Investissement total = prêts + capital (PAS les CAPEX IA qui peuvent être incomplets)
+  // Investissement total pour VAN/TRI = prêts + capital (montant total investi dans le projet)
   const prets_total = (inputs.financement?.prets || []).reduce((s, p) => s + safe(p.montant), 0);
   const capital_apport = safe(inputs.financement?.apports_capital);
-  const investissement_total = prets_total + capital_apport || capex_total || 1;
+  const investissement_total = (prets_total + capital_apport) || capex_total || 1;
+  // Service dette : uniquement les prêts (le capital_apport n'est PAS une dette à rembourser)
+  const dette_totale = prets_total || 1;
 
   // 4. Indicateurs de décision
-  // WACC simplifié par zone monétaire
+  // WACC calculé dynamiquement depuis les données réelles de l'entreprise
   const WACC_PAR_ZONE: Record<string, number> = {
     'XOF': 0.18, 'XAF': 0.20, 'CDF': 0.25, 'GNF': 0.22,
+    'MAD': 0.12, 'TND': 0.13, 'ZAR': 0.14, 'KES': 0.16,
+    'RWF': 0.16, 'UGX': 0.17, 'TZS': 0.17, 'EGP': 0.18,
+    'GHS': 0.19, 'ETB': 0.19, 'NGN': 0.20, 'MGA': 0.20,
   };
-  const taux_actualisation = WACC_PAR_ZONE[fiscalParams.currency_iso] || 0.18;
+  const wacc_zone = WACC_PAR_ZONE[fiscalParams.currency_iso] || 0.18;
 
-  const indicateurs = computeIndicateurs(projections, investissement_total, taux_actualisation);
+  // Calcul WACC = Ke × part_equity + Kd × part_dette × (1 - IS)
+  const bx = extractBilan(inputs);
+  const cp = bx.capitaux_propres;
+  const totalDettes = bx.dettes + bx.dettes_fournisseurs;
+  const totalV = cp + totalDettes;
+
+  let taux_actualisation: number;
+  if (totalV > 0 && cp > 0) {
+    const partEquity = cp / totalV;
+    const partDette = totalDettes / totalV;
+
+    // Coût equity = WACC zone + prime taille PME
+    const primeTaille = caN < 50_000_000 ? 0.04 : caN < 500_000_000 ? 0.02 : 0;
+    const Ke = wacc_zone + primeTaille;
+
+    // Coût dette = taux moyen pondéré des prêts réels
+    let Kd = 0;
+    let poidsTotal = 0;
+    for (const p of (inputs.financement?.prets || [])) {
+      const m = safe(p.montant);
+      const t = p.taux_pct != null ? safe(p.taux_pct) / 100 : 0.08;
+      Kd += m * t;
+      poidsTotal += m;
+    }
+    Kd = poidsTotal > 0 ? Kd / poidsTotal : 0.08;
+
+    const tauxIS = fiscalParams.is / 100;
+    taux_actualisation = Ke * partEquity + Kd * partDette * (1 - tauxIS);
+    // Gardes-fous : jamais < 10% ni > 35%
+    taux_actualisation = Math.max(0.10, Math.min(0.35, taux_actualisation));
+  } else {
+    taux_actualisation = wacc_zone;
+  }
+
+  const indicateurs = computeIndicateurs(projections, investissement_total, taux_actualisation, dette_totale);
   // Merge cycle_tresorerie and runway from ratios
   indicateurs.cycle_tresorerie = ratios.cycle_exploitation.cycle_tresorerie;
   indicateurs.runway_mois = ratios.liquidite.runway_mois;
@@ -1361,9 +1559,9 @@ export function computeFullPlan(
 
   // 16. Échéancier dette
   const loansForEcheancier = {
-    ovo: { amount: safe(loansOvo.montant), rate: safe(loansOvo.taux_pct) / 100 || 0.07, term_years: safe(loansOvo.duree_mois) / 12 || 5 },
-    family: { amount: safe(loansFamily.montant), rate: safe(loansFamily.taux_pct) / 100 || 0.10, term_years: safe(loansFamily.duree_mois) / 12 || 3 },
-    bank: { amount: safe(loansBank.montant), rate: safe(loansBank.taux_pct) / 100 || 0.12, term_years: safe(loansBank.duree_mois) / 12 || 2 },
+    ovo: { amount: safe(loansOvo.montant), rate: loansOvo.taux_pct != null ? safe(loansOvo.taux_pct) / 100 : 0.07, term_years: safe(loansOvo.duree_mois) / 12 || 5 },
+    family: { amount: safe(loansFamily.montant), rate: loansFamily.taux_pct != null ? safe(loansFamily.taux_pct) / 100 : 0.10, term_years: safe(loansFamily.duree_mois) / 12 || 3 },
+    bank: { amount: safe(loansBank.montant), rate: loansBank.taux_pct != null ? safe(loansBank.taux_pct) / 100 : 0.12, term_years: safe(loansBank.duree_mois) / 12 || 2 },
   };
   const echeancier = computeEcheancier(loansForEcheancier, projections, currentYear);
 
@@ -1388,7 +1586,7 @@ export function computeFullPlan(
     exchange_rate_eur: fiscalParams.exchange_rate_eur,
     vat_rate: fiscalParams.tva / 100,
     inflation_rate: hyp.inflation,
-    tax_regime_1: 0.04,
+    tax_regime_1: Math.min(0.005, fiscalParams.is / 100 * 0.15), // minimum fiscal ≈ 0.5% du CA (variable par pays)
     tax_regime_2: fiscalParams.is / 100,
     current_year: baseYearEarly,
     years,

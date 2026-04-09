@@ -22,243 +22,231 @@ import type { InputsData } from "../_shared/financial-compute.ts";
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // ═══════════════════════════════════════════════════════════════
+  // Phase synchrone : validation + retour 202 immédiat
+  // ═══════════════════════════════════════════════════════════════
+
+  let supabase: any;
+  let enterpriseId: string;
+
   try {
     const body = await req.json();
-    const { supabase, user } = await verifyAndGetContext(req, body);
-    const enterpriseId = body.enterprise_id;
+    const ctx = await verifyAndGetContext(req, body);
+    supabase = ctx.supabase;
+    enterpriseId = body.enterprise_id;
     if (!enterpriseId) return errorResponse("enterprise_id required", 400);
-
-    const requestId = crypto.randomUUID();
-    console.log(`[plan-financier] START ${requestId} for enterprise ${enterpriseId}`);
-
-    // ═══════════════════════════════════════════════════════════════
-    // 1. Récupérer TOUTES les sources
-    // ═══════════════════════════════════════════════════════════════
 
     const { data: enterprise } = await supabase
       .from("enterprises")
-      .select("name, country, sector, employees_count, description, operating_mode, document_content, document_parsing_report")
+      .select("id")
       .eq("id", enterpriseId)
       .single();
-
     if (!enterprise) return errorResponse("Enterprise not found", 404);
-
-    // Fetch all deliverables
-    const { data: deliverables } = await supabase
-      .from("deliverables")
-      .select("type, data")
-      .eq("enterprise_id", enterpriseId);
-
-    const getDeliv = (type: string) => deliverables?.find((d: any) => d.type === type)?.data || {};
-
-    const inputsData = getDeliv("inputs_data") as InputsData;
-    const bmcData = getDeliv("bmc_analysis");
-    const sicData = getDeliv("sic_analysis");
-    const diagnosticData = getDeliv("diagnostic_data");
-    const preScreenData = getDeliv("pre_screening");
-
-    // Coaching notes
-    const coachingContext = await getCoachingContext(supabase, enterpriseId);
-
-    const currentYear = new Date().getFullYear();
-    const country = enterprise.country || '';
-    const sector = enterprise.sector || "agro_industrie";
-    const fiscal = getFiscalParams(country);
-    // Use currency from inputs if available (entrepreneur may use USD, EUR, etc.)
-    const inputsCurrency = (inputsData as any)?.devise;
-    if (inputsCurrency && inputsCurrency !== fiscal.devise) {
-      console.log(`[plan-financier] Inputs use ${inputsCurrency}, country default is ${fiscal.devise} — using ${inputsCurrency}`);
-      fiscal.devise = inputsCurrency;
-      fiscal.currency_iso = inputsCurrency;
-    }
-    const fp = getFiscalParamsForPrompt(country);
-    if (inputsCurrency) { fp.devise = inputsCurrency; fp.currency_iso = inputsCurrency; }
-    const guardrails = getSectorGuardrails(sector);
-
-    // Update status
-    await supabase.from("deliverables").upsert({
-      enterprise_id: enterpriseId,
-      type: "plan_financier",
-      data: { status: "processing", request_id: requestId, phase: "calling_ai", started_at: new Date().toISOString() },
-    }, { onConflict: "enterprise_id,type" });
-
-    // ═══════════════════════════════════════════════════════════════
-    // 2. Appel IA — analyse qualitative + hypothèses
-    // ═══════════════════════════════════════════════════════════════
-
-    console.log(`[plan-financier] Calling AI for analysis...`);
-
-    // Knowledge base + RAG (benchmarks + feedback loop corrections)
-    const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework');
-    const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
-
-    // Documents NON injectés dans plan_financier (trop lourd pour Sonnet + tools).
-    // Les données sont déjà extraites par Opus dans inputs_data + BMC + SIC.
-
-    const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
-    const userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, preScreenData, diagnosticData, coachingContext, currentYear, fp)
-      + knowledgeContext + ragContext;
-
-    // Sonnet pour tools/calculatrice (Opus timeout avec tool_use loop dans edge functions)
-    const aiAnalysis = await callAIWithCalculator(systemPrompt, userPrompt, 16384, "claude-sonnet-4-20250514", 0.2);
-
-    // ═══════════════════════════════════════════════════════════════
-    // 3. Calculs déterministes
-    // ═══════════════════════════════════════════════════════════════
-
-    console.log(`[plan-financier] Computing financial plan...`);
-
-    await supabase.from("deliverables").update({
-      data: { status: "processing", request_id: requestId, phase: "computing", last_update_at: new Date().toISOString() },
-    }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
-
-    const computed = computeFullPlan(
-      inputsData,
-      aiAnalysis,
-      enterprise.name,
-      country,
-      currentYear,
-      { tva: fiscal.tva, is: fiscal.is, devise: fiscal.devise, currency_iso: fiscal.currency_iso, exchange_rate_eur: fiscal.exchange_rate_eur },
-      enterprise.employees_count || 0,
-    );
-
-    // ═══════════════════════════════════════════════════════════════
-    // 4. Merge analyse IA + calculs → objet final
-    // ═══════════════════════════════════════════════════════════════
-
-    const finalPlan = {
-      ...computed,
-
-      // Analyse IA (qualitatif)
-      analyse: {
-        avis: aiAnalysis.synthese?.avis || "",
-        tags: aiAnalysis.synthese?.tags || [],
-        score_investissabilite: aiAnalysis.synthese?.score_investissabilite || 0,
-        verdict: aiAnalysis.synthese?.verdict || "Non évalué",
-        risques: aiAnalysis.risques || [],
-        conditions_investissement: aiAnalysis.conditions_investissement || [],
-        coherence_bmc: aiAnalysis.coherence_bmc || [],
-        sensibilite: aiAnalysis.sensibilite || [],
-        rentabilite_par_activite: computed.rentabilite_par_activite || [],
-        ratios_vs_benchmarks: (() => {
-          const mb = computed.sante_financiere?.rentabilite?.marge_brute_pct || 0;
-          const ebitda = computed.sante_financiere?.rentabilite?.marge_ebitda_pct || 0;
-          const persoCA = computed.kpis?.ca > 0 ? Math.round(((inputsData.compte_resultat?.charges_personnel || inputsData.compte_resultat?.salaires || 0) / computed.kpis.ca) * 1000) / 10 : 0;
-          const src = guardrails.source || "I&P IPAE + Adenia Partners";
-          return [
-            { label: "Marge brute", valeur: `${mb}%`, benchmark: `${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%`, statut: mb >= guardrails.marge_brute_min ? "ok" : "sous", source: src },
-            { label: "Marge EBITDA", valeur: `${ebitda}%`, benchmark: `${guardrails.marge_ebitda_min}-${guardrails.marge_ebitda_max}%`, statut: ebitda >= guardrails.marge_ebitda_min ? "ok" : "sous", source: src },
-            { label: "Personnel/CA", valeur: `${persoCA}%`, benchmark: `${guardrails.ratio_personnel_ca_min}-${guardrails.ratio_personnel_ca_max}%`, statut: persoCA <= guardrails.ratio_personnel_ca_max ? "ok" : "attention", source: src },
-            { label: "Croissance max", valeur: `${guardrails.croissance_max_annuelle || 30}%/an`, benchmark: "Seuil prudentiel", statut: "reference", source: src },
-          ].filter((r: any) => r.valeur !== "undefined%" && r.valeur !== "0%");
-        })(),
-      },
-
-      // Hypothèses IA (pour traçabilité)
-      hypotheses_ia: aiAnalysis.hypotheses || {},
-
-      // Metadata
-      _meta: {
-        generated_at: new Date().toISOString(),
-        request_id: requestId,
-        model: "claude-opus-4-6",
-        version: "2.0-unified",
-        sources: ["inputs_data", "bmc_data", "sic_data", "diagnostic_data", "coaching_notes"],
-      },
-    };
-
-    // ═══════════════════════════════════════════════════════════════
-    // 5. Stockage
-    // ═══════════════════════════════════════════════════════════════
-
-    // Cell mapping Opus déplacé vers download-deliverable (on-demand)
-    // pour éviter le WORKER_LIMIT sur la génération
-
-    console.log(`[plan-financier] Saving to database...`);
-
-    await saveDeliverable(supabase, enterpriseId, "plan_financier", finalPlan, "PLAN_FIN", undefined, "generation");
-
-    // Also trigger Excel generation via Railway
-    try {
-      const railwayUrl = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
-      const parserApiKey = Deno.env.get("PARSER_API_KEY") || "esono-parser-2026-prod";
-
-      // Télécharger le template
-      const { data: templateBlob, error: tplErr } = await supabase.storage
-        .from("ovo-templates")
-        .download("251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY.xlsm");
-
-      if (tplErr || !templateBlob) {
-        throw new Error(`Template not found: ${tplErr?.message}`);
-      }
-
-      // Encoder en base64
-      const templateBuffer = await templateBlob.arrayBuffer();
-      const templateBytes = new Uint8Array(templateBuffer);
-      let templateBase64 = "";
-      // Encode to base64 safely (avoid stack overflow from spread on large arrays)
-      let binaryStr = "";
-      for (let i = 0; i < templateBytes.length; i++) {
-        binaryStr += String.fromCharCode(templateBytes[i]);
-      }
-      templateBase64 = btoa(binaryStr);
-
-      // Adapter plan_financier → format fill_ovo()
-      const ovoData = adaptPlanFinancierToOvoFormat(finalPlan);
-      console.log(`[plan-financier] Sending to Python: ${Object.keys(ovoData).length} keys, ${(ovoData.products||[]).length} products`);
-
-      const excelResp = await fetch(`${railwayUrl}/generate-ovo-excel`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${parserApiKey}`,
-        },
-        body: JSON.stringify({
-          data: ovoData,
-          template_base64: templateBase64,
-        }),
-        signal: AbortSignal.timeout(120_000),
-      });
-
-      if (excelResp.ok) {
-        const excelBuffer = await excelResp.arrayBuffer();
-        const filename = `PlanFinancier_${enterprise.name.replace(/\s+/g, "_")}_OVO_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.xlsm`;
-
-        const { error: uploadErr } = await supabase.storage
-          .from("deliverables")
-          .upload(`${enterpriseId}/${filename}`, excelBuffer, {
-            contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
-            upsert: true,
-          });
-
-        if (!uploadErr) {
-          await supabase.from("deliverables").update({
-            data: { ...finalPlan, excel_filename: filename, excel_generated: true },
-          }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
-          console.log(`[plan-financier] Excel generated: ${filename} (${excelBuffer.byteLength} bytes)`);
-        } else {
-          console.warn(`[plan-financier] Excel upload error: ${uploadErr.message}`);
-        }
-      } else {
-        const errText = await excelResp.text();
-        console.warn(`[plan-financier] Python error ${excelResp.status}: ${errText.slice(0, 200)}`);
-      }
-    } catch (excelErr) {
-      console.warn(`[plan-financier] Excel generation failed (non-blocking):`, excelErr);
-    }
-
-    console.log(`[plan-financier] DONE ${requestId}`);
-
-    return jsonResponse({
-      success: true,
-      request_id: requestId,
-      plan: finalPlan,
-    });
-
   } catch (err) {
-    console.error("[plan-financier] ERROR:", err);
+    console.error("[plan-financier] VALIDATION ERROR:", err);
     return errorResponse(String(err), 500);
   }
+
+  const requestId = crypto.randomUUID();
+  console.log(`[plan-financier] START ${requestId} for enterprise ${enterpriseId} (async)`);
+
+  // Marquer "processing"
+  await supabase.from("deliverables").upsert({
+    enterprise_id: enterpriseId,
+    type: "plan_financier",
+    data: { status: "processing", request_id: requestId, phase: "calling_ai", started_at: new Date().toISOString() },
+  }, { onConflict: "enterprise_id,type" });
+
+  // Retour immédiat 202
+  const response = jsonResponse({ processing: true, request_id: requestId }, 202);
+
+  // ═══════════════════════════════════════════════════════════════
+  // Phase asynchrone : tout le travail en background
+  // ═══════════════════════════════════════════════════════════════
+
+  // @ts-ignore — Deno EdgeRuntime
+  (globalThis as any).EdgeRuntime?.waitUntil?.((async () => {
+    try {
+      // 1. Récupérer toutes les sources
+      const { data: enterprise } = await supabase
+        .from("enterprises")
+        .select("name, country, sector, employees_count, description, operating_mode, document_content, document_parsing_report")
+        .eq("id", enterpriseId)
+        .single();
+
+      const { data: deliverables } = await supabase
+        .from("deliverables")
+        .select("type, data")
+        .eq("enterprise_id", enterpriseId);
+
+      const getDeliv = (type: string) => deliverables?.find((d: any) => d.type === type)?.data || {};
+
+      const inputsData = getDeliv("inputs_data") as InputsData;
+      const bmcData = getDeliv("bmc_analysis");
+      const sicData = getDeliv("sic_analysis");
+      const diagnosticData = getDeliv("diagnostic_data");
+      const preScreenData = getDeliv("pre_screening");
+
+      const coachingContext = await getCoachingContext(supabase, enterpriseId);
+
+      const currentYear = new Date().getFullYear();
+      const country = enterprise.country || '';
+      const sector = enterprise.sector || "agro_industrie";
+      const fiscal = getFiscalParams(country);
+      const inputsCurrency = (inputsData as any)?.devise;
+      if (inputsCurrency && inputsCurrency !== fiscal.devise) {
+        console.log(`[plan-financier] Inputs use ${inputsCurrency}, country default is ${fiscal.devise} — using ${inputsCurrency}`);
+        fiscal.devise = inputsCurrency;
+        fiscal.currency_iso = inputsCurrency;
+      }
+      const fp = getFiscalParamsForPrompt(country);
+      if (inputsCurrency) { fp.devise = inputsCurrency; fp.currency_iso = inputsCurrency; }
+      const guardrails = getSectorGuardrails(sector);
+
+      // 2. Appel IA — analyse qualitative + hypothèses
+      console.log(`[plan-financier] Calling AI for analysis...`);
+
+      const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework');
+      const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
+
+      const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
+      const userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, preScreenData, diagnosticData, coachingContext, currentYear, fp)
+        + knowledgeContext + ragContext;
+
+      const aiAnalysis = await callAIWithCalculator(systemPrompt, userPrompt, 16384, "claude-sonnet-4-20250514", 0.2);
+
+      // 3. Calculs déterministes
+      console.log(`[plan-financier] Computing financial plan...`);
+
+      await supabase.from("deliverables").update({
+        data: { status: "processing", request_id: requestId, phase: "computing", last_update_at: new Date().toISOString() },
+      }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
+
+      const computed = computeFullPlan(
+        inputsData,
+        aiAnalysis,
+        enterprise.name,
+        country,
+        currentYear,
+        { tva: fiscal.tva, is: fiscal.is, devise: fiscal.devise, currency_iso: fiscal.currency_iso, exchange_rate_eur: fiscal.exchange_rate_eur },
+        enterprise.employees_count || 0,
+      );
+
+      // 4. Merge analyse IA + calculs → objet final
+      const finalPlan = {
+        ...computed,
+        analyse: {
+          avis: aiAnalysis.synthese?.avis || "",
+          tags: aiAnalysis.synthese?.tags || [],
+          score_investissabilite: aiAnalysis.synthese?.score_investissabilite || 0,
+          verdict: aiAnalysis.synthese?.verdict || "Non évalué",
+          risques: aiAnalysis.risques || [],
+          conditions_investissement: aiAnalysis.conditions_investissement || [],
+          coherence_bmc: aiAnalysis.coherence_bmc || [],
+          sensibilite: aiAnalysis.sensibilite || [],
+          rentabilite_par_activite: computed.rentabilite_par_activite || [],
+          ratios_vs_benchmarks: (() => {
+            const mb = computed.sante_financiere?.rentabilite?.marge_brute_pct || 0;
+            const ebitda = computed.sante_financiere?.rentabilite?.marge_ebitda_pct || 0;
+            const persoCA = computed.kpis?.ca > 0 ? Math.round(((inputsData.compte_resultat?.charges_personnel || inputsData.compte_resultat?.salaires || 0) / computed.kpis.ca) * 1000) / 10 : 0;
+            const src = guardrails.source || "I&P IPAE + Adenia Partners";
+            return [
+              { label: "Marge brute", valeur: `${mb}%`, benchmark: `${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%`, statut: mb >= guardrails.marge_brute_min ? "ok" : "sous", source: src },
+              { label: "Marge EBITDA", valeur: `${ebitda}%`, benchmark: `${guardrails.marge_ebitda_min}-${guardrails.marge_ebitda_max}%`, statut: ebitda >= guardrails.marge_ebitda_min ? "ok" : "sous", source: src },
+              { label: "Personnel/CA", valeur: `${persoCA}%`, benchmark: `${guardrails.ratio_personnel_ca_min}-${guardrails.ratio_personnel_ca_max}%`, statut: persoCA <= guardrails.ratio_personnel_ca_max ? "ok" : "attention", source: src },
+              { label: "Croissance max", valeur: `${guardrails.croissance_max_annuelle || 30}%/an`, benchmark: "Seuil prudentiel", statut: "reference", source: src },
+            ].filter((r: any) => r.valeur !== "undefined%" && r.valeur !== "0%");
+          })(),
+        },
+        hypotheses_ia: aiAnalysis.hypotheses || {},
+        _meta: {
+          generated_at: new Date().toISOString(),
+          request_id: requestId,
+          model: "claude-sonnet-4-6",
+          version: "2.1-async",
+          sources: ["inputs_data", "bmc_data", "sic_data", "diagnostic_data", "coaching_notes"],
+        },
+      };
+
+      // 5. Sauvegarde
+      console.log(`[plan-financier] Saving to database...`);
+      await saveDeliverable(supabase, enterpriseId, "plan_financier", finalPlan, "PLAN_FIN", undefined, "generation");
+
+      // 6. Excel via Railway (non-bloquant)
+      try {
+        const railwayUrl = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
+        const parserApiKey = Deno.env.get("PARSER_API_KEY") || "esono-parser-2026-prod";
+
+        const { data: templateBlob, error: tplErr } = await supabase.storage
+          .from("ovo-templates")
+          .download("251022-PlanFinancierOVO-Template5Ans-v0210-EMPTY.xlsm");
+
+        if (tplErr || !templateBlob) throw new Error(`Template not found: ${tplErr?.message}`);
+
+        const templateBuffer = await templateBlob.arrayBuffer();
+        const templateBytes = new Uint8Array(templateBuffer);
+        // Encode base64 in chunks to avoid O(n²) string concatenation
+        const CHUNK = 8192;
+        const chunks: string[] = [];
+        for (let i = 0; i < templateBytes.length; i += CHUNK) {
+          const slice = templateBytes.subarray(i, Math.min(i + CHUNK, templateBytes.length));
+          chunks.push(String.fromCharCode(...slice));
+        }
+        const templateBase64 = btoa(chunks.join(""));
+
+        const ovoData = adaptPlanFinancierToOvoFormat(finalPlan);
+        console.log(`[plan-financier] Sending to Python: ${Object.keys(ovoData).length} keys, ${(ovoData.products||[]).length} products`);
+
+        const excelResp = await fetch(`${railwayUrl}/generate-ovo-excel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parserApiKey}` },
+          body: JSON.stringify({ data: ovoData, template_base64: templateBase64 }),
+          signal: AbortSignal.timeout(120_000),
+        });
+
+        if (excelResp.ok) {
+          const excelBuffer = await excelResp.arrayBuffer();
+          const filename = `PlanFinancier_${enterprise.name.replace(/\s+/g, "_")}_OVO_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.xlsm`;
+
+          const { error: uploadErr } = await supabase.storage
+            .from("deliverables")
+            .upload(`${enterpriseId}/${filename}`, excelBuffer, {
+              contentType: "application/vnd.ms-excel.sheet.macroEnabled.12",
+              upsert: true,
+            });
+
+          if (!uploadErr) {
+            await supabase.from("deliverables").update({
+              data: { ...finalPlan, excel_filename: filename, excel_generated: true },
+            }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
+            console.log(`[plan-financier] Excel generated: ${filename} (${excelBuffer.byteLength} bytes)`);
+          } else {
+            console.warn(`[plan-financier] Excel upload error: ${uploadErr.message}`);
+          }
+        } else {
+          const errText = await excelResp.text();
+          console.warn(`[plan-financier] Python error ${excelResp.status}: ${errText.slice(0, 200)}`);
+        }
+      } catch (excelErr) {
+        console.warn(`[plan-financier] Excel generation failed (non-blocking):`, excelErr);
+      }
+
+      console.log(`[plan-financier] DONE ${requestId}`);
+
+    } catch (err) {
+      // ═══ CLEANUP : marquer en erreur pour débloquer l'utilisateur ═══
+      console.error("[plan-financier] ASYNC ERROR:", err);
+      try {
+        await supabase.from("deliverables").update({
+          data: { status: "error", error: String(err), request_id: requestId, failed_at: new Date().toISOString() },
+        }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
+      } catch (cleanupErr) {
+        console.error("[plan-financier] CLEANUP ERROR:", cleanupErr);
+      }
+    }
+  })());
+
+  return response;
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -293,7 +281,7 @@ CONTEXTE FISCAL ${country.toUpperCase()} :
 - TVA : ${fp.tva}%
 - IS : ${fp.is_standard}%
 - Cotisations sociales patronales : ${fp.charges_sociales}%
-- Inflation : 3%/an
+- Inflation : ${fp.inflation_pct || 6}%/an (estimation pays)
 
 BENCHMARKS SECTORIELS (${sector}) :
 - Marge brute : ${guardrails.marge_brute_min}-${guardrails.marge_brute_max}%
@@ -409,7 +397,7 @@ function buildUserPrompt(
       }
 
       const partCa = CA > 0 ? Math.round((caVal / CA) * 1000) / 10 : 0;
-      blocks += `  → ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} ${devise}, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
+      blocks += `  → ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} ${fp.devise || fp.currency_iso || 'FCFA'}, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
     }
     blocks += `  ⚠️ CHAQUE produit ci-dessus DOIT apparaître dans "produits[]" avec les prix/volumes indiqués.\n`;
     blocks += `  ⚠️ JAMAIS de prix_unitaire = 0. Les valeurs ci-dessus sont PRÉ-CALCULÉES.\n`;
@@ -568,7 +556,7 @@ PRODUIS LE JSON SUIVANT (toutes les clés sont obligatoires) :
   - Si l'entreprise a un historique (CA N-2 → N-1 → N), CALCULER le taux de croissance historique et l'utiliser comme base
   - Si le CA a BAISSÉ dans l'historique, les taux doivent refléter un scénario de redressement progressif (pas 20%/an immédiatement)
   - Si le secteur a une croissance max de X%/an (voir benchmarks), ne pas dépasser
-  - L'inflation doit être celle du PAYS réel (pas 3% par défaut)
+  - L'inflation doit être celle du PAYS réel (utiliser ${fp.inflation_pct || 6}% comme base)
   - Les taux COGS doivent refléter la marge brute ACTUELLE de l'entreprise, pas une valeur générique
   "produits": [
     {

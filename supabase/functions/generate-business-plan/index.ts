@@ -124,7 +124,7 @@ function buildContextBlock(ctx: any): string {
   const dm = ctx.deliverableMap;
   const bmc = dm["bmc_analysis"] || {};
   const inp = dm["inputs_data"] || {};
-  const fw = dm["framework_data"] || {};
+  const fw = dm["plan_financier"] || dm["framework_data"] || {};
   const sic = dm["sic_analysis"] || {};
   const diag = dm["diagnostic_data"] || {};
   const plan = dm["plan_financier"] || dm["plan_ovo"] || {};

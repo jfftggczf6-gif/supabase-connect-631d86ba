@@ -24,6 +24,7 @@ export async function callAIWithCalculator(
   ];
 
   let toolCallCount = 0;
+  let retried = false;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -45,6 +46,14 @@ export async function callAIWithCalculator(
 
     if (!response.ok) {
       const errText = await response.text();
+      // Retry once on transient errors (rate limit / overload)
+      if ((response.status === 429 || response.status === 529) && !retried) {
+        console.warn(`[ai-tools] ${response.status} — retrying in 3s...`);
+        retried = true;
+        await new Promise(r => setTimeout(r, 3000));
+        round--; // retry this round
+        continue;
+      }
       console.error(`[ai-tools] API error ${response.status}:`, errText.slice(0, 300));
       throw new Error(`API error ${response.status}: ${errText.slice(0, 200)}`);
     }
@@ -65,23 +74,46 @@ export async function callAIWithCalculator(
 
     // If the AI is done (no more tool calls)
     if (stopReason === "end_turn" || stopReason === "max_tokens") {
-      // Extract the final text (should be JSON)
       const textBlocks = content.filter((b: any) => b.type === "text");
       const finalText = textBlocks.map((b: any) => b.text).join("");
 
-      console.log(`[ai-tools] Done after ${round + 1} rounds, ${toolCallCount} tool calls`);
+      if (stopReason === "max_tokens") {
+        console.warn(`[ai-tools] Response TRUNCATED (max_tokens) after ${round + 1} rounds`);
+      } else {
+        console.log(`[ai-tools] Done after ${round + 1} rounds, ${toolCallCount} tool calls`);
+      }
 
-      // Parse JSON
       const cleaned = finalText
         .replace(/```json\s*/g, "")
         .replace(/```\s*/g, "")
         .trim();
 
+      // Try direct parse first
       try {
         return JSON.parse(cleaned);
       } catch (err) {
+        // If truncated, try to repair by closing open braces/brackets
+        if (stopReason === "max_tokens") {
+          console.warn("[ai-tools] Attempting JSON repair for truncated response...");
+          let repaired = cleaned;
+          // Remove trailing incomplete key/value (after last comma or colon)
+          repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, "");
+          // Close open brackets and braces
+          const openBraces = (repaired.match(/\{/g) || []).length - (repaired.match(/\}/g) || []).length;
+          const openBrackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
+          for (let i = 0; i < openBrackets; i++) repaired += ']';
+          for (let i = 0; i < openBraces; i++) repaired += '}';
+          try {
+            const result = JSON.parse(repaired);
+            console.warn("[ai-tools] JSON repair successful (truncated data may be incomplete)");
+            result._truncated = true;
+            return result;
+          } catch {
+            console.error("[ai-tools] JSON repair failed");
+          }
+        }
         console.error("[ai-tools] JSON parse error:", err, "Text:", cleaned.slice(0, 500));
-        throw new Error(`JSON parse error: ${err}`);
+        throw new Error(`JSON parse error (${stopReason}): ${err}`);
       }
     }
 
