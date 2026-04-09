@@ -1405,7 +1405,7 @@ export function normalizeReconstruction(raw: any): any {
   const passifR = {
     capitaux_propres: toNumber(pick(bp, 'capitaux_propres', 'equity', 'fonds_propres'), 0),
     dettes_lt: toNumber(pick(bp, 'dettes_financieres', 'dettes_lt', 'long_term_debt'), 0),
-    dettes_ct: 0,
+    dettes_ct: toNumber(pick(bp, 'dettes_ct', 'dettes_court_terme', 'short_term_debt'), 0),
     fournisseurs: toNumber(pick(bp, 'dettes_fournisseurs', 'fournisseurs', 'payables'), 0),
     total_passif: 0,
   };

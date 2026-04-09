@@ -332,7 +332,7 @@ function executeProjectSeries(input: {
   // Projections
   for (let i = 1; i <= n; i++) {
     series.push({
-      annee: `Y+${i}`,
+      annee: `YEAR${i + 1}`,
       valeur: Math.round((v0 * Math.pow(1 + g, i)) / arrondi) * arrondi,
     });
   }

@@ -878,16 +878,11 @@ export function computeProjections(
       const capexYear = (inputs.investissements || [])
         .filter(inv => safe(inv.annee_achat) === yearNums[i] || (projIdx === 0 && !inv.annee_achat))
         .reduce((s, inv) => s + safe(inv.montant), 0);
-      // Remboursement principal des prêts
-      let remboursementPrincipal = 0;
-      for (const p of (inputs.financement?.prets || [])) {
-        const montant = safe(p.montant);
-        const duree_ans = safe(p.duree_mois) / 12 || 3;
-        if (projIdx < duree_ans) {
-          remboursementPrincipal += montant / duree_ans;
-        }
-      }
-      cf = roundK(cf - deltaBfr - capexYear - remboursementPrincipal);
+      // Note : le remboursement du principal n'est PAS soustrait du cashflow pour la VAN/TRI
+      // car le cf est basé sur RN (post-intérêts) et actualisé au WACC.
+      // Soustraire le principal double-pénaliserait la dette (intérêts déjà dans RN + principal).
+      // Le cashflow pour VAN = RN + amort - deltaBFR - CAPEX (proxy FCFE avant remboursement).
+      cf = roundK(cf - deltaBfr - capexYear);
     }
 
     projections.push({
@@ -972,8 +967,9 @@ export function computeIndicateurs(
   const dettePourDscr = dette_totale ?? investissement_total;
   const dscr_values = projections.filter(p => !p.is_reel).map((p, idx) => {
     const duree = 5; // durée moyenne estimée
-    const remaining = Math.max(0, duree - idx);
-    const capitalRembourse = remaining > 0 ? dettePourDscr / duree : 0;
+    const remainingYears = Math.max(0, duree - idx);
+    // Après la fin du prêt, plus de capital à rembourser
+    const capitalRembourse = remainingYears > 0 ? dettePourDscr / duree : 0;
     const service = p.charges_financieres + capitalRembourse;
     return service > 0 ? p.ebitda / service : 0;
   });
@@ -1330,9 +1326,9 @@ export function computeFullPlan(
   const wacc_zone = WACC_PAR_ZONE[fiscalParams.currency_iso] || 0.18;
 
   // Calcul WACC = Ke × part_equity + Kd × part_dette × (1 - IS)
-  const bx = extractBilan(inputs);
+  const bx = extractBilan(inputs.bilan || inputs);
   const cp = bx.capitaux_propres;
-  const totalDettes = bx.dettes + bx.dettes_fournisseurs;
+  const totalDettes = bx.dettes; // uniquement dette financière, pas les fournisseurs (non-interest-bearing)
   const totalV = cp + totalDettes;
 
   let taux_actualisation: number;
@@ -1586,7 +1582,7 @@ export function computeFullPlan(
     exchange_rate_eur: fiscalParams.exchange_rate_eur,
     vat_rate: fiscalParams.tva / 100,
     inflation_rate: hyp.inflation,
-    tax_regime_1: Math.min(0.005, fiscalParams.is / 100 * 0.15), // minimum fiscal ≈ 0.5% du CA (variable par pays)
+    tax_regime_1: fiscalParams.is / 100 * 0.15 || 0.04, // IS réduit régime 1 (≈15% du taux IS standard, fallback 4%)
     tax_regime_2: fiscalParams.is / 100,
     current_year: baseYearEarly,
     years,

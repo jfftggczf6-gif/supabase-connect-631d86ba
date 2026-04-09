@@ -64,8 +64,13 @@ serve(async (req: Request) => {
   // Phase asynchrone : tout le travail en background
   // ═══════════════════════════════════════════════════════════════
 
-  // @ts-ignore — Deno EdgeRuntime
-  (globalThis as any).EdgeRuntime?.waitUntil?.((async () => {
+  // @ts-ignore — Deno EdgeRuntime (pas d'optional chaining : si EdgeRuntime absent, on veut l'erreur)
+  const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil?.bind((globalThis as any).EdgeRuntime);
+  if (!waitUntil) {
+    console.error("[plan-financier] EdgeRuntime.waitUntil not available — cannot run async");
+    return errorResponse("EdgeRuntime not available", 500);
+  }
+  waitUntil((async () => {
     try {
       // 1. Récupérer toutes les sources
       const { data: enterprise } = await supabase
