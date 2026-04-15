@@ -86,7 +86,6 @@ export default function CoachDashboard() {
   
 
   const [search, setSearch] = useState('');
-  const [filterPhase, setFilterPhase] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Madagascar", "Rwanda", "Kenya", "Nigeria", "Ghana", "Maroc", "Tunisie", "Éthiopie", "Tanzanie", "Afrique du Sud"];
   const [addForm, setAddForm] = useState({ name: '', contact_email: '', country: '', sector: '', city: '', description: '' });
@@ -363,8 +362,7 @@ export default function CoachDashboard() {
     const matchSearch = !search || e.name.toLowerCase().includes(search.toLowerCase()) ||
       (e.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
       (e.contact_email || '').toLowerCase().includes(search.toLowerCase());
-    const matchPhase = !filterPhase || e.phase === filterPhase;
-    return matchSearch && matchPhase;
+    return matchSearch;
   });
 
   // ─── RENDER: Detail View ──────────────────────────────────────────────────
@@ -556,16 +554,6 @@ export default function CoachDashboard() {
             className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
-        <select
-          value={filterPhase}
-          onChange={e => setFilterPhase(e.target.value)}
-          className="border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none"
-        >
-          <option value="">{t('dashboard_coach.all_phases')}</option>
-          <option value="identite">{t('dashboard_coach.phase_identite')}</option>
-          <option value="finance">{t('dashboard_coach.phase_finance')}</option>
-          <option value="dossier">{t('dashboard_coach.phase_dossier')}</option>
-        </select>
       </div>
 
       {/* Tableau des entrepreneurs */}
@@ -577,9 +565,9 @@ export default function CoachDashboard() {
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
             <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p className="font-medium">{search || filterPhase ? t('dashboard_coach.no_results') : t('dashboard_coach.no_entrepreneurs')}</p>
+            <p className="font-medium">{search ? t('dashboard_coach.no_results') : t('dashboard_coach.no_entrepreneurs')}</p>
             <p className="text-sm mt-1">
-              {search || filterPhase ? t('dashboard_coach.try_other_criteria') : t('dashboard_coach.click_add_entrepreneur')}
+              {search ? t('dashboard_coach.try_other_criteria') : t('dashboard_coach.click_add_entrepreneur')}
             </p>
           </CardContent>
         </Card>
