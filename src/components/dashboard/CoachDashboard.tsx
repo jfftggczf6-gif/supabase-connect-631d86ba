@@ -25,6 +25,7 @@ import {
 } from '@/lib/dashboard-config';
 
 import { getPipelineState, type PipelineState } from '@/lib/pipeline-runner';
+import { SECTORS } from '@/lib/sectors';
 import ScreeningDashboard from './ScreeningDashboard';
 import ProgrammeCriteriaEditor from './ProgrammeCriteriaEditor';
 import CoachingTab from './CoachingTab';
@@ -668,7 +669,10 @@ export default function CoachDashboard() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.sector')}</label>
-                <input type="text" placeholder="Agro-industrie, Fintech..." value={addForm.sector} onChange={e => setAddForm(f => ({ ...f, sector: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <select value={addForm.sector} onChange={e => setAddForm(f => ({ ...f, sector: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value="">— Sélectionner un secteur —</option>
+                  {SECTORS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
