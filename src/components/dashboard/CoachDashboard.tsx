@@ -43,7 +43,7 @@ function getScoreBg(score: number) {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type View = 'list' | 'detail' | 'screening';
-type DetailTab = 'mirror' | 'coaching';
+type DetailTab = 'mirror' | 'coaching' | 'knowledge';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -354,7 +354,8 @@ export default function CoachDashboard() {
 
     const tabsConfig = [
       { key: 'mirror' as DetailTab, label: `👁 ${t('dashboard_coach.tab_mirror')}`, desc: t('dashboard_coach.tab_mirror_desc') },
-      { key: 'coaching' as DetailTab, label: `📝 ${t('dashboard_coach.tab_coaching')}`, desc: t('dashboard_coach.tab_coaching_desc') },
+      { key: 'coaching' as DetailTab, label: `📝 Reporting coaching`, desc: 'Rapports de suivi et finaux' },
+      { key: 'knowledge' as DetailTab, label: `📚 Base de connaissances`, desc: 'Benchmarks et références' },
     ];
 
     // ═══ FULLSCREEN MODE ═══
@@ -408,6 +409,11 @@ export default function CoachDashboard() {
             {detailTab === 'coaching' && (
               <div className="p-6">
                 <CoachingTab enterpriseId={ent.id} enterpriseName={ent.name} />
+              </div>
+            )}
+            {detailTab === 'knowledge' && (
+              <div className="p-6">
+                <KnowledgeBaseManager />
               </div>
             )}
           </div>
@@ -473,9 +479,14 @@ export default function CoachDashboard() {
           />
         )}
 
-        {/* ═══ TAB: COACHING ═══ */}
+        {/* ═══ TAB: REPORTING COACHING ═══ */}
         {detailTab === 'coaching' && selectedEnt && (
           <CoachingTab enterpriseId={selectedEnt.id} enterpriseName={selectedEnt.name} />
+        )}
+
+        {/* ═══ TAB: BASE DE CONNAISSANCES ═══ */}
+        {detailTab === 'knowledge' && (
+          <KnowledgeBaseManager />
         )}
       </DashboardLayout>
     );
