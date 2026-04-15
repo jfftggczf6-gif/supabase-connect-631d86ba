@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2 } from 'lucide-react';
+import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { parseFile } from '@/lib/document-parser';
 
 interface KBEntry {
   id: string;
@@ -52,6 +53,9 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [previewEntry, setPreviewEntry] = useState<KBEntry | null>(null);
+  const [contentMode, setContentMode] = useState<'upload' | 'link' | 'text'>('upload');
+  const [parsing, setParsing] = useState(false);
+  const [parsedFileName, setParsedFileName] = useState('');
   const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'benchmarks', country: '', sector: '', source: '', tags: '' });
 
   const fetchEntries = async () => {
@@ -219,7 +223,83 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                   </SelectContent>
                 </Select>
                 <Input placeholder="Titre *" value={newEntry.title} onChange={e => setNewEntry(p => ({ ...p, title: e.target.value }))} />
-                <Textarea placeholder="Contenu" rows={6} value={newEntry.content} onChange={e => setNewEntry(p => ({ ...p, content: e.target.value }))} />
+
+                {/* Mode de contenu : Upload / Lien / Texte */}
+                <div className="flex gap-1 border border-border rounded-lg p-0.5">
+                  <button type="button" onClick={() => setContentMode('upload')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'upload' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    <Upload className="h-3.5 w-3.5" /> Fichier
+                  </button>
+                  <button type="button" onClick={() => setContentMode('link')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'link' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    <Link className="h-3.5 w-3.5" /> Lien web
+                  </button>
+                  <button type="button" onClick={() => setContentMode('text')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'text' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    <FileText className="h-3.5 w-3.5" /> Texte
+                  </button>
+                </div>
+
+                {contentMode === 'upload' && (
+                  <div>
+                    <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${parsing ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'}`}>
+                      {parsing ? (
+                        <div className="flex items-center gap-2 text-sm text-primary">
+                          <Loader2 className="h-5 w-5 animate-spin" /> Extraction du contenu...
+                        </div>
+                      ) : parsedFileName && newEntry.content ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600">
+                          <FileText className="h-5 w-5" /> {parsedFileName} — {newEntry.content.length.toLocaleString()} caractères extraits
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                          <Upload className="h-6 w-6" />
+                          <span className="text-sm">Glisser un fichier ou cliquer pour sélectionner</span>
+                          <span className="text-xs">PDF, Word, Excel, PowerPoint, images</span>
+                        </div>
+                      )}
+                      <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setParsing(true);
+                        setParsedFileName(file.name);
+                        try {
+                          const parsed = await parseFile(file);
+                          if (parsed.quality === 'failed' || !parsed.content || parsed.content.length < 10) {
+                            toast({ title: 'Erreur', description: `Impossible d'extraire le contenu de ${file.name}`, variant: 'destructive' });
+                          } else {
+                            setNewEntry(p => ({ ...p, content: parsed.content, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
+                            toast({ title: 'Contenu extrait', description: `${parsed.charsExtracted?.toLocaleString() || parsed.content.length.toLocaleString()} caractères extraits de ${file.name}` });
+                          }
+                        } catch (err: any) {
+                          toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
+                        }
+                        setParsing(false);
+                      }} />
+                    </label>
+                  </div>
+                )}
+
+                {contentMode === 'link' && (
+                  <div className="space-y-2">
+                    <Input placeholder="https://example.com/rapport.pdf" onChange={async (e) => {
+                      const url = e.target.value;
+                      if (!url || !url.startsWith('http')) return;
+                      // On pourrait fetch + parse le contenu du lien ici
+                      // Pour l'instant, on stocke juste le lien comme source
+                      setNewEntry(p => ({ ...p, source: p.source || url }));
+                    }} />
+                    <p className="text-xs text-muted-foreground">Collez un lien vers un PDF ou une page web. Le lien sera enregistré comme source.</p>
+                  </div>
+                )}
+
+                {contentMode === 'text' && (
+                  <Textarea placeholder="Collez le contenu du document ici..." rows={6} value={newEntry.content} onChange={e => setNewEntry(p => ({ ...p, content: e.target.value }))} />
+                )}
+
+                {/* Afficher un aperçu du contenu extrait si mode upload */}
+                {contentMode === 'upload' && newEntry.content && (
+                  <div className="max-h-32 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">
+                    {newEntry.content.slice(0, 500)}{newEntry.content.length > 500 && '...'}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <select value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
                     <option value="">— Zone *</option>
