@@ -38,23 +38,6 @@ function getScoreBg(score: number) {
   return 'bg-red-100 text-red-700 border-red-200';
 }
 
-function getPhaseColor(phase: string) {
-  switch (phase) {
-    case 'identite': return '#7c3aed';
-    case 'finance':  return '#2563eb';
-    case 'dossier':  return '#059669';
-    default:         return '#7c3aed';
-  }
-}
-
-function getPhaseKey(phase: string) {
-  switch (phase) {
-    case 'identite': return 'dashboard_coach.phase_identite';
-    case 'finance':  return 'dashboard_coach.phase_finance';
-    case 'dossier':  return 'dashboard_coach.phase_dossier';
-    default:         return 'dashboard_coach.phase_identite';
-  }
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -578,7 +561,6 @@ export default function CoachDashboard() {
             <div className="col-span-2 hidden md:block">{t('dashboard_coach.table_contact')}</div>
             <div className="col-span-2 hidden lg:block">{t('dashboard_coach.table_sector')}</div>
             <div className="col-span-1">{t('dashboard_coach.table_score')}</div>
-            <div className="col-span-1 hidden sm:block">{t('dashboard_coach.table_phase')}</div>
             <div className="col-span-3 text-right">{t('dashboard_coach.table_actions')}</div>
           </div>
 
@@ -589,8 +571,6 @@ export default function CoachDashboard() {
             const total = mods.length || 8;
             const pct = Math.round((completed / total) * 100);
             const score = ent.score_ir || (delivs.length > 0 ? Math.round(delivs.reduce((s: number, d: any) => s + (d.score || 0), 0) / delivs.length) : 0);
-            const phaseColor = getPhaseColor(ent.phase || 'identite');
-            const phaseKey = getPhaseKey(ent.phase || 'identite');
 
             return (
               <div key={ent.id} className="grid grid-cols-12 gap-2 px-4 py-3.5 border-b border-border/50 hover:bg-muted/20 transition-colors items-center">
@@ -622,11 +602,6 @@ export default function CoachDashboard() {
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
-                </div>
-                <div className="col-span-1 hidden sm:block">
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: phaseColor, background: `${phaseColor}15` }}>
-                    {t(phaseKey)}
-                  </span>
                 </div>
                 <div className="col-span-3 flex items-center justify-end gap-1.5">
                   <Button
