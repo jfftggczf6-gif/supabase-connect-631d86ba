@@ -18,7 +18,7 @@ import {
 import {
   Users, Building2,
   Plus, Download, Loader2, ArrowLeft, Eye,
-  UserPlus, Search, Trash2, Maximize2, Minimize2, Database
+  UserPlus, Search, Trash2, Maximize2, Database
 } from 'lucide-react';
 import {
   type Enterprise, type Deliverable, type EnterpriseModule, type CoachUpload,
