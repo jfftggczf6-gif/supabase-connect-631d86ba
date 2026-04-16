@@ -18,12 +18,12 @@ function Section({ title, children, editBtn }: { title: string; children: React.
     <div className="border border-border rounded-lg mb-3 overflow-hidden group">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-3 bg-muted/50 hover:bg-muted transition-colors text-left"
+        className="w-full flex items-center justify-between px-5 py-3 bg-white hover:bg-muted/30 transition-colors text-left"
       >
         <span className="font-semibold text-primary text-sm flex items-center gap-2">{title} {editBtn}</span>
         {open ? <ChevronDown size={16} className="text-primary" /> : <ChevronRight size={16} className="text-primary" />}
       </button>
-      {open && <div className="px-5 py-4 text-sm text-foreground/80 space-y-2">{children}</div>}
+      {open && <div className="px-5 py-4 text-sm text-foreground/80 space-y-2 bg-white">{children}</div>}
     </div>
   );
 }
@@ -136,11 +136,40 @@ export default function BusinessPlanPreview({ data, enterpriseId, deliverableId,
         {bp.tagline && <p className="text-muted-foreground text-sm italic">{bp.tagline}</p>}
       </div>
 
-      {/* Navigation badges */}
-      <div className="flex flex-wrap gap-2 py-2 border-b border-border">
-        {["Présentation", "Opérations", "Projet"].map(part => (
-          <span key={part} className="px-3 py-1 bg-primary/10 text-primary text-xs rounded-full font-medium">{part}</span>
-        ))}
+      {/* Table des matières */}
+      <div className="rounded-lg border border-border bg-white p-4">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Table des matières</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+          <div>
+            <p className="font-semibold text-xs text-primary mb-1">I — Présentation</p>
+            <ul className="space-y-0.5 text-xs text-muted-foreground">
+              <li>1. Informations sur l'entreprise</li>
+              <li>2. Résumé de la gestion</li>
+              <li>3. Revue historique</li>
+              <li>4. Vision, mission et valeurs</li>
+              <li>5. L'entreprise</li>
+              <li>6. SWOT & Risques</li>
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-xs text-primary mb-1">II — Opérations</p>
+            <ul className="space-y-0.5 text-xs text-muted-foreground">
+              <li>7. Modèle de l'entreprise</li>
+              <li>8. Marché & concurrence</li>
+              <li>9. Stratégie marketing</li>
+              <li>10. Équipe et organisation</li>
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-xs text-primary mb-1">III — Projet</p>
+            <ul className="space-y-0.5 text-xs text-muted-foreground">
+              <li>11. Description du projet</li>
+              <li>12. Impact</li>
+              <li>13. Financier</li>
+              <li>14. Attentes</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {/* PARTIE I */}
