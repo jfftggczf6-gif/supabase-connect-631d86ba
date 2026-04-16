@@ -1599,7 +1599,7 @@ export default function EntrepreneurDashboard({
                 <p className="text-sm text-muted-foreground mb-4">
                   Notes de réunion, compte-rendus et informations contextuelles pour personnaliser le diagnostic et les livrables.
                 </p>
-                <CoachingTab enterpriseId={enterprise.id} enterpriseName={enterprise.name || ''} />
+                <CoachingTab enterpriseId={enterprise.id} enterpriseName={enterprise.name || ''} viewMode="notes_only" />
               </div>
             ) : selectedModule === 'sources' ? (
               <div className="p-6">

@@ -74,7 +74,6 @@ export default function CoachDashboard() {
   const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Madagascar", "Rwanda", "Kenya", "Nigeria", "Ghana", "Maroc", "Tunisie", "Éthiopie", "Tanzanie", "Afrique du Sud"];
   const [addForm, setAddForm] = useState({ name: '', contact_email: '', country: '', sector: '' });
   const [addLoading, setAddLoading] = useState(false);
-  const [showKBManager, setShowKBManager] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
   const [reportPreview, setReportPreview] = useState<{ html: string; enterpriseName: string } | null>(null);
   const [fullscreen, setFullscreen] = useState(!!entIdFromUrl);
@@ -405,7 +404,7 @@ export default function CoachDashboard() {
             )}
             {detailTab === 'coaching' && (
               <div className="p-6">
-                <CoachingTab enterpriseId={ent.id} enterpriseName={ent.name} />
+                <CoachingTab enterpriseId={ent.id} enterpriseName={ent.name} viewMode="reports_only" />
               </div>
             )}
             {detailTab === 'knowledge' && (
@@ -478,7 +477,7 @@ export default function CoachDashboard() {
 
         {/* ═══ TAB: REPORTING COACHING ═══ */}
         {detailTab === 'coaching' && selectedEnt && (
-          <CoachingTab enterpriseId={selectedEnt.id} enterpriseName={selectedEnt.name} />
+          <CoachingTab enterpriseId={selectedEnt.id} enterpriseName={selectedEnt.name} viewMode="reports_only" />
         )}
 
         {/* ═══ TAB: BASE DE CONNAISSANCES ═══ */}
@@ -526,9 +525,6 @@ export default function CoachDashboard() {
         </Button>
         <Button variant="outline" asChild className="gap-2">
           <a href="/templates"><Download className="h-4 w-4" /> {t('dashboard_coach.blank_templates')}</a>
-        </Button>
-        <Button variant="outline" className="gap-2" onClick={() => setShowKBManager(true)}>
-          <Database className="h-4 w-4" /> {t('dashboard_coach.knowledge_base')}
         </Button>
       </div>
 
@@ -776,15 +772,6 @@ export default function CoachDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Knowledge Base Manager Dialog */}
-      <Dialog open={showKBManager} onOpenChange={setShowKBManager}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('dashboard_coach.knowledge_base')}</DialogTitle>
-          </DialogHeader>
-          <KnowledgeBaseManager />
-        </DialogContent>
-      </Dialog>
 
     </DashboardLayout>
   );
