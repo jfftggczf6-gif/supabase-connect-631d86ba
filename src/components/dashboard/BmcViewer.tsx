@@ -54,32 +54,6 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
 
   return (
     <div className="max-w-[900px] mx-auto" style={{ fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif" }}>
-      {/* ===== HERO HEADER ===== */}
-      <div className="relative rounded-2xl overflow-hidden mb-8" style={{ background: 'linear-gradient(135deg, #1a2744 0%, #2d4a7c 50%, #1a2744 100%)' }}>
-        <div className="px-10 py-10 text-white">
-          <h1 className="text-3xl font-black tracking-tight">BUSINESS MODEL CANVAS</h1>
-          <p className="text-lg font-semibold mt-1 opacity-90">{data.entreprise || data.enterprise_name || ''}</p>
-          {data.resume && (
-            <p className="text-sm opacity-70 italic mt-3 max-w-[600px]">"{data.resume}"</p>
-          )}
-          <div className="flex flex-wrap gap-2 mt-4">
-            {(data.tags || []).map((tag: string, i: number) => (
-              <span key={i} className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.15)' }}>{tag}</span>
-            ))}
-          </div>
-          {data.maturite && (
-            <p className="text-xs opacity-60 mt-3">Maturité du business model</p>
-          )}
-        </div>
-        {/* Score circle */}
-        <div className="absolute right-10 top-1/2 -translate-y-1/2 text-center text-white">
-          <div className="w-24 h-24 rounded-full border-4 flex flex-col items-center justify-center" style={{ borderColor: 'rgba(255,255,255,0.3)' }}>
-            <span className="text-4xl font-black leading-none">{data.score_global ?? data.score ?? '—'}</span>
-            <span className="text-[10px] opacity-50">%</span>
-          </div>
-          <p className="text-[10px] opacity-50 mt-2">Score BMC Global</p>
-        </div>
-      </div>
 
       {/* ===== CANVAS — VUE D'ENSEMBLE ===== */}
       <SectionTitle>CANVAS — VUE D'ENSEMBLE</SectionTitle>
@@ -206,28 +180,6 @@ export default function BmcViewer({ data, enterpriseId, onUpdated }: BmcViewerPr
         </div>
       </div>
 
-      {/* ===== MATRICE SWOT ===== */}
-      <div className="group flex items-center gap-2"><SectionTitle>MATRICE SWOT SYNTHÉTIQUE</SectionTitle>{editBtn('swot', 'SWOT')}</div>
-      <div className="grid grid-cols-2 gap-3 mb-8">
-        <SwotBox title="FORCES" items={swot.forces} bg="#f0fdf4" border="#bbf7d0" />
-        <SwotBox title="FAIBLESSES" items={swot.faiblesses} bg="#fef2f2" border="#fecaca" />
-        <SwotBox title="OPPORTUNITÉS" items={swot.opportunites} bg="#eff6ff" border="#bfdbfe" />
-        <SwotBox title="MENACES" items={swot.menaces} bg="#fefce8" border="#fef08a" />
-      </div>
-
-      {/* ===== RECOMMANDATIONS STRATÉGIQUES ===== */}
-      <div className="group flex items-center gap-2"><SectionTitle>{t('viewers.recommendations').toUpperCase()}</SectionTitle>{editBtn('recommandations', 'Recommandations')}</div>
-      <div className="space-y-4 mb-8">
-        {reco.court_terme && (
-          <RecoBlock emoji="📌" title="Court terme — Consolider les fondations" text={reco.court_terme} color="#22c55e" />
-        )}
-        {reco.moyen_terme && (
-          <RecoBlock emoji="📈" title="Moyen terme — Croissance maîtrisée" text={reco.moyen_terme} color="#3b82f6" />
-        )}
-        {reco.long_terme && (
-          <RecoBlock emoji="🚀" title="Long terme — Industrialisation et marque" text={reco.long_terme} color="#8b5cf6" />
-        )}
-      </div>
 
       {/* Footer */}
       <div className="text-center py-6 border-t border-border">
