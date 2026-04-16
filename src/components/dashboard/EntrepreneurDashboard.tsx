@@ -31,6 +31,7 @@ import OnePagerViewer from './OnePagerViewer';
 import InvestmentMemoViewer from './InvestmentMemoViewer';
 import DataRoomManager from './DataRoomManager';
 import SourcesViewer from './SourcesViewer';
+import CoachingTab from './CoachingTab';
 import ValidationBanner from './ValidationBanner';
 import InputsDiffBanner from './InputsDiffBanner';
 import VersionHistory from './VersionHistory';
@@ -1501,22 +1502,104 @@ export default function EntrepreneurDashboard({
                 globalScore={globalScore}
                 onSelectModule={setSelectedModule}
               />
-            ) : (selectedModule === 'upload' || selectedModule === 'reconstruction') && !readOnly ? (
-              /* Upload / Sources panel — hidden in readOnly */
+            ) : selectedModule === 'upload' && !readOnly ? (
+              /* Upload panel */
               <div className="p-6 max-w-2xl mx-auto space-y-4">
                 <h2 className="font-display font-bold text-lg mb-2">{t('dashboard_coach.documents')}</h2>
                 <p className="text-xs text-muted-foreground mb-4">{t('dashboard_coach.upload_cumulative_hint')}</p>
-
-                {/* Reconstruction uploader — seule zone de drop */}
                 <div>
                   <ReconstructionUploader
                     enterpriseId={enterprise.id}
                     session={authSession}
                     navigate={navigate}
                     onComplete={fetchData}
-                    
                   />
                 </div>
+              </div>
+            ) : selectedModule === 'reconstruction' ? (
+              /* Reconstruction result — frozen view */
+              <div className="p-6 max-w-2xl mx-auto space-y-4">
+                {(() => {
+                  const inputsDeliv = deliverables.find(d => d.type === 'inputs_data');
+                  const data = (inputsDeliv?.data && typeof inputsDeliv.data === 'object') ? inputsDeliv.data as Record<string, any> : null;
+                  const score = data?.score_confiance;
+                  const report = data?.reconstruction_report;
+                  const mode = (enterprise as any)?.operating_mode;
+
+                  if (!data || typeof score !== 'number') {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p className="text-lg font-medium">Aucune reconstruction effectuée</p>
+                        <p className="text-sm mt-2">Uploadez des documents puis lancez la reconstruction pour voir les résultats ici.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`text-3xl font-bold ${score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                          {score}%
+                        </div>
+                        <div>
+                          <p className="font-semibold">Confiance de la reconstruction</p>
+                          {mode && <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{mode}</span>}
+                        </div>
+                      </div>
+
+                      {report?.note_analyste && (
+                        <div className="rounded-lg border p-4 space-y-1">
+                          <p className="text-sm font-medium">Note de l'analyste IA</p>
+                          <p className="text-sm text-muted-foreground">{report.note_analyste}</p>
+                        </div>
+                      )}
+
+                      {report?.hypotheses?.length > 0 && (
+                        <div className="rounded-lg border p-4 space-y-2">
+                          <p className="text-sm font-medium flex items-center gap-1.5">⚠️ Hypothèses utilisées</p>
+                          <ul className="space-y-1">
+                            {report.hypotheses.map((h: string, i: number) => (
+                              <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <span className="text-amber-500 mt-0.5">•</span> {h}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {report?.donnees_manquantes?.length > 0 && (
+                        <div className="rounded-lg border p-4 space-y-2">
+                          <p className="text-sm font-medium">Données manquantes</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {report.donnees_manquantes.map((d: string, i: number) => (
+                              <span key={i} className="text-xs px-2 py-1 rounded-md bg-muted text-muted-foreground">{d}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {report?.source_documents?.length > 0 && (
+                        <div className="rounded-lg border p-4 space-y-2">
+                          <p className="text-sm font-medium">{report.source_documents.length} documents analysés</p>
+                          <ul className="space-y-1">
+                            {report.source_documents.map((doc: string, i: number) => (
+                              <li key={i} className="text-xs text-muted-foreground">📄 {doc}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : selectedModule === 'coach_info' ? (
+              /* Information du coach — coaching notes moved here */
+              <div className="p-6 max-w-2xl mx-auto">
+                <h2 className="font-display font-bold text-lg mb-4">Information du coach</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Notes de réunion, compte-rendus et informations contextuelles pour personnaliser le diagnostic et les livrables.
+                </p>
+                <CoachingTab enterpriseId={enterprise.id} enterpriseName={enterprise.name || ''} />
               </div>
             ) : selectedModule === 'sources' ? (
               <div className="p-6">
