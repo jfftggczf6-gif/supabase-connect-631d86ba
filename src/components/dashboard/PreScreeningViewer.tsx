@@ -141,10 +141,32 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       <SectionEditButton enterpriseId={enterpriseId} deliverableType="pre_screening" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
     ) : null;
 
+  // Table des matières sections
+  const tocSections = [
+    { id: 'dashboard', label: 'Dashboard financier' },
+    { id: 'comprendre', label: "Comprendre l'entreprise" },
+    { id: 'reperes', label: 'Repères sectoriels' },
+    { id: 'constats', label: 'Constats' },
+    { id: 'criteres', label: 'Critères programme' },
+    { id: 'verdict', label: 'Verdict' },
+    { id: 'guide', label: "Guide d'accompagnement" },
+  ];
+
   return (
     <div className="space-y-6" id="prescreening-viewer-content">
 
-      {/* ══════════ ZONE 1 — Bandeau verdict ══════════ */}
+      {/* ══════════ TABLE DES MATIÈRES ══════════ */}
+      <div className="flex flex-wrap gap-2 py-2 border-b border-border">
+        {tocSections.map(s => (
+          <button key={s.id} onClick={() => document.getElementById(`diag-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors">
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════ 1. Dashboard financier et présentation ══════════ */}
+      <div id="diag-dashboard"></div>
       <Card className={`p-5 ${cc.bg} border-2 ${cc.border}`}>
         <div className="flex items-center gap-4">
           <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${scoreBgClass} flex-none`}>
@@ -246,140 +268,8 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </div>
       </Card>
 
-      {/* ══════════ ZONE 2 — Guide d'accompagnement ══════════ */}
-      {guideCoach && (
-        <Card className="border-2 border-blue-200 bg-blue-50/30">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-blue-600" /> Guide d'accompagnement du coach {editBtn('guide_coach', 'Guide Coach')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-
-            {/* 1. Points bloquants — EN PREMIER */}
-            {guideCoach.points_bloquants_pipeline?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" /> Points bloquants
-                </h4>
-                <div className="space-y-1.5">
-                  {guideCoach.points_bloquants_pipeline.map((p: any, i: number) => (
-                    <div key={i} className="p-3 rounded-md bg-red-50 border border-red-200 border-l-4 border-l-red-500 text-xs">
-                      <p className="font-medium text-red-800">{p.blocage}</p>
-                      <p className="text-red-600 mt-0.5">Conséquence : {p.consequence}</p>
-                      <p className="text-emerald-700 mt-0.5">Résolution : {p.resolution}</p>
-                      {p.source && (
-                        <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {p.source}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 2. Actions cette semaine */}
-            {guideCoach.actions_coach_semaine?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" /> Actions recommandées
-                </h4>
-                <div className="space-y-1.5">
-                  {guideCoach.actions_coach_semaine.map((a: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-white border border-blue-100 text-xs">
-                      <span className="font-bold text-blue-700 mt-0.5">{a.priorite || i + 1}.</span>
-                      <div className="flex-1">
-                        <p className="font-medium">{a.action}</p>
-                        <p className="text-[10px] text-muted-foreground">{a.objectif}</p>
-                      </div>
-                      {/* durée estimée masquée pour le pilote */}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 3. Documents à demander */}
-            {guideCoach.documents_a_demander?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Documents à demander
-                </h4>
-                <div className="space-y-1.5">
-                  {guideCoach.documents_a_demander.map((d: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-white border border-blue-100">
-                      {urgenceBadge(d.urgence)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{d.document}</p>
-                        <p className="text-[10px] text-muted-foreground">{d.raison}</p>
-                        {d.impact && <p className="text-[10px] text-blue-600 mt-0.5">Impact : {d.impact}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 4. Questions à poser */}
-            {guideCoach.questions_entrepreneur?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" /> Questions à poser à l'entrepreneur
-                </h4>
-                <div className="space-y-1.5">
-                  {guideCoach.questions_entrepreneur.map((q: string, i: number) => (
-                    <div key={i} className="p-2.5 rounded-md bg-white border border-blue-100 text-xs leading-relaxed">
-                      <span className="font-semibold text-blue-700 mr-1.5">{i + 1}.</span> {q}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 5. Axes d'accompagnement */}
-            {guideCoach.axes_coaching?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <Target className="h-3.5 w-3.5" /> Axes d'accompagnement (3-6 mois)
-                </h4>
-                <div className="grid md:grid-cols-2 gap-2">
-                  {guideCoach.axes_coaching.map((axe: any, i: number) => (
-                    <div key={i} className="p-3 rounded-md bg-white border border-blue-100">
-                      <p className="text-xs font-semibold text-blue-800 mb-1">{axe.axe}</p>
-                      <p className="text-[10px] text-muted-foreground mb-1">{axe.diagnostic_rapide}</p>
-                      <p className="text-[10px] text-blue-700 font-medium">Objectif : {axe.objectif_accompagnement}</p>
-                      {axe.premieres_actions?.length > 0 && (
-                        <div className="mt-1.5">
-                          {axe.premieres_actions.map((a: string, j: number) => (
-                            <p key={j} className="text-[10px] text-muted-foreground">→ {a}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 6. Alertes */}
-            {guideCoach.alertes_coach?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-amber-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5" /> Alertes
-                </h4>
-                <div className="space-y-1">
-                  {guideCoach.alertes_coach.map((a: string, i: number) => (
-                    <p key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
-                      <span className="text-amber-500 mt-0.5">●</span> {a}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ══════════ ZONE 3 — Comprendre l'entreprise ══════════ */}
+      {/* ══════════ 2. Comprendre l'entreprise ══════════ */}
+      <div id="diag-comprendre"></div>
       {contexte && (
         <div>
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -408,66 +298,8 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </div>
       )}
 
-      {/* ══════════ ZONE 4 — Constats par scope ══════════ */}
-      {allConstats.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Constats {editBtn('constats_par_scope', 'Constats')}
-          </h3>
-
-          {/* Filter bar */}
-          <div className="flex gap-1.5 flex-wrap sticky top-0 z-10 bg-background py-2">
-            {scopes.map(s => {
-              const count = s.key === 'all' ? allConstats.length : (constatsByScope[s.key] || []).length;
-              if (s.key !== 'all' && count === 0) return null;
-              return (
-                <button key={s.key} onClick={() => setActiveScope(s.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-colors ${
-                    activeScope === s.key ? 'border-blue-400 text-blue-800 bg-blue-50' : 'border-border text-muted-foreground hover:bg-muted/50'
-                  }`}>
-                  {s.label}
-                  <span className={`text-[10px] px-1.5 rounded-full ${
-                    activeScope === s.key ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
-                  }`}>{count}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Constats cards */}
-          <div className="space-y-2 mt-2">
-            {sortedConstats.map((c, i) => {
-              const sc = severityConfig[c.severite] || severityConfig.attention;
-              const SevIcon = sc.icon;
-              const scopeLabel = scopes.find(s => s.key === c.scope)?.label || c.scope;
-              return (
-                <div key={i} className={`p-3 rounded-lg border border-l-4 ${sc.border} ${sc.bg} shadow-sm`}>
-                  <div className="flex items-start gap-2">
-                    <SevIcon className={`h-4 w-4 ${sc.text} flex-none mt-0.5`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold text-foreground">{c.titre}</span>
-                        {activeScope === 'all' && (
-                          <Badge variant="outline" className="text-[10px]">{scopeLabel}</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-foreground leading-relaxed">{c.constat}</p>
-                      {c.piste && (
-                        <p className="text-[10px] mt-1.5 font-medium text-primary">→ {c.piste}</p>
-                      )}
-                      {c.source && (
-                        <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {c.source}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ══════════ ZONE 5 — Repères sectoriels + Scénarios ══════════ */}
+      {/* ══════════ 3. Repères sectoriels ══════════ */}
+      <div id="diag-reperes"></div>
       {(comparaisonSectorielle?.benchmark_detail?.length > 0 || santeFinanciere.benchmark_comparison?.length > 0) && (
         <Card>
           <CardHeader className="pb-3">
@@ -507,41 +339,76 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </Card>
       )}
 
-      {scenarios && (
-        <div className="grid md:grid-cols-3 gap-3">
-          {[
-            { key: 'scenario_pessimiste', label: 'Pessimiste', color: 'border-red-200 bg-red-50/30' },
-            { key: 'scenario_base', label: 'Réaliste', color: 'border-amber-200 bg-amber-50/30' },
-            { key: 'scenario_optimiste', label: 'Optimiste', color: 'border-emerald-200 bg-emerald-50/30' },
-          ].map(s => {
-            const sc = scenarios[s.key];
-            if (!sc) return null;
-            return (
-              <Card key={s.key} className={`${s.color}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-xs font-semibold">{s.label}</h4>
-                    {sc.probabilite && <Badge variant="outline" className="text-[10px]">{sc.probabilite}</Badge>}
+      {/* ══════════ 5. Constats ══════════ */}
+      <div id="diag-constats"></div>
+      {allConstats.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Constats {editBtn('constats_par_scope', 'Constats')}
+          </h3>
+
+          {/* Filter bar */}
+          <div className="flex gap-2 flex-wrap sticky top-0 z-10 bg-background py-3 border-b border-border mb-2">
+            {scopes.map(s => {
+              const count = s.key === 'all' ? allConstats.length : (constatsByScope[s.key] || []).length;
+              if (s.key !== 'all' && count === 0) return null;
+              return (
+                <button key={s.key} onClick={() => setActiveScope(s.key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+                    activeScope === s.key ? 'border-blue-400 text-blue-800 bg-blue-50' : 'border-border text-muted-foreground hover:bg-muted/50'
+                  }`}>
+                  {s.label}
+                  <span className={`text-[10px] px-1.5 rounded-full ${
+                    activeScope === s.key ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
+                  }`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Constats cards */}
+          <div className="space-y-2 mt-2">
+            {sortedConstats.map((c, i) => {
+              const sc = severityConfig[c.severite] || severityConfig.attention;
+              const SevIcon = sc.icon;
+              const scopeLabel = scopes.find(s => s.key === c.scope)?.label || c.scope;
+              return (
+                <div key={i} className={`p-3 rounded-lg border border-l-4 ${sc.border}`}>
+                  <div className="flex items-start gap-2">
+                    <SevIcon className={`h-4 w-4 ${sc.text} flex-none mt-0.5`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-foreground">{c.titre}</span>
+                        {activeScope === 'all' && (
+                          <Badge variant="outline" className="text-[10px]">{scopeLabel}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-foreground leading-relaxed">{c.constat}</p>
+                      {c.piste && (
+                        <p className="text-[10px] mt-1.5 font-medium text-primary">→ {c.piste}</p>
+                      )}
+                      {c.source && (
+                        <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {c.source}</p>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-2">{sc.description}</p>
-                  <div className="flex gap-3 text-xs">
-                    {sc.ca_estime && <div><span className="text-muted-foreground">CA An3 :</span> <span className="font-medium">{sc.ca_estime}</span></div>}
-                    {sc.ebitda_estime && <div><span className="text-muted-foreground">EBITDA :</span> <span className="font-medium">{sc.ebitda_estime}</span></div>}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* ══════════ ZONE 6 — Matching programme ══════════ */}
+
+
+      {/* ══════════ 6. Critères programme ══════════ */}
+      <div id="diag-criteres"></div>
       {programmeMatch && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Matching programme</CardTitle>
+              <CardTitle className="text-sm">Critères programme</CardTitle>
               {programmeMatch.match_score != null && (
                 <Badge variant="outline" className="ml-auto text-xs">{programmeMatch.match_score}/100</Badge>
               )}
@@ -588,7 +455,8 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </Card>
       )}
 
-      {/* ══════════ ZONE 7 — Verdict final ══════════ */}
+      {/* ══════════ 7. Verdict ══════════ */}
+      <div id="diag-verdict"></div>
       {(verdictAnalyste?.synthese_pour_comite || classDetail) && (
         <Card className="bg-muted/30">
           <CardHeader className="pb-2">
@@ -620,6 +488,124 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                 {verdictAnalyste.quick_wins.map((q: string, i: number) => (
                   <p key={i} className="text-xs text-emerald-600">• {q}</p>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ══════════ 8. Guide d'accompagnement du coach ══════════ */}
+      <div id="diag-guide"></div>
+      {guideCoach && (
+        <Card className="border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BookOpen className="h-4 w-4" /> Guide d'accompagnement du coach {editBtn('guide_coach', 'Guide Coach')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {guideCoach.points_bloquants_pipeline?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" /> Points bloquants
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.points_bloquants_pipeline.map((p: any, i: number) => (
+                    <div key={i} className="p-3 rounded-md border text-xs">
+                      <p className="font-medium">{p.blocage}</p>
+                      <p className="text-muted-foreground mt-0.5">Conséquence : {p.consequence}</p>
+                      <p className="mt-0.5">Résolution : {p.resolution}</p>
+                      {p.source && <p className="text-[10px] text-muted-foreground mt-1 italic">Source : {p.source}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {guideCoach.actions_coach_semaine?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Actions recommandées
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.actions_coach_semaine.map((a: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md border text-xs">
+                      <span className="font-bold mt-0.5">{a.priorite || i + 1}.</span>
+                      <div className="flex-1">
+                        <p className="font-medium">{a.action}</p>
+                        <p className="text-[10px] text-muted-foreground">{a.objectif}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {guideCoach.documents_a_demander?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Documents à demander
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.documents_a_demander.map((d: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-md border">
+                      {urgenceBadge(d.urgence)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium">{d.document}</p>
+                        <p className="text-[10px] text-muted-foreground">{d.raison}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {guideCoach.questions_entrepreneur?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" /> Questions à poser
+                </h4>
+                <div className="space-y-1.5">
+                  {guideCoach.questions_entrepreneur.map((q: string, i: number) => (
+                    <div key={i} className="p-2.5 rounded-md border text-xs leading-relaxed">
+                      <span className="font-semibold mr-1.5">{i + 1}.</span> {q}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {guideCoach.axes_coaching?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" /> Axes d'accompagnement
+                </h4>
+                <div className="grid md:grid-cols-2 gap-2">
+                  {guideCoach.axes_coaching.map((axe: any, i: number) => (
+                    <div key={i} className="p-3 rounded-md border">
+                      <p className="text-xs font-semibold mb-1">{axe.axe}</p>
+                      <p className="text-[10px] text-muted-foreground mb-1">{axe.diagnostic_rapide}</p>
+                      <p className="text-[10px] font-medium">Objectif : {axe.objectif_accompagnement}</p>
+                      {axe.premieres_actions?.length > 0 && (
+                        <div className="mt-1.5">
+                          {axe.premieres_actions.map((a: string, j: number) => (
+                            <p key={j} className="text-[10px] text-muted-foreground">→ {a}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {guideCoach.alertes_coach?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-amber-700 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Alertes
+                </h4>
+                <div className="space-y-1">
+                  {guideCoach.alertes_coach.map((a: string, i: number) => (
+                    <p key={i} className="text-xs flex items-start gap-1.5">
+                      <span className="mt-0.5">●</span> {a}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
