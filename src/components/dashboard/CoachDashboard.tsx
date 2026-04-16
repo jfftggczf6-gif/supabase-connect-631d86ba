@@ -365,8 +365,8 @@ export default function CoachDashboard() {
           <div className="sticky top-0 z-10 bg-background border-b border-border">
             <div className="flex items-center justify-between px-4 py-2">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => setFullscreen(false)}>
-                  <Minimize2 className="h-4 w-4 mr-1" /> {t('dashboard_coach.minimize')}
+                <Button variant="ghost" size="sm" onClick={handleBackToList}>
+                  <ArrowLeft className="h-4 w-4 mr-1" /> {childGenerating ? t('dashboard_coach.generating_in_progress') : t('dashboard_coach.back_to_list')}
                 </Button>
                 <h2 className="font-display font-semibold">{ent.name}</h2>
                 {(ent.score_ir || 0) > 0 && (
@@ -375,9 +375,6 @@ export default function CoachDashboard() {
                   </Badge>
                 )}
               </div>
-              <Button variant="ghost" size="sm" onClick={handleBackToList}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> {childGenerating ? t('dashboard_coach.generating_in_progress') : t('dashboard_coach.back_to_list')}
-              </Button>
             </div>
             <div className="flex gap-0 px-4 border-t border-border">
               {tabsConfig.map(tab => (
