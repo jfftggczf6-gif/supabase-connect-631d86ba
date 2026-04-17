@@ -145,6 +145,7 @@ Retourne UNIQUEMENT le JSON modifié de cette section (pas d'explication, pas de
       await supabase.from("deliverable_versions").insert({
         deliverable_id: deliverable.id,
         enterprise_id,
+        organization_id: ctx.organization_id || null,
         type: deliverable_type,
         version: deliverable.version || 1,
         data: currentData,
@@ -172,6 +173,7 @@ Retourne UNIQUEMENT le JSON modifié de cette section (pas d'explication, pas de
     // Log the correction
     await supabase.from("deliverable_corrections").insert({
       enterprise_id,
+      organization_id: ctx.organization_id || null,
       deliverable_id: deliverable.id,
       deliverable_type,
       field_path: section_path,

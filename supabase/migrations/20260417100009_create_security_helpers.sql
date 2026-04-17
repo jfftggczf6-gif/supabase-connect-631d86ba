@@ -68,9 +68,11 @@ AS $$
       AND is_active = true
   )
   -- Fallback temporaire : vérifier aussi l'ancien coach_id (compat pendant migration UI)
+  -- Ajout check org membership pour éviter qu'un coach retiré garde l'accès
   OR EXISTS (
-    SELECT 1 FROM public.enterprises
-    WHERE id = ent_id AND coach_id = auth.uid()
+    SELECT 1 FROM public.enterprises e
+    WHERE e.id = ent_id AND e.coach_id = auth.uid()
+      AND (e.organization_id IS NULL OR public.is_member_of(e.organization_id))
   )
 $$;
 COMMENT ON FUNCTION public.is_coach_of_enterprise(uuid) IS 'Vérifie que le user est coach assigné à cette entreprise (N-à-N + fallback 1-à-1)';

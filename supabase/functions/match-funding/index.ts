@@ -231,9 +231,11 @@ serve(async (req) => {
     matches.sort((a: any, b: any) => b.match_score - a.match_score);
 
     // 4. Save matches in DB
+    const { data: entOrg } = await supabase.from("enterprises").select("organization_id").eq("id", enterpriseId).single();
     for (const m of matches) {
       await supabase.from("funding_matches").upsert({
         enterprise_id: enterpriseId,
+        organization_id: entOrg?.organization_id || null,
         funding_program_id: m.program_id,
         match_score: m.match_score,
         criteria_met: m.criteria_met,

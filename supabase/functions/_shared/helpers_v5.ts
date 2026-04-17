@@ -448,11 +448,15 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
   
   const newVersion = (existing?.version || 0) + 1;
 
-  // 2. Archive previous version if exists
+  // 2. Fetch organization_id for this enterprise (used in archive + score_history)
+  const { data: entForOrg } = await supabase.from("enterprises").select("organization_id").eq("id", enterprise_id).single();
+
+  // 3. Archive previous version if exists
   if (existing?.data && typeof existing.data === 'object' && Object.keys(existing.data).length > 0) {
     const { error: archiveError } = await supabase.from("deliverable_versions").insert({
       deliverable_id: existing.id,
       enterprise_id,
+      organization_id: entForOrg?.organization_id || null,
       type,
       version: existing.version || 1,
       data: existing.data,
@@ -540,8 +544,6 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     .eq("module", moduleCode);
 
   // 5. Activity log (non-blocking)
-  // Récupérer l'organization_id depuis l'entreprise
-  const { data: entForOrg } = await supabase.from("enterprises").select("organization_id").eq("id", enterprise_id).single();
   const { error: activityError } = await supabase.from("activity_log").insert({
     enterprise_id,
     organization_id: entForOrg?.organization_id || null,

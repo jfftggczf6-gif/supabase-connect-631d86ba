@@ -1,4 +1,5 @@
--- RLS policies for programmes and candidatures (multi-tenant)
+-- RLS policies for programmes, candidatures, criteria, KPIs (multi-tenant)
+-- Uses has_role() and get_user_role_in() from migration 20260417100009
 
 -- ═══ PROGRAMMES ═══
 ALTER TABLE IF EXISTS public.programmes ENABLE ROW LEVEL SECURITY;
@@ -8,35 +9,32 @@ DROP POLICY IF EXISTS "programmes_insert" ON public.programmes;
 DROP POLICY IF EXISTS "programmes_update" ON public.programmes;
 DROP POLICY IF EXISTS "programmes_delete" ON public.programmes;
 
--- Read: org members see their org's programmes, super_admins see all, null org_id visible to all
 CREATE POLICY "programmes_read" ON public.programmes
-  FOR SELECT USING (
+  FOR SELECT TO authenticated USING (
     organization_id IS NULL
     OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
--- Insert: org members or super_admins
 CREATE POLICY "programmes_insert" ON public.programmes
-  FOR INSERT WITH CHECK (
+  FOR INSERT TO authenticated WITH CHECK (
     organization_id IS NULL
-    OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
--- Update: chef_programme or org admin/owner/manager or super_admin
+-- Update: chef_programme owner, or org owner/admin/manager, or super_admin
 CREATE POLICY "programmes_update" ON public.programmes
-  FOR UPDATE USING (
+  FOR UPDATE TO authenticated USING (
     chef_programme_id = auth.uid()
-    OR (organization_id IS NOT NULL AND public.is_member_of(organization_id))
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR (organization_id IS NOT NULL AND public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager'))
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
--- Delete: super_admin or chef_programme owner
 CREATE POLICY "programmes_delete" ON public.programmes
-  FOR DELETE USING (
+  FOR DELETE TO authenticated USING (
     chef_programme_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
 -- ═══ CANDIDATURES ═══
@@ -47,34 +45,30 @@ DROP POLICY IF EXISTS "candidatures_insert" ON public.candidatures;
 DROP POLICY IF EXISTS "candidatures_update" ON public.candidatures;
 DROP POLICY IF EXISTS "candidatures_delete" ON public.candidatures;
 
--- Read: org members, or the enterprise owner/coach, or super_admin
 CREATE POLICY "candidatures_read" ON public.candidatures
-  FOR SELECT USING (
+  FOR SELECT TO authenticated USING (
     organization_id IS NULL
     OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
--- Insert: org members or super_admin (EFs typically use service role)
 CREATE POLICY "candidatures_insert" ON public.candidatures
-  FOR INSERT WITH CHECK (
+  FOR INSERT TO authenticated WITH CHECK (
     organization_id IS NULL
     OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
--- Update: same as insert
 CREATE POLICY "candidatures_update" ON public.candidatures
-  FOR UPDATE USING (
+  FOR UPDATE TO authenticated USING (
     organization_id IS NULL
-    OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
--- Delete: super_admin or chef_programme
 CREATE POLICY "candidatures_delete" ON public.candidatures
-  FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+  FOR DELETE TO authenticated USING (
+    public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
 -- ═══ PROGRAMME_CRITERIA ═══
@@ -82,15 +76,35 @@ ALTER TABLE IF EXISTS public.programme_criteria ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "programme_criteria_read" ON public.programme_criteria;
 DROP POLICY IF EXISTS "programme_criteria_write" ON public.programme_criteria;
+DROP POLICY IF EXISTS "programme_criteria_insert" ON public.programme_criteria;
+DROP POLICY IF EXISTS "programme_criteria_update" ON public.programme_criteria;
+DROP POLICY IF EXISTS "programme_criteria_delete" ON public.programme_criteria;
 
+-- Read: org members only (criteria are confidential), super_admin sees all
 CREATE POLICY "programme_criteria_read" ON public.programme_criteria
-  FOR SELECT USING (true);
-
-CREATE POLICY "programme_criteria_write" ON public.programme_criteria
-  FOR ALL USING (
+  FOR SELECT TO authenticated USING (
     organization_id IS NULL
     OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+CREATE POLICY "programme_criteria_insert" ON public.programme_criteria
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id IS NULL
+    OR public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+CREATE POLICY "programme_criteria_update" ON public.programme_criteria
+  FOR UPDATE TO authenticated USING (
+    organization_id IS NULL
+    OR public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+CREATE POLICY "programme_criteria_delete" ON public.programme_criteria
+  FOR DELETE TO authenticated USING (
+    public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
 -- ═══ PROGRAMME_KPIS ═══
@@ -98,19 +112,34 @@ ALTER TABLE IF EXISTS public.programme_kpis ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "programme_kpis_read" ON public.programme_kpis;
 DROP POLICY IF EXISTS "programme_kpis_write" ON public.programme_kpis;
+DROP POLICY IF EXISTS "programme_kpis_insert" ON public.programme_kpis;
+DROP POLICY IF EXISTS "programme_kpis_update" ON public.programme_kpis;
+DROP POLICY IF EXISTS "programme_kpis_delete" ON public.programme_kpis;
 
 CREATE POLICY "programme_kpis_read" ON public.programme_kpis
-  FOR SELECT USING (
+  FOR SELECT TO authenticated USING (
     organization_id IS NULL
     OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
-CREATE POLICY "programme_kpis_write" ON public.programme_kpis
-  FOR ALL USING (
+CREATE POLICY "programme_kpis_insert" ON public.programme_kpis
+  FOR INSERT TO authenticated WITH CHECK (
     organization_id IS NULL
-    OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+CREATE POLICY "programme_kpis_update" ON public.programme_kpis
+  FOR UPDATE TO authenticated USING (
+    organization_id IS NULL
+    OR public.get_user_role_in(organization_id) IN ('owner', 'admin', 'manager')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+CREATE POLICY "programme_kpis_delete" ON public.programme_kpis
+  FOR DELETE TO authenticated USING (
+    public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
 -- ═══ PROGRAMME_KPI_HISTORY ═══
@@ -118,13 +147,56 @@ ALTER TABLE IF EXISTS public.programme_kpi_history ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "programme_kpi_history_read" ON public.programme_kpi_history;
 DROP POLICY IF EXISTS "programme_kpi_history_write" ON public.programme_kpi_history;
+DROP POLICY IF EXISTS "programme_kpi_history_insert" ON public.programme_kpi_history;
 
 CREATE POLICY "programme_kpi_history_read" ON public.programme_kpi_history
-  FOR SELECT USING (
+  FOR SELECT TO authenticated USING (
     organization_id IS NULL
     OR public.is_member_of(organization_id)
-    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
   );
 
-CREATE POLICY "programme_kpi_history_write" ON public.programme_kpi_history
-  FOR ALL USING (true);
+CREATE POLICY "programme_kpi_history_insert" ON public.programme_kpi_history
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id IS NULL
+    OR public.is_member_of(organization_id)
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+-- ═══ FUNDING_MATCHES ═══
+ALTER TABLE IF EXISTS public.funding_matches ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "funding_matches_read" ON public.funding_matches;
+DROP POLICY IF EXISTS "funding_matches_write" ON public.funding_matches;
+
+CREATE POLICY "funding_matches_read" ON public.funding_matches
+  FOR SELECT TO authenticated USING (
+    organization_id IS NULL
+    OR public.is_member_of(organization_id)
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+-- Insert/update: EFs use service_role (bypasses RLS), but also allow org members
+CREATE POLICY "funding_matches_write" ON public.funding_matches
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id IS NULL
+    OR public.is_member_of(organization_id)
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
+
+-- ═══ FUNDING_PROGRAMS ═══
+-- Global catalog — readable by all authenticated users, writable by super_admins
+ALTER TABLE IF EXISTS public.funding_programs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "funding_programs_read" ON public.funding_programs;
+DROP POLICY IF EXISTS "funding_programs_write" ON public.funding_programs;
+
+CREATE POLICY "funding_programs_read" ON public.funding_programs
+  FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "funding_programs_write" ON public.funding_programs
+  FOR INSERT TO authenticated WITH CHECK (
+    organization_id IS NULL
+    OR public.is_member_of(organization_id)
+    OR public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  );
