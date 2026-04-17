@@ -6,16 +6,18 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ProgrammeCard from '@/components/programmes/ProgrammeCard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Users } from 'lucide-react';
+import { Loader2, Plus, Users, UserPlus, Settings } from 'lucide-react';
 import CreateCohorteDialog from '@/components/programmes/CreateCohorteDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { toast } from '@/hooks/use-toast';
 
 export default function ProgrammeListPage() {
   const { t } = useTranslation();
   const { role } = useAuth();
-  const { isSuperAdmin: isSuperAdminOrg } = useOrganization();
+  const { isSuperAdmin: isSuperAdminOrg, currentOrg } = useOrganization();
+  const { canInviteMembers, canManageOrg } = useCurrentRole();
   const nav = useNavigate();
   const [programmes, setProgrammes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,24 +51,34 @@ export default function ProgrammeListPage() {
 
   return (
     <DashboardLayout title={t('programme.title')} subtitle={t('programme.subtitle')}>
-      <div className="flex items-center justify-between mb-6">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder={t('programme.filter_status')} /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('programme.all_statuses')}</SelectItem>
-            <SelectItem value="draft">{t('programme.status_draft')}</SelectItem>
-            <SelectItem value="open">{t('programme.status_open')}</SelectItem>
-            <SelectItem value="closed">{t('programme.status_closed')}</SelectItem>
-            <SelectItem value="in_progress">{t('programme.status_in_progress')}</SelectItem>
-            <SelectItem value="completed">{t('programme.status_completed')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={() => setShowCohorte(true)} className="gap-2">
-          <Users className="h-4 w-4" /> {t('programme.create_cohorte')}
-        </Button>
-        <Button onClick={() => nav('/programmes/new')} className="gap-2">
-          <Plus className="h-4 w-4" /> {t('programme.create')}
-        </Button>
+      {/* Action bar */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder={t('programme.filter_status')} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('programme.all_statuses')}</SelectItem>
+              <SelectItem value="draft">{t('programme.status_draft')}</SelectItem>
+              <SelectItem value="open">{t('programme.status_open')}</SelectItem>
+              <SelectItem value="closed">{t('programme.status_closed')}</SelectItem>
+              <SelectItem value="in_progress">{t('programme.status_in_progress')}</SelectItem>
+              <SelectItem value="completed">{t('programme.status_completed')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          {canInviteMembers && (
+            <Button variant="outline" onClick={() => nav('/organization/members')} className="gap-2 border-primary/30 text-primary hover:bg-primary/5">
+              <UserPlus className="h-4 w-4" /> Équipe & Invitations
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setShowCohorte(true)} className="gap-2">
+            <Users className="h-4 w-4" /> {t('programme.create_cohorte')}
+          </Button>
+          <Button onClick={() => nav('/programmes/new')} className="gap-2">
+            <Plus className="h-4 w-4" /> {t('programme.create')}
+          </Button>
+        </div>
       </div>
 
       {loading ? (

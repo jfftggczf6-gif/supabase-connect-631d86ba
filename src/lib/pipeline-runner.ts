@@ -93,9 +93,10 @@ export async function runPipelineFromClient(
     signal?: AbortSignal;
     onProgress?: (progress: PipelineProgress) => void;
     onStepComplete?: () => void;
+    skipDiagnostic?: boolean;
   } = {},
 ): Promise<PipelineResult> {
-  const { force = false, signal, onProgress, onStepComplete } = options;
+  const { force = false, signal, onProgress, onStepComplete, skipDiagnostic = false } = options;
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   /** Always use a fresh token to avoid mid-pipeline expiry */
@@ -162,6 +163,14 @@ export async function runPipelineFromClient(
     }
 
     const step = PIPELINE[i];
+
+    // Skip diagnostic if it has its own button (independent from pipeline)
+    if (skipDiagnostic && step.fn === 'generate-diagnostic') {
+      results.push({ step: step.name, success: true, skipped: true });
+      completedCount++;
+      onProgress?.({ current: i + 1, total: PIPELINE.length, name: `${step.name} (indépendant)` });
+      continue;
+    }
 
     // Skip financial steps if inputs has no real financial data
     if (inputsScoreZero && FINANCIAL_STEPS.has(step.fn)) {

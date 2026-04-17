@@ -467,7 +467,7 @@ export default function EntrepreneurDashboard({
         force,
         signal: controller.signal,
         onProgress: setGenerationProgress,
-        // No more onStepComplete polling — Realtime channel handles deliverable updates
+        skipDiagnostic: true, // Diagnostic has its own button, independent from pipeline
       });
 
       if (pipelineResult.creditError && pipelineResult.completedCount === 0) {
