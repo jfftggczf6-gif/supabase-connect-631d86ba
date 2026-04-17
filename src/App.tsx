@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import RequireSuperAdmin from "@/components/guards/RequireSuperAdmin";
+import OrganizationsPage from "./pages/admin/OrganizationsPage";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -73,6 +75,7 @@ const App = () => (
               <ProtectedRoute><GenericModule /></ProtectedRoute>
             } />
             <Route path="/data-room/:slug" element={<DataRoomPublic />} />
+            <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </OrganizationProvider>
