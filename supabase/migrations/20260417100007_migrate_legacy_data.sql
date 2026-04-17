@@ -10,6 +10,15 @@ DECLARE
   users_migrated int := 0;
   enterprises_migrated int := 0;
   coaches_migrated int := 0;
+  tbl text;
+  tables_to_update text[] := ARRAY[
+    'enterprises', 'enterprise_modules', 'deliverables', 'deliverable_versions',
+    'deliverable_corrections', 'programmes', 'programme_criteria', 'programme_kpis',
+    'programme_kpi_history', 'candidatures', 'coaching_notes', 'coach_uploads',
+    'inputs_history', 'score_history', 'activity_log', 'ai_cost_log',
+    'funding_matches', 'data_room_documents', 'data_room_shares',
+    'aggregated_benchmarks', 'workspace_knowledge', 'enterprise_coaches'
+  ];
 BEGIN
   -- ═══════════════════════════════════════════════════════
   -- A) Créer l'organisation "ESONO Legacy" si elle n'existe pas
@@ -66,32 +75,18 @@ BEGIN
   -- UPDATE uniquement les lignes qui n'ont pas encore d'organization_id
   -- ═══════════════════════════════════════════════════════
 
-  UPDATE public.enterprises SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  GET DIAGNOSTICS enterprises_migrated = ROW_COUNT;
-  RAISE NOTICE 'Entreprises rattachées: %', enterprises_migrated;
-
-  UPDATE public.enterprise_modules SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.deliverables SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.deliverable_versions SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.deliverable_corrections SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.programmes SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.programme_criteria SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.programme_kpis SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.programme_kpi_history SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.candidatures SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.coaching_notes SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.coach_uploads SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.inputs_history SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.score_history SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.activity_log SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.ai_cost_log SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.funding_matches SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  -- funding_programs : laisser NULL (globaux par design)
-  UPDATE public.data_room_documents SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.data_room_shares SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.aggregated_benchmarks SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.workspace_knowledge SET organization_id = legacy_org_id WHERE organization_id IS NULL;
-  UPDATE public.enterprise_coaches SET organization_id = legacy_org_id WHERE organization_id IS NULL;
+  -- UPDATE safe : skip les tables qui n'existent pas ou n'ont pas organization_id
+  FOREACH tbl IN ARRAY tables_to_update LOOP
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = tbl AND column_name = 'organization_id'
+      ) THEN
+        EXECUTE format('UPDATE public.%I SET organization_id = $1 WHERE organization_id IS NULL', tbl) USING legacy_org_id;
+        RAISE NOTICE 'Updated % with org_id', tbl;
+      ELSE
+        RAISE NOTICE 'Skipping % (no organization_id column)', tbl;
+      END IF;
+    END LOOP;
 
   RAISE NOTICE 'Toutes les tables rattachées à ESONO Legacy';
 

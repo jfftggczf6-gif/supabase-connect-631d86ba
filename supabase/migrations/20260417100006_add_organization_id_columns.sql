@@ -7,6 +7,15 @@
 -- Fonction helper pour ajouter organization_id si pas déjà présent
 CREATE OR REPLACE FUNCTION _temp_add_org_id(tbl text) RETURNS void AS $$
 BEGIN
+  -- Vérifier que la table existe (certaines tables sont créées via le dashboard, pas les migrations)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = tbl
+  ) THEN
+    RAISE NOTICE 'Table % does not exist — skipping', tbl;
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = tbl AND column_name = 'organization_id'
