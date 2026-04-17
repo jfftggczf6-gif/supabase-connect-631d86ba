@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 const COUNTRIES = ['Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Burkina Faso', 'Mali', 'Togo', 'Bénin', 'Guinée', 'Niger', 'Congo', 'RDC', 'Gabon', 'Madagascar', 'Rwanda', 'Kenya'];
 const SECTORS = ['Agriculture', 'Agro-industrie', 'Énergie', 'Fintech', 'Santé', 'Éducation', 'Transport', 'Commerce', 'BTP', 'Technologie', 'Textile', 'Tourisme'];
@@ -66,6 +67,7 @@ async function invokeLong(fnName: string, body: Record<string, unknown>) {
 export default function ProgrammeCreatePage() {
   const { t } = useTranslation();
   const nav = useNavigate();
+  const { currentOrg } = useOrganization();
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -247,6 +249,7 @@ export default function ProgrammeCreatePage() {
       const insertData: any = {
         name: form.name,
         organization: form.organization || null,
+        organization_id: currentOrg?.id || null,
         description: form.description || null,
         budget: form.budget ? Number(form.budget) : null,
         nb_places: form.nb_places ? Number(form.nb_places) : null,
