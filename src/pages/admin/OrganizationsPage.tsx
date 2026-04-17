@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner';
 import { Plus, Building2, Search, Loader2 } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface OrgRow {
   id: string; name: string; slug: string; type: string;
@@ -21,6 +22,7 @@ interface OrgRow {
 
 export default function OrganizationsPage() {
   const navigate = useNavigate();
+  const { refreshOrganizations } = useOrganization();
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -68,6 +70,7 @@ export default function OrganizationsPage() {
       if (!resp.ok) throw new Error(result.error);
       toast.success(`Organisation "${form.name}" créée !`);
       setShowWizard(false);
+      await refreshOrganizations(); // Mettre à jour le sélecteur d'org
       setWizStep(1);
       setForm({ name: '', slug: '', type: 'programme', country: '', owner_email: '', owner_name: '', send_invitation: true });
       fetchOrgs();

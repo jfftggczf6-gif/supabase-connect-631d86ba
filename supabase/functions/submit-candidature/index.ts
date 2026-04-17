@@ -236,6 +236,7 @@ ${SCREENING_SCHEMA}`;
     try {
       await supabase.from("ai_cost_log").insert({
         function_name: "auto-screen-candidature",
+        organization_id: prog?.organization_id || null,
         model: "claude-sonnet-4-6",
         input_tokens: usage.input_tokens || 0,
         output_tokens: usage.output_tokens || 0,
@@ -310,7 +311,7 @@ serve(async (req) => {
     // Find programme by slug
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, status, end_date, name")
+      .select("id, status, end_date, name, organization_id")
       .eq("form_slug", programme_slug)
       .single();
 
@@ -338,6 +339,7 @@ serve(async (req) => {
     const candidatureData = {
       programme_id: prog.id,
       enterprise_id: null,
+      organization_id: prog.organization_id || null,
       company_name,
       contact_name: contact_name || null,
       contact_email,

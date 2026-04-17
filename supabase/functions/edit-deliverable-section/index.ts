@@ -184,6 +184,7 @@ Retourne UNIQUEMENT le JSON modifié de cette section (pas d'explication, pas de
     // Activity log
     await supabase.from("activity_log").insert({
       enterprise_id,
+      organization_id: ctx.organization_id || null,
       action: "section_edited",
       actor_id: ctx.user.id,
       actor_role: userRoles.includes("super_admin") ? "super_admin" : "coach",

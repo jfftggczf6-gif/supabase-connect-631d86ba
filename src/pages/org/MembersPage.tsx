@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useCurrentRole, humanizeRole } from '@/hooks/useCurrentRole';
@@ -18,6 +19,7 @@ import { Plus, Loader2, UserPlus, Mail } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 export default function MembersPage() {
+  const navigate = useNavigate();
   const { currentOrg } = useOrganization();
   const { canInviteMembers, canManageOrg } = useCurrentRole();
   const [members, setMembers] = useState<any[]>([]);
@@ -94,6 +96,9 @@ export default function MembersPage() {
 
   return (
     <DashboardLayout title="Membres" subtitle={currentOrg?.name || ''}>
+      <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/dashboard')}>
+        ← Retour au dashboard
+      </Button>
       <Tabs defaultValue="members">
         <div className="flex items-center justify-between mb-4">
           <TabsList>

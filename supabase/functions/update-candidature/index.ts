@@ -56,10 +56,15 @@ async function createEnterpriseFromCandidature(
     role: "entrepreneur",
   }, { onConflict: "user_id" });
 
-  // 3. Create enterprise
+  // 3. Get organization_id from programme
+  const { data: progData } = await supabase.from("programmes").select("organization_id").eq("id", programmeId).single();
+  const orgId = progData?.organization_id || candidature.organization_id || null;
+
+  // 4. Create enterprise (with organization_id)
   const { data: enterprise, error: entErr } = await supabase.from("enterprises").insert({
     user_id: userId,
     coach_id: coachId,
+    organization_id: orgId,
     name: candidature.company_name,
     sector: candidature.form_data?.sector || null,
     country: candidature.form_data?.country || candidature.form_data?.pays || null,
@@ -72,10 +77,26 @@ async function createEnterpriseFromCandidature(
 
   if (entErr) throw new Error(`Création entreprise: ${entErr.message}`);
 
-  // 4. Create default modules
+  // 4b. Create enterprise_coaches entry (N-à-N)
+  if (coachId) {
+    await supabase.from("enterprise_coaches").insert({
+      enterprise_id: enterprise.id, coach_id: coachId, role: 'principal',
+      assigned_by: coachId, organization_id: orgId, is_active: true,
+    }).catch(() => {}); // Ignore si déjà existe
+  }
+
+  // 4c. Rattacher l'entrepreneur à l'org
+  if (orgId) {
+    await supabase.from("organization_members").upsert({
+      organization_id: orgId, user_id: userId, role: 'entrepreneur', is_active: true,
+    }, { onConflict: "organization_id,user_id" }).catch(() => {});
+  }
+
+  // 5. Create default modules (with organization_id)
   await supabase.from("enterprise_modules").insert(
     DEFAULT_MODULES.map(m => ({
       enterprise_id: enterprise.id,
+      organization_id: orgId,
       module: m,
       status: "not_started",
       progress: 0,

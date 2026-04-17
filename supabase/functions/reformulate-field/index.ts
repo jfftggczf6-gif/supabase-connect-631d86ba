@@ -96,8 +96,10 @@ Reformule le texte selon l'instruction. Retourne UNIQUEMENT le nouveau texte.`;
 
     // Log activity (non-blocking)
     try {
+      const { data: entForOrg } = await supabase.from("enterprises").select("organization_id").eq("id", enterprise_id).single();
       await supabase.from("activity_log").insert({
         enterprise_id,
+        organization_id: entForOrg?.organization_id || null,
         actor_id: user.id,
         actor_role: "coach",
         action: "reformulation",

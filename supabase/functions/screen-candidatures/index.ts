@@ -376,6 +376,7 @@ async function screenOne(anthropicKey: string, programme: any, criteria: any, ca
     try {
       await supabase.from("ai_cost_log").insert({
         function_name: "screen-candidatures",
+        organization_id: programme?.organization_id || null,
         model: "claude-sonnet-4-6",
         input_tokens: usage.input_tokens || 0,
         output_tokens: usage.output_tokens || 0,
