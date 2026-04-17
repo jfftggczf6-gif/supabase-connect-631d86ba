@@ -3,7 +3,7 @@
 -- Invitations par email pour rejoindre une org
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 CREATE TABLE IF NOT EXISTS public.organization_invitations (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.organization_invitations (
   role            text NOT NULL CHECK (role IN ('owner', 'admin', 'manager', 'analyst', 'coach', 'entrepreneur')),
   invited_by      uuid REFERENCES auth.users(id),
   personal_message text,
-  token           text NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
+  token           text NOT NULL UNIQUE DEFAULT encode(extensions.gen_random_bytes(32), 'hex'),
   expires_at      timestamptz NOT NULL DEFAULT (now() + interval '7 days'),
   accepted_at     timestamptz,
   revoked_at      timestamptz,
