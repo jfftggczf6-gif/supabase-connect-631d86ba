@@ -3,10 +3,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, ClipboardList, Globe } from 'lucide-react';
+import { LogOut, User, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { humanizeRole } from '@/hooks/useCurrentRole';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -16,10 +18,12 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
   const { profile, role, signOut } = useAuth();
+  const { currentOrg, currentRole: orgRole, memberships, isSuperAdmin, switchOrganization } = useOrganization();
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const showProgrammes = role === 'super_admin' || role === 'chef_programme';
+  const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
 
   const initials = profile?.full_name
@@ -41,9 +45,56 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
               <span className="text-sm font-display font-bold text-primary-foreground">ES</span>
             </div>
             <span className="font-display font-bold text-lg">ESONO</span>
-            <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium capitalize">
-              {role}
-            </span>
+            {/* Sélecteur d'organisation */}
+            {!currentOrg ? (
+              <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium capitalize">
+                {role}
+              </span>
+            ) : !showOrgSwitcher ? (
+              <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {currentOrg.name} · {humanizeRole(orgRole, currentOrg.type)}
+              </span>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8">
+                    {currentOrg.logo_url ? (
+                      <img src={currentOrg.logo_url} alt="" className="h-5 w-5 rounded" />
+                    ) : (
+                      <Building2 className="h-4 w-4 text-primary" />
+                    )}
+                    <span className="hidden sm:inline font-medium">{currentOrg.name}</span>
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  {memberships.map(m => (
+                    <DropdownMenuItem
+                      key={m.organization.id}
+                      onClick={() => switchOrganization(m.organization.id)}
+                      className="gap-2"
+                    >
+                      {m.organization.id === currentOrg.id ? <Check className="h-3.5 w-3.5 text-primary" /> : <div className="w-3.5" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{m.organization.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{humanizeRole(m.role, m.organization.type)}</p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                  {isSuperAdmin && (
+                    <>
+                      <div className="border-t my-1" />
+                      <DropdownMenuItem onClick={() => navigate('/admin/organizations')} className="gap-2 text-xs">
+                        <Settings className="h-3.5 w-3.5" /> Toutes les organisations
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/admin/metering')} className="gap-2 text-xs">
+                        <BarChart3 className="h-3.5 w-3.5" /> Metering IA
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {showProgrammes && (
               <Button
                 variant="ghost"
