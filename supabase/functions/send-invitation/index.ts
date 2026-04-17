@@ -124,7 +124,7 @@ serve(async (req: Request) => {
     const { data: inviterProfile } = await adminClient.from("profiles").select("full_name").eq("user_id", user.id).single();
 
     // Envoyer l'email
-    const appUrl = Deno.env.get("APP_URL") || "https://app.esono.io";
+    const appUrl = Deno.env.get("APP_URL") || "https://esono.tech";
     const invitationUrl = `${appUrl}/invitation/${invitation.token}`;
 
     const roleLabels: Record<string, string> = {

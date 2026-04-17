@@ -110,7 +110,7 @@ serve(async (req: Request) => {
 
         // Envoyer l'email d'invitation si demandé
         if (send_invitation && invitation.token) {
-          const appUrl = Deno.env.get("APP_URL") || "https://app.esono.io";
+          const appUrl = Deno.env.get("APP_URL") || "https://esono.tech";
           const invitationUrl = `${appUrl}/invitation/${invitation.token}`;
 
           await adminClient.functions.invoke("send-email", {
