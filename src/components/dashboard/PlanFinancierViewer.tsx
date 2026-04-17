@@ -254,23 +254,6 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
         {/* ═══════════ TAB 1: SYNTHÈSE ═══════════ */}
         <TabsContent value="synthese">
           <div className="space-y-4">
-            {/* Avis IA */}
-            {analyse.avis && (
-              <Card>
-                <CardContent className="py-4">
-                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis d'Esono</p>{editBtn('analyse.avis', 'Avis général')}</div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{analyse.avis}</p>
-                  {analyse.tags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {analyse.tags.map((t: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-[10px]">{t}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
             {/* Résumé chiffré */}
             <div className="bg-background border border-border/30 rounded-lg px-3 py-2 text-[11px] text-muted-foreground">
               CA {fmtM(kpis.ca)} • Marge brute {pctFmt(sante.rentabilite?.marge_brute_pct)} • EBITDA {fmtM(cyProj?.ebitda)} ({pctFmt(cyProj?.ebitda_pct)}) • Résultat net {fmtM(kpis.resultat_net)} • Trésorerie {fmtM(kpis.tresorerie)} • {kpis.effectif || '—'} employés
@@ -419,6 +402,23 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
               icon={<Users className="h-4 w-4 text-primary" />}
               data={analyseCoaching}
             />
+
+            {/* Avis d'Esono — en fin de synthèse */}
+            {analyse.avis && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis d'Esono</p>{editBtn('analyse.avis', 'Avis général')}</div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{analyse.avis}</p>
+                  {analyse.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {analyse.tags.map((t: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-[10px]">{t}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 

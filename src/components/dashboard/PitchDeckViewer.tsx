@@ -127,7 +127,6 @@ h1{font-size:36px;margin:0 0 20px}h2{font-size:28px;margin:0 0 16px}ul{font-size
           <Presentation className="h-6 w-6 text-pink-600" /> Pitch Deck
         </h2>
         <div className="flex items-center gap-3">
-          <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{data.score || 0}/100</Badge>
           <Button variant="outline" size="sm" onClick={handleFullscreen}><Maximize2 className="h-3.5 w-3.5 mr-1" /> Plein écran</Button>
           <Button variant="outline" size="sm" onClick={handleDownloadHtml}><Download className="h-3.5 w-3.5 mr-1" /> HTML</Button>
           <Button variant="outline" size="sm" onClick={async () => {

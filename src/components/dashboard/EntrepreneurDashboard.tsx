@@ -15,7 +15,8 @@ import {
   Plus, Building2, Sparkles, Download,
   LogOut, Clock, CheckCircle2, Loader2,
   FolderPlus, Pencil, Trash2, ArrowLeft,
-  FileText, BarChart3, Stethoscope, LayoutGrid, Globe, FileSpreadsheet, Target, Search, FileSearch
+  FileText, BarChart3, Stethoscope, LayoutGrid, Globe, FileSpreadsheet, Target, Search, FileSearch,
+  Upload, X
 } from 'lucide-react';
 import BmcViewer from './BmcViewer';
 import SicViewer from './SicViewer';
@@ -1434,6 +1435,47 @@ export default function EntrepreneurDashboard({
       </Dialog>
 
 
+      {/* ===== ACTION BUTTONS BAR ===== */}
+      {!readOnly && (
+        <div className="flex-none border-b border-border bg-card/50 px-6 py-2 flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
+            onClick={() => setSelectedModule('upload')}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Uploader</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
+            onClick={() => handleGenerateModule('diagnostic')}
+            disabled={generating}
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Diagnostic</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
+            onClick={() => handleGenerate(false)}
+            disabled={generating}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">{generating ? 'Génération...' : 'Générer tout'}</span>
+          </Button>
+          {generating && (
+            <Button variant="destructive" size="sm" className="gap-2" onClick={handleStopGeneration}>
+              <X className="h-3.5 w-3.5" />
+              <span className="text-xs">Arrêter</span>
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* ===== MAIN AREA: Sidebar + Content ===== */}
       <div className="flex-1 min-h-0 flex">
         {/* Sidebar */}
@@ -1652,17 +1694,17 @@ export default function EntrepreneurDashboard({
 
                 {/* Download bars */}
                 {selectedModule === 'diagnostic' && (
-                  <div className="mb-4 rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center"><Stethoscope className="h-5 w-5 text-orange-600" /></div>
-                        <div><p className="text-sm font-semibold text-orange-900">Diagnostic Expert</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Stethoscope className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Diagnostic Expert</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('diagnostic_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-orange-700 border border-orange-300 text-xs font-semibold hover:bg-orange-50 transition-colors">
+                        <button onClick={() => handleDownload('diagnostic_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
                         </button>
-                        <button onClick={() => handleDownloadPdf('diagnostic_data', `Diagnostic_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-colors shadow-sm">
+                        <button onClick={() => handleDownloadPdf('diagnostic_data', `Diagnostic_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                           <Download className="h-3.5 w-3.5" /> PDF
                         </button>
                       </div>
@@ -1670,17 +1712,17 @@ export default function EntrepreneurDashboard({
                   </div>
                 )}
                 {selectedModule === 'bmc' && (
-                  <div className="mb-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center"><LayoutGrid className="h-5 w-5 text-emerald-600" /></div>
-                        <div><p className="text-sm font-semibold text-emerald-900">Business Model Canvas</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><LayoutGrid className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Business Model Canvas</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('bmc_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors">
+                        <button onClick={() => handleDownload('bmc_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
                         </button>
-                        <button onClick={() => handleDownloadPdf('bmc_analysis', `BMC_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm">
+                        <button onClick={() => handleDownloadPdf('bmc_analysis', `BMC_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                           <Download className="h-3.5 w-3.5" /> PDF
                         </button>
                       </div>
@@ -1688,17 +1730,17 @@ export default function EntrepreneurDashboard({
                   </div>
                 )}
                 {selectedModule === 'sic' && (
-                  <div className="mb-4 rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 to-cyan-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center"><Globe className="h-5 w-5 text-teal-600" /></div>
-                        <div><p className="text-sm font-semibold text-teal-900">Social Impact Canvas</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Globe className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Social Impact Canvas</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('sic_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-teal-700 border border-teal-300 text-xs font-semibold hover:bg-teal-50 transition-colors">
+                        <button onClick={() => handleDownload('sic_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
                         </button>
-                        <button onClick={() => handleDownloadPdf('sic_analysis', `SIC_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 transition-colors shadow-sm">
+                        <button onClick={() => handleDownloadPdf('sic_analysis', `SIC_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                           <Download className="h-3.5 w-3.5" /> PDF
                         </button>
                       </div>
@@ -1706,39 +1748,39 @@ export default function EntrepreneurDashboard({
                   </div>
                 )}
                 {selectedModule === 'framework' && (
-                  <div className="mb-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center"><FileSpreadsheet className="h-5 w-5 text-emerald-600" /></div>
-                        <div><p className="text-sm font-semibold text-emerald-900">Plan Financier Intermédiaire</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileSpreadsheet className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Plan Financier Intermédiaire</p></div>
                       </div>
-                      <button onClick={() => handleDownload('framework_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm">
+                      <button onClick={() => handleDownload('framework_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                         <Download className="h-3.5 w-3.5" /> HTML
                       </button>
                     </div>
                   </div>
                 )}
                 {selectedModule === 'plan_financier' && (
-                  <div className="mb-4 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center"><BarChart3 className="h-5 w-5 text-purple-600" /></div>
-                        <div><p className="text-sm font-semibold text-purple-900">Plan Financier</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><BarChart3 className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Plan Financier</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('plan_financier', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors shadow-sm">
+                        <button onClick={() => handleDownload('plan_financier', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                           <FileSpreadsheet className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span>
                         </button>
-                        <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors">
+                        <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
                         </button>
-                        <button onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors shadow-sm">
+                        <button onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                           <Download className="h-3.5 w-3.5" /> PDF
                         </button>
-                        <button onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Regénère l'Excel à partir des données existantes (sans IA)">
+                        <button onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/80 text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm disabled:opacity-50" title="Regénère l'Excel à partir des données existantes (sans IA)">
                           {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
                         </button>
-                        {!readOnly && <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-300 text-xs font-semibold hover:bg-purple-50 transition-colors disabled:opacity-50">
+                        {!readOnly && <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50">
                           {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {t('dashboard_coach.regenerate')}
                         </button>}
                       </div>
@@ -1746,61 +1788,61 @@ export default function EntrepreneurDashboard({
                   </div>
                 )}
                 {selectedModule === 'plan_ovo' && (
-                  <div className="mb-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center"><FileSpreadsheet className="h-5 w-5 text-emerald-600" /></div>
-                        <div><p className="text-sm font-semibold text-emerald-900">Plan Financier OVO (Excel)</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileSpreadsheet className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Plan Financier OVO (Excel)</p></div>
                       </div>
                       <div className="flex items-center gap-2">
                         {generatingOvoPlan ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
                         ) : ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url ? (
                           <>
-                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
-                            <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
+                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
+                            <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
                           </>
                         ) : (
-                          <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')} Excel OVO</button>
+                          <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')} Excel OVO</button>
                         )}
                       </div>
                     </div>
                   </div>
                 )}
                 {selectedModule === 'business_plan' && (
-                  <div className="mb-4 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-indigo-100 flex items-center justify-center"><FileText className="h-5 w-5 text-indigo-600" /></div>
-                        <div><p className="text-sm font-semibold text-indigo-900">Business Plan OVO</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">Business Plan OVO</p></div>
                       </div>
                       <div className="flex items-center gap-2">
                         {generatingModule === 'business_plan' ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
                         ) : (selectedDeliv?.data as any)?._meta?.download_url ? (
                           <>
-                            <button onClick={() => handleDownloadBpWord()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Word</button>
-                            <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 border border-indigo-300 text-xs font-semibold hover:bg-indigo-50 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
+                            <button onClick={() => handleDownloadBpWord()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Word</button>
+                            <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
                           </>
                         ) : (
-                          <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')}</button>
+                          <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')}</button>
                         )}
                       </div>
                     </div>
                   </div>
                 )}
                 {selectedModule === 'odd' && (
-                  <div className="mb-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center"><Target className="h-5 w-5 text-emerald-600" /></div>
-                        <div><p className="text-sm font-semibold text-emerald-900">ODD</p></div>
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Target className="h-5 w-5 text-primary" /></div>
+                        <div><p className="text-sm font-semibold text-foreground">ODD</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50" title="Génère l'Excel ODD à partir des données existantes">
+                        <button onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/80 text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm disabled:opacity-50" title="Génère l'Excel ODD à partir des données existantes">
                           {regeneratingOddExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel ODD
                         </button>
-                        <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-emerald-700 border border-emerald-300 text-xs font-semibold hover:bg-emerald-50 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
+                        <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
                       </div>
                     </div>
                   </div>

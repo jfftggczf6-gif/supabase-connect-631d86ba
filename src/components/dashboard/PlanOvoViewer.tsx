@@ -231,14 +231,6 @@ export default function PlanOvoViewer({ data, staleness: _staleness }: { data: a
             {data.company || '—'} • {data.country || ''} • {data.currency || ''}
           </p>
         </div>
-        {data.score != null && (
-          <div className="text-center">
-            <Badge variant={data.score >= 70 ? 'default' : data.score >= 40 ? 'secondary' : 'destructive'} className="text-sm px-3 py-1">
-              {data.score}/100
-            </Badge>
-            <Progress value={data.score} className="w-24 h-1.5 mt-1" />
-          </div>
-        )}
       </div>
 
       {/* KPI Bar */}

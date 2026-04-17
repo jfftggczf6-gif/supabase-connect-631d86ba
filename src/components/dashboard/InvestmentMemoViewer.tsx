@@ -171,7 +171,6 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
             )}
             {d.recommandation_preliminaire && (
               <div className="flex items-center gap-3 mt-2">
-                <Badge className={scoreBg}>{score}/100</Badge>
                 <span className="text-sm text-muted-foreground">Recommandation : {d.recommandation_preliminaire}</span>
               </div>
             )}
@@ -734,7 +733,6 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
           <p className="text-sm text-muted-foreground">{data.page_de_garde?.titre}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{score}/100</Badge>
           <Badge className={`text-sm px-3 py-1.5 ${verdictColors[verdict] || 'bg-gray-200'}`}>{verdict}</Badge>
         </div>
       </div>

@@ -235,13 +235,6 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
       {/* ===== BLOC 1 — SCORE GLOBAL (hero) ===== */}
       <div className="rounded-2xl p-8" style={{ background: 'linear-gradient(135deg, #1a2744 0%, #2d4a7c 50%, #1a2744 100%)' }}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40 mb-2">Social Impact Canvas</p>
-        <div className="flex items-center gap-4 mb-3">
-          <span className="text-5xl font-black text-white leading-none" style={{ fontSize: 48 }}>{score}</span>
-          <span className="text-2xl text-white/40 font-light">/100</span>
-        </div>
-        <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden mb-3">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, backgroundColor: color }} />
-        </div>
         <p className="text-lg font-semibold" style={{ color }}>{data.label || data.palier || ''}</p>
         {data.synthese_impact && (
           <p className="text-sm text-white/60 italic mt-3 max-w-[700px] leading-relaxed">{data.synthese_impact}</p>

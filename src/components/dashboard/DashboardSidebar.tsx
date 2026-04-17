@@ -222,55 +222,7 @@ export default function DashboardSidebar({
         })}
       </div>
 
-      {/* Generate / Stop buttons */}
-      {!hideActions && (
-      <div className="p-3 border-t border-border space-y-2">
-        {generating ? (
-          <>
-            <Button
-              disabled
-              className={cn(
-                'w-full gap-2 bg-emerald-600 text-white',
-                collapsed && 'px-2'
-              )}
-              size={collapsed ? 'icon' : 'default'}
-            >
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {!collapsed && generationProgress && (
-                <span className="text-xs truncate">{generationProgress.name} ({generationProgress.current}/{generationProgress.total})</span>
-              )}
-            </Button>
-            <Button
-              onClick={onStopGeneration}
-              variant="destructive"
-              className={cn('w-full gap-2', collapsed && 'px-2')}
-              size={collapsed ? 'icon' : 'default'}
-            >
-              <X className="h-4 w-4" />
-              {!collapsed && <span className="text-xs">Arrêter</span>}
-            </Button>
-          </>
-        ) : (
-          <Button
-            onClick={onGenerateAll}
-            className={cn(
-              'w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white',
-              collapsed && 'px-2'
-            )}
-            size={collapsed ? 'icon' : 'default'}
-          >
-            {collapsed ? (
-              <Sparkles className="h-4 w-4" />
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                <span className="text-xs">Générer tout le pipeline</span>
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-      )}
+      {/* Generate buttons moved to action bar in EntrepreneurDashboard */}
     </div>
   );
 

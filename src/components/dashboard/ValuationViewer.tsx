@@ -81,7 +81,6 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
           <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadPdf}>
             <Download className="h-3.5 w-3.5" /> PDF
           </Button>
-          <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{data.score || 0}/100</Badge>
           {onRegenerate && (
             <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
               Regénérer

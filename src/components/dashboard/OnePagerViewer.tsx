@@ -165,7 +165,6 @@ ${criteres ? `
           }}>
             <Download className="h-3.5 w-3.5 mr-1" /> PDF
           </Button>
-          <Badge className={`text-lg px-4 py-2 ${scoreBg}`}>{score}/100</Badge>
           {onRegenerate && (
             <button onClick={onRegenerate} className="text-xs text-muted-foreground underline">Regénérer</button>
           )}

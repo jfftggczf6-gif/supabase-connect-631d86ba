@@ -102,7 +102,7 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
 function SicViewer({ data }: { data: any }) {
   return (
     <div className="space-y-4">
-      <ScoreHeader title="Social Impact Canvas" score={data.score} subtitle={data.mission_sociale} />
+      <ScoreHeader title="Social Impact Canvas" subtitle={data.mission_sociale} />
       
       {data.probleme_social && (
         <Card><CardContent className="py-4">
@@ -837,7 +837,7 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
     const dimensions = data.diagnostic_par_dimension || {};
     return (
       <div className="space-y-4">
-        <ScoreHeader title="Bilan de progression" score={score} subtitle={data.synthese_executive} badge={data.niveau_maturite} />
+        <ScoreHeader title="Bilan de progression" subtitle={data.synthese_executive} badge={data.niveau_maturite} />
         {Object.keys(dimensions).length > 0 && (
           <Card><CardContent className="py-4">
             <h4 className="text-xs font-bold text-primary mb-3">📊 Scores par dimension</h4>
@@ -923,8 +923,6 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
               </div>
             </div>
             <div className="text-center flex-none">
-              <p className="text-3xl font-display font-black">{score}</p>
-              <p className="text-[10px] opacity-60">/100</p>
               <p className="text-[11px] mt-1 opacity-80">{couleur} {label}</p>
             </div>
           </div>
@@ -1403,7 +1401,7 @@ function BusinessPlanViewer({ data }: { data: any }) {
 
   return (
     <div className="space-y-4">
-      <ScoreHeader title="Business Plan" score={data.score} subtitle={re.accroche} />
+      <ScoreHeader title="Business Plan" subtitle={re.accroche} />
 
       {re.probleme && (
         <Card><CardContent className="py-4 space-y-3">
