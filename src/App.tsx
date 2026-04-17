@@ -8,6 +8,7 @@ import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import RequireSuperAdmin from "@/components/guards/RequireSuperAdmin";
 import OrganizationsPage from "./pages/admin/OrganizationsPage";
+import InvitationAcceptPage from "./pages/InvitationAcceptPage";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -75,6 +76,7 @@ const App = () => (
               <ProtectedRoute><GenericModule /></ProtectedRoute>
             } />
             <Route path="/data-room/:slug" element={<DataRoomPublic />} />
+            <Route path="/invitation/:token" element={<InvitationAcceptPage />} />
             <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
