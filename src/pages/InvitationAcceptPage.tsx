@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Building2, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface InvitationDetails {
   organization_name: string;
@@ -21,6 +22,7 @@ interface InvitationDetails {
 export default function InvitationAcceptPage() {
   const { token } = useParams<{ token: string }>();
   const { user, session } = useAuth();
+  const { refreshOrganizations, switchOrganization } = useOrganization();
   const navigate = useNavigate();
   const [details, setDetails] = useState<InvitationDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,10 @@ export default function InvitationAcceptPage() {
       if (!resp.ok) throw new Error(result.error || result.message);
       setAccepted(true);
       toast.success(`Bienvenue dans ${details?.organization_name} !`);
-      setTimeout(() => navigate('/dashboard'), 2000);
+      // Rafraîchir le contexte org pour que la nouvelle org apparaisse
+      await refreshOrganizations();
+      if (result.organization_id) switchOrganization(result.organization_id);
+      setTimeout(() => navigate('/dashboard'), 1500);
     } catch (err: any) {
       toast.error(err.message);
     }

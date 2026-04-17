@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3 } from 'lucide-react';
+import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const { t, i18n } = useTranslation();
   const showProgrammes = role === 'super_admin' || role === 'chef_programme';
   const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;
+  const canManageMembers = ['owner', 'admin', 'manager'].includes(orgRole || '') || isSuperAdmin;
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
 
   const initials = profile?.full_name
@@ -81,6 +82,14 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                       </div>
                     </DropdownMenuItem>
                   ))}
+                  {canManageMembers && (
+                    <>
+                      <div className="border-t my-1" />
+                      <DropdownMenuItem onClick={() => navigate('/organization/members')} className="gap-2 text-xs">
+                        <Users className="h-3.5 w-3.5" /> Membres
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   {isSuperAdmin && (
                     <>
                       <div className="border-t my-1" />

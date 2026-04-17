@@ -195,7 +195,8 @@ export async function verifyAndGetContext(req: Request, preParsedBody?: any) {
   ) : 0;
   const baseYear: number = (detectedBaseYear > 2000 ? detectedBaseYear : 0) || ent.base_year || new Date(ent.created_at || Date.now()).getFullYear();
 
-  return { supabase, user, enterprise: ent, enterprise_id, documentContent, moduleMap, deliverableMap, baseYear };
+  const organization_id = ent.organization_id;
+  return { supabase, user, enterprise: ent, enterprise_id, organization_id, documentContent, moduleMap, deliverableMap, baseYear };
 }
 
 /**
@@ -317,6 +318,7 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
         await svc.from("ai_cost_log").insert({
           function_name: costContext?.functionName || 'callAI',
           enterprise_id: costContext?.enterpriseId || null,
+          organization_id: costContext?.organizationId || null,
           model,
           input_tokens: usage.input_tokens || 0,
           output_tokens: usage.output_tokens || 0,
@@ -538,8 +540,11 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
     .eq("module", moduleCode);
 
   // 5. Activity log (non-blocking)
+  // Récupérer l'organization_id depuis l'entreprise
+  const { data: entForOrg } = await supabase.from("enterprises").select("organization_id").eq("id", enterprise_id).single();
   const { error: activityError } = await supabase.from("activity_log").insert({
     enterprise_id,
+    organization_id: entForOrg?.organization_id || null,
     actor_role: 'ai',
     action: 'generate',
     resource_type: 'deliverable',

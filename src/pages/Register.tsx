@@ -157,6 +157,7 @@ export default function Register() {
               <p className="text-xs text-muted-foreground">{t('auth.min_chars')}</p>
             </div>
 
+            {!isInvitation && (
             <div className="space-y-2">
               <Label>
                 {t('auth.country')} <span className="text-destructive">*</span>
@@ -172,6 +173,7 @@ export default function Register() {
                 </SelectContent>
               </Select>
             </div>
+            )}
 
             <div className="flex items-start gap-2 pt-2">
               <Checkbox
@@ -186,7 +188,7 @@ export default function Register() {
 
             <button
               type="submit"
-              disabled={isLoading || !accepted || !country}
+              disabled={isLoading || !accepted || (!isInvitation && !country)}
               className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isLoading ? (
@@ -194,6 +196,8 @@ export default function Register() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('auth.creating_account')}
                 </>
+              ) : isInvitation ? (
+                'Créer mon compte'
               ) : (
                 t('auth.create_account_btn', { role: roleLabel })
               )}

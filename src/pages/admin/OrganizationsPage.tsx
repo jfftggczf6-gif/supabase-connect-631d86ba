@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,6 +20,7 @@ interface OrgRow {
 }
 
 export default function OrganizationsPage() {
+  const navigate = useNavigate();
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -79,6 +81,9 @@ export default function OrganizationsPage() {
 
   return (
     <DashboardLayout title="Organisations" subtitle="Gestion des espaces clients">
+      <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/dashboard')}>
+        ← Retour au dashboard
+      </Button>
       <div className="flex items-center justify-between mb-6">
         <div className="relative w-80">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
