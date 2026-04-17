@@ -26,10 +26,13 @@ export default function Register() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const initialRole = (searchParams.get('role') === 'entrepreneur' ? 'entrepreneur' : 'coach') as AppRole;
+  const redirectTo = searchParams.get('redirect') || '';
+  const prefilledEmail = searchParams.get('email') || '';
+  const isInvitation = redirectTo.startsWith('/invitation/');
 
   const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole);
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
   const [country, setCountry] = useState('');
   const [accepted, setAccepted] = useState(false);
@@ -53,7 +56,7 @@ export default function Register() {
       // Explicitly create the role — don't rely on DB trigger timing
       await setRole(selectedRole);
       toast.success(t('auth.account_created'));
-      navigate('/dashboard');
+      navigate(redirectTo || '/dashboard');
     } catch (err: any) {
       toast.error(err.message || t('auth.register_error'));
     } finally {
@@ -71,15 +74,18 @@ export default function Register() {
             <span className="text-lg font-display font-bold text-primary-foreground">ES</span>
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground">
-            {t('auth.create_account_title', { role: roleLabel })}
+            {isInvitation ? 'Créer votre compte' : t('auth.create_account_title', { role: roleLabel })}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {selectedRole === 'entrepreneur'
-              ? t('auth.register_subtitle_entrepreneur')
-              : t('auth.register_subtitle_coach')}
+            {isInvitation
+              ? 'Créez votre compte pour accepter l\'invitation'
+              : selectedRole === 'entrepreneur'
+                ? t('auth.register_subtitle_entrepreneur')
+                : t('auth.register_subtitle_coach')}
           </p>
         </div>
 
+        {!isInvitation && (
         <div className="flex mb-6 bg-muted rounded-lg p-1">
           <button
             type="button"
@@ -98,6 +104,7 @@ export default function Register() {
             {t('auth.role_entrepreneur')}
           </button>
         </div>
+        )}
 
         {/* Form card */}
         <div className="bg-card rounded-xl border p-6">
@@ -126,6 +133,8 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="awa@startup.com"
                 required
+                readOnly={!!prefilledEmail}
+                className={prefilledEmail ? 'bg-muted' : ''}
               />
             </div>
 
