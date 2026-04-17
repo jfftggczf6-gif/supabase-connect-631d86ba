@@ -83,7 +83,7 @@ export default function Templates() {
   };
 
   return (
-    <DashboardLayout title="Templates Vierges" subtitle="Téléchargez les templates à distribuer à vos entrepreneurs">
+    <DashboardLayout title="Templates Questionnaires" subtitle="Téléchargez les templates à distribuer à vos entrepreneurs">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
         {TEMPLATES.map(tpl => {
           const Icon = tpl.icon;

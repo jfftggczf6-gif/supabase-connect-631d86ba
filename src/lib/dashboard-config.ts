@@ -2,7 +2,7 @@ import {
   LayoutGrid, Globe, FileSpreadsheet, BarChart3,
   Stethoscope, FileText, Target,
   TrendingUp, Briefcase, Upload, RefreshCw,
-  FileSearch, FolderOpen, BookOpen,
+  FileSearch, FolderOpen, BookOpen, Users,
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -114,58 +114,39 @@ export interface PhaseConfig {
 
 export const PHASES: PhaseConfig[] = [
   {
-    id: 'phase_0',
+    id: 'phase_donnees',
     label: 'Données',
     shortLabel: 'Données',
-    color: 'emerald',
+    color: 'violet',
     modules: [
       { code: 'upload', label: 'Upload documents', icon: Upload, special: 'upload' },
       { code: 'reconstruction', label: 'Reconstruction', icon: RefreshCw, special: 'upload' },
+      { code: 'coach_info', label: 'Information du coach', icon: Users, special: 'upload' },
       { code: 'sources', label: 'Sources & références', icon: BookOpen, special: 'upload' },
     ],
   },
   {
-    id: 'phase_1',
-    label: 'Diagnostic initial',
+    id: 'phase_diagnostic',
+    label: 'Diagnostic',
     shortLabel: 'Diagnostic',
-    color: 'rose',
-    modules: [
-      { code: 'pre_screening', label: 'Diagnostic initial', icon: FileSearch, special: 'pre_screening' },
-    ],
-  },
-  {
-    id: 'phase_2',
-    label: 'Analyse',
-    shortLabel: 'Analyse',
-    color: 'blue',
-    modules: [
-      { code: 'bmc', label: 'Business Model Canvas', icon: LayoutGrid },
-      { code: 'sic', label: 'Social Impact Canvas', icon: Globe },
-      { code: 'plan_financier', label: 'Plan Financier', icon: BarChart3 },
-      { code: 'business_plan', label: 'Business Plan', icon: FileText },
-      { code: 'odd', label: 'ODD', icon: Target },
-      { code: 'diagnostic', label: 'Bilan de progression', icon: Stethoscope },
-    ],
-  },
-  {
-    id: 'phase_3',
-    label: 'Investisseur',
-    shortLabel: 'Invest.',
     color: 'violet',
     modules: [
+      { code: 'pre_screening', label: 'Diagnostic', icon: FileSearch, special: 'pre_screening' },
+    ],
+  },
+  {
+    id: 'phase_livrables',
+    label: 'Livrables',
+    shortLabel: 'Livrables',
+    color: 'violet',
+    modules: [
+      { code: 'bmc', label: 'Business Model Canvas', icon: LayoutGrid },
+      { code: 'plan_financier', label: 'Plan Financier', icon: BarChart3 },
+      { code: 'business_plan', label: 'Business Plan', icon: FileText },
+      { code: 'odd', label: 'Impact ODD', icon: Target },
       { code: 'valuation', label: 'Valorisation', icon: TrendingUp },
       { code: 'onepager', label: 'One-Pager', icon: FileText },
       { code: 'investment_memo', label: 'Mémo Investissement', icon: Briefcase },
-      { code: 'dataroom', label: 'Data Room', icon: FolderOpen, special: 'dataroom' },
-    ],
-  },
-  {
-    id: 'phase_4',
-    label: 'Décision',
-    shortLabel: 'Décision',
-    color: 'rose',
-    modules: [
-      { code: 'screening', label: 'Décision programme', icon: FileSearch, special: 'screening' },
     ],
   },
 ];

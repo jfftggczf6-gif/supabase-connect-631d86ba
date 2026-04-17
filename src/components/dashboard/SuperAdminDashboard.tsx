@@ -780,7 +780,7 @@ export default function SuperAdminDashboard() {
 
         {/* KNOWLEDGE BASE TAB */}
         <TabsContent value="knowledge">
-          <KnowledgeBaseManager />
+          <KnowledgeBaseManager isAdmin={true} />
         </TabsContent>
 
         {/* STRUCTURED KB TAB */}

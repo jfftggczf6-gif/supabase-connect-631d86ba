@@ -132,7 +132,7 @@ function AnalysisSection({ title, icon, data: sectionData }: { title: string; ic
                   <p className="text-[10px] font-medium text-muted-foreground mb-1">{label}</p>
                   <div className="space-y-1.5">
                     {value.map((item: any, i: number) => (
-                      <div key={i} className="bg-muted/30 rounded-lg px-3 py-2 text-xs">
+                      <div key={i} className="bg-background border border-border/30 rounded-lg px-3 py-2 text-xs">
                         {item.titre && <p className="font-semibold text-[11px]">{item.titre}</p>}
                         {item.description && <p className="text-muted-foreground mt-0.5">{item.description}</p>}
                         {item.texte && <p className="text-muted-foreground">{item.texte}</p>}
@@ -152,7 +152,7 @@ function AnalysisSection({ title, icon, data: sectionData }: { title: string; ic
               return (
                 <div key={key}>
                   <p className="text-[10px] font-medium text-muted-foreground mb-1">{label}</p>
-                  <div className="bg-muted/30 rounded-lg px-3 py-2 text-xs space-y-0.5">
+                  <div className="bg-background border border-border/30 rounded-lg px-3 py-2 text-xs space-y-0.5">
                     {Object.entries(value).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([k, v]) => (
                       <div key={k} className="flex justify-between">
                         <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
@@ -236,12 +236,6 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             {data.company || '—'} • {data.country || ''} • {data.currency || ''}
           </p>
         </div>
-        {analyse.score_investissabilite != null && (
-          <Badge variant={analyse.score_investissabilite >= 70 ? 'default' : analyse.score_investissabilite >= 40 ? 'secondary' : 'destructive'}
-                 className="text-sm px-3 py-1">
-            {analyse.score_investissabilite}/100
-          </Badge>
-        )}
       </div>
 
       <Tabs defaultValue="synthese" className="w-full">
@@ -264,7 +258,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             {analyse.avis && (
               <Card>
                 <CardContent className="py-4">
-                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis de l'IA</p>{editBtn('analyse.avis', 'Avis général')}</div>
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis d'Esono</p>{editBtn('analyse.avis', 'Avis général')}</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{analyse.avis}</p>
                   {analyse.tags?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
@@ -278,7 +272,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
             )}
 
             {/* Résumé chiffré */}
-            <div className="bg-muted/30 rounded-lg px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="bg-background border border-border/30 rounded-lg px-3 py-2 text-[11px] text-muted-foreground">
               CA {fmtM(kpis.ca)} • Marge brute {pctFmt(sante.rentabilite?.marge_brute_pct)} • EBITDA {fmtM(cyProj?.ebitda)} ({pctFmt(cyProj?.ebitda_pct)}) • Résultat net {fmtM(kpis.resultat_net)} • Trésorerie {fmtM(kpis.tresorerie)} • {kpis.effectif || '—'} employés
             </div>
 
@@ -358,7 +352,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                   <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-3">Risques clés</p>{editBtn('analyse.risques', 'Risques')}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {analyse.risques.map((r: any, i: number) => (
-                      <div key={i} className={`rounded-lg p-3 ${r.impact === 'critique' ? 'bg-red-50' : r.impact === 'élevé' ? 'bg-amber-50' : 'bg-muted/30'}`}>
+                      <div key={i} className={`rounded-lg p-3 ${r.impact === 'critique' ? 'bg-red-50' : r.impact === 'élevé' ? 'bg-amber-50' : 'bg-background border border-border/30'}`}>
                         <div className="flex items-center gap-1">
                           <p className={`text-[11px] font-semibold ${r.impact === 'critique' ? 'text-red-700' : r.impact === 'élevé' ? 'text-amber-700' : 'text-foreground'}`}>{r.titre}</p>
                           <ConfidenceDot value={r.confiance || r.estimation?.confiance} />
@@ -411,19 +405,6 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
               </Card>
             )}
 
-            {/* Score investissabilité */}
-            {analyse.score_investissabilite != null && (
-              <div className={`rounded-lg p-4 flex items-center gap-4 ${analyse.score_investissabilite >= 70 ? 'bg-green-50 border border-green-200' : analyse.score_investissabilite >= 40 ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
-                <div className="text-center shrink-0">
-                  <p className={`text-2xl font-bold ${analyse.score_investissabilite >= 70 ? 'text-green-700' : analyse.score_investissabilite >= 40 ? 'text-amber-700' : 'text-red-700'}`}>{analyse.score_investissabilite}</p>
-                  <p className="text-[9px] text-muted-foreground">/100</p>
-                </div>
-                <div className="border-l pl-4">
-                  <p className="text-sm font-semibold">Score investissabilité : {analyse.verdict || '—'}</p>
-                  
-                </div>
-              </div>
-            )}
 
             {/* ── Analyse investisseur ── */}
             <AnalysisSection
@@ -472,7 +453,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                         { label: "EBITDA", key: 'ebitda', bold: true },
                         { label: "Résultat net", key: 'resultat_net', bold: true },
                       ].map((row) => (
-                        <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                        <TableRow key={row.key} className={row.bold ? 'bg-background border border-border/30' : ''}>
                           <TableCell className={`text-xs ${row.bold ? 'font-semibold' : 'text-muted-foreground'} ${row.indent ? 'pl-6' : ''}`}>{row.label}</TableCell>
                           {projections.filter((p: any) => p.is_reel).map((p: any) => (
                             <TableCell key={p.annee} className={`text-xs text-right ${row.bold ? 'font-semibold' : ''}`}>{fmtM(p[row.key])}</TableCell>
@@ -624,7 +605,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                           </TableRow>
                         );
                       })}
-                      <TableRow className="bg-muted/30">
+                      <TableRow className="bg-background border border-border/30">
                         <TableCell colSpan={6} className="text-[10px] font-semibold">Total produits</TableCell>
                         <TableCell className="text-[10px] text-right font-semibold">
                           {fmtM(produits.reduce((s: number, p: any) => s + (p.prix_unitaire || 0) * (p.volume_annuel || 0), 0))}
@@ -688,7 +669,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                         <TableRow>
                           <TableHead className="text-[10px]">Indicateur</TableHead>
                           {projections.map((p: any) => (
-                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-background border border-border/30' : ''}`}>
                               {p.annee_num}{p.is_reel ? ' ✓' : ''}
                             </TableHead>
                           ))}
@@ -706,7 +687,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                               const val = row.compute ? row.compute(p) : p[row.key];
                               const isGood = (val || 0) >= 10;
                               return (
-                                <TableCell key={p.annee} className={`text-[10px] text-right font-medium ${p.is_reel ? 'bg-muted/30' : ''} ${isGood ? 'text-green-700' : (val || 0) >= 0 ? 'text-amber-600' : 'text-red-700'}`}>
+                                <TableCell key={p.annee} className={`text-[10px] text-right font-medium ${p.is_reel ? 'bg-background border border-border/30' : ''} ${isGood ? 'text-green-700' : (val || 0) >= 0 ? 'text-amber-600' : 'text-red-700'}`}>
                                   {pctFmt(val)}
                                 </TableCell>
                               );
@@ -899,7 +880,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                   <p className="text-sm font-semibold mb-2">Cohérence BMC ↔ Financiers</p>
                   <div className="space-y-1.5">
                     {analyse.coherence_bmc.map((c: any, i: number) => (
-                      <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${c.niveau === 'erreur' ? 'bg-red-50 text-red-700' : c.niveau === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-muted/30 text-muted-foreground'}`}>
+                      <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${c.niveau === 'erreur' ? 'bg-red-50 text-red-700' : c.niveau === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-background border border-border/30 text-muted-foreground'}`}>
                         <span className="font-semibold mr-1">{c.niveau === 'erreur' ? '!!' : c.niveau === 'warning' ? '!' : '✓'}</span>
                         {c.texte}
                       </div>
@@ -1007,7 +988,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                         <TableRow>
                           <TableHead className="text-[10px]">Poste</TableHead>
                           {projections.map((p: any) => (
-                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                            <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-background border border-border/30' : ''}`}>
                               {p.annee_num}{p.is_reel ? ' ✓' : ''}
                             </TableHead>
                           ))}
@@ -1030,7 +1011,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                           { label: "Résultat net", key: 'resultat_net', bold: true },
                           { label: "Résultat net %", key: 'resultat_net_pct', isPct: true },
                         ].map((row) => (
-                          <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                          <TableRow key={row.key} className={row.bold ? 'bg-background border border-border/30' : ''}>
                             <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
                             {projections.map((p: any) => {
                               let val = p[row.key];
@@ -1038,7 +1019,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                                 val = (p.resultat_net / p.ca) * 100;
                               }
                               return (
-                                <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-background border border-border/30' : ''}`}>
                                   {row.isPct ? pctFmt(val) : fmtM(val)}
                                 </TableCell>
                               );
@@ -1086,7 +1067,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                             </TableRow>
                           );
                         })}
-                        <TableRow className="bg-muted/30">
+                        <TableRow className="bg-background border border-border/30">
                           <TableCell className="text-[10px] font-semibold">Total CA</TableCell>
                           {projections.map((p: any) => (
                             <TableCell key={p.annee} className="text-[10px] text-right font-semibold">{fmtM(p.ca)}</TableCell>
@@ -1124,7 +1105,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                           { label: "Cash-flow libre", key: 'free_cashflow', bold: true },
                           { label: "Trésorerie cumulée", key: 'tresorerie_cumulee', bold: true },
                         ].filter(r => projections.some((p: any) => p[r.key] != null)).map((row) => (
-                          <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                          <TableRow key={row.key} className={row.bold ? 'bg-background border border-border/30' : ''}>
                             <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
                             {projections.map((p: any) => (
                               <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''}`}>
@@ -1170,7 +1151,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                               <TableCell className="text-[10px] text-right">{pctFmt(op.pct)}</TableCell>
                             </TableRow>
                           ))}
-                          <TableRow className="bg-muted/30">
+                          <TableRow className="bg-background border border-border/30">
                             <TableCell className="text-[10px] font-bold">Total</TableCell>
                             <TableCell className="text-[10px] text-right font-bold">
                               {fmtM(data.opex_categories.reduce((s: number, o: any) => s + (o.montant || 0), 0))}
@@ -1193,7 +1174,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                             <TableRow>
                               <TableHead className="text-[10px]">Poste</TableHead>
                               {projections.map((p: any) => (
-                                <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                <TableHead key={p.annee} className={`text-[10px] text-right ${p.is_reel ? 'bg-background border border-border/30' : ''}`}>
                                   {p.annee_num}{p.is_reel ? ' ✓' : ''}
                                 </TableHead>
                               ))}
@@ -1208,12 +1189,12 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                               { label: 'OPEX total', key: 'opex_total', bold: true },
                               { label: '% du CA', key: 'opex_pct_ca', isPct: true },
                             ].filter(row => row.key === 'opex_total' || projections.some((p: any) => p[row.key] != null)).map((row) => (
-                              <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                              <TableRow key={row.key} className={row.bold ? 'bg-background border border-border/30' : ''}>
                                 <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
                                 {projections.map((p: any) => {
                                   const val = row.key === 'opex_pct_ca' && p.ca ? ((p.opex_total || 0) / p.ca) * 100 : p[row.key];
                                   return (
-                                    <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-muted/30' : ''}`}>
+                                    <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''} ${p.is_reel ? 'bg-background border border-border/30' : ''}`}>
                                       {row.isPct ? pctFmt(val) : fmtM(val)}
                                     </TableCell>
                                   );
@@ -1337,7 +1318,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                                 </TableRow>
                               );
                             })}
-                            <TableRow className="bg-muted/30">
+                            <TableRow className="bg-background border border-border/30">
                               <TableCell className="text-[10px] font-semibold">Total</TableCell>
                               <TableCell colSpan={4} />
                               <TableCell className="text-[10px] text-right font-semibold">
@@ -1474,7 +1455,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                               </TableRow>
                             );
                           })}
-                          <TableRow className="bg-muted/30">
+                          <TableRow className="bg-background border border-border/30">
                             <TableCell className="text-[10px] font-semibold">Total</TableCell>
                             <TableCell className="text-[10px] text-right font-semibold">
                               {staff.reduce((s: number, st: any) => {
@@ -1529,7 +1510,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                                 ))}
                               </TableRow>
                             ))}
-                            <TableRow className="bg-muted/30">
+                            <TableRow className="bg-background border border-border/30">
                               <TableCell className="text-[10px] font-semibold">Total</TableCell>
                               {(staff[0]?.par_annee || []).map((_: any, yi: number) => (
                                 <TableCell key={yi} className="text-[10px] text-right font-semibold">
@@ -1571,7 +1552,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                                 })}
                               </TableRow>
                             ))}
-                            <TableRow className="bg-muted/30">
+                            <TableRow className="bg-background border border-border/30">
                               <TableCell className="text-[10px] font-semibold">Total</TableCell>
                               {(staff[0]?.par_annee || []).map((_: any, yi: number) => (
                                 <TableCell key={yi} className="text-[10px] text-right font-semibold">
@@ -1600,7 +1581,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                   <p className="text-sm font-semibold mb-2">Canaux de distribution</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {data.channels.map((ch: any, i: number) => (
-                      <div key={i} className="bg-muted/30 rounded-lg p-2.5 text-xs">
+                      <div key={i} className="bg-background border border-border/30 rounded-lg p-2.5 text-xs">
                         <p className="font-semibold text-[11px]">{ch.nom || ch.name}</p>
                         {ch.part_ca != null && <p className="text-muted-foreground mt-0.5">{pctFmt((ch.part_ca || 0) * 100)} du CA</p>}
                         {ch.description && <p className="text-muted-foreground mt-0.5">{ch.description}</p>}
@@ -1679,7 +1660,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                               </TableRow>
                             );
                           })}
-                          <TableRow className="bg-muted/30">
+                          <TableRow className="bg-background border border-border/30">
                             <TableCell colSpan={2} className="text-[10px] font-semibold">Total CAPEX</TableCell>
                             <TableCell className="text-[10px] text-right font-semibold">
                               {fmtM(capexItems.reduce((s: number, c: any) => s + (c.acquisition_value || c.montant || 0), 0))}
@@ -1721,7 +1702,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                               { label: 'Amortissements', key: 'amortissement', bold: true },
                               { label: 'VNC (valeur nette)', key: 'vnc' },
                             ].filter(r => r.key === 'amortissement' || projections.some((p: any) => p[r.key] != null)).map((row) => (
-                              <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                              <TableRow key={row.key} className={row.bold ? 'bg-background border border-border/30' : ''}>
                                 <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
                                 {projections.map((p: any) => (
                                   <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''}`}>
@@ -1807,7 +1788,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                       {Object.entries(data.financing).filter(([k]) => !['sources', 'methode', 'hypotheses', 'niveau', 'confiance'].includes(k)).map(([key, val]: [string, any]) => {
                         if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
                           return (
-                            <div key={key} className="bg-muted/30 rounded-lg p-2.5 mb-1.5">
+                            <div key={key} className="bg-background border border-border/30 rounded-lg p-2.5 mb-1.5">
                               <p className="text-[10px] font-semibold mb-1">{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
                               <div className="space-y-0.5">
                                 {Object.entries(val).filter(([k]) => !['sources', 'methode', 'hypotheses'].includes(k)).map(([k, v]) => (
@@ -1868,7 +1849,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                             { label: 'Δ BFR', key: 'variation_bfr' },
                             { label: 'Trésorerie cumulée', key: 'tresorerie_cumulee', bold: true },
                           ].filter(r => projections.some((p: any) => p[r.key] != null)).map((row) => (
-                            <TableRow key={row.key} className={row.bold ? 'bg-muted/30' : ''}>
+                            <TableRow key={row.key} className={row.bold ? 'bg-background border border-border/30' : ''}>
                               <TableCell className={`text-[10px] ${row.bold ? 'font-semibold' : 'text-muted-foreground'}`}>{row.label}</TableCell>
                               {projections.map((p: any) => (
                                 <TableCell key={p.annee} className={`text-[10px] text-right ${row.bold ? 'font-semibold' : ''}`}>
@@ -2030,7 +2011,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                         if (!pont) return null;
                         const label = pontKey.replace('pont_', '').toUpperCase();
                         return (
-                          <div key={pontKey} className="bg-muted/30 rounded-lg p-2.5">
+                          <div key={pontKey} className="bg-background border border-border/30 rounded-lg p-2.5">
                             <p className="text-[10px] font-semibold mb-1">Pont {label}</p>
                             {typeof pont === 'string' ? (
                               <p className="text-[10px] text-muted-foreground">{pont}</p>
@@ -2115,7 +2096,7 @@ function Row({ label, value, color, sub }: { label: string; value: string; color
 
 function MetricBox({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
-    <div className="bg-muted/30 rounded-lg p-2.5 text-center">
+    <div className="bg-background border border-border/30 rounded-lg p-2.5 text-center">
       <p className="text-[10px] text-muted-foreground">{label}</p>
       <p className={`text-base font-semibold mt-0.5 ${color || ''}`}>{value}</p>
       {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
@@ -2129,7 +2110,7 @@ function RatioCard({ title, ratios }: { title: string; ratios: Array<{ label: st
       <p className="text-[11px] font-semibold mb-2 pb-1.5 border-b">{title}</p>
       <div className="grid grid-cols-2 gap-1.5">
         {ratios.map((r, i) => (
-          <div key={i} className={`text-center p-1.5 rounded ${r.alert ? 'bg-red-50' : 'bg-muted/30'}`}>
+          <div key={i} className={`text-center p-1.5 rounded ${r.alert ? 'bg-red-50' : 'bg-background border border-border/30'}`}>
             <p className={`text-[9px] ${r.alert ? 'text-red-600' : 'text-muted-foreground'}`}>{r.label}</p>
             <p className="text-sm font-semibold mt-0.5">{r.value}</p>
             {r.bench && <p className="text-[8px] text-muted-foreground">bench {r.bench}</p>}

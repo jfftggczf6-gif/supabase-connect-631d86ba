@@ -17,6 +17,7 @@ import FinalReportModal from './FinalReportModal';
 interface CoachingTabProps {
   enterpriseId: string;
   enterpriseName: string;
+  viewMode?: 'full' | 'notes_only' | 'reports_only';
 }
 
 type NoteMode = 'idle' | 'write' | 'processing' | 'review';
@@ -54,7 +55,7 @@ const DELIVERABLE_LABELS: Record<string, string> = {
   investment_memo: "Mémo Investissement",
 };
 
-export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTabProps) {
+export default function CoachingTab({ enterpriseId, enterpriseName, viewMode = 'full' }: CoachingTabProps) {
   const { t } = useTranslation();
   const { session: authSession } = useAuth();
   const [notes, setNotes] = useState<any[]>([]);
@@ -298,18 +299,20 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
 
   return (
     <div className="space-y-4">
-      {/* Report buttons */}
-      <div className="flex gap-2">
-        <Button variant="default" size="sm" onClick={() => setShowReport('suivi')}>
-          {t('coaching.suivi_report')}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowReport('final')}>
-          <Sparkles className="h-3.5 w-3.5 mr-1" /> {t('coaching.final_report')}
-        </Button>
-      </div>
+      {/* Report buttons — hidden in notes_only mode */}
+      {viewMode !== 'notes_only' && (
+        <div className="flex gap-2">
+          <Button variant="default" size="sm" onClick={() => setShowReport('suivi')}>
+            {t('coaching.suivi_report')}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowReport('final')}>
+            <Sparkles className="h-3.5 w-3.5 mr-1" /> {t('coaching.final_report')}
+          </Button>
+        </div>
+      )}
 
-      {/* Note input — idle */}
-      {mode === 'idle' && (
+      {/* Note input — idle (hidden in reports_only mode) */}
+      {viewMode !== 'reports_only' && mode === 'idle' && (
         <div className="space-y-3">
           <div
             className="p-5 rounded-lg border-2 border-dashed border-border text-center cursor-pointer hover:border-primary/50 transition-colors"
@@ -332,7 +335,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       )}
 
       {/* Note input — write */}
-      {mode === 'write' && (
+      {viewMode !== 'reports_only' && mode === 'write' && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-4 space-y-3">
             {file && (
@@ -355,7 +358,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       )}
 
       {/* Processing */}
-      {mode === 'processing' && (
+      {viewMode !== 'reports_only' && mode === 'processing' && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-8 text-center">
             <Loader2 className="h-6 w-6 mx-auto animate-spin text-primary mb-2" />
@@ -365,7 +368,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
       )}
 
       {/* Review — enriched with corrections */}
-      {mode === 'review' && iaResult && (
+      {viewMode !== 'reports_only' && mode === 'review' && iaResult && (
         <div className="space-y-3">
           {/* Title + Resume */}
           <Card className="border-primary/20 bg-primary/5">
@@ -484,8 +487,8 @@ export default function CoachingTab({ enterpriseId, enterpriseName }: CoachingTa
         </div>
       )}
 
-      {/* History */}
-      {!loading && (
+      {/* History — hidden in reports_only mode */}
+      {viewMode !== 'reports_only' && !loading && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
             {t('coaching.history')} — {notes.length} note{notes.length !== 1 ? 's' : ''}

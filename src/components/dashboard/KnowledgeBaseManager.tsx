@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2 } from 'lucide-react';
+import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { parseFile } from '@/lib/document-parser';
 
 interface KBEntry {
   id: string;
@@ -29,9 +30,21 @@ interface KBEntry {
   has_embedding: boolean;
 }
 
-const CATEGORIES = ['benchmarks', 'fiscal', 'general', 'donor_criteria'];
+const CATEGORIES = ['benchmarks', 'fiscal', 'secteurs', 'bailleurs', 'odd', 'reglementation', 'general'];
 
-export default function KnowledgeBaseManager() {
+const CATEGORY_LABELS: Record<string, string> = {
+  benchmarks: 'Benchmarks',
+  fiscal: 'Fiscal',
+  secteurs: 'Secteurs',
+  bailleurs: 'Bailleurs',
+  odd: 'ODD',
+  reglementation: 'Réglementation',
+  general: 'Général',
+};
+
+const ZONES = ['Monde', 'Afrique', 'Afrique de l\'Ouest', 'UEMOA', 'CEMAC', 'Afrique de l\'Est', 'Afrique du Nord', 'Afrique Australe', 'Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Mali', 'Burkina Faso', 'RDC', 'Guinée', 'Togo', 'Bénin', 'Niger', 'Maroc', 'Kenya', 'Nigeria', 'Ghana'];
+
+export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +52,10 @@ export default function KnowledgeBaseManager() {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [previewEntry, setPreviewEntry] = useState<KBEntry | null>(null);
+  const [contentMode, setContentMode] = useState<'upload' | 'link' | 'text'>('upload');
+  const [parsing, setParsing] = useState(false);
+  const [parsedFileName, setParsedFileName] = useState('');
   const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'benchmarks', country: '', sector: '', source: '', tags: '' });
 
   const fetchEntries = async () => {
@@ -165,111 +182,159 @@ export default function KnowledgeBaseManager() {
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Actions techniques — superadmin uniquement */}
+      {isAdmin && (
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Database className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">Entrées totales</p>
-            </div>
+          <CardHeader>
+            <CardTitle className="text-lg">Actions techniques</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button onClick={handleSeed} disabled={!!actionLoading} variant="outline" className="gap-2">
+              {actionLoading === 'seed' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              Seeder la base
+            </Button>
+            <Button onClick={handleGenerateEmbeddings} disabled={!!actionLoading} variant="outline" className="gap-2">
+              {actionLoading === 'embeddings' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Générer les embeddings
+            </Button>
+            <Button onClick={handleRefreshMacro} disabled={!!actionLoading} variant="outline" className="gap-2">
+              {actionLoading === 'macro' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+              Rafraîchir données macro
+            </Button>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-accent/20 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-accent-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.categories}</p>
-              <p className="text-xs text-muted-foreground">Catégories</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-secondary/20 flex items-center justify-center">
-              <Globe className="h-5 w-5 text-secondary-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.autoRefresh}</p>
-              <p className="text-xs text-muted-foreground">Auto-refresh</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
-      {/* Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <Button onClick={handleSeed} disabled={!!actionLoading} variant="outline" className="gap-2">
-            {actionLoading === 'seed' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-            Seeder la base
-          </Button>
-          <Button onClick={handleGenerateEmbeddings} disabled={!!actionLoading} variant="outline" className="gap-2">
-            {actionLoading === 'embeddings' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Générer les embeddings
-          </Button>
-          <Button onClick={handleRefreshMacro} disabled={!!actionLoading} variant="outline" className="gap-2">
-            {actionLoading === 'macro' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-            Rafraîchir données macro
-          </Button>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" /> Ajouter une entrée</Button>
-            </DialogTrigger>
+      {/* Ajouter un document */}
+      <div className="flex justify-end">
+        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <DialogTrigger asChild>
+            <Button className="gap-2"><Plus className="h-4 w-4" /> Ajouter un document</Button>
+          </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>Ajouter une entrée à la base de connaissances</DialogTitle>
+                <DialogTitle>Ajouter un document à la base de connaissances</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <Select value={newEntry.category} onValueChange={v => setNewEntry(p => ({ ...p, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input placeholder="Titre" value={newEntry.title} onChange={e => setNewEntry(p => ({ ...p, title: e.target.value }))} />
-                <Textarea placeholder="Contenu" rows={6} value={newEntry.content} onChange={e => setNewEntry(p => ({ ...p, content: e.target.value }))} />
-                <div className="grid grid-cols-2 gap-2">
-                  <Input placeholder="Pays (optionnel)" value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} />
-                  <Input placeholder="Secteur (optionnel)" value={newEntry.sector} onChange={e => setNewEntry(p => ({ ...p, sector: e.target.value }))} />
+                <Input placeholder="Titre *" value={newEntry.title} onChange={e => setNewEntry(p => ({ ...p, title: e.target.value }))} />
+
+                {/* Mode de contenu : Upload / Lien / Texte */}
+                <div className="flex gap-1 border border-border rounded-lg p-0.5">
+                  <button type="button" onClick={() => setContentMode('upload')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'upload' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    <Upload className="h-3.5 w-3.5" /> Fichier
+                  </button>
+                  <button type="button" onClick={() => setContentMode('link')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'link' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    <Link className="h-3.5 w-3.5" /> Lien web
+                  </button>
+                  <button type="button" onClick={() => setContentMode('text')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'text' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    <FileText className="h-3.5 w-3.5" /> Texte
+                  </button>
                 </div>
-                <Input placeholder="Source (optionnel)" value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))} />
+
+                {contentMode === 'upload' && (
+                  <div>
+                    <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${parsing ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'}`}>
+                      {parsing ? (
+                        <div className="flex items-center gap-2 text-sm text-primary">
+                          <Loader2 className="h-5 w-5 animate-spin" /> Extraction du contenu...
+                        </div>
+                      ) : parsedFileName && newEntry.content ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600">
+                          <FileText className="h-5 w-5" /> {parsedFileName} — {newEntry.content.length.toLocaleString()} caractères extraits
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                          <Upload className="h-6 w-6" />
+                          <span className="text-sm">Glisser un fichier ou cliquer pour sélectionner</span>
+                          <span className="text-xs">PDF, Word, Excel, PowerPoint, images</span>
+                        </div>
+                      )}
+                      <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setParsing(true);
+                        setParsedFileName(file.name);
+                        try {
+                          const parsed = await parseFile(file);
+                          if (parsed.quality === 'failed' || !parsed.content || parsed.content.length < 10) {
+                            toast({ title: 'Erreur', description: `Impossible d'extraire le contenu de ${file.name}`, variant: 'destructive' });
+                          } else {
+                            setNewEntry(p => ({ ...p, content: parsed.content, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
+                            toast({ title: 'Contenu extrait', description: `${parsed.charsExtracted?.toLocaleString() || parsed.content.length.toLocaleString()} caractères extraits de ${file.name}` });
+                          }
+                        } catch (err: any) {
+                          toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
+                        }
+                        setParsing(false);
+                      }} />
+                    </label>
+                  </div>
+                )}
+
+                {contentMode === 'link' && (
+                  <div className="space-y-2">
+                    <Input placeholder="https://example.com/rapport.pdf" onChange={async (e) => {
+                      const url = e.target.value;
+                      if (!url || !url.startsWith('http')) return;
+                      // On pourrait fetch + parse le contenu du lien ici
+                      // Pour l'instant, on stocke juste le lien comme source
+                      setNewEntry(p => ({ ...p, source: p.source || url }));
+                    }} />
+                    <p className="text-xs text-muted-foreground">Collez un lien vers un PDF ou une page web. Le lien sera enregistré comme source.</p>
+                  </div>
+                )}
+
+                {contentMode === 'text' && (
+                  <Textarea placeholder="Collez le contenu du document ici..." rows={6} value={newEntry.content} onChange={e => setNewEntry(p => ({ ...p, content: e.target.value }))} />
+                )}
+
+                {/* Afficher un aperçu du contenu extrait si mode upload */}
+                {contentMode === 'upload' && newEntry.content && (
+                  <div className="max-h-32 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">
+                    {newEntry.content.slice(0, 500)}{newEntry.content.length > 500 && '...'}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
+                    <option value="">— Zone *</option>
+                    {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+                  </select>
+                  <select value={newEntry.sector} onChange={e => setNewEntry(p => ({ ...p, sector: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
+                    <option value="">— Secteur *</option>
+                    {(['Tous secteurs', 'Agro-industrie', 'Aviculture', 'Agriculture', 'Commerce', 'Restauration', 'Services B2B', 'TIC', 'Énergie', 'Santé', 'BTP', 'Transport', 'Éducation', 'Immobilier', 'Textile', 'Mines']).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <Input placeholder="Source *" value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))} />
                 <Input placeholder="Tags (séparés par virgule)" value={newEntry.tags} onChange={e => setNewEntry(p => ({ ...p, tags: e.target.value }))} />
-                <Button onClick={handleAddEntry} className="w-full" disabled={!newEntry.title || !newEntry.content}>Ajouter</Button>
+                <Button onClick={handleAddEntry} className="w-full" disabled={!newEntry.title || !newEntry.content || !newEntry.source || !newEntry.country || !newEntry.sector}>Ajouter</Button>
               </div>
             </DialogContent>
           </Dialog>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Entries list */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-4">
-            <CardTitle className="text-lg">Entrées ({filteredEntries.length})</CardTitle>
+            <CardTitle className="text-lg">Documents ({filteredEntries.length})</CardTitle>
             <div className="flex gap-2">
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Toutes</SelectItem>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value="all">Toutes les catégories</SelectItem>
+                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
                 </SelectContent>
               </Select>
               <div className="relative w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Rechercher..." className="pl-8" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-              <Button variant="outline" size="icon" onClick={fetchEntries} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
             </div>
           </div>
         </CardHeader>
@@ -279,30 +344,52 @@ export default function KnowledgeBaseManager() {
               <TableRow>
                 <TableHead>Titre</TableHead>
                 <TableHead>Catégorie</TableHead>
-                <TableHead>Pays</TableHead>
+                <TableHead>Zone</TableHead>
                 <TableHead>Secteur</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Date publication</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredEntries.map(e => (
-                <TableRow key={e.id}>
+                <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewEntry(e)}>
                   <TableCell className="font-medium max-w-[300px] truncate">{e.title}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs">{e.category}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{e.country || '—'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{e.sector || '—'}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || e.category}</Badge></TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{e.country || 'Monde'}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{e.sector || 'Tous secteurs'}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{e.source || '—'}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatDate(e.created_at)}</TableCell>
                 </TableRow>
               ))}
               {!filteredEntries.length && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucune entrée trouvée</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucun document trouvé</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Preview dialog */}
+      {previewEntry && (
+        <Dialog open={!!previewEntry} onOpenChange={() => setPreviewEntry(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{previewEntry.title}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="outline">{CATEGORY_LABELS[previewEntry.category] || previewEntry.category}</Badge>
+                {previewEntry.country && <Badge variant="secondary">{previewEntry.country}</Badge>}
+                {previewEntry.sector && <Badge variant="secondary">{previewEntry.sector}</Badge>}
+              </div>
+              {previewEntry.source && <p className="text-sm text-muted-foreground">Source : {previewEntry.source}</p>}
+              <div className="prose prose-sm max-w-none whitespace-pre-wrap bg-muted/30 rounded-lg p-4 text-sm">
+                {previewEntry.content}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
