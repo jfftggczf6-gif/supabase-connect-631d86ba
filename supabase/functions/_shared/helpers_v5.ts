@@ -156,8 +156,21 @@ export async function verifyAndGetContext(req: Request, preParsedBody?: any) {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const { data: ent } = await supabase.from("enterprises").select("*").eq("id", enterprise_id).single();
-  if (!ent || (ent.user_id !== user.id && ent.coach_id !== user.id)) {
-    throw { status: 404, message: "Entreprise non trouvée" };
+  if (!ent) throw { status: 404, message: "Entreprise non trouvée" };
+
+  // Vérification d'accès : propriétaire, coach assigné (N-à-N ou legacy), membre de l'org, ou super_admin
+  const isOwner = ent.user_id === user.id;
+  const isLegacyCoach = ent.coach_id === user.id;
+  const { data: isCoachNN } = await supabase.from("enterprise_coaches")
+    .select("id").eq("enterprise_id", enterprise_id).eq("coach_id", user.id).eq("is_active", true).limit(1);
+  const isCoach = isLegacyCoach || (isCoachNN && isCoachNN.length > 0);
+  const { data: isMember } = ent.organization_id ? await supabase.from("organization_members")
+    .select("id").eq("organization_id", ent.organization_id).eq("user_id", user.id).eq("is_active", true).limit(1) : { data: null };
+  const isOrgMember = isMember && isMember.length > 0;
+  const { data: isSA } = await supabase.rpc("has_role", { _user_id: user.id, _role: "super_admin" });
+
+  if (!isOwner && !isCoach && !isOrgMember && !isSA) {
+    throw { status: 403, message: "Accès non autorisé à cette entreprise" };
   }
 
   // Read cached document content — no more file parsing in edge functions!

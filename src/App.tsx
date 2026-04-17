@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import RequireSuperAdmin from "@/components/guards/RequireSuperAdmin";
 import OrganizationsPage from "./pages/admin/OrganizationsPage";
 import MeteringDashboard from "./pages/admin/MeteringDashboard";
+import MembersPage from "./pages/org/MembersPage";
 import InvitationAcceptPage from "./pages/InvitationAcceptPage";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -80,6 +81,7 @@ const App = () => (
             <Route path="/invitation/:token" element={<InvitationAcceptPage />} />
             <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/organization/members" element={<ProtectedRoute><MembersPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </OrganizationProvider>

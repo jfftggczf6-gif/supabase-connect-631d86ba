@@ -1,27 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import CoachDashboard from '@/components/dashboard/CoachDashboard';
 import EntrepreneurDashboard from '@/components/dashboard/EntrepreneurDashboard';
 import SuperAdminDashboard from '@/components/dashboard/SuperAdminDashboard';
+import NoOrganizationScreen from '@/components/NoOrganizationScreen';
 
 export default function Dashboard() {
-  const { role, loading, roleLoading, user } = useAuth();
+  const { role: authRole, loading: authLoading, roleLoading, user } = useAuth();
+  const { currentOrg, currentRole: orgRole, isSuperAdmin, loading: orgLoading } = useOrganization();
   const [waited, setWaited] = useState(false);
 
-  // If user is logged in but role is null after loading, wait then give up
   useEffect(() => {
-    if (user && !role && !loading && !roleLoading) {
+    if (user && !authRole && !authLoading && !roleLoading) {
       const timer = setTimeout(() => setWaited(true), 6000);
       return () => clearTimeout(timer);
     }
-    // Reset waited if role arrives
-    if (role) setWaited(false);
-  }, [user, role, loading, roleLoading]);
+    if (authRole) setWaited(false);
+  }, [user, authRole, authLoading, roleLoading]);
 
   // Still loading
-  if (loading || roleLoading) {
+  if (authLoading || roleLoading || orgLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -29,8 +30,8 @@ export default function Dashboard() {
     );
   }
 
-  // User logged in but no role yet — wait up to 3s
-  if (user && !role && !waited) {
+  // Wait for role
+  if (user && !authRole && !waited) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -39,9 +40,41 @@ export default function Dashboard() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!role) return <Navigate to="/select-role" replace />;
+  if (!authRole) return <Navigate to="/select-role" replace />;
 
-  if (role === 'chef_programme') return <Navigate to="/programmes" replace />;
-  if (role === 'super_admin') return <SuperAdminDashboard />;
-  return role === 'coach' ? <CoachDashboard /> : <EntrepreneurDashboard />;
+  // Super admin → god mode (SuperAdminDashboard)
+  if (isSuperAdmin && authRole === 'super_admin') {
+    return <SuperAdminDashboard />;
+  }
+
+  // Pas d'org → écran NoOrganization
+  if (!currentOrg) {
+    return <NoOrganizationScreen />;
+  }
+
+  // Dispatch par rôle dans l'org
+  // manager = chef de programme / MD → redirige vers programmes
+  if (orgRole === 'manager') {
+    return <Navigate to="/programmes" replace />;
+  }
+
+  // coach = coach programme / analyste PE
+  if (orgRole === 'coach' || orgRole === 'analyst') {
+    return <CoachDashboard />;
+  }
+
+  // entrepreneur
+  if (orgRole === 'entrepreneur') {
+    return <EntrepreneurDashboard />;
+  }
+
+  // owner / admin → même vue que manager (programmes)
+  if (orgRole === 'owner' || orgRole === 'admin') {
+    return <Navigate to="/programmes" replace />;
+  }
+
+  // Fallback : ancien comportement pour compat
+  if (authRole === 'chef_programme') return <Navigate to="/programmes" replace />;
+  if (authRole === 'coach') return <CoachDashboard />;
+  return <EntrepreneurDashboard />;
 }
