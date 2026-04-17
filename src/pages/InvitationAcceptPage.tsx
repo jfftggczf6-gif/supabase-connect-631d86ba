@@ -28,8 +28,7 @@ export default function InvitationAcceptPage() {
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const baseUrl = `https://${projectId}.supabase.co/functions/v1`;
+  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
   useEffect(() => {
     if (!token) return;
