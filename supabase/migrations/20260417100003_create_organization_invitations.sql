@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.organization_invitations (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   email           text NOT NULL,
-  role            text NOT NULL CHECK (role IN ('admin', 'manager', 'analyst', 'coach', 'entrepreneur')),
+  role            text NOT NULL CHECK (role IN ('owner', 'admin', 'manager', 'analyst', 'coach', 'entrepreneur')),
   invited_by      uuid REFERENCES auth.users(id),
   personal_message text,
   token           text NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
