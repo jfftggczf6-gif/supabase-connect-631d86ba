@@ -5,16 +5,23 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Download, FileText, Loader2 } from 'lucide-react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export default function ExportTab() {
   const { t } = useTranslation();
+  const { currentOrg } = useOrganization();
   const [exporting, setExporting] = useState<string | null>(null);
 
   const exportPortfolio = async () => {
     setExporting('portfolio');
     try {
-      const { data: ents } = await supabase.from('enterprises').select('*');
-      const { data: delivs } = await supabase.from('deliverables').select('enterprise_id, type, score');
+      let entQuery = supabase.from('enterprises').select('*');
+      if (currentOrg?.id) entQuery = entQuery.eq('organization_id', currentOrg.id);
+      const { data: ents } = await entQuery;
+      const entIds = (ents || []).map(e => e.id);
+      const { data: delivs } = entIds.length > 0
+        ? await supabase.from('deliverables').select('enterprise_id, type, score').in('enterprise_id', entIds)
+        : { data: [] as any[] };
       if (!ents) throw new Error('Pas de données');
 
       const rows = ents.map(e => {

@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Plus, Users } from 'lucide-react';
 import CreateCohorteDialog from '@/components/programmes/CreateCohorteDialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
 
 export default function ProgrammeListPage() {
   const { t } = useTranslation();
   const { role } = useAuth();
+  const { isSuperAdmin: isSuperAdminOrg } = useOrganization();
   const nav = useNavigate();
   const [programmes, setProgrammes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,7 @@ export default function ProgrammeListPage() {
     ? programmes
     : programmes.filter(p => p.status === statusFilter);
 
-  const isSuperAdmin = role === 'super_admin';
+  const isSuperAdmin = isSuperAdminOrg || role === 'super_admin';
 
   return (
     <DashboardLayout title={t('programme.title')} subtitle={t('programme.subtitle')}>

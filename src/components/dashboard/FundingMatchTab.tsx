@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { Loader2, TrendingUp, AlertTriangle, CheckCircle2, XCircle, RefreshCw } 
 
 export default function FundingMatchTab() {
   const { t } = useTranslation();
+  const { currentOrg } = useOrganization();
   const [enterprises, setEnterprises] = useState<any[]>([]);
   const [selectedEnterprise, setSelectedEnterprise] = useState<string>('');
   const [matches, setMatches] = useState<any[]>([]);
@@ -18,10 +20,12 @@ export default function FundingMatchTab() {
   const [summary, setSummary] = useState<any>(null);
 
   useEffect(() => {
-    supabase.from('enterprises').select('id, name, country, sector, score_ir').order('name').then(({ data }) => {
+    let q = supabase.from('enterprises').select('id, name, country, sector, score_ir').order('name');
+    if (currentOrg?.id) q = q.eq('organization_id', currentOrg.id);
+    q.then(({ data }) => {
       setEnterprises(data || []);
     });
-  }, []);
+  }, [currentOrg?.id]);
 
   const runMatching = async () => {
     if (!selectedEnterprise) return;

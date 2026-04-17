@@ -148,12 +148,18 @@ export default function ProgrammeDetailPage() {
           .eq('role', 'coach');
         if (!coachRoles?.length) return;
         const coachIds = coachRoles.map(r => r.user_id);
-        const [{ data: profiles }, { data: entCounts }] = await Promise.all([
+        const [{ data: profiles }, { data: entCounts }, { data: ecCounts }] = await Promise.all([
           supabase.from('profiles').select('user_id, full_name, email').in('user_id', coachIds),
           supabase.from('enterprises').select('coach_id').in('coach_id', coachIds),
+          supabase.from('enterprise_coaches').select('coach_id').in('coach_id', coachIds).eq('is_active', true),
         ]);
+        // Merge counts: N-to-N takes precedence
         const countMap: Record<string, number> = {};
         (entCounts || []).forEach((e: any) => { countMap[e.coach_id] = (countMap[e.coach_id] || 0) + 1; });
+        // Override with enterprise_coaches counts if available
+        const ecCountMap: Record<string, number> = {};
+        (ecCounts || []).forEach((ec: any) => { ecCountMap[ec.coach_id] = (ecCountMap[ec.coach_id] || 0) + 1; });
+        for (const cid of Object.keys(ecCountMap)) { countMap[cid] = ecCountMap[cid]; }
         setCoaches((profiles || []).filter(p => p.full_name).map(p => ({
           id: p.user_id,
           name: p.full_name || p.user_id.slice(0, 8),

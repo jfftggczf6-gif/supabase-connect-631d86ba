@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Plus, X, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface Props {
   programmeId: string;
@@ -19,6 +20,7 @@ interface Props {
 export default function CohorteEnterprisesTab({ programmeId, programmeName }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { currentOrg } = useOrganization();
   const [enterprises, setEnterprises] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -43,10 +45,22 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       supabase.from('deliverables').select('enterprise_id').in('enterprise_id', entIds),
     ]);
 
-    const coachIds = [...new Set((ents || []).map(e => e.coach_id).filter(Boolean))];
+    // N-to-N: fetch enterprise_coaches for these enterprises
+    const { data: ecLinks } = await supabase
+      .from('enterprise_coaches')
+      .select('enterprise_id, coach_id')
+      .in('enterprise_id', entIds)
+      .eq('is_active', true);
+    const ecMap: Record<string, string> = {};
+    (ecLinks || []).forEach(ec => { ecMap[ec.enterprise_id] = ec.coach_id; });
+
+    // Merge: prefer enterprise_coaches, fallback to legacy coach_id
+    const allCoachIds = [...new Set([
+      ...(ents || []).map(e => ecMap[e.id] || e.coach_id).filter(Boolean),
+    ])];
     let coachMap: Record<string, string> = {};
-    if (coachIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', coachIds);
+    if (allCoachIds.length) {
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', allCoachIds);
       (profiles || []).forEach(p => { coachMap[p.user_id] = p.full_name || ''; });
     }
 
@@ -55,7 +69,7 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
 
     setEnterprises((ents || []).map(e => ({
       ...e,
-      coach_name: coachMap[e.coach_id] || '—',
+      coach_name: coachMap[ecMap[e.id] || e.coach_id] || '—',
       deliverables_count: delivCount[e.id] || 0,
     })).sort((a, b) => (b.score_ir || 0) - (a.score_ir || 0)));
     setLoading(false);
@@ -78,20 +92,30 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
     setShowAdd(true);
     setSelectedToAdd(new Set());
     const existingIds = new Set(enterprises.map(e => e.id));
-    const { data: allEnts } = await supabase
+    let addEntQ = supabase
       .from('enterprises')
       .select('id, name, score_ir, coach_id, sector')
       .order('score_ir', { ascending: false });
+    if (currentOrg?.id) addEntQ = addEntQ.eq('organization_id', currentOrg.id);
+    const { data: allEnts } = await addEntQ;
 
-    const coachIds = [...new Set((allEnts || []).map(e => e.coach_id).filter(Boolean))];
+    // N-to-N: fetch enterprise_coaches
+    const allEntIds = (allEnts || []).map(e => e.id);
+    const { data: ecLinks2 } = allEntIds.length > 0
+      ? await supabase.from('enterprise_coaches').select('enterprise_id, coach_id').in('enterprise_id', allEntIds).eq('is_active', true)
+      : { data: [] as any[] };
+    const ecMap2: Record<string, string> = {};
+    (ecLinks2 || []).forEach(ec => { ecMap2[ec.enterprise_id] = ec.coach_id; });
+
+    const allCoachIds = [...new Set((allEnts || []).map(e => ecMap2[e.id] || e.coach_id).filter(Boolean))];
     let coachMap: Record<string, string> = {};
-    if (coachIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', coachIds);
+    if (allCoachIds.length) {
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', allCoachIds);
       (profiles || []).forEach(p => { coachMap[p.user_id] = p.full_name || ''; });
     }
 
     setAvailableEnts((allEnts || []).filter(e => !existingIds.has(e.id)).map(e => ({
-      ...e, coach_name: coachMap[e.coach_id] || '',
+      ...e, coach_name: coachMap[ecMap2[e.id] || e.coach_id] || '',
     })));
   };
 

@@ -53,6 +53,7 @@ interface CoachesTabProps {
   deliverables: Deliverable[];
   coachUploads: CoachUpload[];
   enterpriseMap: Record<string, Enterprise>;
+  coachEnterprisesMap?: Record<string, string[]>;
 }
 
 interface CoachStat {
@@ -72,14 +73,18 @@ const formatDate = (d: string) =>
 const deliverableLabel = (type: string) =>
   type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-export default function CoachesTab({ coaches, enterprises, deliverables, coachUploads, enterpriseMap }: CoachesTabProps) {
+export default function CoachesTab({ coaches, enterprises, deliverables, coachUploads, enterpriseMap, coachEnterprisesMap }: CoachesTabProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
 
   const coachStats = useMemo<CoachStat[]>(() => {
     return coaches.map(coach => {
-      const coachEnterprises = enterprises.filter(e => e.coach_id === coach.user_id);
+      // N-to-N: use coachEnterprisesMap if available, fallback to legacy coach_id
+      const ecEntIds = coachEnterprisesMap?.[coach.user_id] || [];
+      const coachEnterprises = ecEntIds.length > 0
+        ? enterprises.filter(e => ecEntIds.includes(e.id))
+        : enterprises.filter(e => e.coach_id === coach.user_id);
       const coachDeliverables = deliverables.filter(
         d => (d.generated_by === 'coach' || d.generated_by === 'coach_mirror') &&
           coachEnterprises.some(e => e.id === d.enterprise_id)

@@ -107,11 +107,30 @@ export default function CoachDashboard() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const { data: ents } = await supabase
-        .from('enterprises')
-        .select('*')
+      // N-to-N: get enterprise IDs from enterprise_coaches, then fetch enterprises
+      const { data: coachLinks } = await supabase
+        .from('enterprise_coaches')
+        .select('enterprise_id')
         .eq('coach_id', user.id)
-        .order('updated_at', { ascending: false });
+        .eq('is_active', true);
+
+      const linkedIds = (coachLinks || []).map(l => l.enterprise_id);
+
+      // Also include legacy coach_id enterprises (fallback during migration)
+      const { data: legacyEnts } = await supabase
+        .from('enterprises')
+        .select('id')
+        .eq('coach_id', user.id);
+
+      const allIds = [...new Set([...linkedIds, ...(legacyEnts || []).map(e => e.id)])];
+
+      const { data: ents } = allIds.length > 0
+        ? await supabase
+            .from('enterprises')
+            .select('*')
+            .in('id', allIds)
+            .order('updated_at', { ascending: false })
+        : { data: [] as any[] };
 
       setEnterprises(_prev => {
         const newEnts = ents || [];
@@ -279,7 +298,7 @@ export default function CoachDashboard() {
 
       // Step 2: If no existing enterprise found, create a new coach-owned lead
       if (!linked) {
-        const { error } = await supabase.from('enterprises').insert({
+        const { data: newEnt, error } = await supabase.from('enterprises').insert({
           name: addForm.name.trim(),
           contact_email: addForm.contact_email || null,
           country: addForm.country || null,
@@ -290,9 +309,19 @@ export default function CoachDashboard() {
           user_id: user.id,
           phase: 'identite',
           score_ir: 0,
-        });
+        }).select('id').single();
 
         if (error) throw error;
+
+        // N-to-N: also insert into enterprise_coaches
+        if (newEnt?.id) {
+          await supabase.from('enterprise_coaches').insert({
+            enterprise_id: newEnt.id,
+            coach_id: user.id,
+            role: 'lead',
+            assigned_by: user.id,
+          });
+        }
         toast.success(t('dashboard_coach.added_success', { name: addForm.name }));
       }
 
@@ -343,7 +372,9 @@ export default function CoachDashboard() {
         await supabase.from('enterprises').delete().eq('id', ent.id);
         toast.success(t('dashboard_coach.deleted_success', { name: ent.name }));
       } else {
-        // Entrepreneur owns this — just detach coach
+        // Entrepreneur owns this — detach coach (N-to-N + legacy)
+        await supabase.from('enterprise_coaches').delete()
+          .eq('enterprise_id', ent.id).eq('coach_id', user.id);
         await supabase.from('enterprises').update({ coach_id: null }).eq('id', ent.id);
         toast.success(t('dashboard_coach.detached_success', { name: ent.name }));
       }

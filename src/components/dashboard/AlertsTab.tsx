@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle2, Clock, TrendingUp, XCircle } from 'lucide-react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface Alert {
   type: 'bloquant' | 'opportunite' | 'action' | 'info';
@@ -15,14 +16,20 @@ interface Alert {
 
 export default function AlertsTab() {
   const { t } = useTranslation();
+  const { currentOrg } = useOrganization();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadAlerts(); }, []);
+  useEffect(() => { loadAlerts(); }, [currentOrg?.id]);
 
   const loadAlerts = async () => {
-    const { data: ents } = await supabase.from('enterprises').select('id, name, country, score_ir');
-    const { data: delivs } = await supabase.from('deliverables').select('enterprise_id, type, score, data, updated_at');
+    let entQuery = supabase.from('enterprises').select('id, name, country, score_ir');
+    if (currentOrg?.id) entQuery = entQuery.eq('organization_id', currentOrg.id);
+    const { data: ents } = await entQuery;
+    const entIds = (ents || []).map(e => e.id);
+    const { data: delivs } = entIds.length > 0
+      ? await supabase.from('deliverables').select('enterprise_id, type, score, data, updated_at').in('enterprise_id', entIds)
+      : { data: [] as any[] };
     if (!ents || !delivs) { setLoading(false); return; }
 
     const alertList: Alert[] = [];

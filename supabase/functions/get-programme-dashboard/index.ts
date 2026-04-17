@@ -99,7 +99,7 @@ serve(async (req) => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-    const [entRes, delivRes, modRes, profilesRes, notesRes, scoreHistRes, activityRes] = await Promise.all([
+    const [entRes, delivRes, modRes, profilesRes, notesRes, scoreHistRes, activityRes, ecRes] = await Promise.all([
       supabase.from("enterprises").select("id, name, coach_id, sector, country, updated_at").in("id", enterpriseIds),
       supabase.from("deliverables").select("enterprise_id, type, score, updated_at").in("enterprise_id", enterpriseIds),
       supabase.from("enterprise_modules").select("enterprise_id, module, status, progress, updated_at").in("enterprise_id", enterpriseIds),
@@ -107,6 +107,7 @@ serve(async (req) => {
       supabase.from("coaching_notes").select("enterprise_id, titre, created_at").in("enterprise_id", enterpriseIds),
       supabase.from("score_history").select("enterprise_id, score, created_at").in("enterprise_id", enterpriseIds).gte("created_at", thirtyDaysAgo).order("created_at"),
       supabase.from("activity_log").select("enterprise_id, action, deliverable_type, metadata, created_at").in("enterprise_id", enterpriseIds).gte("created_at", sevenDaysAgo).order("created_at", { ascending: false }).limit(50),
+      supabase.from("enterprise_coaches").select("enterprise_id, coach_id").in("enterprise_id", enterpriseIds).eq("is_active", true),
     ]);
 
     const enterprises = entRes.data || [];
@@ -116,6 +117,11 @@ serve(async (req) => {
     const coachingNotes = notesRes.data || [];
     const scoreHistory = scoreHistRes.data || [];
     const activityLog = activityRes.data || [];
+    const ecLinks = ecRes.data || [];
+
+    // N-to-N: build enterprise → coach mapping (prefer enterprise_coaches, fallback to legacy)
+    const ecCoachMap: Record<string, string> = {};
+    for (const ec of ecLinks) ecCoachMap[ec.enterprise_id] = ec.coach_id;
 
     const profileMap: Record<string, any> = {};
     for (const p of profiles) profileMap[p.user_id] = p;
@@ -163,13 +169,14 @@ serve(async (req) => {
         }
       }
 
-      const coachProfile = profileMap[ent.coach_id];
+      const effectiveCoachId = ecCoachMap[ent.id] || ent.coach_id;
+      const coachProfile = profileMap[effectiveCoachId];
       enterpriseRows.push({
         id: ent.id,
         name: ent.name,
         sector: ent.sector,
         country: ent.country,
-        coach_id: ent.coach_id,
+        coach_id: effectiveCoachId,
         coach_name: coachProfile?.full_name || "Non assigné",
         score_ir: scoreIr,
         phase: currentMod?.module || "completed",

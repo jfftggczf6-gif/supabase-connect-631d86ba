@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Search, Filter, CheckCircle2, XCircle, AlertTriangle, ArrowUpDown, Download } from 'lucide-react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface Enterprise {
   id: string;
@@ -62,6 +63,7 @@ interface ScreeningDashboardProps {
 
 export default function ScreeningDashboard({ coachId }: ScreeningDashboardProps = {}) {
   const { t } = useTranslation();
+  const { currentOrg } = useOrganization();
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [criteria, setCriteria] = useState<ProgrammeCriteria[]>([]);
@@ -75,8 +77,25 @@ export default function ScreeningDashboard({ coachId }: ScreeningDashboardProps 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
+      // N-to-N: if coachId is provided, first get enterprise IDs from enterprise_coaches
+      let entIds: string[] | null = null;
+      if (coachId) {
+        const { data: ecLinks } = await supabase
+          .from('enterprise_coaches')
+          .select('enterprise_id')
+          .eq('coach_id', coachId)
+          .eq('is_active', true);
+        const nnIds = (ecLinks || []).map(l => l.enterprise_id);
+        // Also include legacy coach_id
+        const { data: legacyEnts } = await supabase
+          .from('enterprises')
+          .select('id')
+          .eq('coach_id', coachId);
+        entIds = [...new Set([...nnIds, ...(legacyEnts || []).map(e => e.id)])];
+      }
       let entQuery = supabase.from('enterprises').select('id, name, sector, country, score_ir, phase, contact_email, coach_id');
-      if (coachId) entQuery = entQuery.eq('coach_id', coachId);
+      if (entIds) entQuery = entIds.length > 0 ? entQuery.in('id', entIds) : entQuery.eq('id', 'no-match');
+      if (!entIds && currentOrg?.id) entQuery = entQuery.eq('organization_id', currentOrg.id);
       const [eRes, dRes, cRes, pRes] = await Promise.all([
         entQuery,
         supabase.from('deliverables').select('id, enterprise_id, type, data, score'),

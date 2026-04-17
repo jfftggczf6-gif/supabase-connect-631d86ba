@@ -4,18 +4,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DollarSign, TrendingUp, Cpu } from 'lucide-react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export default function CostTrackingTab() {
   const { t } = useTranslation();
+  const { currentOrg } = useOrganization();
   const [costs, setCosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [enterpriseNames, setEnterpriseNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    let costQuery = supabase.from('ai_cost_log').select('*').order('created_at', { ascending: false }).limit(500);
+    if (currentOrg?.id) costQuery = costQuery.eq('organization_id', currentOrg.id);
+    let entQuery = supabase.from('enterprises').select('id, name');
+    if (currentOrg?.id) entQuery = entQuery.eq('organization_id', currentOrg.id);
     Promise.all([
-      supabase.from('ai_cost_log').select('*').order('created_at', { ascending: false }).limit(500),
-      supabase.from('enterprises').select('id, name'),
+      costQuery,
+      entQuery,
     ]).then(([{ data: costData }, { data: entData }]) => {
       setCosts(costData || []);
       const names: Record<string, string> = {};

@@ -83,6 +83,7 @@ export default function SuperAdminDashboard() {
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [coachUploads, setCoachUploads] = useState<CoachUpload[]>([]);
+  const [enterpriseCoaches, setEnterpriseCoaches] = useState<Array<{ enterprise_id: string; coach_id: string; is_active: boolean }>>([]);
   const [loading, setLoading] = useState(true);
   const [searchUsers, setSearchUsers] = useState('');
   const [searchEnterprises, setSearchEnterprises] = useState('');
@@ -102,18 +103,20 @@ export default function SuperAdminDashboard() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [pRes, rRes, eRes, dRes, cuRes] = await Promise.all([
+    const [pRes, rRes, eRes, dRes, cuRes, ecRes] = await Promise.all([
       supabase.from('profiles').select('user_id, full_name, email, created_at'),
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('enterprises').select('id, name, user_id, coach_id, sector, country, phase, score_ir, last_activity, contact_email, created_at'),
       supabase.from('deliverables').select('id, enterprise_id, type, created_at, generated_by, coach_id, visibility, data').order('created_at', { ascending: false }).limit(500),
       supabase.from('coach_uploads').select('id, coach_id, enterprise_id, filename, category, created_at').order('created_at', { ascending: false }).limit(500),
+      supabase.from('enterprise_coaches').select('enterprise_id, coach_id, is_active').eq('is_active', true),
     ]);
     if (pRes.data) setProfiles(pRes.data);
     if (rRes.data) setRoles(rRes.data);
     if (eRes.data) setEnterprises(eRes.data);
     if (dRes.data) setDeliverables(dRes.data);
     if (cuRes.data) setCoachUploads(cuRes.data as CoachUpload[]);
+    if (ecRes.data) setEnterpriseCoaches(ecRes.data);
     setLoading(false);
   };
 
@@ -168,6 +171,28 @@ export default function SuperAdminDashboard() {
     profiles.filter(p => roleMap[p.user_id]?.includes('coach')),
     [profiles, roleMap]
   );
+
+  // N-to-N: build coach→enterprises and enterprise→coach mappings
+  const coachEnterprisesMap = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    enterpriseCoaches.forEach(ec => {
+      (m[ec.coach_id] ||= []).push(ec.enterprise_id);
+    });
+    // Also include legacy coach_id for enterprises not yet in enterprise_coaches
+    enterprises.forEach(e => {
+      if (e.coach_id && !enterpriseCoaches.some(ec => ec.enterprise_id === e.id && ec.coach_id === e.coach_id)) {
+        (m[e.coach_id] ||= []).push(e.id);
+      }
+    });
+    return m;
+  }, [enterpriseCoaches, enterprises]);
+
+  const enterpriseCoachMap = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    enterprises.forEach(e => { m[e.id] = e.coach_id; });
+    enterpriseCoaches.forEach(ec => { m[ec.enterprise_id] = ec.coach_id; });
+    return m;
+  }, [enterpriseCoaches, enterprises]);
 
   const stats = useMemo(() => ({
     users: profiles.length,
@@ -238,12 +263,33 @@ export default function SuperAdminDashboard() {
   );
 
   const handleReassignCoach = async (enterpriseId: string, newCoachId: string | null) => {
-    const { error } = await supabase.from('enterprises').update({ coach_id: newCoachId || null }).eq('id', enterpriseId);
-    if (error) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      // Remove old enterprise_coaches entries for this enterprise
+      await supabase.from('enterprise_coaches').delete().eq('enterprise_id', enterpriseId);
+
+      // Insert new entry if a coach is selected
+      if (newCoachId) {
+        const { error: ecErr } = await supabase.from('enterprise_coaches').insert({
+          enterprise_id: enterpriseId,
+          coach_id: newCoachId,
+          role: 'lead',
+        });
+        if (ecErr) throw ecErr;
+      }
+
+      // Also update legacy coach_id for backward compatibility
+      const { error } = await supabase.from('enterprises').update({ coach_id: newCoachId || null }).eq('id', enterpriseId);
+      if (error) throw error;
+
       toast({ title: t('admin.coach_reassigned') });
       setEnterprises(prev => prev.map(e => e.id === enterpriseId ? { ...e, coach_id: newCoachId || null } : e));
+      setEnterpriseCoaches(prev => {
+        const filtered = prev.filter(ec => ec.enterprise_id !== enterpriseId);
+        if (newCoachId) filtered.push({ enterprise_id: enterpriseId, coach_id: newCoachId, is_active: true });
+        return filtered;
+      });
+    } catch (error: any) {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -268,7 +314,8 @@ export default function SuperAdminDashboard() {
 
   // --- Drill-down: full enterprise view ---
   if (viewingEnterprise) {
-    const veCoach = coaches.find(c => c.user_id === viewingEnterprise.coach_id);
+    const veCoachId = enterpriseCoachMap[viewingEnterprise.id] || viewingEnterprise.coach_id;
+    const veCoach = coaches.find(c => c.user_id === veCoachId);
     const veOwner = profileMap[viewingEnterprise.user_id];
     return (
       <DashboardLayout title={t('admin.title')} subtitle={viewingEnterprise.name}>
@@ -532,6 +579,7 @@ export default function SuperAdminDashboard() {
             deliverables={deliverables}
             coachUploads={coachUploads}
             enterpriseMap={enterpriseMap}
+            coachEnterprisesMap={coachEnterprisesMap}
           />
         </TabsContent>
 
@@ -587,7 +635,7 @@ export default function SuperAdminDashboard() {
                         <TableCell className="text-sm text-muted-foreground">{owner?.full_name || owner?.email || e.user_id.slice(0, 8)}</TableCell>
                         <TableCell>
                           <Select
-                            value={e.coach_id || 'none'}
+                            value={enterpriseCoachMap[e.id] || e.coach_id || 'none'}
                             onValueChange={v => handleReassignCoach(e.id, v === 'none' ? null : v)}
                           >
                             <SelectTrigger className="h-8 w-[160px] text-xs">

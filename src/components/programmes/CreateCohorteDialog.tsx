@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,7 @@ interface Props {
 export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { currentOrg } = useOrganization();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [organization, setOrganization] = useState('');
@@ -34,13 +36,23 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
     if (!open) return;
     (async () => {
       setLoading(true);
-      const { data: ents } = await supabase
+      let entQ = supabase
         .from('enterprises')
         .select('id, name, score_ir, coach_id, sector, country')
         .order('score_ir', { ascending: false });
+      if (currentOrg?.id) entQ = entQ.eq('organization_id', currentOrg.id);
+      const { data: ents } = await entQ;
+
+      // N-to-N: fetch enterprise_coaches
+      const entIds = (ents || []).map(e => e.id);
+      const { data: ecLinks } = entIds.length > 0
+        ? await supabase.from('enterprise_coaches').select('enterprise_id, coach_id').in('enterprise_id', entIds).eq('is_active', true)
+        : { data: [] as any[] };
+      const ecMap: Record<string, string> = {};
+      (ecLinks || []).forEach(ec => { ecMap[ec.enterprise_id] = ec.coach_id; });
 
       // Get coach names
-      const coachIds = [...new Set((ents || []).map(e => e.coach_id).filter(Boolean))];
+      const coachIds = [...new Set((ents || []).map(e => ecMap[e.id] || e.coach_id).filter(Boolean))];
       let coachMap: Record<string, string> = {};
       if (coachIds.length) {
         const { data: profiles } = await supabase
@@ -59,7 +71,7 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
 
       setEnterprises((ents || []).map(e => ({
         ...e,
-        coach_name: coachMap[e.coach_id] || '',
+        coach_name: coachMap[ecMap[e.id] || e.coach_id] || '',
         deliverables_count: countMap[e.id] || 0,
       })).filter(e => e.deliverables_count > 0 || e.score_ir > 0));
       setLoading(false);
