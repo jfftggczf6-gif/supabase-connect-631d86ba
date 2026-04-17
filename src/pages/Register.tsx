@@ -52,9 +52,12 @@ export default function Register() {
     }
     setIsLoading(true);
     try {
-      await signUp(email, password, fullName, selectedRole);
-      // Explicitly create the role — don't rely on DB trigger timing
-      await setRole(selectedRole);
+      await signUp(email, password, fullName, isInvitation ? 'entrepreneur' : selectedRole);
+      // Pour les invitations, le rôle sera défini par accept-invitation (organization_members)
+      // Pour les inscriptions classiques, on crée le user_roles
+      if (!isInvitation) {
+        await setRole(selectedRole);
+      }
       toast.success(t('auth.account_created'));
       navigate(redirectTo || '/dashboard');
     } catch (err: any) {
