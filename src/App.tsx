@@ -8,6 +8,7 @@ import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import RequireSuperAdmin from "@/components/guards/RequireSuperAdmin";
 import OrganizationsPage from "./pages/admin/OrganizationsPage";
+import OrganizationDetailPage from "./pages/admin/OrganizationDetailPage";
 import MeteringDashboard from "./pages/admin/MeteringDashboard";
 import MembersPage from "./pages/org/MembersPage";
 import InvitationAcceptPage from "./pages/InvitationAcceptPage";
@@ -80,6 +81,7 @@ const App = () => (
             <Route path="/data-room/:slug" element={<DataRoomPublic />} />
             <Route path="/invitation/:token" element={<InvitationAcceptPage />} />
             <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/organization/members" element={<ProtectedRoute><MembersPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

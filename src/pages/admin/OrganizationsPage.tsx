@@ -112,7 +112,7 @@ export default function OrganizationsPage() {
               {loading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.map(o => (
-                <TableRow key={o.id}>
+                <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/organizations/${o.id}`)}>
                   <TableCell className="font-medium">{o.name}<br /><span className="text-xs text-muted-foreground">{o.slug}</span></TableCell>
                   <TableCell><Badge variant="outline">{o.type}</Badge></TableCell>
                   <TableCell className="text-sm">{o.country || '—'}</TableCell>
