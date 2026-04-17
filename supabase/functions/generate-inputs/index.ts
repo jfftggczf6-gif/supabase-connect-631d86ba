@@ -594,6 +594,7 @@ EXEMPLES :
     try {
       await ctx.supabase.from("inputs_history").insert({
         enterprise_id: ctx.enterprise_id,
+        organization_id: ctx.organization_id || null,
         data: data,
         score: data.score || 0,
         trigger: hasExistingInputs ? "new_documents" : "initial",

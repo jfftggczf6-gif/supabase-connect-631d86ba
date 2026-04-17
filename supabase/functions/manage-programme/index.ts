@@ -48,14 +48,25 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
+    // Resolve user's organization (for multi-tenant)
+    const { data: userOrg } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+    const userOrgId = body.organization_id || userOrg?.organization_id || null;
+
     // ═══════ CREATE ═══════
     if (action === "create") {
       if (!isAdmin && !isChefProg) return jsonRes({ error: "Accès refusé" }, 403);
 
-      const insertData = {
+      const insertData: Record<string, any> = {
         name: body.name,
         description: body.description || null,
         organization: body.organization || null,
+        organization_id: userOrgId,
         logo_url: body.logo_url || null,
         country_filter: body.country_filter || [],
         sector_filter: body.sector_filter || [],
@@ -141,6 +152,11 @@ serve(async (req) => {
     // ═══════ LIST ═══════
     if (action === "list") {
       let query = supabase.from("programmes").select("*").order("created_at", { ascending: false });
+
+      // Filter by organization if user belongs to one (non-admin)
+      if (!isAdmin && userOrgId) {
+        query = query.eq("organization_id", userOrgId);
+      }
 
       if (isChefProg) {
         query = query.or(`chef_programme_id.eq.${user.id},created_by.eq.${user.id}`);
@@ -293,6 +309,7 @@ serve(async (req) => {
           name: body.name,
           description: body.description || null,
           organization: body.organization || null,
+          organization_id: userOrgId,
           type: "cohorte_directe",
           status: "in_progress",
           budget: body.budget || null,
@@ -325,6 +342,7 @@ serve(async (req) => {
           .insert({
             programme_id: prog.id,
             enterprise_id: enterpriseId,
+            organization_id: userOrgId,
             company_name: ent.name,
             contact_name: ent.contact_name || null,
             contact_email: ent.contact_email || null,
@@ -382,6 +400,7 @@ serve(async (req) => {
         .insert({
           programme_id: body.programme_id,
           enterprise_id: body.enterprise_id,
+          organization_id: userOrgId,
           company_name: ent.name,
           contact_name: ent.contact_name || null,
           contact_email: ent.contact_email || null,

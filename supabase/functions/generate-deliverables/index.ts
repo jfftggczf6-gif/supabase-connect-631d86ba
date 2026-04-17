@@ -229,8 +229,10 @@ serve(async (req) => {
 
     // Insert score history entry
     if (globalScore > 0) {
+      const { data: entOrg } = await supabase.from("enterprises").select("organization_id").eq("id", enterprise_id).single();
       await supabase.from("score_history").insert({
         enterprise_id,
+        organization_id: entOrg?.organization_id || null,
         score: globalScore,
         scores_detail: scoresDetail,
       });

@@ -53,6 +53,13 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
+    // Resolve organization_id from programme
+    let progOrgId: string | null = null;
+    if (body.programme_id) {
+      const { data: progData } = await supabase.from("programmes").select("organization_id").eq("id", body.programme_id).maybeSingle();
+      progOrgId = progData?.organization_id || null;
+    }
+
     if (action === "list") {
       const { data, error } = await supabase.from("programme_kpis").select("*").eq("programme_id", body.programme_id).order("kpi_category");
       if (error) return jsonRes({ error: error.message }, 500);
@@ -64,6 +71,7 @@ serve(async (req) => {
       if (!kpi?.kpi_name || !kpi?.kpi_code || !kpi?.kpi_category || !kpi?.unit) return jsonRes({ error: "Champs requis manquants" }, 400);
       const { data, error } = await supabase.from("programme_kpis").insert({
         programme_id: body.programme_id,
+        organization_id: progOrgId,
         ...kpi,
       }).select().single();
       if (error) return jsonRes({ error: error.message }, 500);
@@ -80,6 +88,7 @@ serve(async (req) => {
       // History
       await supabase.from("programme_kpi_history").insert({
         kpi_id: body.kpi_id, value: body.value,
+        organization_id: progOrgId,
         period: new Date().toISOString().slice(0, 7),
         notes: body.notes || null, recorded_by: user.id,
       });
@@ -101,6 +110,7 @@ serve(async (req) => {
       for (const kpi of template) {
         const { error } = await supabase.from("programme_kpis").upsert({
           programme_id: body.programme_id,
+          organization_id: progOrgId,
           kpi_name: kpi.kpi_name, kpi_code: kpi.kpi_code,
           kpi_category: kpi.kpi_category, unit: kpi.unit,
           source: "manual", bailleur: body.template.toUpperCase(),

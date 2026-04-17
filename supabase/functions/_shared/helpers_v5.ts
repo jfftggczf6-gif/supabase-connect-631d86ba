@@ -585,6 +585,7 @@ export async function saveDeliverable(supabase: any, enterprise_id: string, type
         if (globalScore !== previousScore) {
           await supabase.from("score_history").insert({
             enterprise_id,
+            organization_id: entForOrg?.organization_id || null,
             score: globalScore,
             scores_detail: {
               trigger_type: type,
