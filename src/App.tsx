@@ -30,6 +30,7 @@ import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
 import ProgrammeEnterprisePage from "./pages/ProgrammeEnterprisePage";
 import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import KnowledgePage from "./pages/KnowledgePage";
+import KnowledgeReviewPage from "./pages/admin/KnowledgeReviewPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const App = () => (
             <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/organization/members" element={<ProtectedRoute><MembersPage /></ProtectedRoute>} />
             <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
