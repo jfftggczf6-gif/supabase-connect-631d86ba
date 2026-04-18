@@ -17,6 +17,7 @@ import ProgrammeComparatifTab from '@/components/programmes/ProgrammeComparatifT
 import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab';
 import CohorteEnterprisesTab from '@/components/programmes/CohorteEnterprisesTab';
 import ProgrammeImpactTab from '@/components/programmes/ProgrammeImpactTab';
+import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
@@ -183,13 +184,13 @@ export default function ProgrammeDetailPage() {
   const isCohorte = programme.type === 'cohorte_directe';
   const tabs: string[] = ['apercu'];
   if (isCohorte) {
-    tabs.push('enterprises', 'suivi', 'reporting', 'impact');
+    tabs.push('enterprises', 'suivi', 'compliance', 'reporting', 'impact');
   } else {
     if (['open', 'closed'].includes(status)) {
       tabs.push('selection');
     }
     if (['in_progress', 'completed'].includes(status)) {
-      tabs.push('suivi', 'reporting', 'impact');
+      tabs.push('suivi', 'compliance', 'reporting', 'impact');
     }
   }
   tabs.push('parametres');
@@ -216,7 +217,7 @@ export default function ProgrammeDetailPage() {
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
         <TabsList className="flex-wrap">
           {tabs.map(tab => <TabsTrigger key={tab} value={tab}>{
-            { apercu: t('programme.overview'), enterprises: t('programme.enterprises'), selection: t('programme.selection'), suivi: t('programme.monitoring'), reporting: t('programme.reporting'), impact: t('programme.impact'), parametres: t('programme.settings') }[tab]
+            { apercu: t('programme.overview'), enterprises: t('programme.enterprises'), selection: t('programme.selection'), suivi: t('programme.monitoring'), compliance: 'Compliance & IC', reporting: t('programme.reporting'), impact: t('programme.impact'), parametres: t('programme.settings') }[tab]
           }</TabsTrigger>)}
         </TabsList>
 
@@ -419,6 +420,11 @@ export default function ProgrammeDetailPage() {
         {/* Reporting */}
         <TabsContent value="reporting">
           <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} hideClotureButton />
+        </TabsContent>
+
+        {/* Compliance & IC */}
+        <TabsContent value="compliance">
+          <ProgrammeComplianceTab programmeId={id!} />
         </TabsContent>
 
         {/* Impact */}
