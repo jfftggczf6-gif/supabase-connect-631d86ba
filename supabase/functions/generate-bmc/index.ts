@@ -147,7 +147,7 @@ serve(async (req) => {
 
     const sectorBenchmarks = getSectorKnowledgePrompt(ent.sector || "services_b2b");
     const contextBenchmarks = getContextualBenchmarks(ent.country || '', ent.sector || "services_b2b");
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "bmc");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "bmc", undefined, ctx.organization_id);
     const agentDocs = getDocumentContentForAgent(ent, "bmc", 20_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 

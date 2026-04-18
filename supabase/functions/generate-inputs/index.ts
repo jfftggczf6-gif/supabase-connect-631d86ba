@@ -556,7 +556,7 @@ EXEMPLES :
 `;
     }
 
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "inputs");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "inputs", undefined, ctx.organization_id);
 
     // Inject pre_screening insights if available (activities, risks, scores)
     let preScreenContext = "";

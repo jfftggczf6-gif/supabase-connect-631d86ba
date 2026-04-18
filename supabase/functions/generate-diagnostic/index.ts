@@ -262,7 +262,7 @@ Indique lesquels sont levés et lesquels persistent.
 
     // RAG context
     const ragContext = await buildRAGContext(ctx.supabase, pays, secteur, ["benchmarks", "fiscal", "bailleurs", "reglementation"], "diagnostic_data", ctx.enterprise_id);
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, pays, secteur, "diagnostic");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, pays, secteur, "diagnostic", undefined, ctx.organization_id);
     const validationRules = getValidationRulesPrompt();
     const sectorBenchmarks = getSectorKnowledgePrompt(secteur);
     const contextBenchmarks = getContextualBenchmarks(pays, secteur);

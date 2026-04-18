@@ -256,7 +256,7 @@ UTILISE CETTE CHAÎNE pour le current_year. Projette chaque poste séparément.
 
     // RAG: enrichir avec benchmarks et fiscal
     const ragContext = await buildRAGContext(ctx.supabase, country, ent.sector || "", ["benchmarks", "fiscal", "bailleurs"], "plan_ovo", ctx.enterprise_id);
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, country, ent.sector || "", "plan_ovo");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, country, ent.sector || "", "plan_ovo", undefined, ctx.organization_id);
 
     const agentDocs = getDocumentContentForAgent(ent, "plan_ovo", 80_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);

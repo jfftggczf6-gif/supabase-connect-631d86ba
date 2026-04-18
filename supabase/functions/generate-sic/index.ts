@@ -213,7 +213,7 @@ serve(async (req) => {
 
     // RAG: enrichir avec données ODD et impact social
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["odd", "bailleurs", "secteurs"], "sic_analysis", ctx.enterprise_id);
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "sic");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "sic", undefined, ctx.organization_id);
 
     const agentDocs = getDocumentContentForAgent(ent, "sic", 20_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);

@@ -28,11 +28,13 @@ serve(async (req: Request) => {
 
   let supabase: any;
   let enterpriseId: string;
+  let organizationId: string | undefined;
 
   try {
     const body = await req.json();
     const ctx = await verifyAndGetContext(req, body);
     supabase = ctx.supabase;
+    organizationId = ctx.organization_id;
     enterpriseId = body.enterprise_id;
     if (!enterpriseId) return errorResponse("enterprise_id required", 400);
 
@@ -111,7 +113,7 @@ serve(async (req: Request) => {
       // 2. Appel IA — analyse qualitative + hypothèses
       console.log(`[plan-financier] Calling AI for analysis...`);
 
-      const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework');
+      const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework', undefined, organizationId);
       const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
 
       const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);

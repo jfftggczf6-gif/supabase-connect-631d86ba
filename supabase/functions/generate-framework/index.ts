@@ -492,7 +492,7 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
       ent.name, ent.sector || "", ent.country || '', agentDocs, inputsData, bmcData, devise
     ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + preScreenBlock + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework", undefined, ctx.organization_id);
     const enrichedSystemPrompt = injectGuardrails(SYSTEM_PROMPT + "\n\n" + knowledgeBase, ent.country);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 

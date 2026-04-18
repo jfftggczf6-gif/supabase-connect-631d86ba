@@ -69,7 +69,7 @@ serve(async (req) => {
     });
 
     // 4. KB context
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "valuation");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "valuation", undefined, ctx.organization_id);
 
     // 5. Appel IA pour l'analyse qualitative
     const devise = inputsData?.devise || frameworkData?.devise || "";
