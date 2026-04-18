@@ -152,6 +152,10 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
               <DropdownMenuItem className="gap-2">
                 <User className="h-4 w-4" /> {t('nav.profile')}
               </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onClick={() => navigate('/settings')}>
+                <Settings className="h-4 w-4" /> Paramètres & Sécurité
+              </DropdownMenuItem>
+              <div className="border-t my-1" />
               <DropdownMenuItem className="gap-2 text-destructive" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4" /> {t('nav.logout')}
               </DropdownMenuItem>
