@@ -757,15 +757,15 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
                 </button>
               ))}
               <div className="pt-4 space-y-2">
-                <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleDownloadHtml}><Download className="h-3 w-3 mr-1" /> HTML (A4)</Button>
-                <Button variant="outline" size="sm" className="w-full text-xs" onClick={async () => {
+                <Button variant="outline" size="sm" className="w-full text-xs border-primary/30 text-primary hover:bg-primary/5" onClick={handleDownloadHtml}><Download className="h-3 w-3 mr-1" /> HTML (A4)</Button>
+                <Button size="sm" className="w-full text-xs bg-primary text-white hover:bg-primary/90" onClick={async () => {
                   try {
                     const html = generateMemoHtml(data);
                     await exportToPdf(html, `InvestmentMemo_${data.page_de_garde?.titre?.replace(/[^a-zA-Z0-9]/g, '_') || 'memo'}.pdf`);
                     toast.success('PDF téléchargé');
                   } catch (err: any) { toast.error(`Erreur PDF : ${err.message}`); }
                 }}><Download className="h-3 w-3 mr-1" /> PDF</Button>
-                {onRegenerate && <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onRegenerate}>Regénérer</Button>}
+                {onRegenerate && <Button variant="outline" size="sm" className="w-full text-xs border-primary/30 text-primary hover:bg-primary/5" onClick={onRegenerate}>Regénérer</Button>}
               </div>
             </div>
 

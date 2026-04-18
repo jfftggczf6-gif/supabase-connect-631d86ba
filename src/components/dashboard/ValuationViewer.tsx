@@ -74,17 +74,19 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Analyse par 3 méthodes — DCF, Multiples EBITDA, Multiples CA</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
-            <Download className="h-3.5 w-3.5" /> HTML (A4)
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadPdf}>
-            <Download className="h-3.5 w-3.5" /> PDF
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5" onClick={handleDownloadHtml}>
+              <Download className="h-3.5 w-3.5" /> HTML (A4)
+            </Button>
+            <Button size="sm" className="gap-1.5 bg-primary text-white hover:bg-primary/90" onClick={handleDownloadPdf}>
+              <Download className="h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
           {onRegenerate && (
-            <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
+            <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5" onClick={onRegenerate}>
               Regénérer
-            </button>
+            </Button>
           )}
         </div>
       </div>

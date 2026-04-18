@@ -164,8 +164,8 @@ export async function runPipelineFromClient(
 
     const step = PIPELINE[i];
 
-    // Skip diagnostic if it has its own button (independent from pipeline)
-    if (skipDiagnostic && step.fn === 'generate-diagnostic') {
+    // Skip pre-screening (diagnostic) if it has its own button (independent from pipeline)
+    if (skipDiagnostic && step.fn === 'generate-pre-screening') {
       results.push({ step: step.name, success: true, skipped: true });
       completedCount++;
       onProgress?.({ current: i + 1, total: PIPELINE.length, name: `${step.name} (indépendant)` });

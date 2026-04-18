@@ -1437,30 +1437,27 @@ export default function EntrepreneurDashboard({
 
       {/* ===== ACTION BUTTONS BAR ===== */}
       {!readOnly && (
-        <div className="flex-none border-b border-border bg-card/50 px-6 py-2 flex items-center gap-3">
+        <div className="flex-none border-b border-border bg-card/50 px-6 py-3 flex items-center justify-center gap-3">
           <Button
-            variant="outline"
             size="sm"
-            className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
+            className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
             onClick={() => setSelectedModule('upload')}
           >
             <Upload className="h-3.5 w-3.5" />
             <span className="text-xs font-medium">Uploader</span>
           </Button>
           <Button
-            variant="outline"
             size="sm"
-            className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
-            onClick={() => handleGenerateModule('diagnostic')}
-            disabled={generating}
+            className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
+            onClick={() => handleGenerateModule('pre_screening')}
+            disabled={generating || !!generatingModule}
           >
             <Search className="h-3.5 w-3.5" />
-            <span className="text-xs font-medium">Diagnostic</span>
+            <span className="text-xs font-medium">Générer diagnostic</span>
           </Button>
           <Button
-            variant="outline"
             size="sm"
-            className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary"
+            className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
             onClick={() => handleGenerate(false)}
             disabled={generating}
           >
@@ -1560,7 +1557,7 @@ export default function EntrepreneurDashboard({
               </div>
             ) : selectedModule === 'reconstruction' ? (
               /* Reconstruction result — frozen view */
-              <div className="p-6 max-w-2xl mx-auto space-y-4">
+              <div className="p-6 max-w-2xl mx-auto space-y-4 bg-white">
                 {(() => {
                   const inputsDeliv = deliverables.find(d => d.type === 'inputs_data');
                   const data = (inputsDeliv?.data && typeof inputsDeliv.data === 'object') ? inputsDeliv.data as Record<string, any> : null;
@@ -1768,9 +1765,6 @@ export default function EntrepreneurDashboard({
                         <div><p className="text-sm font-semibold text-foreground">Plan Financier</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('plan_financier', 'xlsx')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
-                          <FileSpreadsheet className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span>
-                        </button>
                         <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
                           <Download className="h-3.5 w-3.5" /> HTML
                         </button>
@@ -1799,7 +1793,7 @@ export default function EntrepreneurDashboard({
                           <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
                         ) : ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url ? (
                           <>
-                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px]">BETA</span></button>
+                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel</button>
                             <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
                           </>
                         ) : (

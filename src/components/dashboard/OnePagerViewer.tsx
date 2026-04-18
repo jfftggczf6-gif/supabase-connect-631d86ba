@@ -138,11 +138,12 @@ ${criteres ? `
         <h2 className="text-2xl font-display font-bold flex items-center gap-2">
           <FileText className="h-6 w-6 text-cyan-600" /> One-Pager I&P
         </h2>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={handleDownloadHtml}>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/5" onClick={handleDownloadHtml}>
             <Download className="h-3.5 w-3.5 mr-1" /> HTML A4
           </Button>
-          <Button variant="outline" size="sm" onClick={async () => {
+          <Button size="sm" className="bg-primary text-white hover:bg-primary/90" onClick={async () => {
             try {
               // Reuse the same HTML generation logic from handleDownloadHtml
               const sectionRow = (label: string, content: string) =>
@@ -165,8 +166,9 @@ ${criteres ? `
           }}>
             <Download className="h-3.5 w-3.5 mr-1" /> PDF
           </Button>
+          </div>
           {onRegenerate && (
-            <button onClick={onRegenerate} className="text-xs text-muted-foreground underline">Regénérer</button>
+            <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/5" onClick={onRegenerate}>Regénérer</Button>
           )}
         </div>
       </div>
