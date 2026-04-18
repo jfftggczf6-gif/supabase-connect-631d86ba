@@ -277,11 +277,13 @@ Deno.serve(async (req: Request) => {
       generated_at: now.toISOString(),
     };
 
-    await supabase.from("activity_log").insert({
-      action: "weekly_intel_sent",
-      actor_role: "system",
-      metadata: logEntry,
-    }).catch(() => {});
+    try {
+      await supabase.from("activity_log").insert({
+        action: "weekly_intel_sent",
+        actor_role: "system",
+        metadata: logEntry,
+      });
+    } catch { /* non-blocking */ }
 
     console.log("[weekly-intel] Complete:", logEntry);
 
