@@ -35,6 +35,15 @@ const TEMPLATES: Record<string, Array<{ kpi_name: string; kpi_code: string; kpi_
     { kpi_name: "CA additionnel", kpi_code: "ca_additionnel", kpi_category: "financier", unit: "EUR" },
     { kpi_name: "Tonnes CO2 évitées", kpi_code: "co2_evitees", kpi_category: "impact_environnemental", unit: "tonnes" },
   ],
+  ovo: [
+    { kpi_name: "Emplois décents créés (ILO)", kpi_code: "decent_jobs_total", kpi_category: "odd_1", unit: "emplois" },
+    { kpi_name: "Emplois décents femmes", kpi_code: "decent_jobs_women", kpi_category: "odd_8", unit: "emplois" },
+    { kpi_name: "Emplois décents jeunes (16-35)", kpi_code: "decent_jobs_youth", kpi_category: "odd_8", unit: "emplois" },
+    { kpi_name: "Marge brute par employé", kpi_code: "gross_margin_per_employee", kpi_category: "odd_8", unit: "EUR" },
+    { kpi_name: "Déchets éliminés (kg/tonne produite)", kpi_code: "waste_reduction", kpi_category: "odd_12", unit: "kg/tonne" },
+    { kpi_name: "Partenariats OVO + taxes + cotisations", kpi_code: "partnerships_taxes", kpi_category: "odd_17", unit: "EUR" },
+    { kpi_name: "% PME croissance durable post-financement", kpi_code: "sustainable_growth_pct", kpi_category: "overall", unit: "%" },
+  ],
 };
 
 serve(async (req) => {
