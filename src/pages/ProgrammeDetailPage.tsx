@@ -18,6 +18,7 @@ import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab
 import CohorteEnterprisesTab from '@/components/programmes/CohorteEnterprisesTab';
 import ProgrammeImpactTab from '@/components/programmes/ProgrammeImpactTab';
 import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceTab';
+import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
@@ -429,7 +430,10 @@ export default function ProgrammeDetailPage() {
 
         {/* Impact */}
         <TabsContent value="impact">
-          <ProgrammeImpactTab programmeId={id!} />
+          <ProgrammeODDPortfolioTab programmeId={id!} />
+          <div className="mt-8">
+            <ProgrammeImpactTab programmeId={id!} />
+          </div>
         </TabsContent>
 
         {/* Paramètres */}
