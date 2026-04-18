@@ -53,8 +53,9 @@ export interface ParsingReport {
   }[];
 }
 
-const PARSER_URL = import.meta.env.VITE_PARSER_URL || 'http://localhost:8000';
-const PARSER_API_KEY = import.meta.env.VITE_PARSER_API_KEY || 'esono-parser-dev-key';
+// Security: parser calls go through proxy-parser EF (API key stays server-side)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   etats_financiers: 'États financiers',
@@ -88,10 +89,12 @@ export async function parseFile(file: File): Promise<ParsedDocument> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120_000); // 2 min timeout per file
 
-    const response = await fetch(`${PARSER_URL}/parse`, {
+    const { data: { session } } = await supabase.auth.getSession();
+    formData.append('endpoint', '/parse');
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/proxy-parser`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${PARSER_API_KEY}`,
+        'Authorization': `Bearer ${session?.access_token || ''}`,
       },
       body: formData,
       signal: controller.signal,

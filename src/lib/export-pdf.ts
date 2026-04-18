@@ -1,18 +1,23 @@
-const PARSER_URL = import.meta.env.VITE_PARSER_URL;
-const PARSER_API_KEY = import.meta.env.VITE_PARSER_API_KEY;
+import { supabase } from '@/integrations/supabase/client';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 export async function exportToPdf(htmlContent: string, filename: string = 'livrable.pdf') {
-  if (!PARSER_URL) {
-    throw new Error('PARSER_URL not configured');
-  }
+  // Use proxy-parser EF instead of direct Railway call (security: API key stays server-side)
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
 
-  const response = await fetch(`${PARSER_URL}/generate-pdf`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/proxy-parser`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${PARSER_API_KEY}`,
+      'Authorization': `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ html: htmlContent, filename }),
+    body: JSON.stringify({
+      endpoint: '/generate-pdf',
+      method: 'POST',
+      payload: { html: htmlContent, filename },
+    }),
   });
 
   if (!response.ok) {
