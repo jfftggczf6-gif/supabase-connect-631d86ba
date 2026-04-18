@@ -284,24 +284,30 @@ Retourne UNIQUEMENT du JSON valide.`
         </div>
       `;
 
-      // Send email to super_admin(s)
+      // Send email notification
       try {
-        // Get all super_admin emails
+        // Notification recipients: configured email + super_admins
+        const KB_NOTIFY_EMAIL = Deno.env.get("KB_NOTIFY_EMAIL") || "philippeyace@hotmail.fr";
+        const recipients = new Set<string>([KB_NOTIFY_EMAIL]);
+
+        // Also add super_admin emails
         const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
         const adminIds = (adminRoles || []).map((r: any) => r.user_id);
         if (adminIds.length > 0) {
           const { data: profiles } = await supabase.from("profiles").select("email").in("user_id", adminIds);
-          for (const profile of profiles || []) {
-            if (profile.email) {
-              await supabase.functions.invoke("send-email", {
-                body: {
-                  to: profile.email,
-                  subject: `ESONO KB — ${stats.pending_review} doc(s) en attente de validation | ${stats.auto_ingested} auto-ingéré(s)`,
-                  html: emailHtml,
-                },
-              });
-            }
+          for (const p of profiles || []) {
+            if (p.email) recipients.add(p.email);
           }
+        }
+
+        for (const email of recipients) {
+          await supabase.functions.invoke("send-email", {
+            body: {
+              to: email,
+              subject: `ESONO KB — ${stats.pending_review} doc(s) en attente de validation | ${stats.auto_ingested} auto-ingéré(s)`,
+              html: emailHtml,
+            },
+          });
         }
       } catch (emailErr) {
         console.warn("[auto-enrich] Email notification failed (non-blocking):", emailErr);
