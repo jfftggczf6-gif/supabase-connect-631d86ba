@@ -9,6 +9,7 @@ import { normalizePreScreening } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { detectRisks, buildRiskBlock } from "../_shared/risk-detector.ts";
+import { buildOvoRedFlagsPromptContext, buildOvoCompliancePromptContext } from "../_shared/ovo-knowledge.ts";
 
 const SYSTEM_PROMPT = `Tu es un consultant senior en accompagnement PME en Afrique subsaharienne (15 ans, UEMOA/CEMAC). Tu travailles pour un programme d'accélération et tu prépares le DIAGNOSTIC INITIAL d'une entreprise — le premier bilan que le coach lira avant de rencontrer l'entrepreneur.
 
@@ -408,7 +409,9 @@ ${PRE_SCREENING_SCHEMA}`;
         riskBlock = buildRiskBlock(flags);
       }
     } catch (e) { console.warn("[pre-screening] risk detection non-blocking:", e); }
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext + kbContext + riskBlock, 24576, undefined, 0.2, { functionName: "generate-pre-screening", enterpriseId: ctx.enterprise_id });
+    // OVO intelligence: inject red flags + compliance checklist context
+    const ovoContext = buildOvoRedFlagsPromptContext() + "\n" + buildOvoCompliancePromptContext();
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext + kbContext + riskBlock + ovoContext, 24576, undefined, 0.2, { functionName: "generate-pre-screening", enterpriseId: ctx.enterprise_id });
     const normalizedData = normalizePreScreening(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 

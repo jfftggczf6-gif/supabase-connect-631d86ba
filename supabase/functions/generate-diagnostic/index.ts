@@ -9,6 +9,7 @@ import { normalizeDiagnostic, getFinancialTruth } from "../_shared/normalizers.t
 import { getValidationRulesPrompt, getSectorKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { detectRisks, buildRiskBlock } from "../_shared/risk-detector.ts";
+import { buildOvoRedFlagsPromptContext, buildOvoCompliancePromptContext } from "../_shared/ovo-knowledge.ts";
 
 // ── Helpers locaux ──────────────────────────────────────────────────────────
 
@@ -292,7 +293,8 @@ Indique lesquels sont levés et lesquels persistent.
         + riskBlock
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
         + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}`
-        + ragContext + kbContext,
+        + ragContext + kbContext
+        + "\n" + buildOvoRedFlagsPromptContext() + "\n" + buildOvoCompliancePromptContext(),
       16384, "claude-sonnet-4-20250514", 0.3,
       { functionName: "generate-diagnostic", enterpriseId: ctx.enterprise_id }
     );

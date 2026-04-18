@@ -7,6 +7,7 @@ import {
 import { normalizeOdd } from "../_shared/normalizers.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { buildOvoImpactPromptContext } from "../_shared/ovo-knowledge.ts";
 
 const SYSTEM_PROMPT = `Tu es un expert en Objectifs de Développement Durable (ODD) pour PME en Afrique de l'Ouest (UEMOA).
 Tu évalues l'alignement des projets avec les 17 ODD de l'ONU à partir du Business Model Canvas (BMC) et du Social Impact Canvas (SIC).
@@ -189,7 +190,8 @@ serve(async (req) => {
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     console.log("[generate-odd] Calling Claude API via callAI (max_tokens: 16384)...");
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), userPrompt + coachingContext, 16384, "claude-sonnet-4-20250514", undefined, { functionName: "generate-odd", enterpriseId: ctx.enterprise_id });
+    const ovoImpactContext = buildOvoImpactPromptContext();
+    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), userPrompt + coachingContext + "\n" + ovoImpactContext, 16384, "claude-sonnet-4-20250514", undefined, { functionName: "generate-odd", enterpriseId: ctx.enterprise_id });
     const data = normalizeOdd(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "odd_analysis", data, "odd");
