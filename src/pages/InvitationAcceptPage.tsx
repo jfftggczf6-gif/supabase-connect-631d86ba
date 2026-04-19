@@ -60,12 +60,27 @@ export default function InvitationAcceptPage() {
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || result.message);
+
+      // Force la sélection de la nouvelle org AVANT le refresh (le refresh lira ce localStorage)
+      if (result.organization_id) {
+        try { localStorage.setItem('esono_current_org_id', result.organization_id); } catch {}
+      }
+
       setAccepted(true);
       toast.success(`Bienvenue dans ${details?.organization_name} !`);
-      // Rafraîchir le contexte org pour que la nouvelle org apparaisse
+
+      // Rafraîchir le contexte org (lira localStorage et activera la bonne org)
       await refreshOrganizations();
       if (result.organization_id) switchOrganization(result.organization_id);
-      setTimeout(() => navigate('/dashboard'), 1500);
+
+      // Redirection selon le rôle (évite le passage par /dashboard qui peut servir l'EntrepreneurDashboard par fallback)
+      const role = (result.role || details?.role || '').toLowerCase();
+      const targetPath =
+        role === 'owner' || role === 'admin' || role === 'manager' ? '/programmes' :
+        role === 'entrepreneur' ? '/dashboard' :
+        '/dashboard'; // coach/analyst → CoachDashboard rendu par /dashboard
+
+      setTimeout(() => navigate(targetPath), 1500);
     } catch (err: any) {
       toast.error(err.message);
     }
