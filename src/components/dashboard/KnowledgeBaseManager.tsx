@@ -26,6 +26,8 @@ interface KBEntry {
   source: string | null;
   tags: string[] | null;
   created_at: string;
+  updated_at?: string | null;
+  metadata?: Record<string, any> | null;
   layer: 'org' | 'shared';
 }
 
@@ -65,7 +67,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
     setLoading(true);
     const promises: Promise<any>[] = [
       // Shared KB (Couche 2)
-      supabase.from('knowledge_base').select('id, title, category, content, country, sector, source, tags, created_at').order('created_at', { ascending: false }).limit(200),
+      supabase.from('knowledge_base').select('id, title, category, content, country, sector, source, tags, created_at, updated_at, metadata').order('updated_at', { ascending: false }).limit(200),
       // Benchmarks (Couche 2)
       supabase.from('knowledge_benchmarks' as any).select('*').order('sector').limit(100),
     ];
@@ -73,7 +75,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
     // Org KB (Couche 1) — only if user has an org
     if (currentOrg?.id) {
       promises.push(
-        supabase.from('organization_knowledge' as any).select('id, title, category, content, country, sector, source, tags, created_at').eq('organization_id', currentOrg.id).eq('is_active', true).order('created_at', { ascending: false }).limit(200)
+        supabase.from('organization_knowledge' as any).select('id, title, category, content, country, sector, source, tags, created_at, updated_at').eq('organization_id', currentOrg.id).eq('is_active', true).order('updated_at', { ascending: false }).limit(200)
       );
     }
 
@@ -278,13 +280,19 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
         </TableRow>
       </TableHeader>
       <TableBody>
-        {entries.map(e => (
+        {entries.map(e => {
+          // Date document : metadata.publication_date > metadata.document_date > updated_at > created_at
+          const docDate = e.metadata?.publication_date || e.metadata?.document_date || e.updated_at || e.created_at;
+          // Zone/Secteur : champ direct, sinon fallback metadata
+          const zone = e.country || e.metadata?.country || e.metadata?.region || '—';
+          const sector = e.sector || e.metadata?.sector || '—';
+          return (
           <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewEntry(e)}>
             <TableCell className="font-medium max-w-[300px] truncate">{e.title}</TableCell>
             <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || e.category}</Badge></TableCell>
-            <TableCell className="text-sm text-muted-foreground">{e.country || '—'}</TableCell>
-            <TableCell className="text-sm text-muted-foreground">{e.sector || '—'}</TableCell>
-            <TableCell className="text-sm text-muted-foreground">{formatDate(e.created_at)}</TableCell>
+            <TableCell className="text-sm text-muted-foreground">{zone}</TableCell>
+            <TableCell className="text-sm text-muted-foreground">{sector}</TableCell>
+            <TableCell className="text-sm text-muted-foreground">{formatDate(docDate)}</TableCell>
             {showDelete && (
               <TableCell>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(ev) => { ev.stopPropagation(); handleDeleteOrgEntry(e.id); }}>
@@ -293,7 +301,8 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
               </TableCell>
             )}
           </TableRow>
-        ))}
+          );
+        })}
         {!entries.length && (
           <TableRow><TableCell colSpan={showDelete ? 6 : 5} className="text-center text-muted-foreground py-8">Aucun document trouvé</TableCell></TableRow>
         )}
