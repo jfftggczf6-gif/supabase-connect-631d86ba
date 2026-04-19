@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 import {
-  Sparkles, Loader2, CheckCircle2, Menu, X,
+  Sparkles, Loader2, CheckCircle2, Menu, X, Building2,
 } from 'lucide-react';
 import { PHASES, type Enterprise, type Deliverable, type EnterpriseModule, type PhaseConfig } from '@/lib/dashboard-config';
 
@@ -34,7 +33,7 @@ const DELIV_TYPE_MAP: Record<string, string> = {
 
 export default function DashboardSidebar({
   enterprise, deliverables, modules, selectedModule, onSelectModule,
-  onGenerateAll, onStopGeneration, generating, generationProgress, globalScore,
+  onGenerateAll, onStopGeneration, generating, generationProgress, globalScore: _globalScore,
   hideActions = false,
 }: SidebarProps) {
   const collapsed = false;
@@ -102,21 +101,11 @@ export default function DashboardSidebar({
       >
         {collapsed ? (
           <div className="flex flex-col items-center gap-1">
-            <div className={cn(
-              'h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold',
-              globalScore >= 60 ? 'bg-emerald-500/20 text-emerald-600' :
-              globalScore >= 40 ? 'bg-amber-500/20 text-amber-600' :
-              'bg-muted text-muted-foreground'
-            )}>
-              {globalScore || '—'}
-            </div>
+            <Building2 className="h-5 w-5 text-muted-foreground" />
           </div>
         ) : (
           <div>
-            <div className="flex items-center justify-between">
-              <span className="font-display font-bold text-sm truncate">{enterprise.name}</span>
-              <Badge variant="outline" className="text-xs tabular-nums">{globalScore || '—'}</Badge>
-            </div>
+            <span className="font-display font-bold text-sm truncate">{enterprise.name}</span>
             <p className="text-[10px] text-muted-foreground truncate mt-0.5">
               {enterprise.sector || '—'} · {enterprise.country || '—'}
             </p>
