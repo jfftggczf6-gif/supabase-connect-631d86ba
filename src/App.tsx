@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import RequireSuperAdmin from "@/components/guards/RequireSuperAdmin";
+import RequireRole from "@/components/guards/RequireRole";
 import OrganizationsPage from "./pages/admin/OrganizationsPage";
 import OrganizationDetailPage from "./pages/admin/OrganizationDetailPage";
 import MeteringDashboard from "./pages/admin/MeteringDashboard";
@@ -57,16 +58,16 @@ const App = () => (
               <ProtectedRoute><Dashboard /></ProtectedRoute>
             } />
             <Route path="/programmes" element={
-              <ProtectedRoute><ProgrammeListPage /></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeListPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/new" element={
-              <ProtectedRoute><ProgrammeCreatePage /></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeCreatePage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id" element={
-              <ProtectedRoute><ProgrammeDetailPage /></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
-              <ProtectedRoute><ProgrammeEnterprisePage /></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
             <Route path="/livrables" element={
@@ -87,7 +88,7 @@ const App = () => (
             <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
-            <Route path="/organization/members" element={<ProtectedRoute><MembersPage /></ProtectedRoute>} />
+            <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><MembersPage /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

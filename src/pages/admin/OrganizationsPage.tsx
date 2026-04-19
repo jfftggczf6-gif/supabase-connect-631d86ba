@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Plus, Building2, Search, Loader2 } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { LogIn } from 'lucide-react';
 
 interface OrgRow {
   id: string; name: string; slug: string; type: string;
@@ -22,7 +23,7 @@ interface OrgRow {
 
 export default function OrganizationsPage() {
   const navigate = useNavigate();
-  const { refreshOrganizations } = useOrganization();
+  const { refreshOrganizations, switchOrganization, memberships } = useOrganization();
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -82,11 +83,52 @@ export default function OrganizationsPage() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
+  // Aggregate KPIs
+  const kpis = {
+    total: orgs.length,
+    active: orgs.filter(o => o.is_active).length,
+    members: orgs.reduce((s, o) => s + (o.member_count || 0), 0),
+    enterprises: orgs.reduce((s, o) => s + (o.enterprise_count || 0), 0),
+    byType: {
+      programme: orgs.filter(o => o.type === 'programme').length,
+      pe: orgs.filter(o => o.type === 'pe').length,
+      mixed: orgs.filter(o => o.type === 'mixed').length,
+    },
+  };
+
   return (
     <DashboardLayout title="Organisations" subtitle="Gestion des espaces clients">
       <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/dashboard')}>
         ← Retour au dashboard
       </Button>
+
+      {/* KPIs aggregate */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Organisations</p>
+          <p className="text-2xl font-bold mt-1">{kpis.total}</p>
+          <p className="text-[10px] text-muted-foreground">{kpis.active} actives</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Membres totaux</p>
+          <p className="text-2xl font-bold mt-1">{kpis.members}</p>
+          <p className="text-[10px] text-muted-foreground">tous rôles confondus</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Entreprises</p>
+          <p className="text-2xl font-bold mt-1">{kpis.enterprises}</p>
+          <p className="text-[10px] text-muted-foreground">à travers la plateforme</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Répartition</p>
+          <div className="flex gap-2 mt-2">
+            <Badge variant="outline" className="text-[10px]">Prog: {kpis.byType.programme}</Badge>
+            <Badge variant="outline" className="text-[10px]">PE: {kpis.byType.pe}</Badge>
+            <Badge variant="outline" className="text-[10px]">Mixte: {kpis.byType.mixed}</Badge>
+          </div>
+        </CardContent></Card>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div className="relative w-80">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -109,12 +151,15 @@ export default function OrganizationsPage() {
                 <TableHead>Entreprises</TableHead>
                 <TableHead>Créée le</TableHead>
                 <TableHead>Statut</TableHead>
+                <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-              ) : filtered.map(o => (
+                <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+              ) : filtered.map(o => {
+                const isMember = memberships.some(m => m.organization.id === o.id);
+                return (
                 <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/organizations/${o.id}`)}>
                   <TableCell className="font-medium">{o.name}<br /><span className="text-xs text-muted-foreground">{o.slug}</span></TableCell>
                   <TableCell><Badge variant="outline">{o.type}</Badge></TableCell>
@@ -123,10 +168,20 @@ export default function OrganizationsPage() {
                   <TableCell className="text-sm">{o.enterprise_count}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatDate(o.created_at)}</TableCell>
                   <TableCell><Badge variant={o.is_active ? 'default' : 'secondary'}>{o.is_active ? 'Actif' : 'Inactif'}</Badge></TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {isMember ? (
+                      <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => { switchOrganization(o.id); navigate('/dashboard'); }} title="Entrer dans cet espace">
+                        <LogIn className="h-3 w-3" /> Entrer
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">non-membre</span>
+                    )}
+                  </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
               {!loading && !filtered.length && (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Aucune organisation</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Aucune organisation</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
