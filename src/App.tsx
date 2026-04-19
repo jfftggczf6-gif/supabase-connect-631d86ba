@@ -90,7 +90,6 @@ const App = () => (
             <Route path="/organization/members" element={<ProtectedRoute><MembersPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
-            <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </OrganizationProvider>
