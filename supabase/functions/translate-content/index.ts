@@ -21,6 +21,30 @@ serve(async (req) => {
 
     const lang = target_lang === 'en' ? 'English' : 'Français';
 
+    const prompt = `You are translating UI text segments. Each segment is prefixed with a marker like [0], [1], [2], etc.
+
+CRITICAL RULES:
+1. Translate ONLY the text AFTER each marker into ${lang}
+2. KEEP the markers EXACTLY as they are: [0], [1], [2], ... — DO NOT translate, modify, or remove them
+3. Output one segment per line in the same order
+4. Do NOT add explanations, headers, or any text outside the markers
+5. Preserve numbers, currencies, percentages, and proper nouns
+6. If a segment is already in ${lang}, return it unchanged with its marker
+
+Example input:
+[0] Bonjour
+[1] Comment ça va ?
+[2] CA: 12M FCFA
+
+Example output (target=English):
+[0] Hello
+[1] How are you?
+[2] Revenue: 12M FCFA
+
+Now translate this:
+
+${text}`;
+
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -30,13 +54,10 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 4096,
-        messages: [{
-          role: "user",
-          content: `Translate the following text to ${lang}. Keep the same formatting, structure, and tone. Do NOT add any explanation, just return the translated text.\n\n${text}`,
-        }],
+        max_tokens: 8192,
+        messages: [{ role: "user", content: prompt }],
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(60_000),
     });
 
     if (!resp.ok) {

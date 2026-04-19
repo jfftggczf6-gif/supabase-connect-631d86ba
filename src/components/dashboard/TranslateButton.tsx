@@ -69,13 +69,13 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
       originals.set(tn, tn.textContent || '');
     }
 
-    // Batch into chunks
+    // Batch into chunks (1500 chars max + 50 nodes max pour rester sous 8192 tokens output)
     const chunks: { texts: string[]; nodes: Text[] }[] = [];
     let chunk: { texts: string[]; nodes: Text[] } = { texts: [], nodes: [] };
     let len = 0;
     for (const tn of textNodes) {
       const text = tn.textContent || '';
-      if (len + text.length > 2000 && chunk.texts.length > 0) {
+      if ((len + text.length > 1500 || chunk.texts.length >= 50) && chunk.texts.length > 0) {
         chunks.push(chunk);
         chunk = { texts: [], nodes: [] };
         len = 0;
@@ -85,6 +85,7 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
       len += text.length;
     }
     if (chunk.texts.length > 0) chunks.push(chunk);
+    console.log(`[Translate] Splitting into ${chunks.length} chunks`);
 
     setTranslating(true);
     let successCount = 0;
@@ -127,6 +128,16 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
           }
         }
         if (currentIdx >= 0) translatedMap[currentIdx] = currentText.trim();
+
+        // Fallback: si l'IA n'a pas mis de marqueurs [N], faire un mapping ligne-à-ligne
+        if (Object.keys(translatedMap).length === 0) {
+          console.warn('[Translate] No [N] markers in response, falling back to line-by-line mapping');
+          const nonEmptyLines = lines.filter((l: string) => l.trim().length > 0);
+          for (let i = 0; i < Math.min(nonEmptyLines.length, ch.nodes.length); i++) {
+            translatedMap[i] = nonEmptyLines[i].trim();
+          }
+        }
+        console.log(`[Translate] Chunk parsed: ${Object.keys(translatedMap).length}/${ch.nodes.length} segments mapped`);
 
         for (let i = 0; i < ch.nodes.length; i++) {
           if (translatedMap[i] && ch.nodes[i].parentNode) {
