@@ -1,16 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText } from 'lucide-react';
+import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2 } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile } from '@/lib/document-parser';
 
@@ -23,96 +25,91 @@ interface KBEntry {
   sector: string | null;
   source: string | null;
   tags: string[] | null;
-  auto_refresh: boolean | null;
-  expires_at: string | null;
-  last_refreshed_at: string | null;
   created_at: string;
-  has_embedding: boolean;
+  layer: 'org' | 'shared';
 }
 
-const CATEGORIES = ['benchmarks', 'fiscal', 'secteurs', 'bailleurs', 'odd', 'reglementation', 'general'];
+const SHARED_CATEGORIES = ['benchmarks', 'fiscal', 'secteurs', 'bailleurs', 'odd', 'reglementation', 'general'];
+const ORG_CATEGORIES = ['these', 'methodologie', 'ancien_deal', 'guide_coaching', 'note_sectorielle', 'comparable', 'standard_reporting', 'grille_scoring', 'template', 'general'];
 
 const CATEGORY_LABELS: Record<string, string> = {
-  benchmarks: 'Benchmarks',
-  fiscal: 'Fiscal',
-  secteurs: 'Secteurs',
-  bailleurs: 'Bailleurs',
-  odd: 'ODD',
-  reglementation: 'Réglementation',
-  general: 'Général',
+  benchmarks: 'Benchmarks', fiscal: 'Fiscal', secteurs: 'Secteurs', bailleurs: 'Bailleurs',
+  odd: 'ODD', reglementation: 'Réglementation', general: 'Général',
+  these: 'Thèse d\'investissement', methodologie: 'Méthodologie', ancien_deal: 'Ancien deal',
+  guide_coaching: 'Guide coaching', note_sectorielle: 'Note sectorielle', comparable: 'Comparable',
+  standard_reporting: 'Standard reporting', grille_scoring: 'Grille de scoring', template: 'Template',
 };
 
-const ZONES = ['Monde', 'Afrique', 'Afrique de l\'Ouest', 'UEMOA', 'CEMAC', 'Afrique de l\'Est', 'Afrique du Nord', 'Afrique Australe', 'Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Mali', 'Burkina Faso', 'RDC', 'Guinée', 'Togo', 'Bénin', 'Niger', 'Maroc', 'Kenya', 'Nigeria', 'Ghana'];
+const ZONES = ['Monde', 'Afrique', 'Afrique de l\'Ouest', 'UEMOA', 'CEMAC', 'Afrique de l\'Est', 'Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Mali', 'Burkina Faso', 'RDC', 'Guinée', 'Togo', 'Bénin', 'Niger', 'Maroc', 'Kenya', 'Nigeria', 'Ghana', 'Rwanda', 'Uganda'];
+const SECTORS = ['Tous secteurs', 'Agro-industrie', 'Aviculture', 'Agriculture', 'Commerce', 'Restauration', 'Services B2B', 'TIC', 'Énergie', 'Santé', 'BTP', 'Transport', 'Éducation', 'Immobilier', 'Textile', 'Mines', 'Pharmacie', 'Fintech'];
 
 export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t } = useTranslation();
-  const [entries, setEntries] = useState<KBEntry[]>([]);
+  const { currentOrg, isSuperAdmin } = useOrganization();
+  const [activeTab, setActiveTab] = useState<string>('org');
+  const [orgEntries, setOrgEntries] = useState<KBEntry[]>([]);
+  const [sharedEntries, setSharedEntries] = useState<KBEntry[]>([]);
+  const [benchmarks, setBenchmarks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [previewEntry, setPreviewEntry] = useState<KBEntry | null>(null);
   const [contentMode, setContentMode] = useState<'upload' | 'link' | 'text'>('upload');
   const [parsing, setParsing] = useState(false);
   const [parsedFileName, setParsedFileName] = useState('');
-  const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'benchmarks', country: '', sector: '', source: '', tags: '' });
+  const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'general', country: '', sector: '', source: '', tags: '' });
 
-  const fetchEntries = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    // We can't select embedding directly (it's a vector), but we can check if it's null
-    const { data, error } = await supabase
-      .from('knowledge_base')
-      .select('id, title, category, content, country, sector, source, tags, created_at')
-      .order('created_at', { ascending: false })
-      .limit(200);
+    const promises: Promise<any>[] = [
+      // Shared KB (Couche 2)
+      supabase.from('knowledge_base').select('id, title, category, content, country, sector, source, tags, created_at').order('created_at', { ascending: false }).limit(200),
+      // Benchmarks (Couche 2)
+      supabase.from('knowledge_benchmarks' as any).select('*').order('sector').limit(100),
+    ];
 
-    if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
-      setLoading(false);
-      return;
+    // Org KB (Couche 1) — only if user has an org
+    if (currentOrg?.id) {
+      promises.push(
+        supabase.from('organization_knowledge' as any).select('id, title, category, content, country, sector, source, tags, created_at').eq('organization_id', currentOrg.id).eq('is_active', true).order('created_at', { ascending: false }).limit(200)
+      );
     }
 
-    // Map entries - we can't easily check embedding from client, so we'll use the metadata
-    const mapped: KBEntry[] = (data || []).map((e: any) => ({
-      ...e,
-      auto_refresh: false, // Will be set from metadata if available
-      expires_at: null,
-      last_refreshed_at: null,
-      has_embedding: false, // We can't check from client easily
-    }));
+    const results = await Promise.all(promises);
 
-    setEntries(mapped);
+    setSharedEntries((results[0].data || []).map((e: any) => ({ ...e, layer: 'shared' as const })));
+    setBenchmarks(results[1].data || []);
+    if (results[2]) {
+      setOrgEntries((results[2].data || []).map((e: any) => ({ ...e, layer: 'org' as const })));
+    }
     setLoading(false);
   };
 
-  useEffect(() => { fetchEntries(); }, []);
+  useEffect(() => { fetchData(); }, [currentOrg?.id]);
 
-  const stats = useMemo(() => ({
-    total: entries.length,
-    autoRefresh: entries.filter(e => e.auto_refresh).length,
-    categories: [...new Set(entries.map(e => e.category))].length,
-  }), [entries]);
+  const currentEntries = activeTab === 'org' ? orgEntries : sharedEntries;
+  const currentCategories = activeTab === 'org' ? ORG_CATEGORIES : SHARED_CATEGORIES;
 
   const filteredEntries = useMemo(() => {
-    let result = entries;
+    let result = currentEntries;
     if (filterCategory !== 'all') result = result.filter(e => e.category === filterCategory);
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(e =>
         e.title.toLowerCase().includes(q) ||
-        e.content.toLowerCase().includes(q) ||
+        e.content?.toLowerCase().includes(q) ||
         e.country?.toLowerCase().includes(q) ||
         e.sector?.toLowerCase().includes(q)
       );
     }
     return result;
-  }, [entries, filterCategory, search]);
+  }, [currentEntries, filterCategory, search]);
 
   const callEdgeFunction = async (fnName: string, body: any = {}) => {
     const token = await getValidAccessToken(null);
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const resp = await fetch(`https://${projectId}.supabase.co/functions/v1/${fnName}`, {
+    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(body),
@@ -120,45 +117,13 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
     return resp.json();
   };
 
-  const handleSeed = async () => {
-    setActionLoading('seed');
-    try {
-      const result = await callEdgeFunction('seed-knowledge-base');
-      toast({ title: 'Base seedée', description: `${result.inserted || 0} entrées insérées` });
-      fetchEntries();
-    } catch (e: any) {
-      toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
-    }
-    setActionLoading(null);
-  };
-
-  const handleGenerateEmbeddings = async () => {
-    setActionLoading('embeddings');
-    try {
-      const result = await callEdgeFunction('generate-embeddings', { mode: 'backfill' });
-      toast({ title: 'Embeddings générés', description: `${result.processed || 0} traités, ${result.errors || 0} erreurs` });
-    } catch (e: any) {
-      toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
-    }
-    setActionLoading(null);
-  };
-
-  const handleRefreshMacro = async () => {
-    setActionLoading('macro');
-    try {
-      const result = await callEdgeFunction('refresh-macro-data');
-      toast({ title: 'Données macro rafraîchies', description: `${result.inserted || 0} nouvelles, ${result.updated || 0} mises à jour` });
-      fetchEntries();
-    } catch (e: any) {
-      toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
-    }
-    setActionLoading(null);
-  };
-
   const handleAddEntry = async () => {
     if (!newEntry.title || !newEntry.content) return;
-    const result = await callEdgeFunction('ingest-knowledge', {
-      entries: [{
+
+    if (activeTab === 'org' && currentOrg?.id) {
+      // Insert into organization_knowledge
+      const { error } = await supabase.from('organization_knowledge' as any).insert({
+        organization_id: currentOrg.id,
         category: newEntry.category,
         title: newEntry.title,
         content: newEntry.content,
@@ -166,208 +131,312 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
         sector: newEntry.sector || null,
         source: newEntry.source || null,
         tags: newEntry.tags ? newEntry.tags.split(',').map(t => t.trim()) : [],
-      }],
-    });
-    if (result.success) {
-      toast({ title: 'Entrée ajoutée' });
-      setShowAddDialog(false);
-      setNewEntry({ title: '', content: '', category: 'benchmarks', country: '', sector: '', source: '', tags: '' });
-      fetchEntries();
+        created_by: (await supabase.auth.getUser()).data.user?.id,
+      });
+      if (error) {
+        toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+        return;
+      }
+      // Generate embedding
+      callEdgeFunction('generate-embeddings', { table: 'organization_knowledge', mode: 'backfill' }).catch(() => {});
     } else {
-      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+      // Insert into shared knowledge_base via EF
+      const result = await callEdgeFunction('ingest-knowledge', {
+        entries: [{
+          category: newEntry.category,
+          title: newEntry.title,
+          content: newEntry.content,
+          country: newEntry.country || null,
+          sector: newEntry.sector || null,
+          source: newEntry.source || null,
+          tags: newEntry.tags ? newEntry.tags.split(',').map(t => t.trim()) : [],
+        }],
+      });
+      if (!result.success) {
+        toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+        return;
+      }
     }
+
+    toast({ title: 'Document ajouté' });
+    setShowAddDialog(false);
+    setNewEntry({ title: '', content: '', category: 'general', country: '', sector: '', source: '', tags: '' });
+    setParsedFileName('');
+    fetchData();
+  };
+
+  const handleDeleteOrgEntry = async (id: string) => {
+    if (!confirm('Supprimer ce document ?')) return;
+    await supabase.from('organization_knowledge' as any).update({ is_active: false }).eq('id', id);
+    toast({ title: 'Document supprimé' });
+    fetchData();
   };
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
+  // Add document dialog content (shared between tabs)
+  const addDocumentDialog = (
+    <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {activeTab === 'org' ? `Ajouter un document — ${currentOrg?.name || 'Mon organisation'}` : 'Ajouter une ressource ESONO'}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Select value={newEntry.category} onValueChange={v => setNewEntry(p => ({ ...p, category: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {currentCategories.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Input placeholder="Titre *" value={newEntry.title} onChange={e => setNewEntry(p => ({ ...p, title: e.target.value }))} />
+
+          {/* Content mode toggle */}
+          <div className="flex gap-1 border border-border rounded-lg p-0.5">
+            {[
+              { key: 'upload' as const, icon: Upload, label: 'Fichier' },
+              { key: 'link' as const, icon: Link, label: 'Lien' },
+              { key: 'text' as const, icon: FileText, label: 'Texte' },
+            ].map(m => (
+              <button key={m.key} type="button" onClick={() => setContentMode(m.key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === m.key ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                <m.icon className="h-3.5 w-3.5" /> {m.label}
+              </button>
+            ))}
+          </div>
+
+          {contentMode === 'upload' && (
+            <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${parsing ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+              {parsing ? (
+                <div className="flex items-center gap-2 text-sm text-primary"><Loader2 className="h-5 w-5 animate-spin" /> Extraction du contenu...</div>
+              ) : parsedFileName && newEntry.content ? (
+                <div className="flex items-center gap-2 text-sm text-emerald-600"><FileText className="h-5 w-5" /> {parsedFileName} — {newEntry.content.length.toLocaleString()} caractères</div>
+              ) : (
+                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                  <Upload className="h-6 w-6" />
+                  <span className="text-sm">Glisser un fichier ou cliquer</span>
+                  <span className="text-xs">PDF, Word, Excel, PowerPoint</span>
+                </div>
+              )}
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setParsing(true);
+                setParsedFileName(file.name);
+                try {
+                  const parsed = await parseFile(file);
+                  if (parsed.quality === 'failed' || !parsed.content || parsed.content.length < 10) {
+                    toast({ title: 'Erreur', description: `Impossible d'extraire le contenu`, variant: 'destructive' });
+                  } else {
+                    setNewEntry(p => ({ ...p, content: parsed.content, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
+                    toast({ title: 'Contenu extrait', description: `${parsed.content.length.toLocaleString()} caractères` });
+                  }
+                } catch (err: any) { toast({ title: 'Erreur', description: err.message, variant: 'destructive' }); }
+                setParsing(false);
+              }} />
+            </label>
+          )}
+          {contentMode === 'link' && (
+            <Input placeholder="https://example.com/rapport.pdf" onChange={e => setNewEntry(p => ({ ...p, source: p.source || e.target.value }))} />
+          )}
+          {contentMode === 'text' && (
+            <Textarea placeholder="Collez le contenu..." rows={6} value={newEntry.content} onChange={e => setNewEntry(p => ({ ...p, content: e.target.value }))} />
+          )}
+          {contentMode === 'upload' && newEntry.content && (
+            <div className="max-h-24 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">{newEntry.content.slice(0, 500)}{newEntry.content.length > 500 && '...'}</div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <select value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
+              <option value="">— Zone</option>
+              {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+            </select>
+            <select value={newEntry.sector} onChange={e => setNewEntry(p => ({ ...p, sector: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
+              <option value="">— Secteur</option>
+              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <Input placeholder="Source" value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))} />
+          <Input placeholder="Tags (séparés par virgule)" value={newEntry.tags} onChange={e => setNewEntry(p => ({ ...p, tags: e.target.value }))} />
+          <Button onClick={handleAddEntry} className="w-full" disabled={!newEntry.title || !newEntry.content}>Ajouter</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Document table (reusable for both tabs)
+  const renderDocumentTable = (entries: KBEntry[], showDelete = false) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Titre</TableHead>
+          <TableHead>Catégorie</TableHead>
+          <TableHead>Zone</TableHead>
+          <TableHead>Secteur</TableHead>
+          <TableHead>Date</TableHead>
+          {showDelete && <TableHead className="w-10" />}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {entries.map(e => (
+          <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewEntry(e)}>
+            <TableCell className="font-medium max-w-[300px] truncate">{e.title}</TableCell>
+            <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || e.category}</Badge></TableCell>
+            <TableCell className="text-sm text-muted-foreground">{e.country || '—'}</TableCell>
+            <TableCell className="text-sm text-muted-foreground">{e.sector || '—'}</TableCell>
+            <TableCell className="text-sm text-muted-foreground">{formatDate(e.created_at)}</TableCell>
+            {showDelete && (
+              <TableCell>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(ev) => { ev.stopPropagation(); handleDeleteOrgEntry(e.id); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+        {!entries.length && (
+          <TableRow><TableCell colSpan={showDelete ? 6 : 5} className="text-center text-muted-foreground py-8">Aucun document trouvé</TableCell></TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Actions techniques — superadmin uniquement */}
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Actions techniques</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
-            <Button onClick={handleSeed} disabled={!!actionLoading} variant="outline" className="gap-2">
-              {actionLoading === 'seed' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-              Seeder la base
-            </Button>
-            <Button onClick={handleGenerateEmbeddings} disabled={!!actionLoading} variant="outline" className="gap-2">
-              {actionLoading === 'embeddings' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Générer les embeddings
-            </Button>
-            <Button onClick={handleRefreshMacro} disabled={!!actionLoading} variant="outline" className="gap-2">
-              {actionLoading === 'macro' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-              Rafraîchir données macro
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+    <div className="space-y-4">
+      {/* 3 sections as tabs */}
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); setFilterCategory('all'); setSearch(''); }}>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="org" className="gap-1.5">
+              <Building2 className="h-3.5 w-3.5" /> {currentOrg?.name || 'Mon organisation'} ({orgEntries.length})
+            </TabsTrigger>
+            <TabsTrigger value="shared" className="gap-1.5">
+              <BookOpen className="h-3.5 w-3.5" /> Ressources ESONO ({sharedEntries.length})
+            </TabsTrigger>
+            <TabsTrigger value="benchmarks" className="gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5" /> Benchmarks ({benchmarks.length})
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex items-center gap-2">
+            {(activeTab === 'org' || (activeTab === 'shared' && isSuperAdmin)) && (
+              <Button className="gap-2" size="sm" onClick={() => setShowAddDialog(true)}>
+                <Plus className="h-3.5 w-3.5" /> Ajouter
+              </Button>
+            )}
+          </div>
+        </div>
 
-      {/* Ajouter un document */}
-      <div className="flex justify-end">
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" /> Ajouter un document</Button>
-          </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Ajouter un document à la base de connaissances</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <Select value={newEntry.category} onValueChange={v => setNewEntry(p => ({ ...p, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input placeholder="Titre *" value={newEntry.title} onChange={e => setNewEntry(p => ({ ...p, title: e.target.value }))} />
-
-                {/* Mode de contenu : Upload / Lien / Texte */}
-                <div className="flex gap-1 border border-border rounded-lg p-0.5">
-                  <button type="button" onClick={() => setContentMode('upload')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'upload' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
-                    <Upload className="h-3.5 w-3.5" /> Fichier
-                  </button>
-                  <button type="button" onClick={() => setContentMode('link')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'link' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
-                    <Link className="h-3.5 w-3.5" /> Lien web
-                  </button>
-                  <button type="button" onClick={() => setContentMode('text')} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${contentMode === 'text' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
-                    <FileText className="h-3.5 w-3.5" /> Texte
-                  </button>
-                </div>
-
-                {contentMode === 'upload' && (
-                  <div>
-                    <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${parsing ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'}`}>
-                      {parsing ? (
-                        <div className="flex items-center gap-2 text-sm text-primary">
-                          <Loader2 className="h-5 w-5 animate-spin" /> Extraction du contenu...
-                        </div>
-                      ) : parsedFileName && newEntry.content ? (
-                        <div className="flex items-center gap-2 text-sm text-emerald-600">
-                          <FileText className="h-5 w-5" /> {parsedFileName} — {newEntry.content.length.toLocaleString()} caractères extraits
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-1 text-muted-foreground">
-                          <Upload className="h-6 w-6" />
-                          <span className="text-sm">Glisser un fichier ou cliquer pour sélectionner</span>
-                          <span className="text-xs">PDF, Word, Excel, PowerPoint, images</span>
-                        </div>
-                      )}
-                      <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg" onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setParsing(true);
-                        setParsedFileName(file.name);
-                        try {
-                          const parsed = await parseFile(file);
-                          if (parsed.quality === 'failed' || !parsed.content || parsed.content.length < 10) {
-                            toast({ title: 'Erreur', description: `Impossible d'extraire le contenu de ${file.name}`, variant: 'destructive' });
-                          } else {
-                            setNewEntry(p => ({ ...p, content: parsed.content, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
-                            toast({ title: 'Contenu extrait', description: `${parsed.charsExtracted?.toLocaleString() || parsed.content.length.toLocaleString()} caractères extraits de ${file.name}` });
-                          }
-                        } catch (err: any) {
-                          toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
-                        }
-                        setParsing(false);
-                      }} />
-                    </label>
-                  </div>
-                )}
-
-                {contentMode === 'link' && (
-                  <div className="space-y-2">
-                    <Input placeholder="https://example.com/rapport.pdf" onChange={async (e) => {
-                      const url = e.target.value;
-                      if (!url || !url.startsWith('http')) return;
-                      // On pourrait fetch + parse le contenu du lien ici
-                      // Pour l'instant, on stocke juste le lien comme source
-                      setNewEntry(p => ({ ...p, source: p.source || url }));
-                    }} />
-                    <p className="text-xs text-muted-foreground">Collez un lien vers un PDF ou une page web. Le lien sera enregistré comme source.</p>
-                  </div>
-                )}
-
-                {contentMode === 'text' && (
-                  <Textarea placeholder="Collez le contenu du document ici..." rows={6} value={newEntry.content} onChange={e => setNewEntry(p => ({ ...p, content: e.target.value }))} />
-                )}
-
-                {/* Afficher un aperçu du contenu extrait si mode upload */}
-                {contentMode === 'upload' && newEntry.content && (
-                  <div className="max-h-32 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">
-                    {newEntry.content.slice(0, 500)}{newEntry.content.length > 500 && '...'}
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
-                    <option value="">— Zone *</option>
-                    {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
-                  </select>
-                  <select value={newEntry.sector} onChange={e => setNewEntry(p => ({ ...p, sector: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
-                    <option value="">— Secteur *</option>
-                    {(['Tous secteurs', 'Agro-industrie', 'Aviculture', 'Agriculture', 'Commerce', 'Restauration', 'Services B2B', 'TIC', 'Énergie', 'Santé', 'BTP', 'Transport', 'Éducation', 'Immobilier', 'Textile', 'Mines']).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <Input placeholder="Source *" value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))} />
-                <Input placeholder="Tags (séparés par virgule)" value={newEntry.tags} onChange={e => setNewEntry(p => ({ ...p, tags: e.target.value }))} />
-                <Button onClick={handleAddEntry} className="w-full" disabled={!newEntry.title || !newEntry.content || !newEntry.source || !newEntry.country || !newEntry.sector}>Ajouter</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-      </div>
-
-      {/* Entries list */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-4">
-            <CardTitle className="text-lg">Documents ({filteredEntries.length})</CardTitle>
-            <div className="flex gap-2">
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les catégories</SelectItem>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="relative w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Rechercher..." className="pl-8" value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
+        {/* Filters bar */}
+        {activeTab !== 'benchmarks' && (
+          <div className="flex gap-2 mt-3">
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Catégorie" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les catégories</SelectItem>
+                {currentCategories.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Rechercher par titre, zone, secteur..." className="pl-8" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Titre</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Zone</TableHead>
-                <TableHead>Secteur</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Date publication</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEntries.map(e => (
-                <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewEntry(e)}>
-                  <TableCell className="font-medium max-w-[300px] truncate">{e.title}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || e.category}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{e.country || 'Monde'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{e.sector || 'Tous secteurs'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{e.source || '—'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{formatDate(e.created_at)}</TableCell>
-                </TableRow>
-              ))}
-              {!filteredEntries.length && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucun document trouvé</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* Section 1: Documents de l'organisation (Couche 1) */}
+        <TabsContent value="org">
+          {loading ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : !currentOrg ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Aucune organisation</p>
+              <p className="text-sm mt-1">Rejoignez une organisation pour accéder à son espace de connaissances.</p>
+            </CardContent></Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                {renderDocumentTable(filteredEntries, true)}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Section 2: Ressources ESONO partagées (Couche 2) */}
+        <TabsContent value="shared">
+          {loading ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                {renderDocumentTable(filteredEntries, false)}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Admin actions */}
+          {isAdmin && (
+            <Card className="mt-4">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Actions admin</CardTitle></CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button onClick={async () => { setActionLoading('seed'); await callEdgeFunction('seed-knowledge-base'); fetchData(); setActionLoading(null); }} disabled={!!actionLoading} variant="outline" size="sm" className="gap-1.5 text-xs">
+                  {actionLoading === 'seed' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />} Seeder
+                </Button>
+                <Button onClick={async () => { setActionLoading('emb'); await callEdgeFunction('generate-embeddings', { mode: 'backfill' }); setActionLoading(null); }} disabled={!!actionLoading} variant="outline" size="sm" className="gap-1.5 text-xs">
+                  {actionLoading === 'emb' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Embeddings
+                </Button>
+                <Button onClick={async () => { setActionLoading('macro'); await callEdgeFunction('refresh-macro-data'); fetchData(); setActionLoading(null); }} disabled={!!actionLoading} variant="outline" size="sm" className="gap-1.5 text-xs">
+                  {actionLoading === 'macro' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />} Données macro
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Section 3: Benchmarks sectoriels */}
+        <TabsContent value="benchmarks">
+          {loading ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : benchmarks.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Aucun benchmark disponible</p>
+              <p className="text-sm mt-1">Les benchmarks sectoriels seront alimentés par l'équipe ESONO et le pipeline aggregate-benchmarks.</p>
+            </CardContent></Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Secteur</TableHead>
+                      <TableHead>Pays / Zone</TableHead>
+                      <TableHead>Marge brute</TableHead>
+                      <TableHead>CAPEX typique</TableHead>
+                      <TableHead>Multiples</TableHead>
+                      <TableHead>Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {benchmarks.map((b: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium">{b.sector}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{b.country || b.zone || '—'}</TableCell>
+                        <TableCell className="text-sm">{b.gross_margin_median ? `${b.gross_margin_median}%` : b.marge_brute_mediane ? `${b.marge_brute_mediane}%` : '—'}</TableCell>
+                        <TableCell className="text-sm">{b.capex_typical || b.capex_range || '—'}</TableCell>
+                        <TableCell className="text-sm">{b.ebitda_multiple || b.multiples || '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{b.source || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {addDocumentDialog}
 
       {/* Preview dialog */}
       {previewEntry && (
@@ -379,6 +448,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
             <div className="space-y-3">
               <div className="flex gap-2 flex-wrap">
                 <Badge variant="outline">{CATEGORY_LABELS[previewEntry.category] || previewEntry.category}</Badge>
+                <Badge variant={previewEntry.layer === 'org' ? 'default' : 'secondary'}>{previewEntry.layer === 'org' ? currentOrg?.name : 'ESONO'}</Badge>
                 {previewEntry.country && <Badge variant="secondary">{previewEntry.country}</Badge>}
                 {previewEntry.sector && <Badge variant="secondary">{previewEntry.sector}</Badge>}
               </div>

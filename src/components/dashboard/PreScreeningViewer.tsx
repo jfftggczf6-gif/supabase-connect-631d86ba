@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 interface PreScreeningViewerProps {
   data: Record<string, any>;
@@ -127,6 +128,18 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
     if (u === 'important') return <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-300">Important</Badge>;
     return <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-300">Utile</Badge>;
   };
+
+  // ─── Radar chart data — score by scope ───
+  const radarData = scopes.filter(s => s.key !== 'all').map(s => {
+    const items = constatsByScope[s.key] || [];
+    if (!Array.isArray(items) || items.length === 0) return { dimension: s.label, score: 50 };
+    const positifs = items.filter((c: any) => c.severite === 'positif').length;
+    const urgents = items.filter((c: any) => c.severite === 'urgent').length;
+    const total = items.length;
+    // Score: 100 if all positive, 0 if all urgent, proportional otherwise
+    const score = total > 0 ? Math.round(((positifs * 100) + ((total - positifs - urgents) * 50)) / total) : 50;
+    return { dimension: s.label, score };
+  });
 
   const benchmarkVerdictColor = (v: string) => {
     if (v === 'conforme') return 'text-emerald-700 bg-emerald-50';
@@ -339,27 +352,51 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </Card>
       )}
 
+      {/* ══════════ RADAR CHART — Vue synthétique par dimension ══════════ */}
+      {radarData.some(d => d.score !== 50) && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" /> Radar — Évaluation par dimension
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                  <Radar name="Score" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} strokeWidth={2} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ══════════ 5. Constats ══════════ */}
       <div id="diag-constats"></div>
       {allConstats.length > 0 && (
-        <div>
+        <Card className="bg-white">
+          <CardContent className="p-5">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" /> Constats {editBtn('constats_par_scope', 'Constats')}
           </h3>
 
-          {/* Filter bar */}
-          <div className="flex gap-2 flex-wrap sticky top-0 z-10 bg-background py-3 border-b border-border mb-2">
+          {/* Filter bar — prominent CTA style */}
+          <div className="flex gap-2 flex-wrap sticky top-0 z-10 bg-white py-3 border-b border-primary/20 mb-3">
             {scopes.map(s => {
               const count = s.key === 'all' ? allConstats.length : (constatsByScope[s.key] || []).length;
               if (s.key !== 'all' && count === 0) return null;
               return (
                 <button key={s.key} onClick={() => setActiveScope(s.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-colors ${
-                    activeScope === s.key ? 'border-blue-400 text-blue-800 bg-blue-50' : 'border-border text-muted-foreground hover:bg-muted/50'
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold border flex items-center gap-1.5 transition-colors ${
+                    activeScope === s.key ? 'border-primary bg-primary text-white shadow-sm' : 'border-primary/30 text-primary hover:bg-primary/5'
                   }`}>
                   {s.label}
                   <span className={`text-[10px] px-1.5 rounded-full ${
-                    activeScope === s.key ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
+                    activeScope === s.key ? 'bg-white/30 text-white' : 'bg-primary/10 text-primary'
                   }`}>{count}</span>
                 </button>
               );
@@ -396,10 +433,9 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
               );
             })}
           </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
-
-
 
       {/* ══════════ 6. Critères programme ══════════ */}
       <div id="diag-criteres"></div>

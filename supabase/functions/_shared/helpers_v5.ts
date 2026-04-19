@@ -875,7 +875,8 @@ export async function getKnowledgeForAgent(
   pays: string,
   secteur: string,
   agentType: 'valuation' | 'diagnostic' | 'framework' | 'pre_screening' | 'screening_report' | 'business_plan' | 'bmc' | 'sic' | 'inputs' | 'odd' | 'plan_ovo',
-  ownerId?: string
+  ownerId?: string,
+  organizationId?: string
 ): Promise<string> {
   try {
     const paysKey = pays.toLowerCase().replace(/[\s'']/g, '_').replace(/côte_d_ivoire|cote_divoire/i, 'cote_d_ivoire');
@@ -920,7 +921,19 @@ export async function getKnowledgeForAgent(
       workspaceData = data;
     }
 
-    // 6. Benchmarks auto-enrichis (couche 4)
+    // 6. Organization knowledge — Couche 1 (docs privés de l'org)
+    let orgKnowledge: any[] = [];
+    if (organizationId) {
+      const { data: orgDocs } = await supabase
+        .from('organization_knowledge')
+        .select('title, content, category, sector, country, source')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .limit(10);
+      orgKnowledge = orgDocs || [];
+    }
+
+    // 7. Benchmarks auto-enrichis (couche 4)
     const { data: aggBenchmarks } = await supabase
       .from('aggregated_benchmarks')
       .select('*')
@@ -934,6 +947,7 @@ export async function getKnowledgeForAgent(
       countryData: countryData || null,
       riskFactors: riskFactors || [],
       workspaceData,
+      orgKnowledge,
       aggBenchmarks: aggBenchmarks?.nb_entreprises >= 10 ? aggBenchmarks : null,
       agentType,
     });
@@ -945,7 +959,7 @@ export async function getKnowledgeForAgent(
 
 function buildKnowledgePrompt(ctx: {
   benchmarks: any; riskParams: any; countryData: any;
-  riskFactors: any[]; workspaceData: any; aggBenchmarks: any; agentType: string;
+  riskFactors: any[]; workspaceData: any; orgKnowledge?: any[]; aggBenchmarks: any; agentType: string;
 }): string {
   const parts: string[] = [];
 
@@ -1079,6 +1093,14 @@ ${ctx.workspaceData.map((w: any) => `${w.type}/${w.cle}: ${JSON.stringify(w.vale
     parts.push(`══ BENCHMARKS ESONO (${a.nb_entreprises} entreprises analysées, ${a.secteur}/${a.pays}) ══
 Marge brute P25/médiane/P75: ${a.marge_brute_p25}/${a.marge_brute_mediane}/${a.marge_brute_p75}%
 EBITDA médiane: ${a.marge_ebitda_mediane}% | CA médiane: ${a.ca_mediane?.toLocaleString('fr-FR')}`);
+  }
+
+  // Organization knowledge (Couche 1 — docs privés de l'org client)
+  if (ctx.orgKnowledge?.length) {
+    const orgLines = ctx.orgKnowledge.slice(0, 5).map((doc: any) =>
+      `[${doc.category}] ${doc.title}${doc.source ? ` (${doc.source})` : ''}\n${doc.content.slice(0, 1000)}`
+    );
+    parts.push(`══ RÉFÉRENCES ORGANISATION (documents privés du client) ══\n${orgLines.join('\n---\n')}`);
   }
 
   return parts.length ? `\n${parts.join('\n\n')}\n` : '';

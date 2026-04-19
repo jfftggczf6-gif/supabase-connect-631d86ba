@@ -828,7 +828,7 @@ serve(async (req) => {
       false
     );
     const knowledgeBlock = `\n\n══════ BASE DE CONNAISSANCES FINANCIÈRE ══════\n${knowledgeBase}`;
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "business_plan");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "business_plan", undefined, ctx.organization_id);
     const guardedPrompt = injectGuardrails(BP_SYSTEM_PROMPT, ent.country);
 
     // PRE-STEP: Web search for market analysis

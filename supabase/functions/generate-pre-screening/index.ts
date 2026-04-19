@@ -388,7 +388,7 @@ ${PRE_SCREENING_SCHEMA}`;
 
     // Parallel block 2: KB context, risk factors, coaching context
     const [kbContext, riskRes, coachingContext] = await Promise.all([
-      getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "pre_screening"),
+      getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "pre_screening", undefined, ctx.organization_id),
       ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true),
       getCoachingContext(ctx.supabase, ctx.enterprise_id),
     ]);

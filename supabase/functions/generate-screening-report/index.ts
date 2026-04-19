@@ -243,7 +243,7 @@ Réponds en JSON selon ce schéma :
 ${DECISION_SCHEMA}`;
 
     // KB context + risk detection
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "screening_report");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "screening_report", undefined, ctx.organization_id);
     let riskBlock = "";
     try {
       const { data: riskFactors } = await ctx.supabase.from('knowledge_risk_factors').select('*').eq('is_active', true);

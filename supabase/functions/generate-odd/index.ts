@@ -177,7 +177,7 @@ serve(async (req) => {
 
     // RAG: enrichir avec données ODD
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["odd", "bailleurs"], "odd_analysis", ctx.enterprise_id);
-    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "odd");
+    const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "odd", undefined, ctx.organization_id);
 
     const donorCriteria = getDonorCriteriaPrompt();
     const userPrompt = buildUserPrompt(

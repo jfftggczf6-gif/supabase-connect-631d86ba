@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3 } from 'lucide-react';
+import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -114,6 +114,14 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 <ClipboardList className="h-4 w-4" /> {t('nav.programmes')}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn('gap-1.5 text-xs', location.pathname === '/knowledge' && 'bg-muted')}
+              onClick={() => navigate('/knowledge')}
+            >
+              <BookOpen className="h-4 w-4" /> Base de connaissances
+            </Button>
             {!showProgrammes && location.pathname !== '/dashboard' && (
               <Button
                 variant="ghost"
