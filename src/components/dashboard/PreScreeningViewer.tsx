@@ -32,6 +32,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
   const [activeScope, setActiveScope] = useState('all');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [programmes, setProgrammes] = useState<any[]>([]);
   const [selectedProgrammeId, setSelectedProgrammeId] = useState<string | null>(null);
 
@@ -154,29 +155,46 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       <SectionEditButton enterpriseId={enterpriseId} deliverableType="pre_screening" sectionPath={sectionPath} sectionTitle={sectionTitle} onUpdated={onUpdated} />
     ) : null;
 
-  // Table des matières sections
+  // Table des matières sections (numérotées)
   const tocSections = [
-    { id: 'dashboard', label: 'Dashboard financier' },
-    { id: 'comprendre', label: "Comprendre l'entreprise" },
-    { id: 'reperes', label: 'Repères sectoriels' },
-    { id: 'constats', label: 'Constats' },
-    { id: 'criteres', label: 'Critères programme' },
-    { id: 'verdict', label: 'Verdict' },
-    { id: 'guide', label: "Guide d'accompagnement" },
+    { id: 'dashboard', label: '1. Dashboard financier' },
+    { id: 'comprendre', label: "2. Comprendre l'entreprise" },
+    { id: 'reperes', label: '3. Repères sectoriels' },
+    { id: 'radar', label: '4. Radar par dimension' },
+    { id: 'constats', label: '5. Constats' },
+    { id: 'criteres', label: '6. Critères programme' },
+    { id: 'verdict', label: '7. Verdict' },
+    { id: 'guide', label: "8. Guide d'accompagnement" },
   ];
 
-  return (
-    <div className="space-y-6" id="prescreening-viewer-content">
+  const scrollToSection = (id: string) => {
+    setActiveSection(id);
+    document.getElementById(`diag-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
-      {/* ══════════ TABLE DES MATIÈRES ══════════ */}
-      <div className="flex flex-wrap gap-2 py-2 border-b border-border">
+  return (
+    <div className="flex gap-6 min-h-0" id="prescreening-viewer-content">
+
+      {/* ══════════ SIDEBAR TABLE DES MATIÈRES ══════════ */}
+      <aside className="w-56 flex-none sticky top-0 self-start space-y-0.5 hidden lg:block">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Table des matières</p>
         {tocSections.map(s => (
-          <button key={s.id} onClick={() => document.getElementById(`diag-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors">
+          <button
+            key={s.id}
+            onClick={() => scrollToSection(s.id)}
+            className={`w-full text-left text-xs px-3 py-1.5 rounded-md transition-colors ${
+              activeSection === s.id
+                ? 'bg-primary text-primary-foreground font-semibold'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
             {s.label}
           </button>
         ))}
-      </div>
+      </aside>
+
+      {/* ══════════ CONTENU ══════════ */}
+      <div className="flex-1 space-y-6 min-w-0">
 
       {/* ══════════ 1. Dashboard financier et présentation ══════════ */}
       <div id="diag-dashboard"></div>
@@ -352,7 +370,8 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </Card>
       )}
 
-      {/* ══════════ RADAR CHART — Vue synthétique par dimension ══════════ */}
+      {/* ══════════ 4. Radar par dimension ══════════ */}
+      <div id="diag-radar"></div>
       {radarData.some(d => d.score !== 50) && (
         <Card className="border-primary/20">
           <CardHeader className="pb-2">
@@ -494,38 +513,62 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       {/* ══════════ 7. Verdict ══════════ */}
       <div id="diag-verdict"></div>
       {(verdictAnalyste?.synthese_pour_comite || classDetail) && (
-        <Card className="bg-muted/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Verdict</CardTitle>
+        <Card className="bg-white border-2 border-primary/20 shadow-sm">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Gavel className="h-4 w-4 text-primary" /> Verdict
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm leading-relaxed whitespace-pre-line">
-              {verdictAnalyste?.synthese_pour_comite || classDetail}
-            </p>
-            {verdictAnalyste?.deal_breakers?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-red-700 mb-1">Deal breakers</p>
-                {verdictAnalyste.deal_breakers.map((d: string, i: number) => (
-                  <p key={i} className="text-xs text-red-600">• {d}</p>
-                ))}
-              </div>
-            )}
-            {verdictAnalyste?.conditions_sine_qua_non?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-amber-700 mb-1">Conditions sine qua non</p>
-                {verdictAnalyste.conditions_sine_qua_non.map((c: string, i: number) => (
-                  <p key={i} className="text-xs text-amber-600">• {c}</p>
-                ))}
-              </div>
-            )}
-            {verdictAnalyste?.quick_wins?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-emerald-700 mb-1">Quick wins</p>
-                {verdictAnalyste.quick_wins.map((q: string, i: number) => (
-                  <p key={i} className="text-xs text-emerald-600">• {q}</p>
-                ))}
-              </div>
-            )}
+          <CardContent className="pt-4 space-y-4">
+            {/* Synthèse principale */}
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+              <p className="text-sm leading-relaxed whitespace-pre-line text-foreground">
+                {verdictAnalyste?.synthese_pour_comite || classDetail}
+              </p>
+            </div>
+
+            {/* Grille 3 colonnes : Deal breakers / Conditions / Quick wins */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {verdictAnalyste?.deal_breakers?.length > 0 && (
+                <div className="p-3 rounded-lg border-l-4 border-l-red-500 bg-red-50/40 border border-red-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <XCircle className="h-3.5 w-3.5 text-red-600" />
+                    <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Deal breakers</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {verdictAnalyste.deal_breakers.map((d: string, i: number) => (
+                      <li key={i} className="text-xs text-red-800 leading-relaxed">• {d}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {verdictAnalyste?.conditions_sine_qua_non?.length > 0 && (
+                <div className="p-3 rounded-lg border-l-4 border-l-amber-500 bg-amber-50/40 border border-amber-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                    <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">Conditions sine qua non</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {verdictAnalyste.conditions_sine_qua_non.map((c: string, i: number) => (
+                      <li key={i} className="text-xs text-amber-800 leading-relaxed">• {c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {verdictAnalyste?.quick_wins?.length > 0 && (
+                <div className="p-3 rounded-lg border-l-4 border-l-emerald-500 bg-emerald-50/40 border border-emerald-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Quick wins</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {verdictAnalyste.quick_wins.map((q: string, i: number) => (
+                      <li key={i} className="text-xs text-emerald-800 leading-relaxed">• {q}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -648,6 +691,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </Card>
       )}
 
+      </div>
     </div>
   );
 }

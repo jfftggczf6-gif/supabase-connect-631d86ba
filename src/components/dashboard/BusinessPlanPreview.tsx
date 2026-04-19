@@ -110,9 +110,33 @@ function FinancierTable({ tableau }: { tableau: Record<string, Record<string, st
   );
 }
 
+const TOC_SECTIONS = [
+  { id: 'bp-1', label: "1. Informations sur l'entreprise", part: 'I' },
+  { id: 'bp-2', label: '2. Résumé de la gestion', part: 'I' },
+  { id: 'bp-3', label: '3. Revue historique', part: 'I' },
+  { id: 'bp-4', label: '4. Vision, mission, valeurs', part: 'I' },
+  { id: 'bp-5', label: "5. L'entreprise", part: 'I' },
+  { id: 'bp-6', label: '6. SWOT & Risques', part: 'I' },
+  { id: 'bp-7', label: "7. Modèle de l'entreprise", part: 'II' },
+  { id: 'bp-8', label: '8. Marché & concurrence', part: 'II' },
+  { id: 'bp-9', label: '9. Stratégie marketing', part: 'II' },
+  { id: 'bp-10', label: '10. Équipe & organisation', part: 'II' },
+  { id: 'bp-11', label: '11. Description du projet', part: 'III' },
+  { id: 'bp-12', label: '12. Impact', part: 'III' },
+  { id: 'bp-13', label: '13. Financier', part: 'III' },
+  { id: 'bp-14', label: '14. Attentes', part: 'III' },
+];
+
+const PART_LABELS: Record<string, string> = {
+  I: 'I — Présentation',
+  II: 'II — Opérations',
+  III: 'III — Projet',
+};
+
 export default function BusinessPlanPreview({ data, enterpriseId, deliverableId, onUpdated }: BusinessPlanPreviewProps) {
   const { t } = useTranslation();
   const bp = data || {};
+  const [activeSection, setActiveSection] = useState('bp-1');
 
   const editBtn = (sectionPath: string, sectionTitle: string) =>
     enterpriseId && onUpdated ? (
@@ -128,60 +152,44 @@ export default function BusinessPlanPreview({ data, enterpriseId, deliverableId,
     );
   };
 
+  const scrollToSection = (id: string) => {
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="flex gap-6 min-h-0">
+
+      {/* ══════════ SIDEBAR TABLE DES MATIÈRES ══════════ */}
+      <aside className="w-56 flex-none sticky top-0 self-start space-y-0.5 hidden lg:block">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Table des matières</p>
+        {(['I', 'II', 'III'] as const).map(part => (
+          <div key={part} className="mb-3">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-wider px-3 mb-1 mt-2">{PART_LABELS[part]}</p>
+            {TOC_SECTIONS.filter(s => s.part === part).map(s => (
+              <button
+                key={s.id}
+                onClick={() => scrollToSection(s.id)}
+                className={`w-full text-left text-xs px-3 py-1.5 rounded-md transition-colors ${
+                  activeSection === s.id
+                    ? 'bg-primary text-primary-foreground font-semibold'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </aside>
+
+      {/* ══════════ CONTENU ══════════ */}
+      <div className="flex-1 space-y-4 min-w-0">
+
       {/* Header */}
       <div>
         <h2 className="text-xl font-display font-bold text-primary">{bp.company_name || "Business Plan"}</h2>
         {bp.tagline && <p className="text-muted-foreground text-sm italic">{bp.tagline}</p>}
-      </div>
-
-      {/* Table des matières — interactive */}
-      <div className="rounded-lg border border-border bg-white p-4">
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Table des matières</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-          <div>
-            <p className="font-semibold text-xs text-primary mb-1">I — Présentation</p>
-            <ul className="space-y-0.5 text-xs">
-              {[
-                { id: 'bp-1', label: '1. Informations sur l\'entreprise' },
-                { id: 'bp-2', label: '2. Résumé de la gestion' },
-                { id: 'bp-3', label: '3. Revue historique' },
-                { id: 'bp-4', label: '4. Vision, mission et valeurs' },
-                { id: 'bp-5', label: '5. L\'entreprise' },
-                { id: 'bp-6', label: '6. SWOT & Risques' },
-              ].map(s => (
-                <li key={s.id}><button onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="text-muted-foreground hover:text-primary hover:underline transition-colors text-left">{s.label}</button></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold text-xs text-primary mb-1">II — Opérations</p>
-            <ul className="space-y-0.5 text-xs">
-              {[
-                { id: 'bp-7', label: '7. Modèle de l\'entreprise' },
-                { id: 'bp-8', label: '8. Marché & concurrence' },
-                { id: 'bp-9', label: '9. Stratégie marketing' },
-                { id: 'bp-10', label: '10. Équipe et organisation' },
-              ].map(s => (
-                <li key={s.id}><button onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="text-muted-foreground hover:text-primary hover:underline transition-colors text-left">{s.label}</button></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold text-xs text-primary mb-1">III — Projet</p>
-            <ul className="space-y-0.5 text-xs">
-              {[
-                { id: 'bp-11', label: '11. Description du projet' },
-                { id: 'bp-12', label: '12. Impact' },
-                { id: 'bp-13', label: '13. Financier' },
-                { id: 'bp-14', label: '14. Attentes' },
-              ].map(s => (
-                <li key={s.id}><button onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="text-muted-foreground hover:text-primary hover:underline transition-colors text-left">{s.label}</button></li>
-              ))}
-            </ul>
-          </div>
-        </div>
       </div>
 
       {/* PARTIE I */}
@@ -326,6 +334,7 @@ export default function BusinessPlanPreview({ data, enterpriseId, deliverableId,
       <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
         <CheckCircle size={14} className="text-[hsl(var(--success))]" />
         Business Plan généré par esono · Format OVO officiel
+      </div>
       </div>
     </div>
   );

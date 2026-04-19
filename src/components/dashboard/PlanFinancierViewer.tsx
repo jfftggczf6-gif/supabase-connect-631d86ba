@@ -239,16 +239,16 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
       </div>
 
       <Tabs defaultValue="synthese" className="w-full">
-        <TabsList className="w-full flex overflow-x-auto">
-          <TabsTrigger value="synthese" className="text-[11px] flex-1">{t('viewers.synthesis')}</TabsTrigger>
-          <TabsTrigger value="situation" className="text-[11px] flex-1">{t('viewers.plan_situation')}</TabsTrigger>
-          <TabsTrigger value="marges" className="text-[11px] flex-1">{t('viewers.plan_margins')}</TabsTrigger>
-          <TabsTrigger value="hypotheses" className="text-[11px] flex-1">{t('viewers.plan_hypotheses')}</TabsTrigger>
-          <TabsTrigger value="projections" className="text-[11px] flex-1">{t('viewers.plan_projections')}</TabsTrigger>
-          <TabsTrigger value="produits" className="text-[11px] flex-1">{t('viewers.plan_products')}</TabsTrigger>
-          <TabsTrigger value="investissement" className="text-[11px] flex-1">{t('viewers.plan_investment')}</TabsTrigger>
-          
-          {hasAuditTab && <TabsTrigger value="audit" className="text-[11px] flex-1">Audit</TabsTrigger>}
+        <TabsList className="w-full flex overflow-x-auto bg-white border border-border rounded-lg p-1 h-auto">
+          <TabsTrigger value="synthese" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.synthesis')}</TabsTrigger>
+          <TabsTrigger value="situation" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.plan_situation')}</TabsTrigger>
+          <TabsTrigger value="marges" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.plan_margins')}</TabsTrigger>
+          <TabsTrigger value="hypotheses" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.plan_hypotheses')}</TabsTrigger>
+          <TabsTrigger value="projections" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.plan_projections')}</TabsTrigger>
+          <TabsTrigger value="produits" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.plan_products')}</TabsTrigger>
+          <TabsTrigger value="investissement" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('viewers.plan_investment')}</TabsTrigger>
+
+          {hasAuditTab && <TabsTrigger value="audit" className="text-[11px] flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Audit</TabsTrigger>}
         </TabsList>
 
         {/* ═══════════ TAB 1: SYNTHÈSE ═══════════ */}
