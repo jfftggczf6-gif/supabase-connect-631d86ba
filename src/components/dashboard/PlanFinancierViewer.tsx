@@ -405,14 +405,14 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
 
             {/* Avis d'Esono — en fin de synthèse */}
             {analyse.avis && (
-              <Card className="border-primary/20 bg-primary/5">
+              <Card className="bg-white border-l-4 border-l-primary border border-border shadow-sm">
                 <CardContent className="py-4">
-                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2">Avis d'Esono</p>{editBtn('analyse.avis', 'Avis général')}</div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{analyse.avis}</p>
+                  <div className="flex items-center gap-2 group"><p className="text-sm font-semibold mb-2 text-foreground">Avis d'Esono</p>{editBtn('analyse.avis', 'Avis général')}</div>
+                  <p className="text-xs text-foreground leading-relaxed">{analyse.avis}</p>
                   {analyse.tags?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {analyse.tags.map((t: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-[10px]">{t}</Badge>
+                        <Badge key={i} variant="outline" className="text-[10px] bg-white">{t}</Badge>
                       ))}
                     </div>
                   )}
