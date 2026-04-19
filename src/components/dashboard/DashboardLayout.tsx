@@ -117,14 +117,6 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 <ClipboardList className="h-4 w-4" /> {t('nav.programmes')}
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn('gap-1.5 text-xs', location.pathname === '/knowledge' && 'bg-muted')}
-              onClick={() => navigate('/knowledge')}
-            >
-              <BookOpen className="h-4 w-4" /> Base de connaissances
-            </Button>
             {!showProgrammes && location.pathname !== '/dashboard' && (
               <Button
                 variant="ghost"
