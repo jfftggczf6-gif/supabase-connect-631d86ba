@@ -458,7 +458,24 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
       {/* ══════════ 6. Critères programme ══════════ */}
       <div id="diag-criteres"></div>
-      {programmeMatch && (
+      {!programmeMatch ? (
+        <Card className="bg-white border-dashed">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" /> Critères programme
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Aucun programme évalué. Pour comparer cette entreprise aux critères d'un programme,
+              sélectionne un programme dans le menu déroulant en haut puis clique sur <strong>Régénérer</strong>.
+            </p>
+            {programmes.length === 0 && (
+              <p className="text-xs text-amber-600 mt-2">⚠ Aucun programme actif configuré dans <code>programme_criteria</code>.</p>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
