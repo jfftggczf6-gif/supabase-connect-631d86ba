@@ -358,9 +358,11 @@ export default function EntrepreneurDashboard({
         for (const file of fileList) {
           const formData = new FormData();
           formData.append('file', file);
-          const parseRes = await fetch(`${import.meta.env.VITE_PARSER_URL}/parse`, {
+          formData.append('endpoint', '/parse');
+          const { data: { session: parseSession } } = await supabase.auth.getSession();
+          const parseRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-parser`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${import.meta.env.VITE_PARSER_API_KEY}` },
+            headers: { 'Authorization': `Bearer ${parseSession?.access_token || ''}` },
             body: formData,
           });
           if (parseRes.ok) {

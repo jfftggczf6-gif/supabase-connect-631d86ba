@@ -50,6 +50,15 @@ export default function Register() {
       toast.error(t('auth.accept_terms_error'));
       return;
     }
+    // S4: Password policy — min 12 chars, at least 1 uppercase, 1 lowercase, 1 number
+    if (password.length < 12) {
+      toast.error('Le mot de passe doit contenir au moins 12 caractères');
+      return;
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      toast.error('Le mot de passe doit contenir au moins 1 majuscule, 1 minuscule et 1 chiffre');
+      return;
+    }
     setIsLoading(true);
     try {
       await signUp(email, password, fullName, isInvitation ? 'entrepreneur' : selectedRole);

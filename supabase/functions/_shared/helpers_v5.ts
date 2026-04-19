@@ -1,6 +1,25 @@
 // helpers_v5.ts — shared utilities for edge functions (v5 — cache-bust + lazy JSZip 2026-03-19)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// S7: Prompt injection sanitizer — neutralize potential instruction injection in user data
+export function sanitizeForPrompt(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    // Remove common prompt injection patterns
+    .replace(/ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)/gi, '[FILTERED]')
+    .replace(/you\s+are\s+now\s+/gi, '[FILTERED]')
+    .replace(/disregard\s+(all\s+)?(previous|above)/gi, '[FILTERED]')
+    .replace(/system\s*:\s*/gi, '[FILTERED]')
+    .replace(/\{?\{?\s*system\s*\}?\}?/gi, '[FILTERED]')
+    .replace(/<<\s*SYS\s*>>/gi, '[FILTERED]')
+    .replace(/<\|im_start\|>/gi, '[FILTERED]')
+    .replace(/\[INST\]/gi, '[FILTERED]')
+    // Limit consecutive special characters that could break prompt structure
+    .replace(/={10,}/g, '=====')
+    .replace(/-{10,}/g, '-----')
+    .replace(/#{5,}/g, '###');
+}
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -209,10 +228,10 @@ export function getDocumentContentForAgent(
   agentType: string,
   maxChars: number = 100_000
 ): string {
-  const fullContent = enterprise.document_content || "";
+  const fullContent = sanitizeForPrompt(enterprise.document_content || "");
   const report = enterprise.document_parsing_report;
 
-  // Si pas de rapport de parsing, retourner le contenu tel quel (cappé)
+  // Si pas de rapport de parsing, retourner le contenu tel quel (cappé + sanitized)
   if (!report?.files || !Array.isArray(report.files)) {
     return fullContent.substring(0, maxChars);
   }
