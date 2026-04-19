@@ -84,13 +84,14 @@ serve(async (req: Request) => {
       const existingUser = existingUsers?.users?.find((u: any) => u.email === owner_email);
 
       if (existingUser) {
-        // User existe → le rattacher directement comme owner
-        await adminClient.from("organization_members").insert({
+        // User existe → le rattacher directement comme owner (upsert pour éviter erreur si déjà membre)
+        await adminClient.from("organization_members").upsert({
           organization_id: org.id,
           user_id: existingUser.id,
           role: "owner",
           invited_by: user.id,
-        });
+          is_active: true,
+        }, { onConflict: "organization_id,user_id" });
         console.log(`[create-org] Attached existing user ${existingUser.id} as owner`);
       } else {
         // User n'existe pas → créer une invitation

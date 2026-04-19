@@ -73,8 +73,16 @@ export default function Dashboard() {
     return <Navigate to="/programmes" replace />;
   }
 
-  // Fallback : ancien comportement pour compat
+  // orgRole inconnu mais user a un authRole legacy → fallback
   if (authRole === 'chef_programme') return <Navigate to="/programmes" replace />;
   if (authRole === 'coach') return <CoachDashboard />;
+
+  // Aucun rôle org reconnu → afficher NoOrganizationScreen plutôt que servir EntrepreneurDashboard par défaut
+  // (évite que les owners atterrissent sur l'écran 'Ajouter un entrepreneur')
+  if (!orgRole) {
+    return <NoOrganizationScreen />;
+  }
+
+  // Rôle org inconnu (ex: rôle ajouté futur sans handler) — montrer entrepreneur dashboard par défaut
   return <EntrepreneurDashboard />;
 }

@@ -128,8 +128,8 @@ serve(async (req: Request) => {
     const invitationUrl = `${appUrl}/invitation/${invitation.token}`;
 
     const roleLabels: Record<string, string> = {
-      admin: 'Administrateur', manager: 'Responsable', analyst: 'Analyste',
-      coach: 'Coach', entrepreneur: 'Entrepreneur',
+      owner: 'Propriétaire', admin: 'Administrateur', manager: 'Responsable',
+      analyst: 'Analyste', coach: 'Coach', entrepreneur: 'Entrepreneur',
     };
 
     await adminClient.functions.invoke("send-email", {
