@@ -1655,28 +1655,78 @@ export default function EntrepreneurDashboard({
               </div>
             ) : selectedModule === 'pre_screening' && selectedDeliv?.data && typeof selectedDeliv.data === 'object' ? (
               <div className="p-6">
-                <PreScreeningViewer
-                  data={selectedDeliv.data as Record<string, any>}
-                  enterprise={enterprise}
-                  enterpriseId={enterprise?.id}
-                  onUpdated={fetchData}
-                  onRegenerate={async (programmeId?: string | null) => {
+                {/* Barre d'actions unifiée — diagnostic */}
+                {(() => {
+                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50";
+                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50";
+                  const entName = enterprise?.name || 'entreprise';
+                  const regenerate = async () => {
                     if (!enterprise) return;
                     try {
                       const token = await getValidAccessToken(authSession, navigate);
-                      const body: any = { enterprise_id: enterprise.id };
-                      if (programmeId) body.programme_criteria_id = programmeId;
                       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify(body),
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ enterprise_id: enterprise.id }),
                       });
                       if (!resp.ok) throw new Error('Erreur');
-                      toast.success('Diagnostic initial regénéré !');
+                      toast.success('Diagnostic regénéré !');
                       await fetchData();
-                    } catch { toast.error('Erreur de diagnostic initial'); }
-                  }}
-                  onLaunchPipeline={() => handleGenerate()}
-                />
+                    } catch { toast.error('Erreur diagnostic'); }
+                  };
+                  return (
+                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Stethoscope className="h-5 w-5 text-primary" />
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">Diagnostic initial</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <VersionHistory
+                            deliverableId={selectedDeliv.id}
+                            enterpriseId={enterprise?.id || ''}
+                            deliverableType="pre_screening"
+                            onRestore={() => fetchData()}
+                          />
+                          <button onClick={() => handleDownload('pre_screening', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>
+                          <button onClick={() => handleDownloadPdf('pre_screening', `Diagnostic_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                          <TranslateButton containerRef={viewerContainerRef} />
+                          {!readOnly && (
+                            <button onClick={regenerate} className={btnOutline}>
+                              <Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div ref={viewerContainerRef}>
+                  <PreScreeningViewer
+                    data={selectedDeliv.data as Record<string, any>}
+                    enterprise={enterprise}
+                    enterpriseId={enterprise?.id}
+                    onUpdated={fetchData}
+                    onRegenerate={async (programmeId?: string | null) => {
+                      if (!enterprise) return;
+                      try {
+                        const token = await getValidAccessToken(authSession, navigate);
+                        const body: any = { enterprise_id: enterprise.id };
+                        if (programmeId) body.programme_criteria_id = programmeId;
+                        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pre-screening`, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify(body),
+                        });
+                        if (!resp.ok) throw new Error('Erreur');
+                        toast.success('Diagnostic initial regénéré !');
+                        await fetchData();
+                      } catch { toast.error('Erreur de diagnostic initial'); }
+                    }}
+                    onLaunchPipeline={() => handleGenerate()}
+                  />
+                </div>
               </div>
             ) : selectedModule === 'screening' && selectedDeliv?.data && typeof selectedDeliv.data === 'object' ? (
               <div className="p-6">

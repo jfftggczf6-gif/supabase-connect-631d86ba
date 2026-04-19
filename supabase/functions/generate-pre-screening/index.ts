@@ -297,6 +297,28 @@ serve(async (req) => {
     const donorCriteria = getDonorCriteriaPrompt();
     const validationRules = getValidationRulesPrompt();
 
+    // Auto-résolution: si aucun programme_criteria_id explicite, chercher via candidature → programme.criteria_id
+    if (!programmeCriteriaId && !programmeCriteria) {
+      const { data: candidature } = await ctx.supabase
+        .from("candidatures")
+        .select("programme_id")
+        .eq("enterprise_id", ctx.enterprise_id)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (candidature?.programme_id) {
+        const { data: prog } = await ctx.supabase
+          .from("programmes")
+          .select("criteria_id")
+          .eq("id", candidature.programme_id)
+          .maybeSingle();
+        if (prog?.criteria_id) {
+          programmeCriteriaId = prog.criteria_id;
+          console.log(`[generate-pre-screening] Auto-résolu programme_criteria_id=${programmeCriteriaId} depuis candidature/programme`);
+        }
+      }
+    }
+
     // Parallel block 1: inputs, RAG, programme criteria
     const [inputsRes, ragContext, pcRes] = await Promise.all([
       ctx.supabase.from("deliverables").select("data, score")

@@ -467,8 +467,9 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Aucun programme évalué. Pour comparer cette entreprise aux critères d'un programme,
-              sélectionne un programme dans le menu déroulant en haut puis clique sur <strong>Régénérer</strong>.
+              Aucun programme évalué pour ce diagnostic. Si l'entreprise a une candidature à un programme
+              avec critères définis par le chef de programme, ils seront auto-résolus à la prochaine régénération.
+              Sinon, sélectionne un programme dans le menu déroulant ci-dessus puis clique sur <strong>Régénérer</strong>.
             </p>
             {programmes.length === 0 && (
               <p className="text-xs text-amber-600 mt-2">⚠ Aucun programme actif configuré dans <code>programme_criteria</code>.</p>
