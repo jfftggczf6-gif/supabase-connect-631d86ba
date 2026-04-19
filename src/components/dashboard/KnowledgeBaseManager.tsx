@@ -92,7 +92,14 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
   useEffect(() => { fetchData(); }, [currentOrg?.id]);
 
   const currentEntries = activeTab === 'org' ? orgEntries : sharedEntries;
-  const currentCategories = activeTab === 'org' ? ORG_CATEGORIES : SHARED_CATEGORIES;
+  // Catégories: union des prédéfinies + celles réellement présentes en base (capture les nouvelles type "rapport")
+  const predefinedCategories = activeTab === 'org' ? ORG_CATEGORIES : SHARED_CATEGORIES;
+  const dynamicCategories = useMemo(() => {
+    const fromData = new Set<string>();
+    for (const e of currentEntries) if (e.category) fromData.add(e.category);
+    return Array.from(new Set([...predefinedCategories, ...fromData])).sort();
+  }, [currentEntries, predefinedCategories]);
+  const currentCategories = dynamicCategories;
 
   const filteredEntries = useMemo(() => {
     let result = currentEntries;
@@ -189,7 +196,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           <Select value={newEntry.category} onValueChange={v => setNewEntry(p => ({ ...p, category: v }))}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {currentCategories.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
+              {currentCategories.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || (c.charAt(0).toUpperCase() + c.slice(1))}</SelectItem>)}
             </SelectContent>
           </Select>
           <Input placeholder="Titre *" value={newEntry.title} onChange={e => setNewEntry(p => ({ ...p, title: e.target.value }))} />
@@ -289,7 +296,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           return (
           <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewEntry(e)}>
             <TableCell className="font-medium max-w-[300px] truncate">{e.title}</TableCell>
-            <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || e.category}</Badge></TableCell>
+            <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || (e.category.charAt(0).toUpperCase() + e.category.slice(1))}</Badge></TableCell>
             <TableCell className="text-sm text-muted-foreground">{zone}</TableCell>
             <TableCell className="text-sm text-muted-foreground">{sector}</TableCell>
             <TableCell className="text-sm text-muted-foreground">{formatDate(docDate)}</TableCell>
@@ -342,7 +349,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
               <SelectTrigger className="w-[200px]"><SelectValue placeholder="Catégorie" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes les catégories</SelectItem>
-                {currentCategories.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
+                {currentCategories.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || (c.charAt(0).toUpperCase() + c.slice(1))}</SelectItem>)}
               </SelectContent>
             </Select>
             <div className="relative flex-1">
