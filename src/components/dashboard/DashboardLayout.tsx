@@ -99,6 +99,9 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                       <DropdownMenuItem onClick={() => navigate('/admin/metering')} className="gap-2 text-xs">
                         <BarChart3 className="h-3.5 w-3.5" /> Metering IA
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/admin/knowledge-review')} className="gap-2 text-xs">
+                        <BookOpen className="h-3.5 w-3.5" /> Validation KB
+                      </DropdownMenuItem>
                     </>
                   )}
                 </DropdownMenuContent>

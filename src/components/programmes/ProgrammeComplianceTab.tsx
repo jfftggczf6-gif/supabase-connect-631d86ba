@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight, Download } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight, Download, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { exportComplianceReportPdf, exportICReportPdf } from '@/lib/export-report-pdf';
@@ -221,11 +221,33 @@ export default function ProgrammeComplianceTab({ programmeId }: Props) {
       </Card>
 
       {/* IR Score Breakdown per enterprise (C) */}
-      {enterprises.some(e => e.score_ir_breakdown) && (
-        <Card>
-          <CardHeader className="pb-3">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Score IR décomposé</CardTitle>
-          </CardHeader>
+            <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary text-xs"
+              disabled={!!generating}
+              onClick={async () => {
+                for (const ent of enterprises.filter(e => e.score_ir && !e.score_ir_breakdown)) {
+                  setGenerating(`ir-${ent.id}`);
+                  try {
+                    const token = await getValidAccessToken(null);
+                    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ir-score-breakdown`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                      body: JSON.stringify({ enterprise_id: ent.id }),
+                    });
+                  } catch {}
+                }
+                setGenerating(null);
+                toast.success('IR scores décomposés générés');
+                fetchData();
+              }}>
+              {generating?.startsWith('ir-') ? <Loader2 className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
+              Générer les scores IR
+            </Button>
+          </div>
+        </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {enterprises.filter(e => e.score_ir_breakdown).map(e => (
@@ -245,9 +267,11 @@ export default function ProgrammeComplianceTab({ programmeId }: Props) {
                 </div>
               ))}
             </div>
+          {!enterprises.some(e => e.score_ir_breakdown) && (
+            <p className="text-sm text-muted-foreground text-center py-6">Cliquez "Générer les scores IR" pour décomposer le score par dimension (opérationnel, management, financier, etc.)</p>
+          )}
           </CardContent>
         </Card>
-      )}
 
       {/* Report viewer dialog */}
       <Dialog open={!!selectedReport} onOpenChange={() => { setSelectedReport(null); setSelectedEnterprise(null); }}>
