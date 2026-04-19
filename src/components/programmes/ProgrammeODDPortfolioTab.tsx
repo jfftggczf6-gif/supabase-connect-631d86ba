@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, TrendingUp, Users, Leaf, Handshake, Download, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { toast } from 'sonner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { exportODDPortfolioPdf } from '@/lib/export-report-pdf';
 
 interface Props {
   programmeId: string;
@@ -49,7 +51,9 @@ export default function ProgrammeODDPortfolioTab({ programmeId }: Props) {
   const [kpis, setKpis] = useState<OvoKPI[]>([]);
   const [oddCoverage, setOddCoverage] = useState<ODDCoverage[]>([]);
   const [enterprisesCount, setEnterprisesCount] = useState(0);
+  const [enterpriseDetails, setEnterpriseDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [programmeName, setProgrammeName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -66,6 +70,11 @@ export default function ProgrammeODDPortfolioTab({ programmeId }: Props) {
         setKpis(data.kpis || []);
         setOddCoverage(data.odd_coverage || []);
         setEnterprisesCount(data.enterprises_count || 0);
+        setEnterpriseDetails(data.evolution || []);
+
+        // Get programme name
+        const { data: prog } = await supabase.from('programmes').select('name').eq('id', programmeId).single();
+        setProgrammeName(prog?.name || 'Programme');
       } catch (err: any) {
         toast.error(err.message);
       }
@@ -74,7 +83,8 @@ export default function ProgrammeODDPortfolioTab({ programmeId }: Props) {
   }, [programmeId]);
 
   const handleExportPDF = () => {
-    toast.info('Export PDF en cours de développement');
+    exportODDPortfolioPdf(kpis, oddCoverage, programmeName, enterprisesCount)
+      .catch((err: any) => toast.error(err.message));
   };
 
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -165,7 +175,53 @@ export default function ProgrammeODDPortfolioTab({ programmeId }: Props) {
       )}
 
       {/* Per-enterprise ODD detail (I5) */}
-      {kpis.length === 0 && oddCoverage.length === 0 && (
+      {enterpriseDetails.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Détail ODD par entreprise</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Entreprise</TableHead>
+                  <TableHead>Secteur</TableHead>
+                  <TableHead className="text-center">Emplois</TableHead>
+                  <TableHead className="text-center">Femmes</TableHead>
+                  <TableHead className="text-center">Jeunes</TableHead>
+                  <TableHead className="text-center">ODD principaux</TableHead>
+                  <TableHead className="text-center">Score ODD</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {enterpriseDetails.map((ent: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium text-sm">{ent.name || ent.enterprise_name || '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{ent.sector || '—'}</TableCell>
+                    <TableCell className="text-sm text-center">{ent.emplois_total || ent.effectif || '—'}</TableCell>
+                    <TableCell className="text-sm text-center">{ent.emplois_femmes || '—'}</TableCell>
+                    <TableCell className="text-sm text-center">{ent.emplois_jeunes || '—'}</TableCell>
+                    <TableCell className="text-center">
+                      {(ent.odd_principaux || []).slice(0, 3).map((odd: any, j: number) => (
+                        <Badge key={j} variant="outline" className="text-[9px] mr-1">ODD {typeof odd === 'number' ? odd : odd?.numero || odd}</Badge>
+                      ))}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {ent.odd_score != null ? (
+                        <Badge className={ent.odd_score >= 70 ? 'bg-emerald-100 text-emerald-700' : ent.odd_score >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}>
+                          {ent.odd_score}/100
+                        </Badge>
+                      ) : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {kpis.length === 0 && oddCoverage.length === 0 && enterpriseDetails.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Target className="h-12 w-12 mx-auto mb-4 opacity-30" />

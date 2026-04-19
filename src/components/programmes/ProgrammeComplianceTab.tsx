@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { exportComplianceReportPdf, exportICReportPdf } from '@/lib/export-report-pdf';
 
 interface Props {
   programmeId: string;
@@ -252,9 +253,21 @@ export default function ProgrammeComplianceTab({ programmeId }: Props) {
       <Dialog open={!!selectedReport} onOpenChange={() => { setSelectedReport(null); setSelectedEnterprise(null); }}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedReport?.enterprise_name || 'Rapport'} — {selectedReport?.recommandation_ic ? 'IC Decision Report' : 'Compliance Feedback Report'}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                {selectedReport?.enterprise_name || 'Rapport'} — {selectedReport?.recommandation_ic ? 'IC Decision Report' : 'Compliance Feedback Report'}
+              </DialogTitle>
+              <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary" onClick={() => {
+                const name = selectedReport?.enterprise_name || 'Rapport';
+                if (selectedReport?.recommandation_ic) {
+                  exportICReportPdf(selectedReport, name).catch((err: any) => toast.error(err.message));
+                } else {
+                  exportComplianceReportPdf(selectedReport, name).catch((err: any) => toast.error(err.message));
+                }
+              }}>
+                <Download className="h-3.5 w-3.5" /> PDF
+              </Button>
+            </div>
           </DialogHeader>
           {selectedReport?.sections && (
             <div className="space-y-4">
