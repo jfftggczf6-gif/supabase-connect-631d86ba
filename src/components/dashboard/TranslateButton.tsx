@@ -49,10 +49,19 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
   };
 
   const handleTranslate = async () => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      toast.error('Conteneur de traduction introuvable. Recharge la page.');
+      console.error('[Translate] containerRef.current is null');
+      return;
+    }
 
     const textNodes = collectTextNodes(containerRef.current);
-    if (textNodes.length === 0) return;
+    if (textNodes.length === 0) {
+      toast.error('Aucun texte à traduire trouvé dans cette section.');
+      console.warn('[Translate] No text nodes found in container');
+      return;
+    }
+    console.log(`[Translate] Found ${textNodes.length} text nodes to translate`);
 
     // Store originals
     const originals = new Map<Text, string>();
@@ -78,6 +87,9 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
     if (chunk.texts.length > 0) chunks.push(chunk);
 
     setTranslating(true);
+    let successCount = 0;
+    let failCount = 0;
+    let firstError: string | null = null;
 
     try {
       for (const ch of chunks) {
@@ -86,7 +98,18 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
           body: { text: joined, target_lang: targetLang },
         });
 
-        if (error || !data?.translated) continue;
+        if (error) {
+          failCount++;
+          if (!firstError) firstError = error.message || JSON.stringify(error);
+          console.error('[Translate] Edge function error:', error);
+          continue;
+        }
+        if (!data?.translated) {
+          failCount++;
+          if (!firstError) firstError = `Réponse vide de l'edge function (data: ${JSON.stringify(data)})`;
+          console.warn('[Translate] No translated field in response:', data);
+          continue;
+        }
 
         const lines = data.translated.split('\n');
         const translatedMap: Record<number, string> = {};
@@ -108,13 +131,20 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
         for (let i = 0; i < ch.nodes.length; i++) {
           if (translatedMap[i] && ch.nodes[i].parentNode) {
             ch.nodes[i].textContent = translatedMap[i];
+            successCount++;
           }
         }
       }
 
       originalsRef.current = originals;
-      setTranslated(true);
+      if (successCount > 0) {
+        setTranslated(true);
+        toast.success(`${successCount} segments traduits${failCount > 0 ? ` (${failCount} échecs)` : ''}`);
+      } else {
+        toast.error(firstError ? `Traduction échouée : ${firstError}` : 'Aucun segment traduit');
+      }
     } catch (e: any) {
+      console.error('[Translate] Exception:', e);
       toast.error(e.message || t('common.error'));
     } finally {
       setTranslating(false);
