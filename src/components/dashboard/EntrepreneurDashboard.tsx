@@ -36,8 +36,10 @@ import CoachingTab from './CoachingTab';
 import ValidationBanner from './ValidationBanner';
 import InputsDiffBanner from './InputsDiffBanner';
 import VersionHistory from './VersionHistory';
+import TranslateButton from './TranslateButton';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardOverview from './DashboardOverview';
+import { generateMemoHtml } from '@/lib/memo-html-generator';
 import {
   MODULE_CONFIG, PIPELINE, MODULE_FN_MAP,
   type Enterprise, type Deliverable, type EnterpriseModule, type UploadedFile,
@@ -68,6 +70,7 @@ export default function EntrepreneurDashboard({
   const navigate = useNavigate();
   const [initialLoading, setInitialLoading] = useState(true);
   const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
+  const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const [modules, setModules] = useState<EnterpriseModule[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [_scoreHistory, setScoreHistory] = useState<Record<string, unknown>[]>([]);
@@ -1682,167 +1685,147 @@ export default function EntrepreneurDashboard({
             ) : selectedDeliv?.data && typeof selectedDeliv.data === 'object' ? (
               <div className="p-6">
                 <ValidationBanner validation={(selectedDeliv.data as any)?._validation} />
-                <div className="flex gap-2 mb-4">
-                  <VersionHistory
-                    deliverableId={selectedDeliv.id}
-                    enterpriseId={enterprise?.id || ''}
-                    deliverableType={selectedDeliv.type}
-                    onRestore={() => fetchData()}
-                  />
-                </div>
 
-                {/* Download bars */}
-                {selectedModule === 'diagnostic' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Stethoscope className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Diagnostic Expert</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('diagnostic_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
-                          <Download className="h-3.5 w-3.5" /> HTML
-                        </button>
-                        <button onClick={() => handleDownloadPdf('diagnostic_data', `Diagnostic_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
-                          <Download className="h-3.5 w-3.5" /> PDF
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedModule === 'bmc' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><LayoutGrid className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Business Model Canvas</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('bmc_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
-                          <Download className="h-3.5 w-3.5" /> HTML
-                        </button>
-                        <button onClick={() => handleDownloadPdf('bmc_analysis', `BMC_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
-                          <Download className="h-3.5 w-3.5" /> PDF
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedModule === 'sic' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Globe className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Social Impact Canvas</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('sic_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
-                          <Download className="h-3.5 w-3.5" /> HTML
-                        </button>
-                        <button onClick={() => handleDownloadPdf('sic_analysis', `SIC_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
-                          <Download className="h-3.5 w-3.5" /> PDF
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedModule === 'framework' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileSpreadsheet className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Plan Financier Intermédiaire</p></div>
-                      </div>
-                      <button onClick={() => handleDownload('framework_data', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
-                        <Download className="h-3.5 w-3.5" /> HTML
+                {/* ═══════════ BARRE D'ACTIONS UNIFIÉE ═══════════ */}
+                {(() => {
+                  const moduleCfg: Record<string, { icon: React.ReactNode; title: string }> = {
+                    diagnostic: { icon: <Stethoscope className="h-5 w-5 text-primary" />, title: 'Diagnostic Expert' },
+                    bmc: { icon: <LayoutGrid className="h-5 w-5 text-primary" />, title: 'Business Model Canvas' },
+                    sic: { icon: <Globe className="h-5 w-5 text-primary" />, title: 'Social Impact Canvas' },
+                    framework: { icon: <FileSpreadsheet className="h-5 w-5 text-primary" />, title: 'Plan Financier Intermédiaire' },
+                    plan_financier: { icon: <BarChart3 className="h-5 w-5 text-primary" />, title: 'Plan Financier' },
+                    plan_ovo: { icon: <FileSpreadsheet className="h-5 w-5 text-primary" />, title: 'Plan Financier OVO (Excel)' },
+                    business_plan: { icon: <FileText className="h-5 w-5 text-primary" />, title: 'Business Plan OVO' },
+                    odd: { icon: <Target className="h-5 w-5 text-primary" />, title: 'ODD' },
+                    onepager: { icon: <FileText className="h-5 w-5 text-primary" />, title: 'One-Pager I&P' },
+                    valuation: { icon: <BarChart3 className="h-5 w-5 text-primary" />, title: 'Valorisation' },
+                    investment_memo: { icon: <FileText className="h-5 w-5 text-primary" />, title: "Mémo d'Investissement" },
+                  };
+                  const cfg = moduleCfg[selectedModule] || { icon: <FileText className="h-5 w-5 text-primary" />, title: selectedModule };
+                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50";
+                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50";
+                  const btnSecondary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/80 text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm disabled:opacity-50";
+                  const entName = enterprise?.name || 'entreprise';
+
+                  // Module-specific download buttons
+                  const downloadBtns: React.ReactNode[] = [];
+                  if (selectedModule === 'diagnostic') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('diagnostic_data', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
+                      <button key="pdf" onClick={() => handleDownloadPdf('diagnostic_data', `Diagnostic_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                    );
+                  } else if (selectedModule === 'bmc') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('bmc_analysis', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
+                      <button key="pdf" onClick={() => handleDownloadPdf('bmc_analysis', `BMC_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                    );
+                  } else if (selectedModule === 'sic') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('sic_analysis', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
+                      <button key="pdf" onClick={() => handleDownloadPdf('sic_analysis', `SIC_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                    );
+                  } else if (selectedModule === 'framework') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('framework_data', 'html')} className={btnPrimary}><Download className="h-3.5 w-3.5" /> HTML</button>
+                    );
+                  } else if (selectedModule === 'plan_financier') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('plan_financier', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
+                      <button key="pdf" onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>,
+                      <button key="excel" onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className={btnSecondary} title="Regénère l'Excel à partir des données existantes (sans IA)">
+                        {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
                       </button>
+                    );
+                  } else if (selectedModule === 'plan_ovo') {
+                    if (generatingOvoPlan) {
+                      downloadBtns.push(<div key="gen" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>);
+                    } else if (ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url) {
+                      downloadBtns.push(
+                        <button key="excel" onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> Excel</button>
+                      );
+                    } else {
+                      downloadBtns.push(
+                        <button key="gen" onClick={handleGenerateOvoPlan} className={btnPrimary}><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')} Excel OVO</button>
+                      );
+                    }
+                  } else if (selectedModule === 'business_plan') {
+                    if (generatingModule === 'business_plan') {
+                      downloadBtns.push(<div key="gen" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>);
+                    } else if ((selectedDeliv?.data as any)?._meta?.download_url) {
+                      downloadBtns.push(<button key="word" onClick={() => handleDownloadBpWord()} className={btnPrimary}><Download className="h-3.5 w-3.5" /> Word</button>);
+                    }
+                  } else if (selectedModule === 'odd') {
+                    downloadBtns.push(
+                      <button key="excel" onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className={btnSecondary} title="Génère l'Excel ODD à partir des données existantes">
+                        {regeneratingOddExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel ODD
+                      </button>,
+                      <button key="html" onClick={() => handleDownload('odd_analysis', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>
+                    );
+                  } else if (selectedModule === 'onepager') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('onepager', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
+                      <button key="pdf" onClick={() => handleDownloadPdf('onepager', `OnePager_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                    );
+                  } else if (selectedModule === 'valuation') {
+                    downloadBtns.push(
+                      <button key="html" onClick={() => handleDownload('valuation', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
+                      <button key="pdf" onClick={() => handleDownloadPdf('valuation', `Valorisation_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                    );
+                  } else if (selectedModule === 'investment_memo') {
+                    const memoTitle = (selectedDeliv?.data as any)?.page_de_garde?.titre?.replace(/[^a-zA-Z0-9]/g, '_') || 'memo';
+                    downloadBtns.push(
+                      <button key="html" onClick={() => {
+                        try {
+                          const html = generateMemoHtml(selectedDeliv.data as any);
+                          const blob = new Blob([html], { type: 'text/html' });
+                          const a = document.createElement('a');
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `InvestmentMemo_${memoTitle}.html`;
+                          a.click();
+                          URL.revokeObjectURL(a.href);
+                        } catch (err: any) { toast.error(`Erreur HTML : ${err.message}`); }
+                      }} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML (A4)</button>,
+                      <button key="pdf" onClick={async () => {
+                        try {
+                          const html = generateMemoHtml(selectedDeliv.data as any);
+                          await exportToPdf(html, `InvestmentMemo_${memoTitle}.pdf`);
+                          toast.success('PDF téléchargé');
+                        } catch (err: any) { toast.error(`Erreur PDF : ${err.message}`); }
+                      }} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
+                    );
+                  }
+
+                  return (
+                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">{cfg.icon}</div>
+                          <p className="text-sm font-semibold text-foreground">{cfg.title}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <VersionHistory
+                            deliverableId={selectedDeliv.id}
+                            enterpriseId={enterprise?.id || ''}
+                            deliverableType={selectedDeliv.type}
+                            onRestore={() => fetchData()}
+                          />
+                          {downloadBtns}
+                          <TranslateButton containerRef={viewerContainerRef} />
+                          {!readOnly && (
+                            <button
+                              onClick={() => handleGenerateModule(selectedModule)}
+                              disabled={!!generatingModule}
+                              className={btnOutline}
+                            >
+                              {generatingModule === selectedModule ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                              {t('dashboard_coach.regenerate')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {selectedModule === 'plan_financier' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><BarChart3 className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Plan Financier</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload('plan_financier', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors">
-                          <Download className="h-3.5 w-3.5" /> HTML
-                        </button>
-                        <button onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${enterprise?.name || 'entreprise'}.pdf`)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm">
-                          <Download className="h-3.5 w-3.5" /> PDF
-                        </button>
-                        <button onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/80 text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm disabled:opacity-50" title="Regénère l'Excel à partir des données existantes (sans IA)">
-                          {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
-                        </button>
-                        {!readOnly && <button onClick={() => handleGenerateModule('plan_financier')} disabled={!!generatingModule} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50">
-                          {generatingModule === 'plan_financier' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {t('dashboard_coach.regenerate')}
-                        </button>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedModule === 'plan_ovo' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileSpreadsheet className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Plan Financier OVO (Excel)</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {generatingOvoPlan ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
-                        ) : ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url ? (
-                          <>
-                            <button onClick={() => handleDownloadOvoFile(ovoDownloadUrl || deliverables.find((d: any) => d.type === 'plan_ovo_excel')?.file_url)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Excel</button>
-                            <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
-                          </>
-                        ) : (
-                          <button onClick={handleGenerateOvoPlan} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')} Excel OVO</button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedModule === 'business_plan' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">Business Plan OVO</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {generatingModule === 'business_plan' ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('common.generating')}</div>
-                        ) : (selectedDeliv?.data as any)?._meta?.download_url ? (
-                          <>
-                            <button onClick={() => handleDownloadBpWord()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Download className="h-3.5 w-3.5" /> Word</button>
-                            <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}</button>
-                          </>
-                        ) : (
-                          <button onClick={() => handleGenerateModule('business_plan')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"><Sparkles className="h-3.5 w-3.5" /> {t('common.generate')}</button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedModule === 'odd' && (
-                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Target className="h-5 w-5 text-primary" /></div>
-                        <div><p className="text-sm font-semibold text-foreground">ODD</p></div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={handleRegenerateOddExcel} disabled={regeneratingOddExcel || !deliverables.find((d: any) => d.type === 'odd_analysis')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/80 text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm disabled:opacity-50" title="Génère l'Excel ODD à partir des données existantes">
-                          {regeneratingOddExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel ODD
-                        </button>
-                        <button onClick={() => handleDownload('odd_analysis', 'html')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors"><Download className="h-3.5 w-3.5" /> HTML</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Stale banner + Viewers */}
                 <DeliverableViewer
@@ -1854,6 +1837,7 @@ export default function EntrepreneurDashboard({
                   onUpdated={fetchData}
                   deliverableUpdatedAt={selectedDeliv.updated_at}
                   dataChangedAt={(enterprise as any)?.data_changed_at}
+                  viewerContainerRef={viewerContainerRef}
                 />
               </div>
             ) : selectedModule === 'investment_memo' ? (

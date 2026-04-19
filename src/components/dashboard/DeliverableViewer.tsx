@@ -1,11 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import SectionEditButton from './SectionEditButton';
-import TranslateButton from './TranslateButton';
 import BmcViewerComponent from './BmcViewer';
 import SicViewerComponent from './SicViewer';
 import FrameworkViewerComponent from './FrameworkViewer';
@@ -26,11 +25,12 @@ interface DeliverableViewerProps {
   onUpdated?: () => void;
   deliverableUpdatedAt?: string;
   dataChangedAt?: string;
+  /** Ref forwarded by parent to allow TranslateButton (rendered in unified action bar) to mutate this DOM subtree */
+  viewerContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated, deliverableUpdatedAt, dataChangedAt }: DeliverableViewerProps) {
+export default function DeliverableViewer({ moduleCode, data, allDeliverables, onRegenerate, enterpriseId, onUpdated, deliverableUpdatedAt, dataChangedAt, viewerContainerRef }: DeliverableViewerProps) {
   const { t } = useTranslation();
-  const viewerContainerRef = useRef<HTMLDivElement>(null);
 
   if (!data || typeof data !== 'object') return null;
 
@@ -54,21 +54,9 @@ export default function DeliverableViewer({ moduleCode, data, allDeliverables, o
     </div>
   ) : null;
 
-  const toolbar = (
-    <div className="flex justify-end gap-2 mb-3">
-      <TranslateButton containerRef={viewerContainerRef} />
-      {onRegenerate && (
-        <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground underline">
-          {t('dashboard_coach.regenerate')}
-        </button>
-      )}
-    </div>
-  );
-
   const wrapWithRegenerate = (viewer: React.ReactNode) => (
     <>
       {staleBanner}
-      {toolbar}
       <div ref={viewerContainerRef}>{viewer}</div>
     </>
   );

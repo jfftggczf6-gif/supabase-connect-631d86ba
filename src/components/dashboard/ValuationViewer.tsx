@@ -67,27 +67,13 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
   return (
     <div className="space-y-6" id="valuation-viewer-content">
       {/* Header */}
+      {/* Header (CTAs déplacés dans la barre d'actions unifiée du dashboard) */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-display font-bold flex items-center gap-2">
             <DollarSign className="h-6 w-6 text-violet-600" /> Valorisation
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Analyse par 3 méthodes — DCF, Multiples EBITDA, Multiples CA</p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5" onClick={handleDownloadHtml}>
-              <Download className="h-3.5 w-3.5" /> HTML (A4)
-            </Button>
-            <Button size="sm" className="gap-1.5 bg-primary text-white hover:bg-primary/90" onClick={handleDownloadPdf}>
-              <Download className="h-3.5 w-3.5" /> PDF
-            </Button>
-          </div>
-          {onRegenerate && (
-            <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5" onClick={onRegenerate}>
-              Regénérer
-            </Button>
-          )}
         </div>
       </div>
 

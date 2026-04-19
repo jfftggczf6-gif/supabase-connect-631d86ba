@@ -133,44 +133,11 @@ ${criteres ? `
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header (CTAs déplacés dans la barre d'actions unifiée du dashboard) */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-display font-bold flex items-center gap-2">
           <FileText className="h-6 w-6 text-cyan-600" /> One-Pager I&P
         </h2>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/5" onClick={handleDownloadHtml}>
-            <Download className="h-3.5 w-3.5 mr-1" /> HTML A4
-          </Button>
-          <Button size="sm" className="bg-primary text-white hover:bg-primary/90" onClick={async () => {
-            try {
-              // Reuse the same HTML generation logic from handleDownloadHtml
-              const sectionRow = (label: string, content: string) =>
-                `<tr><td class="label">${label}</td><td class="content">${content}</td></tr>`;
-              const d = data;
-              const sections = [
-                d.proposition_investissement && sectionRow('Proposition d\'investissement', d.proposition_investissement),
-                d.entreprise && sectionRow('Entreprise', d.entreprise),
-                d.marche && sectionRow('Marché', d.marche),
-                d.modele_economique && sectionRow('Modèle économique', d.modele_economique),
-                d.performance_financiere && sectionRow('Performance financière', d.performance_financiere),
-                d.impact && sectionRow('Impact', d.impact),
-                d.risques && sectionRow('Risques', d.risques),
-                d.recommandation && sectionRow('Recommandation', d.recommandation),
-              ].filter(Boolean).join('');
-              const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${d.titre || 'One-Pager'}</title><style>@page{size:A4 portrait;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:"Segoe UI",sans-serif;font-size:9pt;color:#1E293B}table{width:100%;border-collapse:collapse}td{padding:8px;vertical-align:top;border-bottom:1px solid #e2e8f0}.label{width:25%;font-weight:700;font-size:8.5pt;color:#64748b}.content{font-size:9pt}</style></head><body><table>${sections}</table></body></html>`;
-              await exportToPdf(html, `onepager_${d.titre?.replace(/[^a-zA-Z0-9]/g, '_') || 'livrable'}.pdf`);
-              toast.success('PDF téléchargé');
-            } catch (err: any) { toast.error(`Erreur PDF : ${err.message}`); }
-          }}>
-            <Download className="h-3.5 w-3.5 mr-1" /> PDF
-          </Button>
-          </div>
-          {onRegenerate && (
-            <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/5" onClick={onRegenerate}>Regénérer</Button>
-          )}
-        </div>
       </div>
 
       {/* Titre */}
