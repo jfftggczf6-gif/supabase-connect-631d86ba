@@ -10,9 +10,8 @@ import {
 } from 'lucide-react';
 
 // Destination unique du CTA "Réserver une démo live".
-// URL Cal.com (open-source, privacy-friendly, no cookies = no banner RGPD).
-// Ajuste le handle si tu t'inscris avec un autre (ex: /esono-team/demo-30).
-const DEMO_URL = 'https://cal.com/esono/demo-30';
+// Cal.com : open-source, privacy-friendly, no cookies = no banner RGPD.
+const DEMO_URL = 'https://cal.com/phil-yace-d73gey/demo-esono';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Palette (rappel du brief) — appliquée via arbitrary Tailwind values pour éviter
