@@ -1696,15 +1696,9 @@ export default function EntrepreneurDashboard({
                           <p className="text-sm font-semibold text-foreground">Diagnostic initial</p>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-end">
-                          <VersionHistory
-                            deliverableId={selectedDeliv.id}
-                            enterpriseId={enterprise?.id || ''}
-                            deliverableType="pre_screening"
-                            onRestore={() => fetchData()}
-                          />
                           <button onClick={() => handleDownload('pre_screening', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>
                           <button onClick={() => handleDownloadPdf('pre_screening', `Diagnostic_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>
-                          <TranslateButton containerRef={viewerContainerRef} />
+                          <TranslateButton containerRef={viewerContainerRef} className={btnOutline} />
                           {!readOnly && (
                             <button onClick={regenerate} className={btnOutline}>
                               <Sparkles className="h-3.5 w-3.5" /> {t('dashboard_coach.regenerate')}
@@ -1866,14 +1860,8 @@ export default function EntrepreneurDashboard({
                           <p className="text-sm font-semibold text-foreground">{cfg.title}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-end">
-                          <VersionHistory
-                            deliverableId={selectedDeliv.id}
-                            enterpriseId={enterprise?.id || ''}
-                            deliverableType={selectedDeliv.type}
-                            onRestore={() => fetchData()}
-                          />
                           {downloadBtns}
-                          <TranslateButton containerRef={viewerContainerRef} />
+                          <TranslateButton containerRef={viewerContainerRef} className={btnOutline} />
                           {!readOnly && (
                             <button
                               onClick={() => handleGenerateModule(selectedModule)}

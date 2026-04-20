@@ -7,9 +7,11 @@ import { toast } from 'sonner';
 
 interface TranslateButtonProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
+  /** Classe CSS custom. Si fournie, override le style 'variant=outline' par défaut. */
+  className?: string;
 }
 
-export default function TranslateButton({ containerRef }: TranslateButtonProps) {
+export default function TranslateButton({ containerRef, className }: TranslateButtonProps) {
   const { t, i18n } = useTranslation();
   const [translating, setTranslating] = useState(false);
   const [translated, setTranslated] = useState(false);
@@ -173,6 +175,25 @@ export default function TranslateButton({ containerRef }: TranslateButtonProps) 
     setTranslated(false);
   };
 
+  // Si className est fourni, on utilise un <button> natif pour qu'il matche exactement les autres CTA de la barre
+  if (className) {
+    if (translated) {
+      return (
+        <button className={className} onClick={handleUndo} type="button">
+          <Undo2 className="h-3.5 w-3.5" />
+          {t('translate.undo')}
+        </button>
+      );
+    }
+    return (
+      <button className={className} onClick={handleTranslate} disabled={translating} type="button">
+        {translating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+        {translating ? t('translate.translating') : `${t('translate.btn')} → ${label}`}
+      </button>
+    );
+  }
+
+  // Fallback: variant outline par défaut
   if (translated) {
     return (
       <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleUndo}>
