@@ -42,21 +42,45 @@ serve(async (req) => {
 
     const userRole = roleData?.role;
     const isAdmin = userRole === "super_admin";
-    const isChefProg = userRole === "chef_programme";
-    const isCoach = userRole === "coach";
 
     const body = await req.json();
     const { action } = body;
 
-    // Resolve user's organization (for multi-tenant)
+    // Resolve user's organization + org role (for multi-tenant)
     const { data: userOrg } = await supabase
       .from("organization_members")
-      .select("organization_id")
+      .select("organization_id, role")
       .eq("user_id", user.id)
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
     const userOrgId = body.organization_id || userOrg?.organization_id || null;
+    const orgRole = userOrg?.role;
+
+    // Mapping rôle legacy + rôle d'org → capacités
+    // owner/admin/manager = équivalent chef_programme (peuvent créer/gérer programmes)
+    // analyst/coach = équivalent coach (lecture seule filtrée)
+    const isChefProg =
+      userRole === "chef_programme" ||
+      orgRole === "owner" ||
+      orgRole === "admin" ||
+      orgRole === "manager";
+    const isCoach =
+      userRole === "coach" ||
+      orgRole === "coach" ||
+      orgRole === "analyst";
+
+    // Helper : l'utilisateur peut-il gérer (update/publish/delete) un programme donné ?
+    // Règles:
+    // - super_admin : tout
+    // - owner/admin : tous les programmes de leur org
+    // - manager/chef_programme : uniquement leurs propres programmes
+    const canManage = (prog: { chef_programme_id?: string | null; organization_id?: string | null }) => {
+      if (isAdmin) return true;
+      if ((orgRole === "owner" || orgRole === "admin") && userOrgId && prog.organization_id === userOrgId) return true;
+      if (isChefProg && prog.chef_programme_id === user.id) return true;
+      return false;
+    };
 
     // ═══════ CREATE ═══════
     if (action === "create") {
@@ -105,15 +129,13 @@ serve(async (req) => {
       if (!body.id) return jsonRes({ error: "id requis" }, 400);
 
       // Check ownership
-      if (!isAdmin) {
-        const { data: prog } = await supabase
-          .from("programmes")
-          .select("chef_programme_id")
-          .eq("id", body.id)
-          .single();
-        if (!prog || (isChefProg && prog.chef_programme_id !== user.id)) {
-          return jsonRes({ error: "Accès refusé" }, 403);
-        }
+      const { data: prog } = await supabase
+        .from("programmes")
+        .select("chef_programme_id, organization_id")
+        .eq("id", body.id)
+        .single();
+      if (!prog || !canManage(prog)) {
+        return jsonRes({ error: "Accès refusé" }, 403);
       }
 
       const { id, action: _, ...updateFields } = body;
@@ -142,8 +164,8 @@ serve(async (req) => {
 
       // Check access
       if (!isAdmin) {
-        if (isChefProg && prog.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
-        if (isCoach && !["open", "in_progress", "completed"].includes(prog.status)) return jsonRes({ error: "Accès refusé" }, 403);
+        const canView = canManage(prog) || (isCoach && ["open", "in_progress", "completed"].includes(prog.status));
+        if (!canView) return jsonRes({ error: "Accès refusé" }, 403);
       }
 
       return jsonRes({ success: true, programme: prog });
@@ -158,7 +180,11 @@ serve(async (req) => {
         query = query.eq("organization_id", userOrgId);
       }
 
-      if (isChefProg) {
+      // owner/admin de l'org → voient TOUS les programmes de l'org (pas de filtre supplémentaire)
+      if (orgRole === "owner" || orgRole === "admin") {
+        // pas de filtre additionnel, déjà filtré par organization_id
+      } else if (isChefProg) {
+        // manager / chef_programme legacy → filtre par leurs programmes
         query = query.or(`chef_programme_id.eq.${user.id},created_by.eq.${user.id}`);
       } else if (isCoach) {
         query = query.in("status", ["open", "in_progress", "completed"]);
@@ -197,12 +223,12 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, name, status")
+        .select("chef_programme_id, organization_id, name, status")
         .eq("id", body.id)
         .single();
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
       if (prog.status !== "draft") return jsonRes({ error: "Seul un programme en brouillon peut être publié" }, 400);
 
       // Generate slug
@@ -228,12 +254,12 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, status")
+        .select("chef_programme_id, organization_id, status")
         .eq("id", body.id)
         .single();
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
       if (prog.status !== "open") return jsonRes({ error: "Seul un programme ouvert peut être clôturé" }, 400);
 
       const { data: updated, error: closeErr } = await supabase
@@ -253,12 +279,12 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, status")
+        .select("chef_programme_id, organization_id, status")
         .eq("id", body.id)
         .single();
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
       if (prog.status !== "closed" && prog.status !== "open") return jsonRes({ error: "Le programme doit être ouvert ou clôturé pour être démarré" }, 400);
 
       const { data: updated, error: startErr } = await supabase
@@ -278,12 +304,12 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, status")
+        .select("chef_programme_id, organization_id, status")
         .eq("id", body.id)
         .single();
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
       if (prog.status !== "in_progress") return jsonRes({ error: "Seul un programme en cours peut être clôturé" }, 400);
 
       const { data: updated, error: completeErr } = await supabase
@@ -374,11 +400,11 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, name")
+        .select("chef_programme_id, organization_id, name")
         .eq("id", body.programme_id)
         .single();
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
 
       const { data: existing } = await supabase
         .from("candidatures")
@@ -426,11 +452,11 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id")
+        .select("chef_programme_id, organization_id")
         .eq("id", body.programme_id)
         .single();
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
 
       const { error: delErr } = await supabase
         .from("candidatures")
@@ -444,9 +470,9 @@ serve(async (req) => {
 
     if (action === "delete") {
       if (!body.id) return jsonRes({ error: "id requis" }, 400);
-      const { data: prog } = await supabase.from("programmes").select("chef_programme_id, status").eq("id", body.id).single();
+      const { data: prog } = await supabase.from("programmes").select("chef_programme_id, organization_id, status").eq("id", body.id).single();
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      if (!isAdmin && (!isChefProg || prog.chef_programme_id !== user.id)) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
 
       // Delete related data first (FK constraints — order matters)
       const { data: kpiIds } = await supabase.from("programme_kpis").select("id").eq("programme_id", body.id);
