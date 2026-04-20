@@ -92,6 +92,7 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
       const { data, error } = await supabase.functions.invoke('manage-programme', {
         body: {
           action: 'create_cohorte',
+          organization_id: currentOrg?.id,
           name: name.trim(),
           description: description.trim() || null,
           organization: organization.trim() || null,

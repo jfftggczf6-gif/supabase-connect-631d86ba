@@ -28,7 +28,7 @@ export default function ProgrammeListPage() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('manage-programme', {
-        body: { action: 'list' }
+        body: { action: 'list', organization_id: currentOrg?.id }
       });
       if (error) { toast({ title: t('common.error'), description: error.message, variant: 'destructive' }); }
       const list = Array.isArray(data?.programmes) ? data.programmes : Array.isArray(data) ? data : [];

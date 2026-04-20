@@ -47,13 +47,35 @@ serve(async (req) => {
     const { action } = body;
 
     // Resolve user's organization + org role (for multi-tenant)
-    const { data: userOrg } = await supabase
-      .from("organization_members")
-      .select("organization_id, role")
-      .eq("user_id", user.id)
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
+    // Si body.organization_id fourni, on récupère la membership pour CETTE org (important: un user
+    // peut avoir plusieurs memberships avec des rôles différents — on privilégie l'org active).
+    // Sinon, on trie par priorité de rôle pour prendre la plus privilégiée.
+    const ROLE_PRIORITY: Record<string, number> = {
+      owner: 0, admin: 1, manager: 2, coach: 3, analyst: 4, entrepreneur: 5,
+    };
+    let userOrg: { organization_id: string; role: string } | null = null;
+    if (body.organization_id) {
+      const { data } = await supabase
+        .from("organization_members")
+        .select("organization_id, role")
+        .eq("user_id", user.id)
+        .eq("organization_id", body.organization_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      userOrg = data as any;
+    }
+    if (!userOrg) {
+      // Pas d'org spécifique → prendre la membership la plus privilégiée
+      const { data: allMems } = await supabase
+        .from("organization_members")
+        .select("organization_id, role")
+        .eq("user_id", user.id)
+        .eq("is_active", true);
+      const sorted = (allMems || []).sort((a: any, b: any) =>
+        (ROLE_PRIORITY[a.role] ?? 99) - (ROLE_PRIORITY[b.role] ?? 99)
+      );
+      userOrg = (sorted[0] as any) || null;
+    }
     const userOrgId = body.organization_id || userOrg?.organization_id || null;
     const orgRole = userOrg?.role;
 

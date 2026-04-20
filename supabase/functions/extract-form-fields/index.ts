@@ -89,12 +89,14 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Check role (legacy + org)
-    const [{ data: roleData }, { data: orgMem }] = await Promise.all([
+    // Check role (legacy + org) avec tri par priorité
+    const [{ data: roleData }, { data: orgMems }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
-      supabase.from("organization_members").select("role").eq("user_id", user.id).eq("is_active", true).limit(1).maybeSingle(),
+      supabase.from("organization_members").select("role").eq("user_id", user.id).eq("is_active", true),
     ]);
-    const orgRole = orgMem?.role;
+    const ROLE_PRIORITY: Record<string, number> = { owner: 0, admin: 1, manager: 2, coach: 3, analyst: 4, entrepreneur: 5 };
+    const bestMem = (orgMems || []).slice().sort((a: any, b: any) => (ROLE_PRIORITY[a.role] ?? 99) - (ROLE_PRIORITY[b.role] ?? 99))[0];
+    const orgRole = bestMem?.role;
     const isAdmin = roleData?.role === "super_admin";
     const isChef = roleData?.role === "chef_programme" || orgRole === "owner" || orgRole === "admin" || orgRole === "manager";
     if (!isAdmin && !isChef) return errorResponse("Accès refusé", 403);
