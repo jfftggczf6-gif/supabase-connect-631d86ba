@@ -19,8 +19,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
-const COUNTRIES = ['Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Burkina Faso', 'Mali', 'Togo', 'Bénin', 'Guinée', 'Niger', 'Congo', 'RDC', 'Gabon', 'Madagascar', 'Rwanda', 'Kenya'];
-const SECTORS = ['Agriculture', 'Agro-industrie', 'Énergie', 'Fintech', 'Santé', 'Éducation', 'Transport', 'Commerce', 'BTP', 'Technologie', 'Textile', 'Tourisme'];
+const COUNTRIES = ['Bénin', 'Burkina Faso', 'Cameroun', 'Congo', "Côte d'Ivoire", 'Gabon', 'Guinée', 'Kenya', 'Madagascar', 'Mali', 'Niger', 'RDC', 'Rwanda', 'Sénégal', 'Togo'].sort((a, b) => a.localeCompare(b, 'fr'));
+const SECTORS = ['Agriculture', 'Agro-industrie', 'BTP', 'Commerce', 'Éducation', 'Énergie', 'Fintech', 'Santé', 'Technologie', 'Textile', 'Tourisme', 'Transport'].sort((a, b) => a.localeCompare(b, 'fr'));
 
 interface FormField {
   id: string;

@@ -60,7 +60,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 const ZONES_GLOBAL = ['Monde', 'Afrique', 'Afrique de l\'Ouest', 'Afrique de l\'Est', 'Afrique Centrale', 'UEMOA', 'CEMAC'];
 const ZONES_COUNTRIES = ['Bénin', 'Burkina Faso', 'Cameroun', 'Congo', 'Côte d\'Ivoire', 'Gabon', 'Ghana', 'Guinée', 'Kenya', 'Madagascar', 'Mali', 'Maroc', 'Niger', 'Nigeria', 'RDC', 'Rwanda', 'Sénégal', 'Tanzanie', 'Togo', 'Tunisie', 'Uganda'].sort((a, b) => a.localeCompare(b, 'fr'));
 const ZONES = [...ZONES_GLOBAL, ...ZONES_COUNTRIES];
-const SECTORS = ['Tous secteurs', 'Agro-industrie', 'Agriculture', 'Aviculture', 'BTP', 'Commerce', 'Éducation', 'Énergie', 'Fintech', 'Immobilier', 'Mines', 'Pharmacie', 'Restauration', 'Santé', 'Services B2B', 'TIC', 'Textile', 'Transport'];
+const SECTORS_LIST = ['Agriculture', 'Agro-industrie', 'Aviculture', 'BTP', 'Commerce', 'Éducation', 'Énergie', 'Fintech', 'Immobilier', 'Mines', 'Pharmacie', 'Restauration', 'Santé', 'Services B2B', 'TIC', 'Textile', 'Transport'].sort((a, b) => a.localeCompare(b, 'fr'));
+const SECTORS = ['Tous secteurs', ...SECTORS_LIST];
 
 export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t } = useTranslation();

@@ -14,13 +14,13 @@ import type { Database } from '@/integrations/supabase/types';
 type AppRole = Database['public']['Enums']['app_role'];
 
 const COUNTRIES = [
-  'Sénégal', "Côte d'Ivoire", 'Burkina Faso', 'Mali', 'Bénin', 'Togo',
-  'Niger', 'Cameroun', 'RD Congo', 'Congo', 'Gabon', 'Guinée', 'Guinée-Bissau',
-  'Maroc', 'Algérie', 'Tunisie', 'Madagascar', 'Rwanda', 'Éthiopie',
-  'Kenya', 'Nigeria', 'Ghana', 'Tanzanie', 'Ouganda', 'Afrique du Sud', 'Mozambique',
-  'France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada',
-  'Allemagne', 'Pays-Bas', 'Royaume-Uni', 'Espagne', 'Portugal', 'Italie',
-];
+  'Afrique du Sud', 'Algérie', 'Allemagne', 'Belgique', 'Bénin', 'Burkina Faso',
+  'Cameroun', 'Canada', 'Congo', "Côte d'Ivoire", 'Espagne', 'Éthiopie', 'France',
+  'Gabon', 'Ghana', 'Guinée', 'Guinée-Bissau', 'Italie', 'Kenya', 'Luxembourg',
+  'Madagascar', 'Mali', 'Maroc', 'Mozambique', 'Niger', 'Nigeria', 'Ouganda',
+  'Pays-Bas', 'Portugal', 'RD Congo', 'Royaume-Uni', 'Rwanda', 'Sénégal', 'Suisse',
+  'Tanzanie', 'Togo', 'Tunisie',
+].sort((a, b) => a.localeCompare(b, 'fr'));
 
 export default function Register() {
   const { t } = useTranslation();

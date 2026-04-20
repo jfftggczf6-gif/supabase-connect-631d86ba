@@ -48,13 +48,13 @@ const DELIVERABLE_OPTIONS = [
 ];
 
 const SECTORS = [
-  'Agriculture / Agroalimentaire', 'Tech / Digital', 'Commerce / Distribution',
-  'Services / Conseil', 'Industrie / Manufacture', 'BTP / Construction',
-  'Énergie / Environnement', 'Santé / Pharma', 'Éducation / Formation',
-  'Transport / Logistique', 'Finance / Assurance', 'Artisanat',
-];
+  'Agriculture / Agroalimentaire', 'Artisanat', 'BTP / Construction',
+  'Commerce / Distribution', 'Éducation / Formation', 'Énergie / Environnement',
+  'Finance / Assurance', 'Industrie / Manufacture', 'Santé / Pharma',
+  'Services / Conseil', 'Tech / Digital', 'Transport / Logistique',
+].sort((a, b) => a.localeCompare(b, 'fr'));
 
-const COUNTRIES = ["Côte d'Ivoire", 'Sénégal', 'Cameroun', 'Mali', 'Burkina Faso', 'Guinée', 'Togo', 'Bénin', 'Niger', 'Congo', 'RDC'];
+const COUNTRIES = ['Bénin', 'Burkina Faso', 'Cameroun', 'Congo', "Côte d'Ivoire", 'Guinée', 'Mali', 'Niger', 'RDC', 'Sénégal', 'Togo'].sort((a, b) => a.localeCompare(b, 'fr'));
 
 const emptyForm = {
   name: '', description: '', min_score_ir: 50, max_score_ir: 100,

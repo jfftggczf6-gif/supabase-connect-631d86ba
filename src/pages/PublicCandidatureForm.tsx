@@ -181,7 +181,7 @@ export default function PublicCandidatureForm() {
                 <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner un pays..." /></SelectTrigger>
                   <SelectContent>
-                    {["Côte d'Ivoire", 'Sénégal', 'Cameroun', 'Burkina Faso', 'Mali', 'Togo', 'Bénin', 'Guinée', 'Niger', 'Congo', 'RDC', 'Gabon', 'Madagascar', 'Rwanda', 'Kenya', 'Tchad', 'Mauritanie', 'Comores', 'Djibouti', 'Autre'].map(c => (
+                    {[...['Bénin', 'Burkina Faso', 'Cameroun', 'Comores', 'Congo', "Côte d'Ivoire", 'Djibouti', 'Gabon', 'Guinée', 'Kenya', 'Madagascar', 'Mali', 'Mauritanie', 'Niger', 'RDC', 'Rwanda', 'Sénégal', 'Tchad', 'Togo'].sort((a, b) => a.localeCompare(b, 'fr')), 'Autre'].map(c => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>

@@ -73,7 +73,7 @@ export default function CoachDashboard() {
 
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Madagascar", "Rwanda", "Kenya", "Nigeria", "Ghana", "Maroc", "Tunisie", "Éthiopie", "Tanzanie", "Afrique du Sud"];
+  const SUPPORTED_COUNTRIES = ["Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo", "Côte d'Ivoire", "Éthiopie", "Gabon", "Ghana", "Guinée", "Kenya", "Madagascar", "Mali", "Maroc", "Niger", "Nigeria", "RDC", "Rwanda", "Sénégal", "Tanzanie", "Togo", "Tunisie"].sort((a, b) => a.localeCompare(b, 'fr'));
   const [addForm, setAddForm] = useState({ name: '', contact_email: '', country: '', sector: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');

@@ -81,7 +81,7 @@ export default function EntrepreneurDashboard({
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSector, setNewSector] = useState('');
-  const SUPPORTED_COUNTRIES = ["Côte d'Ivoire", "Sénégal", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Togo", "Bénin", "Niger", "Congo", "RDC", "Gabon", "Guinée-Bissau", "Ghana", "Kenya", "Nigeria", "Maroc", "Tunisie", "Madagascar", "Éthiopie", "Tanzanie", "Rwanda", "Afrique du Sud"];
+  const SUPPORTED_COUNTRIES = ["Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo", "Côte d'Ivoire", "Éthiopie", "Gabon", "Ghana", "Guinée", "Guinée-Bissau", "Kenya", "Madagascar", "Mali", "Maroc", "Niger", "Nigeria", "RDC", "Rwanda", "Sénégal", "Tanzanie", "Togo", "Tunisie"].sort((a, b) => a.localeCompare(b, 'fr'));
   const [newCountry, setNewCountry] = useState("");
   const [newCity, setNewCity] = useState('');
   const [newLegalForm, setNewLegalForm] = useState('');
