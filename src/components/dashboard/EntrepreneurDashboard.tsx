@@ -1456,7 +1456,7 @@ export default function EntrepreneurDashboard({
         <div className="sticky top-0 z-30 flex-none border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-6 py-3 flex items-center justify-center gap-3 shadow-sm">
           <Button
             size="sm"
-            className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
+            className="gap-2 bg-violet-600 text-white hover:bg-violet-700 shadow-sm"
             onClick={() => setSelectedModule('upload')}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -1464,7 +1464,7 @@ export default function EntrepreneurDashboard({
           </Button>
           <Button
             size="sm"
-            className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
+            className="gap-2 bg-violet-600 text-white hover:bg-violet-700 shadow-sm"
             onClick={() => handleGenerateModule('pre_screening')}
             disabled={generating || !!generatingModule}
           >
@@ -1473,7 +1473,7 @@ export default function EntrepreneurDashboard({
           </Button>
           <Button
             size="sm"
-            className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
+            className="gap-2 bg-violet-600 text-white hover:bg-violet-700 shadow-sm"
             onClick={() => handleGenerate(false)}
             disabled={generating}
           >
