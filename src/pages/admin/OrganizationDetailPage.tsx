@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, Building2, Settings, UserPlus, Mail } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, Building2, Settings, UserPlus, Mail, RefreshCw } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { humanizeRole } from '@/hooks/useCurrentRole';
 
@@ -127,9 +127,14 @@ export default function OrganizationDetailPage() {
 
   return (
     <DashboardLayout title={org.name} subtitle={`${org.type} — ${org.country || '—'}`}>
-      <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/admin/organizations')}>
-        <ArrowLeft className="h-4 w-4" /> Retour aux organisations
-      </Button>
+      <div className="flex items-center justify-between mb-4">
+        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/admin/organizations')}>
+          <ArrowLeft className="h-4 w-4" /> Retour aux organisations
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchData} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Rafraîchir
+        </Button>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4 mb-6">
