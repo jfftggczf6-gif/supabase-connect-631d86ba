@@ -206,7 +206,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {activeTab === 'org' ? `Ajouter un document — ${currentOrg?.name || 'Mon organisation'}` : 'Ajouter une ressource ESONO'}
+            {activeTab === 'org' ? `Ajouter un document — Ressources ${currentOrg?.name || 'de mon organisation'}` : 'Ajouter une ressource ESONO'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
@@ -366,7 +366,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="org" className="gap-1.5">
-              <Building2 className="h-3.5 w-3.5" /> {currentOrg?.name || 'Mon organisation'} ({orgEntries.length})
+              <Building2 className="h-3.5 w-3.5" /> Ressources {currentOrg?.name || 'de mon organisation'} ({orgEntries.length})
             </TabsTrigger>
             <TabsTrigger value="shared" className="gap-1.5">
               <BookOpen className="h-3.5 w-3.5" /> Ressources ESONO ({sharedEntries.length})
