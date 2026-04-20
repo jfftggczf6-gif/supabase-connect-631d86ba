@@ -266,34 +266,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
           <p className="text-xs text-foreground mt-3 p-3 bg-card rounded-lg leading-relaxed border shadow-sm">{resumeExecutif.synthese}</p>
         )}
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-border/30">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadHtml}>
-            <Download className="h-3.5 w-3.5" /> HTML (A4)
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadPdf}>
-            <Download className="h-3.5 w-3.5" /> PDF
-          </Button>
-          <div className="flex-1" />
-          {onRegenerate && (
-            <div className="flex items-center gap-2">
-              <Select value={selectedProgrammeId || 'none'} onValueChange={(v) => setSelectedProgrammeId(v === 'none' ? null : v)}>
-                <SelectTrigger className="w-[220px] h-8 text-xs">
-                  <SelectValue placeholder="Critères programme (optionnel)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun programme</SelectItem>
-                  {programmes.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onRegenerate(selectedProgrammeId)}>
-                <RefreshCw className="h-3.5 w-3.5" /> Regénérer
-              </Button>
-            </div>
-          )}
-        </div>
+        {/* CTAs déplacés dans la barre d'actions unifiée du dashboard (HTML/PDF/Régénérer) */}
       </Card>
 
       {/* ══════════ 2. Comprendre l'entreprise ══════════ */}
