@@ -10,9 +10,9 @@ import {
 } from 'lucide-react';
 
 // Destination unique du CTA "Réserver une démo live".
-// Placeholder mailto tant que l'URL Calendly/Cal.com n'est pas fournie.
-// Remplacer par `https://cal.com/esono/demo` ou similaire quand dispo (1 constante à changer).
-const DEMO_URL = 'mailto:contact@esono.io?subject=Demande%20de%20d%C3%A9mo%20ESONO&body=Bonjour%2C%20je%20souhaite%20r%C3%A9server%20une%20d%C3%A9mo%20live%20de%20ESONO%20(30%20min%20sur%20mon%20propre%20dossier).%0A%0APr%C3%A9nom%20Nom%20%3A%0AFonction%20%3A%0AOrganisation%20%3A%0ASegment%20(PE%20ou%20Programme)%20%3A%0ADisponibilit%C3%A9s%20%3A%0A%0AMerci%2C';
+// URL Cal.com (open-source, privacy-friendly, no cookies = no banner RGPD).
+// Ajuste le handle si tu t'inscris avec un autre (ex: /esono-team/demo-30).
+const DEMO_URL = 'https://cal.com/esono/demo-30';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Palette (rappel du brief) — appliquée via arbitrary Tailwind values pour éviter
@@ -219,6 +219,106 @@ function BrandPattern() {
   );
 }
 
+// ─── Illustrations SVG custom pour les 3 étapes de "Comment ça marche" ───
+function IllustrationIngerer() {
+  return (
+    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#4F3A6F]" fill="none" aria-hidden="true">
+      <rect x="4" y="10" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="10" y="16" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="16" y="22" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M38 33 L68 33" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M62 27 L70 33 L62 39" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="74" y="17" width="32" height="32" rx="4" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="90" cy="33" r="3" fill="currentColor" />
+    </svg>
+  );
+}
+function IllustrationAnalyser() {
+  return (
+    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#4F3A6F]" fill="none" aria-hidden="true">
+      <circle cx="18" cy="32" r="7" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="60" cy="14" r="5" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="60" cy="50" r="5" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="102" cy="32" r="7" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M24 29 L56 15" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M24 35 L56 49" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M64 15 L96 29" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M64 49 L96 35" stroke="currentColor" strokeWidth="1.1" />
+      <circle cx="18" cy="32" r="2" fill="currentColor" />
+      <circle cx="102" cy="32" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+function IllustrationLivrer() {
+  return (
+    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#4F3A6F]" fill="none" aria-hidden="true">
+      <rect x="8" y="16" width="28" height="32" rx="3" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M44 32 L74 32" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M68 26 L76 32 L68 38" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="82" y="10" width="26" height="44" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M88 26 L92 30 L102 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M88 38 L102 38" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M88 44 L98 44" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  );
+}
+const STEP_ILLUSTRATIONS = [IllustrationIngerer, IllustrationAnalyser, IllustrationLivrer];
+
+// Placeholder Investment Memo — utilisé dans la section Solution pour ancrer visuellement
+function DashboardMockup() {
+  const memoSections = [
+    { n: 1, title: 'Synthèse exécutive', status: 'done' },
+    { n: 2, title: 'Thèse d\'investissement', status: 'done' },
+    { n: 3, title: 'Marché & positionnement', status: 'done' },
+    { n: 4, title: 'Business model', status: 'done' },
+    { n: 5, title: 'Équipe & gouvernance', status: 'done' },
+    { n: 6, title: 'États financiers SYSCOHADA', status: 'progress' },
+    { n: 7, title: 'Projections 5 ans', status: 'progress' },
+    { n: 8, title: 'Valorisation DCF & multiples', status: 'progress' },
+    { n: 9, title: 'Structuration du deal', status: 'empty' },
+    { n: 10, title: 'Risques & mitigation', status: 'empty' },
+    { n: 11, title: 'Conditions suspensives', status: 'empty' },
+    { n: 12, title: 'Plan post-investissement', status: 'empty' },
+  ];
+  const dotColor = (s: string) => s === 'done' ? 'bg-[#2F8F5A]' : s === 'progress' ? 'bg-[#4F7FC8]' : 'bg-[#B8B5C4]';
+  return (
+    <div className="relative rounded-2xl border border-[#E8E4EE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden">
+      <div className="flex items-center gap-1.5 border-b border-[#E8E4EE] px-4 py-3 bg-[#F6F4F9]">
+        <div className="h-2.5 w-2.5 rounded-full bg-[#B84444]/40" />
+        <div className="h-2.5 w-2.5 rounded-full bg-[#C8801F]/40" />
+        <div className="h-2.5 w-2.5 rounded-full bg-[#2F8F5A]/40" />
+        <div className="ml-4 flex-1 text-[11px] text-[#6B6680]">app.esono.io · Investment Memo · Kouassi Agro</div>
+      </div>
+      <div className="p-5">
+        <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="font-serif text-base font-semibold text-[#3D2B57]">Kouassi Agro Industries</h3>
+            <p className="text-[11px] text-[#6B6680]">Série A · Côte d'Ivoire · Agro-industrie</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">Score 84</span>
+            <span className="rounded-full bg-[#F6F4F9] px-3 py-1 text-[11px] font-medium text-[#4F3A6F]">En diligence</span>
+          </div>
+        </div>
+        <div className="mb-3 flex items-center gap-4 text-[10px] text-[#6B6680] flex-wrap">
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2F8F5A]" /> Validé (5)</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4F7FC8]" /> En cours (3)</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#B8B5C4]" /> À compléter (4)</div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {memoSections.map(s => (
+            <div key={s.n} className="flex items-center gap-2.5 rounded-md border border-[#E8E4EE] bg-white px-3 py-2">
+              <span className={`h-2 w-2 rounded-full flex-none ${dotColor(s.status)}`} />
+              <span className="text-[11px] font-medium text-[#3D3651] flex-none w-5">{s.n}.</span>
+              <span className="text-[11px] text-[#1A1625] truncate">{s.title}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Placeholder Pipeline Board — utilisé dans le hero
 function HeroMockup() {
   const cols: { title: string; items: { name: string; sector: string; score: number }[] }[] = [
@@ -327,7 +427,8 @@ export default function Index() {
             <Link to="/login" className="text-sm text-[#3D3651] hover:text-[#3D2B57] transition-colors">Se connecter</Link>
           </nav>
           <div className="flex items-center gap-3">
-            <PrimaryCTA size="md" />
+            {/* Masqué sur mobile pour éviter le doublon avec le sticky bottom CTA */}
+            <PrimaryCTA size="md" className="hidden md:inline-flex" />
           </div>
         </div>
       </header>
@@ -432,6 +533,10 @@ export default function Index() {
               );
             })}
           </div>
+          {/* Mockup Investment Memo — ancre visuelle de la section Solution */}
+          <div className="mt-14 max-w-4xl mx-auto">
+            <DashboardMockup />
+          </div>
           <div className="mt-12 text-center">
             <PrimaryCTA size="lg" />
           </div>
@@ -446,12 +551,12 @@ export default function Index() {
         </div>
         <div key={`how-${segment}`} className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
           {how.map((s, i) => {
-            const Icon = s.icon;
+            const Illustration = STEP_ILLUSTRATIONS[i] ?? (() => null);
             return (
               <div key={i} className="relative rounded-xl bg-white border border-[#E8E4EE] p-6">
                 <span className="absolute top-5 right-5 text-5xl font-serif font-semibold text-[#F6F4F9]">{s.n}</span>
-                <div className="h-11 w-11 rounded-xl bg-[#F6F4F9] flex items-center justify-center">
-                  <Icon className="h-5 w-5 text-[#4F3A6F]" />
+                <div className="h-14 flex items-start">
+                  <Illustration />
                 </div>
                 <h3 className="mt-4 font-serif font-semibold text-[#1A1625] text-lg">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#3D3651] relative z-10">{s.body}</p>
