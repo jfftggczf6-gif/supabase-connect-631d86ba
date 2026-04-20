@@ -438,9 +438,6 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full text-xl font-bold ${scoreBg}`}>
-                {score}
-              </div>
               <div className={`inline-block px-6 py-3 rounded-xl text-lg font-bold ${verdictColors[d.verdict] || 'bg-gray-200'}`}>
                 {d.verdict === 'INVESTIR' ? '✅' : d.verdict === 'APPROFONDIR' ? '⚠️' : '❌'} {d.verdict}
               </div>

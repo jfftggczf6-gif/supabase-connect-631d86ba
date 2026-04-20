@@ -200,9 +200,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
       <div id="diag-dashboard"></div>
       <Card className={`p-5 ${cc.bg} border-2 ${cc.border}`}>
         <div className="flex items-center gap-4">
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${scoreBgClass} flex-none`}>
-            {score}
-          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-base font-semibold">{entInfo.name || '—'}</span>

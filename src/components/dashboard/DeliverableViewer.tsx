@@ -612,9 +612,6 @@ function DiagnosticViewer({ data, enterpriseId, onUpdated }: { data: any; enterp
       <Card className="bg-card border shadow-sm">
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${verdictColor(verdict.score || 0)}`}>
-              {verdict.score || '—'}
-            </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base font-semibold">{data.metadata?.nom_entreprise}</span>
@@ -913,9 +910,6 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
             <div className="text-center flex-none">
               <p className="text-[11px] mt-1 opacity-80">{couleur} {label}</p>
             </div>
-          </div>
-          <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full rounded-full bg-white/60 transition-all" style={{ width: `${score}%` }} />
           </div>
         </CardContent>
       </Card>
@@ -1464,7 +1458,8 @@ function GenericJsonViewer({ data: _data }: { data: any }) {
 }
 
 // ===== SHARED COMPONENTS =====
-function ScoreHeader({ title, score, subtitle, badge }: { title: string; score?: number; subtitle?: string; badge?: string }) {
+function ScoreHeader({ title, subtitle, badge }: { title: string; score?: number; subtitle?: string; badge?: string }) {
+  // Score retiré: on n'affiche que le score global de l'entreprise (DashboardOverview)
   return (
     <Card className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(222,47%,25%)] text-primary-foreground border-0">
       <CardContent className="py-5">
@@ -1474,12 +1469,6 @@ function ScoreHeader({ title, score, subtitle, badge }: { title: string; score?:
             {subtitle && <p className="mt-1.5 text-sm opacity-80">{subtitle}</p>}
             {badge && <Badge className="mt-2 bg-white/20 text-primary-foreground border-0 text-[10px]">{badge}</Badge>}
           </div>
-          {score !== undefined && (
-            <div className="text-center ml-4">
-              <p className="text-4xl font-display font-black">{score}</p>
-              <p className="text-[10px] opacity-60">/100</p>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
