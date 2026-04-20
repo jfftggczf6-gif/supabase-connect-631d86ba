@@ -1668,8 +1668,9 @@ export default function EntrepreneurDashboard({
               <div className="p-6">
                 {/* Barre d'actions unifiée — diagnostic */}
                 {(() => {
-                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50";
-                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50";
+                  // Style uniforme: blanc avec contour violet pour tous les CTA
+                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
+                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
                   const entName = enterprise?.name || 'entreprise';
                   const regenerate = async () => {
                     if (!enterprise) return;
@@ -1686,11 +1687,11 @@ export default function EntrepreneurDashboard({
                     } catch { toast.error('Erreur diagnostic'); }
                   };
                   return (
-                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <div className="mb-4 rounded-xl border border-border bg-white p-4 shadow-sm">
                       <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Stethoscope className="h-5 w-5 text-primary" />
+                          <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center">
+                            <Stethoscope className="h-5 w-5 text-violet-600" />
                           </div>
                           <p className="text-sm font-semibold text-foreground">Diagnostic initial</p>
                         </div>
@@ -1763,9 +1764,10 @@ export default function EntrepreneurDashboard({
                     investment_memo: { icon: <FileText className="h-5 w-5 text-primary" />, title: "Mémo d'Investissement" },
                   };
                   const cfg = moduleCfg[selectedModule] || { icon: <FileText className="h-5 w-5 text-primary" />, title: selectedModule };
-                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50";
-                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50";
-                  const btnSecondary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/80 text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm disabled:opacity-50";
+                  // Style uniforme: blanc avec contour violet pour tous les CTA
+                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
+                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
+                  const btnSecondary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
                   const entName = enterprise?.name || 'entreprise';
 
                   // Module-specific download buttons
@@ -1857,10 +1859,10 @@ export default function EntrepreneurDashboard({
                   }
 
                   return (
-                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <div className="mb-4 rounded-xl border border-border bg-white p-4 shadow-sm">
                       <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">{cfg.icon}</div>
+                          <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center [&>svg]:text-violet-600">{cfg.icon}</div>
                           <p className="text-sm font-semibold text-foreground">{cfg.title}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-end">
