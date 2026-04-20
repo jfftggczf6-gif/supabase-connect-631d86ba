@@ -272,8 +272,8 @@ export default function SuperAdminDashboard() {
         const { error: ecErr } = await supabase.from('enterprise_coaches').insert({
           enterprise_id: enterpriseId,
           coach_id: newCoachId,
-          role: 'lead',
-        });
+          role: 'principal',
+        } as any);
         if (ecErr) throw ecErr;
       }
 

@@ -307,7 +307,7 @@ export default function CoachDashboard() {
             enterprise_id: newEnt.id,
             coach_id: user.id,
             organization_id: currentOrg.id,
-            role: 'lead',
+            role: 'principal',
             assigned_by: user.id,
           } as any);
         }
