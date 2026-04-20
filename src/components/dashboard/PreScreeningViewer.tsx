@@ -691,24 +691,9 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
         </Card>
       )}
 
-      {/* ══════════ Footer — Sources consultées (discret) ══════════ */}
-      {sourcesConsultees.length > 0 && (
-        <div className="pt-4 border-t border-border/50 mt-8">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            📚 Sources consultées par l'IA ({sourcesConsultees.length})
-          </p>
-          <ul className="space-y-0.5">
-            {sourcesConsultees.map((s: any, i: number) => (
-              <li key={i} className="text-[11px] text-muted-foreground leading-relaxed">
-                <span className="font-medium">[{s.ref_id || `REF-${i + 1}`}]</span>{' '}
-                <span>{s.titre}</span>
-                {s.source && <span className="opacity-70"> — {s.source}</span>}
-                {s.usage && <span className="opacity-60"> · <em>{s.usage}</em></span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Footer sources consultées — masqué temporairement, re-activé après Phase 2 RAG
+          sourcesConsultees.length > 0 && ...
+      */}
 
       </div>
     </div>
