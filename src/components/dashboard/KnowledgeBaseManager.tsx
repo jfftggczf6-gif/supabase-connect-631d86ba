@@ -546,16 +546,27 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                 ))}
               </div>
 
-              {/* Source cliquable */}
-              {previewEntry.source && (
+              {/* Source (nom publisher + URL cliquable) */}
+              {(previewEntry.source || previewEntry.metadata?.source_url) && (
                 <div className="bg-muted/30 rounded-lg p-3 text-sm">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Source</p>
-                  {previewEntry.source.startsWith('http') ? (
+                  {previewEntry.source && !previewEntry.source.startsWith('http') && (
+                    <p className="text-foreground font-medium">{previewEntry.source}</p>
+                  )}
+                  {previewEntry.metadata?.source_url && (
+                    <a
+                      href={previewEntry.metadata.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline break-all text-xs mt-1 inline-flex items-center gap-1"
+                    >
+                      🔗 Consulter le document original ↗
+                    </a>
+                  )}
+                  {previewEntry.source?.startsWith('http') && !previewEntry.metadata?.source_url && (
                     <a href={previewEntry.source} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
                       {previewEntry.source} ↗
                     </a>
-                  ) : (
-                    <p className="text-foreground">{previewEntry.source}</p>
                   )}
                 </div>
               )}
