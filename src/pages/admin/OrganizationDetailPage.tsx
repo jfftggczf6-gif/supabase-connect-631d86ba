@@ -41,10 +41,12 @@ export default function OrganizationDetailPage() {
     if (!id) return;
     setLoading(true);
 
+    // Note: JOIN direct profiles via FK implicite échoue parfois (pas de FK explicite
+    // entre organization_members et profiles). On fetch les profiles séparément.
     const [orgRes, membersRes, enterprisesRes, invitationsRes] = await Promise.all([
       supabase.from('organizations').select('*').eq('id', id).single(),
       supabase.from('organization_members')
-        .select('id, user_id, role, joined_at, is_active, profiles:user_id(full_name, email)')
+        .select('id, user_id, role, joined_at, is_active')
         .eq('organization_id', id).eq('is_active', true).order('joined_at'),
       supabase.from('enterprises')
         .select('id, name, sector, country, score_ir, phase, created_at')
@@ -55,11 +57,28 @@ export default function OrganizationDetailPage() {
         .order('created_at', { ascending: false }),
     ]);
 
+    console.log('[OrgDetail] Members query:', { data: membersRes.data, error: membersRes.error });
+
+    // Enrichir chaque member avec son profil (2e query)
+    let enrichedMembers: any[] = membersRes.data || [];
+    if (enrichedMembers.length > 0) {
+      const userIds = enrichedMembers.map(m => m.user_id);
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
+      const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
+      enrichedMembers = enrichedMembers.map(m => ({
+        ...m,
+        profiles: profileMap.get(m.user_id) || null,
+      }));
+    }
+
     if (orgRes.data) {
       setOrg(orgRes.data as OrgDetail);
       setEditForm({ name: orgRes.data.name, country: orgRes.data.country || '' });
     }
-    setMembers(membersRes.data || []);
+    setMembers(enrichedMembers);
     setEnterprises(enterprisesRes.data || []);
     setInvitations(invitationsRes.data || []);
     setLoading(false);
