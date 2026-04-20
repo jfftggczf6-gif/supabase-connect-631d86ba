@@ -72,7 +72,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
       // Shared KB (Couche 2)
       supabase.from('knowledge_base').select('id, title, category, content, country, sector, source, tags, created_at, updated_at, metadata').order('updated_at', { ascending: false }).limit(200),
       // Benchmarks (Couche 2)
-      supabase.from('knowledge_benchmarks' as any).select('*').order('sector').limit(100),
+      supabase.from('knowledge_benchmarks' as any).select('*').order('secteur').limit(100),
     ];
 
     // Org KB (Couche 1) — only if user has an org
@@ -462,16 +462,30 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {benchmarks.map((b: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{b.sector}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{b.country || b.zone || '—'}</TableCell>
-                        <TableCell className="text-sm">{b.gross_margin_median ? `${b.gross_margin_median}%` : b.marge_brute_mediane ? `${b.marge_brute_mediane}%` : '—'}</TableCell>
-                        <TableCell className="text-sm">{b.capex_typical || b.capex_range || '—'}</TableCell>
-                        <TableCell className="text-sm">{b.ebitda_multiple || b.multiples || '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{b.source || '—'}</TableCell>
-                      </TableRow>
-                    ))}
+                    {benchmarks.map((b: any, i: number) => {
+                      // Marge brute : médiane ou range min-max
+                      const margeBrute = b.marge_brute_mediane != null
+                        ? `${b.marge_brute_mediane}%`
+                        : (b.marge_brute_min != null && b.marge_brute_max != null)
+                          ? `${b.marge_brute_min}-${b.marge_brute_max}%`
+                          : '—';
+                      // Multiples EBITDA range
+                      const multiples = (b.multiple_ebitda_min != null && b.multiple_ebitda_max != null)
+                        ? `${b.multiple_ebitda_min}x-${b.multiple_ebitda_max}x`
+                        : '—';
+                      // CAPEX depuis JSONB capex_typiques
+                      const capex = b.capex_typiques?.range || b.capex_typiques?.median || '—';
+                      return (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{b.secteur || '—'}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{b.pays || b.zone || '—'}</TableCell>
+                          <TableCell className="text-sm">{margeBrute}</TableCell>
+                          <TableCell className="text-sm">{capex}</TableCell>
+                          <TableCell className="text-sm">{multiples}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate" title={b.source || ''}>{b.source || '—'}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
