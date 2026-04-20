@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2, Eye } from 'lucide-react';
+import { Database, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2, Eye } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile } from '@/lib/document-parser';
 
@@ -64,7 +63,6 @@ const SECTORS_LIST = ['Agriculture', 'Agro-industrie', 'Aviculture', 'BTP', 'Com
 const SECTORS = ['Tous secteurs', ...SECTORS_LIST];
 
 export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: boolean }) {
-  const { t } = useTranslation();
   const { currentOrg, isSuperAdmin } = useOrganization();
   const [activeTab, setActiveTab] = useState<string>('org');
   const [orgEntries, setOrgEntries] = useState<KBEntry[]>([]);
@@ -83,7 +81,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
 
   const fetchData = async () => {
     setLoading(true);
-    const promises: Promise<any>[] = [
+    const promises: any[] = [
       // Shared KB (Couche 2)
       supabase.from('knowledge_base').select('id, title, category, content, country, sector, source, tags, created_at, updated_at, metadata').order('updated_at', { ascending: false }).limit(200),
       // Benchmarks (Couche 2)
@@ -149,7 +147,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
 
     if (activeTab === 'org' && currentOrg?.id) {
       // Insert into organization_knowledge
-      const { error } = await supabase.from('organization_knowledge' as any).insert({
+      const { data: inserted, error } = await supabase.from('organization_knowledge' as any).insert({
         organization_id: currentOrg.id,
         category: newEntry.category,
         title: newEntry.title,
@@ -159,13 +157,16 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
         source: newEntry.source || null,
         tags: newEntry.tags ? newEntry.tags.split(',').map(t => t.trim()) : [],
         created_by: (await supabase.auth.getUser()).data.user?.id,
-      });
+      }).select('id').single();
       if (error) {
         toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
         return;
       }
-      // Generate embedding
-      callEdgeFunction('generate-embeddings', { table: 'organization_knowledge', mode: 'backfill' }).catch(() => {});
+      // Fire-and-forget: chunking + embeddings Voyage (RAG Phase 2)
+      const insertedId = (inserted as any)?.id;
+      if (insertedId) {
+        callEdgeFunction('rag-ingest', { org_entry_id: insertedId, force: false }).catch(() => {});
+      }
     } else {
       // Insert into shared knowledge_base via EF
       const result = await callEdgeFunction('ingest-knowledge', {
@@ -546,30 +547,41 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                 ))}
               </div>
 
-              {/* Source (nom publisher + URL cliquable) */}
-              {(previewEntry.source || previewEntry.metadata?.source_url) && (
-                <div className="bg-muted/30 rounded-lg p-3 text-sm">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Source</p>
-                  {previewEntry.source && !previewEntry.source.startsWith('http') && (
-                    <p className="text-foreground font-medium">{previewEntry.source}</p>
-                  )}
-                  {previewEntry.metadata?.source_url && (
-                    <a
-                      href={previewEntry.metadata.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline break-all text-xs mt-1 inline-flex items-center gap-1"
-                    >
-                      🔗 Consulter le document original ↗
-                    </a>
-                  )}
-                  {previewEntry.source?.startsWith('http') && !previewEntry.metadata?.source_url && (
-                    <a href={previewEntry.source} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
-                      {previewEntry.source} ↗
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Source (nom publisher + URL cliquable seulement si lien direct vers le doc) */}
+              {(() => {
+                const rawUrl = previewEntry.metadata?.source_url
+                  || (previewEntry.source?.startsWith('http') ? previewEntry.source : null);
+                // On n'affiche le lien que s'il pointe réellement vers un document (pas une page d'accueil)
+                const isDirectDocLink = (u: string | null): boolean => {
+                  if (!u) return false;
+                  try {
+                    const parsed = new URL(u);
+                    if (!parsed.pathname || parsed.pathname === '/') return false;
+                    const segments = parsed.pathname.split('/').filter(Boolean);
+                    const hasFileExt = /\.(pdf|docx?|xlsx?|html?|pptx?)$/i.test(parsed.pathname);
+                    return hasFileExt || segments.length >= 2;
+                  } catch { return false; }
+                };
+                const showLink = isDirectDocLink(rawUrl);
+                const hasPublisher = previewEntry.source && !previewEntry.source.startsWith('http');
+                if (!hasPublisher && !showLink) return null;
+                return (
+                  <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Source</p>
+                    {hasPublisher && <p className="text-foreground font-medium">{previewEntry.source}</p>}
+                    {showLink && (
+                      <a
+                        href={rawUrl!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline break-all text-xs mt-1 inline-flex items-center gap-1"
+                      >
+                        🔗 Consulter le document original ↗
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Date */}
               <p className="text-xs text-muted-foreground">
@@ -584,34 +596,6 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-2 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const blob = new Blob([previewEntry.content], { type: 'text/plain;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${previewEntry.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  Télécharger (.txt)
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(previewEntry.content);
-                    toast({ title: 'Contenu copié dans le presse-papier' });
-                  }}
-                >
-                  Copier le contenu
-                </Button>
-              </div>
             </div>
           </DialogContent>
         </Dialog>

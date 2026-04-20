@@ -47,10 +47,24 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    return jsonResponse({ 
-      success: true, 
+    // Fire-and-forget: déclenche l'ingestion RAG (chunking + embeddings Voyage) en arrière-plan
+    // pour rendre chaque nouvelle entrée immédiatement recherchable par vecteur.
+    for (const entry of data || []) {
+      fetch(`${supabaseUrl}/functions/v1/rag-ingest`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ kb_entry_id: entry.id, force: false }),
+      }).catch((e) => console.warn(`[ingest-knowledge] rag-ingest failed for ${entry.id}:`, e.message));
+    }
+
+    return jsonResponse({
+      success: true,
       inserted: data?.length || 0,
-      entries: data 
+      entries: data,
+      rag_ingest_triggered: data?.length || 0,
     });
   } catch (e: any) {
     console.error("ingest-knowledge error:", e);

@@ -20,21 +20,31 @@ function jsonRes(data: any, status = 200) {
   });
 }
 
-async function generateEmbedding(text: string, openaiKey: string): Promise<number[] | null> {
+// Voyage AI query embedding (1024 dim) — input_type='query' optimise la recherche
+async function generateEmbedding(text: string, voyageKey: string): Promise<number[] | null> {
   try {
-    const resp = await fetch("https://api.openai.com/v1/embeddings", {
+    const resp = await fetch("https://api.voyageai.com/v1/embeddings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
+        "Authorization": `Bearer ${voyageKey}`,
       },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: text.slice(0, 8000) }),
+      body: JSON.stringify({
+        input: text.slice(0, 32000),
+        model: "voyage-3",
+        input_type: "query",  // Important: améliore la pertinence de la recherche
+      }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      const err = await resp.text();
+      console.error(`[rag-search embedding] Voyage error ${resp.status}: ${err.slice(0, 200)}`);
+      return null;
+    }
     const data = await resp.json();
     return data.data?.[0]?.embedding || null;
-  } catch {
+  } catch (e: any) {
+    console.error(`[rag-search embedding] Exception:`, e.message);
     return null;
   }
 }
@@ -48,8 +58,8 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiKey) return jsonRes({ error: "OPENAI_API_KEY non configurée" }, 500);
+    const voyageKey = Deno.env.get("VOYAGE_API_KEY");
+    if (!voyageKey) return jsonRes({ error: "VOYAGE_API_KEY non configurée" }, 500);
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -68,7 +78,7 @@ serve(async (req) => {
     }
 
     // 1. Générer embedding de la query
-    const queryEmbedding = await generateEmbedding(query, openaiKey);
+    const queryEmbedding = await generateEmbedding(query, voyageKey);
     if (!queryEmbedding) {
       return jsonRes({ error: "Impossible de générer l'embedding de la query" }, 500);
     }

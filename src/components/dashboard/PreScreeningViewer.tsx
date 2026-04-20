@@ -373,8 +373,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
             <div className="flex items-center gap-2 p-5 border-b border-border">
               <BarChart3 className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold">Constats</h3>
-              <Badge variant="outline" className="text-[10px] ml-auto">{allConstats.length}</Badge>
-              {editBtn('constats_par_scope', 'Constats')}
+              <div className="ml-auto">{editBtn('constats_par_scope', 'Constats')}</div>
             </div>
             <div className="divide-y divide-border">
               {scopes.filter(s => s.key !== 'all').map(scope => {
@@ -390,7 +389,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                     <div className="flex items-center gap-2 mb-3">
                       <ScopeIcon className="h-4 w-4 text-primary" />
                       <h4 className="text-sm font-bold text-foreground">{scope.label}</h4>
-                      <Badge variant="outline" className="text-[10px] ml-auto">{items.length}</Badge>
                     </div>
                     <div className="space-y-4">
                       {sortedItems.map((c, i) => {
@@ -572,7 +570,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                   <div className="flex items-center gap-2 mb-3">
                     <AlertCircle className="h-4 w-4 text-primary" />
                     <h4 className="text-sm font-bold text-foreground uppercase tracking-wide">Points bloquants</h4>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{guideCoach.points_bloquants_pipeline.length}</Badge>
                   </div>
                   <div className="space-y-4">
                     {guideCoach.points_bloquants_pipeline.map((p: any, i: number) => (
@@ -592,7 +589,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                   <div className="flex items-center gap-2 mb-3">
                     <Clock className="h-4 w-4 text-primary" />
                     <h4 className="text-sm font-bold text-foreground uppercase tracking-wide">Actions recommandées</h4>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{guideCoach.actions_coach_semaine.length}</Badge>
                   </div>
                   <div className="space-y-3">
                     {guideCoach.actions_coach_semaine.map((a: any, i: number) => (
@@ -610,7 +606,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                   <div className="flex items-center gap-2 mb-3">
                     <FileText className="h-4 w-4 text-primary" />
                     <h4 className="text-sm font-bold text-foreground uppercase tracking-wide">Documents à demander</h4>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{guideCoach.documents_a_demander.length}</Badge>
                   </div>
                   <div className="space-y-3">
                     {guideCoach.documents_a_demander.map((d: any, i: number) => (
@@ -631,7 +626,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                   <div className="flex items-center gap-2 mb-3">
                     <MessageSquare className="h-4 w-4 text-primary" />
                     <h4 className="text-sm font-bold text-foreground uppercase tracking-wide">Questions à poser</h4>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{guideCoach.questions_entrepreneur.length}</Badge>
                   </div>
                   <div className="space-y-2">
                     {guideCoach.questions_entrepreneur.map((q: string, i: number) => (
@@ -648,7 +642,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="h-4 w-4 text-primary" />
                     <h4 className="text-sm font-bold text-foreground uppercase tracking-wide">Axes d'accompagnement</h4>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{guideCoach.axes_coaching.length}</Badge>
                   </div>
                   <div className="space-y-4">
                     {guideCoach.axes_coaching.map((axe: any, i: number) => (
@@ -674,7 +667,6 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
                   <div className="flex items-center gap-2 mb-3">
                     <AlertTriangle className="h-4 w-4 text-primary" />
                     <h4 className="text-sm font-bold text-foreground uppercase tracking-wide">Alertes</h4>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{guideCoach.alertes_coach.length}</Badge>
                   </div>
                   <ul className="space-y-2">
                     {guideCoach.alertes_coach.map((a: string, i: number) => (

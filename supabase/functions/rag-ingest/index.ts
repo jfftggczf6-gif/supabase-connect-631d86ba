@@ -66,23 +66,25 @@ function chunkText(text: string, targetCharsPerChunk = 2000, overlapChars = 200)
   return chunks;
 }
 
-async function generateEmbedding(text: string, openaiKey: string): Promise<number[] | null> {
+// Voyage AI embeddings — voyage-3 (1024 dim), optimisé RAG multilingue (FR excellent)
+async function generateEmbedding(text: string, voyageKey: string, inputType: 'document' | 'query' = 'document'): Promise<number[] | null> {
   try {
-    const resp = await fetch("https://api.openai.com/v1/embeddings", {
+    const resp = await fetch("https://api.voyageai.com/v1/embeddings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
+        "Authorization": `Bearer ${voyageKey}`,
       },
       body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: text.slice(0, 8000),  // OpenAI limit
+        input: text.slice(0, 32000),  // Voyage limit: 32K tokens
+        model: "voyage-3",
+        input_type: inputType,  // 'document' pour ingestion, 'query' pour recherche
       }),
       signal: AbortSignal.timeout(30_000),
     });
     if (!resp.ok) {
       const err = await resp.text();
-      console.error(`[embedding] OpenAI error ${resp.status}: ${err.slice(0, 200)}`);
+      console.error(`[embedding] Voyage error ${resp.status}: ${err.slice(0, 200)}`);
       return null;
     }
     const data = await resp.json();
@@ -91,6 +93,64 @@ async function generateEmbedding(text: string, openaiKey: string): Promise<numbe
     console.error(`[embedding] Exception:`, e.message);
     return null;
   }
+}
+
+// Voyage supporte les batchs — plus efficace que 1 appel/chunk
+// Voyage renvoie data[] indexé par `index` (pas forcément dans l'ordre des inputs)
+async function generateEmbeddingsBatch(texts: string[], voyageKey: string): Promise<(number[] | null)[]> {
+  try {
+    const resp = await fetch("https://api.voyageai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${voyageKey}`,
+      },
+      body: JSON.stringify({
+        input: texts.map(t => t.slice(0, 32000)),
+        model: "voyage-3",
+        input_type: "document",
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      console.error(`[embedding-batch] Voyage error ${resp.status} (${texts.length} items): ${err.slice(0, 300)}`);
+      return texts.map(() => null);
+    }
+    const data = await resp.json();
+    const items: any[] = data.data || [];
+    console.log(`[embedding-batch] Voyage returned ${items.length}/${texts.length} embeddings`);
+    // Reconstruire dans l'ordre d'origine via `index`
+    const out: (number[] | null)[] = texts.map(() => null);
+    for (const item of items) {
+      const idx = typeof item.index === "number" ? item.index : -1;
+      if (idx >= 0 && idx < out.length && Array.isArray(item.embedding)) {
+        out[idx] = item.embedding;
+      }
+    }
+    return out;
+  } catch (e: any) {
+    console.error(`[embedding-batch] Exception:`, e.message);
+    return texts.map(() => null);
+  }
+}
+
+// Retry individuel pour les items qui ont échoué en batch
+async function retryFailedEmbeddings(
+  texts: string[],
+  embeddings: (number[] | null)[],
+  voyageKey: string,
+): Promise<(number[] | null)[]> {
+  const out = [...embeddings];
+  for (let i = 0; i < out.length; i++) {
+    if (out[i] === null) {
+      console.log(`[embedding-retry] Retrying index ${i} individually`);
+      out[i] = await generateEmbedding(texts[i], voyageKey, "document");
+      // Petite pause pour éviter le rate-limit
+      await new Promise(r => setTimeout(r, 150));
+    }
+  }
+  return out;
 }
 
 serve(async (req) => {
@@ -102,8 +162,8 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiKey) return jsonRes({ error: "OPENAI_API_KEY non configurée" }, 500);
+    const voyageKey = Deno.env.get("VOYAGE_API_KEY");
+    if (!voyageKey) return jsonRes({ error: "VOYAGE_API_KEY non configurée" }, 500);
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -161,36 +221,46 @@ serve(async (req) => {
     const chunks = chunkText(doc.content);
     if (chunks.length === 0) return jsonRes({ skipped: true, reason: "aucun chunk produit" });
 
-    // 4. Générer les embeddings + insert en batch
+    // 4. Générer les embeddings par batch (Voyage: max 128 inputs/call)
     const inserts: any[] = [];
     let embedSuccess = 0;
     let embedFail = 0;
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      const embedding = await generateEmbedding(chunk, openaiKey);
+    const BATCH_SIZE = 64;  // Conservative pour rester dans les limites Voyage
+    for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+      const batch = chunks.slice(batchStart, batchStart + BATCH_SIZE);
+      let embeddings = await generateEmbeddingsBatch(batch, voyageKey);
 
-      if (embedding) {
-        embedSuccess++;
-      } else {
-        embedFail++;
+      // Retry per-item pour les nulls (batch peut échouer silencieusement)
+      if (embeddings.some(e => e === null)) {
+        embeddings = await retryFailedEmbeddings(batch, embeddings, voyageKey);
       }
 
-      inserts.push({
-        kb_entry_id: kb_entry_id || null,
-        org_entry_id: org_entry_id || null,
-        chunk_index: i,
-        content: chunk,
-        token_count: Math.ceil(chunk.length / 4),  // approximation
-        title: doc.title,
-        source: doc.source,
-        country: doc.country,
-        sector: doc.sector,
-        category: doc.category,
-        source_url: doc.metadata?.source_url || null,
-        publication_date: doc.metadata?.publication_date || null,
-        embedding,
-      });
+      for (let i = 0; i < batch.length; i++) {
+        const embedding = embeddings[i];
+        if (embedding) embedSuccess++;
+        else {
+          embedFail++;
+          console.error(`[rag-ingest] Chunk ${batchStart + i} has no embedding after retry — skipping insert`);
+          continue;  // Ne pas insérer un chunk sans embedding (inutile pour vector search)
+        }
+
+        inserts.push({
+          kb_entry_id: kb_entry_id || null,
+          org_entry_id: org_entry_id || null,
+          chunk_index: batchStart + i,
+          content: batch[i],
+          token_count: Math.ceil(batch[i].length / 4),
+          title: doc.title,
+          source: doc.source,
+          country: doc.country,
+          sector: doc.sector,
+          category: doc.category,
+          source_url: doc.metadata?.source_url || null,
+          publication_date: doc.metadata?.publication_date || null,
+          embedding,
+        });
+      }
     }
 
     // Insert par batch de 10

@@ -869,6 +869,80 @@ ${rdvs.length ? `\nDERNIERS RDV :\n${rdvs.join('\n')}` : ''}
   }
 }
 
+// ===== RAG v2: Voyage AI semantic search via knowledge_chunks =====
+async function generateQueryEmbeddingVoyage(text: string): Promise<number[] | null> {
+  try {
+    const voyageKey = Deno.env.get("VOYAGE_API_KEY");
+    if (!voyageKey) return null;
+    const resp = await fetch("https://api.voyageai.com/v1/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${voyageKey}` },
+      body: JSON.stringify({
+        input: text.slice(0, 32000),
+        model: "voyage-3",
+        input_type: "query",
+      }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!resp.ok) {
+      console.warn("[rag-voyage]", resp.status, (await resp.text()).slice(0, 200));
+      return null;
+    }
+    const data = await resp.json();
+    return data.data?.[0]?.embedding || null;
+  } catch (e: any) {
+    console.warn("[rag-voyage] exception", e.message);
+    return null;
+  }
+}
+
+// Queries construites à partir du type d'agent pour cibler les chunks les plus utiles
+const AGENT_RAG_QUERIES: Record<string, string> = {
+  pre_screening: "benchmarks financiers, critères d'investissement, marge EBITDA, conditions de financement PME",
+  screening_report: "screening approfondi PME, benchmarks sectoriels, risques investissement, capital risque",
+  business_plan: "plan d'affaires, structure, projections financières, marché, concurrence, hypothèses",
+  bmc: "business model canvas, proposition de valeur, segments clients, partenaires, ressources clés",
+  sic: "secteur, industrie, concurrence, analyse marché, tendances Afrique",
+  valuation: "valorisation, multiples EBITDA, multiples CA, comparables, transactions M&A, prime risque pays",
+  odd: "objectifs développement durable, impact ESG, social, environnement, IRIS+",
+  inputs: "états financiers, SYSCOHADA, hypothèses, comptabilité PME, structure bilan",
+  diagnostic: "diagnostic financier, forces faiblesses, ratios PME, risques",
+  framework: "financement PME, levées de fonds, bailleurs, Proparco, IFC, AFD",
+  plan_ovo: "plan financier prévisionnel, budget, projections, PME",
+  plan_financier: "plan financier prévisionnel, budget, projections, CAPEX, BFR, trésorerie",
+};
+
+async function ragSearchChunks(
+  supabase: any,
+  pays: string,
+  secteur: string,
+  agentType: string,
+  matchCount = 8,
+): Promise<any[]> {
+  try {
+    const agentQuery = AGENT_RAG_QUERIES[agentType] || AGENT_RAG_QUERIES.pre_screening;
+    const queryText = `PME ${secteur || "entreprise"} en ${pays || "Afrique"} — ${agentQuery}`;
+    const emb = await generateQueryEmbeddingVoyage(queryText);
+    if (!emb) return [];
+    const { data: chunks, error } = await supabase.rpc("search_knowledge_chunks", {
+      query_embedding: emb,
+      match_threshold: 0.3,
+      match_count: matchCount,
+      filter_country: null,
+      filter_sector: null,
+      filter_organization_id: null,
+    });
+    if (error) {
+      console.warn("[rag-search] rpc error", error.message);
+      return [];
+    }
+    return chunks || [];
+  } catch (e: any) {
+    console.warn("[rag-search] exception", e.message);
+    return [];
+  }
+}
+
 // ===== KNOWLEDGE FOR AGENT (4-layer KB retrieval) =====
 export async function getKnowledgeForAgent(
   supabase: any,
@@ -941,13 +1015,34 @@ export async function getKnowledgeForAgent(
       .eq('pays', paysKey)
       .maybeSingle();
 
-    // 8. Ressources documentaires (couche 2 — knowledge_base : rapports AVCA, UNCTAD, IFC, etc.)
-    //    Récupère les rapports pertinents pour le pays/secteur de l'entreprise
-    const { data: kbDocs } = await supabase
-      .from('knowledge_base')
-      .select('id, title, content, category, sector, country, source, metadata')
-      .or(`country.eq.${pays},country.eq.Afrique,country.eq.Monde`)
-      .limit(15);
+    // 8. Ressources documentaires — Phase 2 RAG (recherche vectorielle Voyage → knowledge_chunks)
+    //    Fallback sur l'ancien filtre country/limit si Voyage absent, rate-limit, ou base vide
+    let kbDocs: any[] = [];
+    const ragChunks = await ragSearchChunks(supabase, pays, secteur, agentType, 8);
+    if (ragChunks.length > 0) {
+      // Mapper vers le shape attendu par buildKnowledgePrompt (metadata.source_url, metadata.publication_date)
+      kbDocs = ragChunks.map((c: any) => ({
+        title: c.title,
+        content: c.content,
+        source: c.source,
+        country: c.country,
+        sector: c.sector,
+        category: c.category,
+        metadata: {
+          source_url: c.source_url,
+          publication_date: c.publication_date,
+          similarity: c.similarity,
+        },
+      }));
+    } else {
+      // Fallback legacy : simple filtre country
+      const { data: legacyDocs } = await supabase
+        .from('knowledge_base')
+        .select('id, title, content, category, sector, country, source, metadata')
+        .or(`country.eq.${pays},country.eq.Afrique,country.eq.Monde`)
+        .limit(15);
+      kbDocs = legacyDocs || [];
+    }
 
     return buildKnowledgePrompt({
       benchmarks: benchmarks?.[0] || null,
@@ -956,7 +1051,7 @@ export async function getKnowledgeForAgent(
       riskFactors: riskFactors || [],
       workspaceData,
       orgKnowledge,
-      kbDocs: kbDocs || [],
+      kbDocs,
       aggBenchmarks: aggBenchmarks?.nb_entreprises >= 10 ? aggBenchmarks : null,
       agentType,
     });
