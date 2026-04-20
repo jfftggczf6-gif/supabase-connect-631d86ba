@@ -1,256 +1,570 @@
-import { Link } from 'react-router-dom';
-import LanguageToggle from "@/components/LanguageToggle";
+import { useEffect, useState } from 'react';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import {
-  Loader2, LogIn, ArrowRight, ArrowDown,
-  Upload, Sparkles, ClipboardCheck,
-  FileSearch, LayoutGrid, BarChart3, Target, TrendingUp, FileText,
-  CheckCircle2, Shield, Lock, Eye
+  Loader2, ArrowRight, Shield, Globe2, Database, FileCheck2,
+  Target, FileText, TrendingUp, Zap, ScrollText, BarChart3,
+  Upload, Sparkles, CheckCircle2, XCircle, Quote,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Palette (rappel du brief) — appliquée via arbitrary Tailwind values pour éviter
+// toute rupture avec le reste du design system de l'app (app.esono.io).
+//   canvas  #FAFAF7   surface #FFFFFF
+//   brand-600 #4F3A6F  brand-700 #3D2B57  brand-50 #F6F4F9
+//   accent-500 #C9A96E  accent-600 #B08F52
+//   ink-900 #1A1625  ink-700 #3D3651  ink-500 #6B6680
+//   border #E8E4EE
+//   success #2F8F5A  danger #B84444
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Segment = 'program' | 'pe';
+
+// ─────────────────── Content (unique source de vérité) ───────────────────────
+const CONTENT = {
+  nav: {
+    links: [
+      { label: 'Produit', href: '#solution' },
+      { label: 'Sécurité', href: '#security' },
+      { label: 'Tarifs', href: '#pricing' },
+    ],
+    cta: 'Réserver une démo live',
+  },
+  hero: {
+    eyebrow: "L'infrastructure analytique pour l'Afrique francophone",
+    h1: 'Vos analyses financières PME en heures, pas en semaines.',
+    subheadline:
+      "ESONO automatise l'analyse de vos entreprises en produisant diagnostic, scoring, investment memo, business plan, reporting, via des agents IA spécialisés.",
+  },
+  switcher: {
+    intro: 'Deux marchés. Un seul moteur. Choisissez votre contexte.',
+    program: {
+      label: 'Opérateur de programme',
+      sublabel: 'Vous accompagnez des cohortes de PME pour le compte de bailleurs.',
+    },
+    pe: {
+      label: 'Fonds Private Equity',
+      sublabel: 'Vous investissez dans des PME africaines via un fonds structuré.',
+    },
+  },
+  problem: {
+    title: "Le problème n'est pas le talent. C'est le système.",
+    program: {
+      sub: "Vous traitez beaucoup de dossiers avec peu d'outils. Ça ne tient plus.",
+      cards: [
+        { icon: BarChart3, title: 'Volume ingérable', body: 'Vos cohortes plafonnent à 40 ou 50 PME. Vos coaches sont saturés à 2 ou 3 entreprises chacun. Impossible de scaler.' },
+        { icon: ScrollText, title: 'Chaos des formats', body: "Candidatures en PDF, Excel mal formés, WhatsApp. Vos équipes reformatent avant même d'analyser." },
+        { icon: FileText, title: 'Pression du reporting', body: "CSRD, IRIS+, 2X Criteria. Vos bailleurs exigent l'aligné. Vous le produisez à la main, les nuits et les week-ends." },
+      ],
+      quote: { text: "Ce n'est pas un problème de talent. C'est un problème de système, d'outils et de données.", author: 'Program Manager, opérateur bailleur, Abidjan' },
+    },
+    pe: {
+      sub: '2 mois de pre-screening par deal. Vous ne tenez pas le rythme de déploiement.',
+      cards: [
+        { icon: TrendingUp, title: 'Déploiement trop lent', body: "100 homme mois par an juste pour filtrer 50 deals sérieux. Le fonds vieillit avant que le dernier deal ne soit signé." },
+        { icon: BarChart3, title: 'Diète Excel permanente', body: "Vos analystes font du retraitement comptable toute la journée, avant même de commencer l'analyse." },
+        { icon: Target, title: 'Turnover junior', body: "Vous formez, ils partent en master ou chez un concurrent. La connaissance repart à zéro à chaque cycle." },
+      ],
+      quote: { text: "80 % des dossiers qui arrivent sont mal structurés. On passe notre temps à retraiter avant d'analyser.", author: 'Analyste, fonds PE mid-market francophone' },
+    },
+  },
+  solution: {
+    title: "La couche analytique que vos équipes n'ont jamais eue.",
+    sub: "Un moteur d'agents IA spécialisés. Brandé à votre identité. Pensé pour les exigences de l'Afrique francophone.",
+    program: [
+      { icon: Target, title: 'Scorez et sélectionnez objectivement', body: 'Chaque candidature notée sur 6 dimensions : solidité financière, gouvernance, potentiel, impact, qualité des données. Décisions de comité assumées, défendables auprès du bailleur.' },
+      { icon: FileText, title: 'Livrables homogènes, brandés à votre identité', body: '11 livrables standards générés automatiquement : BMC, SIC, Plan Financier, Business Plan, ODD, Investment Memo. Export Word, Excel, PDF selon vos templates.' },
+      { icon: BarChart3, title: 'Reporting bailleur en temps réel', body: "CSRD, IRIS+, 2X Criteria natifs. Exportez le reporting de cohorte en un clic, aligné sur les exigences siège d'Enabel, GIZ, AFD, BAD." },
+    ],
+    pe: [
+      { icon: Zap, title: '10× votre pipeline de pre-screening', body: "Uploadez un deal, obtenez en 30 minutes un diagnostic complet, un scoring à 6 dimensions, et les red flags SYSCOHADA détectés. Vos analystes se concentrent sur l'arbitrage." },
+      { icon: FileText, title: 'Investment Memo en living document', body: "12 sections versionnées, de la pre-screening au comité IC. Enrichissement continu au fil de la diligence. Plus de copier-coller Word, plus de perte d'historique." },
+      { icon: TrendingUp, title: 'Monitoring PnL vs Business Plan', body: "Suivi post-investissement automatisé, alertes sur les écarts, reporting LP prêt à l'export. Vos participations restent sous contrôle sans que vos analystes y passent leurs semaines." },
+    ],
+  },
+  how: {
+    title: 'Trois étapes. La méthode ESONO.',
+    sub: "Ingérer, Analyser, Livrer. Un parcours simple, conçu pour s'insérer dans votre workflow existant.",
+    program: [
+      { n: 1, icon: Upload, title: 'Ingérer', body: "Formulaire de candidature public brandé à votre organisation. Les entrepreneurs uploadent leurs documents. ESONO extrait, structure et valide automatiquement." },
+      { n: 2, icon: Sparkles, title: 'Analyser', body: "Scoring automatique à 6 dimensions, détection des red flags SYSCOHADA, diagnostic initial. Vous voyez en un clic qui mérite l'accompagnement." },
+      { n: 3, icon: FileCheck2, title: 'Livrer', body: "Vos coaches passent au stratégique. BMC, Business Plan, Investment Memo, reporting d'impact générés à votre charte, prêts à envoyer au bailleur." },
+    ],
+    pe: [
+      { n: 1, icon: Upload, title: 'Ingérer', body: "Uploadez les documents du deal : pitch deck, états financiers, data room. ESONO extrait et valide les données SYSCOHADA, identifie les incohérences." },
+      { n: 2, icon: Sparkles, title: 'Analyser', body: '34 agents IA spécialisés produisent diagnostic, scoring 6D, valuation DCF et pré-screening en moins de 30 minutes. Tout est traçable, sourcé, auditable.' },
+      { n: 3, icon: FileCheck2, title: 'Livrer', body: "Vous éditez le living document à mesure que la diligence avance. Export IC Paper au format de votre fonds en un clic. Décision au comité, sans friction." },
+    ],
+  },
+  proof: {
+    title: 'Plus de 30 entreprises analysées en 2 mois.',
+    testimonials: [
+      { text: '80 % des dossiers qui arrivent sont mal structurés. ESONO fait le retraitement que mes analystes feraient en 3 jours, en 30 minutes.', author: 'Analyste, fonds PE mid-market francophone, Abidjan' },
+      { text: "On ne savait pas qu'un outil comme ça pouvait exister. La démo sur notre propre dossier a tout débloqué.", author: 'Program Manager, opérateur bailleur, UEMOA' },
+    ],
+  },
+  security: {
+    title: 'Conçu pour les exigences institutionnelles.',
+    sub: "SYSCOHADA, RGPD, Row Level Security, souveraineté des données. La conformité n'est pas un add on, c'est la fondation.",
+    pillars: [
+      { icon: Shield, title: 'Isolation multi-tenant', body: "Row Level Security stricte par organisation. Les données d'un client ne peuvent jamais être visibles par un autre, par construction." },
+      { icon: Globe2, title: 'RGPD natif', body: "Traitement conforme, consentements explicites, droit à l'oubli opérationnel. Vos PME et leurs dirigeants restent maîtres de leurs données." },
+      { icon: Database, title: 'SYSCOHADA natif', body: 'Plan comptable, calculs, conventions et ratios alignés sur le référentiel OHADA. Zéro transposition, zéro approximation.' },
+      { icon: FileCheck2, title: 'Traçabilité IA', body: 'Chaîne de traitement IA documentée et auditable. Chaque livrable est sourcé. Prêt à être présenté à vos LPs ou à votre bailleur.' },
+    ],
+    callout: {
+      title: "L'IA propose. L'humain décide.",
+      body: "ESONO industrialise la collecte, l'extraction et la première analyse. Vos équipes gardent le jugement métier, la relation client et la décision finale. C'est une couche analytique, pas un remplacement d'analyste.",
+    },
+  },
+  contrast: {
+    title: 'Deux trajectoires. À vous de choisir.',
+    sub: 'Ce que ça change concrètement, au quotidien.',
+    program: [
+      { without: 'Cohortes plafonnées à 40 ou 50 PME', with: '3 à 5× plus de PME accompagnées' },
+      { without: 'Coaches sur la structuration de dossiers', with: "Coaches sur l'accompagnement stratégique" },
+      { without: 'Sélection subjective, difficile à défendre', with: 'Scoring objectif, décisions de comité assumées' },
+      { without: 'Reporting bailleur qui ronge les soirées', with: 'CSRD, IRIS+, 2X exportés en un clic' },
+      { without: "Bailleur frustré par l'impact perçu", with: 'Impact démontré, financement re débloqué' },
+    ],
+    pe: [
+      { without: '2 mois de pre-screening par deal', with: '30 minutes de pre-screening par deal' },
+      { without: 'Analystes sur Excel toute la journée', with: 'Analystes sur les décisions stratégiques' },
+      { without: 'Turnover junior qui efface la connaissance', with: 'Living document qui capitalise en continu' },
+      { without: 'LP reporting manuel, stressant', with: 'LP reporting exporté en un clic' },
+      { without: 'Déploiement qui traîne, IRR sous pression', with: 'Pipeline 10×, IRR protégé, LPs rassurés' },
+    ],
+  },
+  finalCta: {
+    title: 'Voyez ESONO sur votre propre dossier.',
+    sub: '30 minutes. Apportez une candidature récente, un deal en cours, un dossier réel. Repartez avec une démonstration concrète de ce qui change.',
+    microTrust: "Sans engagement. Démo sur votre dossier. Avec l'équipe fondatrice.",
+  },
+  footer: {
+    tagline: "L'infrastructure analytique pour l'Afrique francophone.",
+    columns: [
+      { title: 'Produit', links: [{ label: 'Module Programme', href: '#solution' }, { label: 'Module Private Equity', href: '#solution' }, { label: 'Tarifs', href: '#pricing' }, { label: 'Sécurité & Conformité', href: '#security' }] },
+      { title: 'Ressources', links: [{ label: 'Documentation', href: '#' }, { label: 'Changelog', href: '#' }, { label: 'Status', href: '#' }] },
+      { title: 'Contact', links: [{ label: 'contact@esono.io', href: 'mailto:contact@esono.io' }, { label: 'LinkedIn', href: '#' }, { label: "Abidjan, Côte d'Ivoire", href: '#' }] },
+    ],
+    bottom: '© 2026 ESONO BIS Studio. Tous droits réservés. Mentions légales. Confidentialité.',
+  },
+};
+
+// ───────────────────────────────── UI bits ────────────────────────────────────
+
+function PrimaryCTA({ size = 'lg', href = '#demo', className = '' }: { size?: 'sm' | 'md' | 'lg' | 'xl'; href?: string; className?: string }) {
+  const sizes: Record<string, string> = {
+    sm: 'px-4 py-2 text-xs',
+    md: 'px-5 py-2.5 text-sm',
+    lg: 'px-7 py-3.5 text-base',
+    xl: 'px-10 py-5 text-lg',
+  };
+  return (
+    <a
+      href={href}
+      className={`group inline-flex items-center gap-2 rounded-lg font-medium bg-[#C9A96E] text-white hover:bg-[#B08F52] transition-colors duration-200 shadow-sm hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8A6E3D] ${sizes[size]} ${className}`}
+    >
+      Réserver une démo live
+      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+    </a>
+  );
+}
+
+function BrandPattern() {
+  return (
+    <svg className="absolute inset-0 opacity-[0.05] pointer-events-none" width="100%" height="100%" aria-hidden="true">
+      <defs>
+        <pattern id="esono-pattern" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+          <circle cx="20" cy="20" r="2" fill="currentColor" />
+          <path d="M 20 20 Q 60 0 100 20 T 180 20" stroke="currentColor" strokeWidth="0.5" fill="none" />
+          <circle cx="100" cy="20" r="2" fill="currentColor" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#esono-pattern)" className="text-[#4F3A6F]" />
+    </svg>
+  );
+}
+
+// Placeholder Pipeline Board — utilisé dans le hero
+function HeroMockup() {
+  const cols: { title: string; items: { name: string; sector: string; score: number }[] }[] = [
+    { title: 'Pre-screening', items: [
+      { name: 'Kouassi Agro', sector: 'Agro-industrie', score: 84 },
+      { name: 'Dakar Logistics', sector: 'Logistique', score: 76 },
+    ] },
+    { title: 'Diligence', items: [
+      { name: 'Lomé Pharma', sector: 'Pharma', score: 91 },
+      { name: 'Bouaké Textile', sector: 'Textile', score: 68 },
+    ] },
+    { title: 'IC final', items: [
+      { name: 'Ouaga Tech', sector: 'Tech', score: 82 },
+      { name: 'Abidjan Fintech', sector: 'Fintech', score: 79 },
+    ] },
+  ];
+  return (
+    <div className="relative rounded-2xl border border-[#E8E4EE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden">
+      <div className="flex items-center gap-1.5 border-b border-[#E8E4EE] px-4 py-3 bg-[#F6F4F9]">
+        <div className="h-2.5 w-2.5 rounded-full bg-[#B84444]/40" />
+        <div className="h-2.5 w-2.5 rounded-full bg-[#C8801F]/40" />
+        <div className="h-2.5 w-2.5 rounded-full bg-[#2F8F5A]/40" />
+        <div className="ml-4 flex-1 text-[11px] text-[#6B6680]">app.esono.io · Pipeline · Q2 2026</div>
+      </div>
+      <div className="p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-base font-semibold text-[#3D2B57]">Deals actifs</h3>
+          <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">6 en pipeline</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {cols.map((col, i) => (
+            <div key={i} className="rounded-lg bg-[#F6F4F9] p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-[#3D3651]">{col.title}</span>
+                <span className="text-[11px] text-[#6B6680]">{col.items.length}</span>
+              </div>
+              <div className="space-y-2">
+                {col.items.map((it, j) => (
+                  <div key={j} className="rounded-md bg-white p-2.5 shadow-[0_1px_2px_rgba(61,43,87,0.04)]">
+                    <div className="mb-1 text-[11px] font-medium text-[#1A1625]">{it.name}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-[#6B6680]">{it.sector}</span>
+                      <span className="text-[10px] font-semibold text-[#B08F52]">{it.score}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────────── Page ────────────────────────────────────
 
 export default function Index() {
   const { user, loading } = useAuth();
-  const { t } = useTranslation();
+  const [segment, setSegment] = useState<Segment>('pe');
 
-  const DELIVERABLES = [
-    { icon: FileSearch, title: t('pages.index_deliv_diagnostic_title'), desc: t('pages.index_deliv_diagnostic_desc') },
-    { icon: LayoutGrid, title: t('pages.index_deliv_bmc_title'), desc: t('pages.index_deliv_bmc_desc') },
-    { icon: BarChart3, title: t('pages.index_deliv_plan_title'), desc: t('pages.index_deliv_plan_desc') },
-    { icon: Target, title: t('pages.index_deliv_odd_title'), desc: t('pages.index_deliv_odd_desc') },
-    { icon: TrendingUp, title: t('pages.index_deliv_progress_title'), desc: t('pages.index_deliv_progress_desc') },
-    { icon: FileText, title: t('pages.index_deliv_reports_title'), desc: t('pages.index_deliv_reports_desc') },
-  ];
+  // Persistance du segment + override par query string (?segment=pe|program)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('esono-segment') as Segment | null;
+      if (stored === 'pe' || stored === 'program') setSegment(stored);
+      const qs = new URLSearchParams(window.location.search).get('segment') as Segment | null;
+      if (qs === 'pe' || qs === 'program') setSegment(qs);
+    } catch { /* no-op */ }
+  }, []);
 
-  const STEPS = [
-    {
-      step: '01',
-      icon: Upload,
-      title: t('pages.index_step1_title'),
-      desc: t('pages.index_step1_desc'),
-    },
-    {
-      step: '02',
-      icon: Sparkles,
-      title: t('pages.index_step2_title'),
-      desc: t('pages.index_step2_desc'),
-    },
-    {
-      step: '03',
-      icon: ClipboardCheck,
-      title: t('pages.index_step3_title'),
-      desc: t('pages.index_step3_desc'),
-    },
-  ];
-
-  const TRUST_ITEMS = [
-    {
-      icon: Shield,
-      title: t('pages.index_trust_1_title'),
-      desc: t('pages.index_trust_1_desc'),
-    },
-    {
-      icon: Eye,
-      title: t('pages.index_trust_2_title'),
-      desc: t('pages.index_trust_2_desc'),
-    },
-    {
-      icon: CheckCircle2,
-      title: t('pages.index_trust_3_title'),
-      desc: t('pages.index_trust_3_desc'),
-    },
-    {
-      icon: Lock,
-      title: t('pages.index_trust_4_title'),
-      desc: t('pages.index_trust_4_desc'),
-    },
-  ];
+  const chooseSegment = (s: Segment) => {
+    setSegment(s);
+    try { localStorage.setItem('esono-segment', s); } catch { /* no-op */ }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF7]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#4F3A6F]" />
       </div>
     );
   }
-
   if (user) return <Navigate to="/dashboard" replace />;
 
+  const problem = CONTENT.problem[segment];
+  const solution = CONTENT.solution[segment];
+  const how = CONTENT.how[segment];
+  const contrast = CONTENT.contrast[segment];
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur-sm">
-        <div className="container flex h-14 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-sm font-display font-bold text-primary-foreground">ES</span>
+    <div className="min-h-screen bg-[#FAFAF7] text-[#1A1625] font-sans antialiased">
+      {/* ─────────────── Header ─────────────── */}
+      <header className="sticky top-0 z-50 border-b border-[#E8E4EE] bg-[#FAFAF7]/95 backdrop-blur-sm">
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 sm:px-8 lg:px-12">
+          <a href="#" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-[#3D2B57] flex items-center justify-center">
+              <span className="text-[11px] font-display font-bold text-white">ES</span>
             </div>
-            <span className="text-lg font-display font-bold text-foreground tracking-tight">ESONO</span>
-            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">{t('pages.index_tagline')}</span>
-          </div>
+            <span className="text-lg font-display font-semibold text-[#3D2B57] tracking-tight">ESONO</span>
+          </a>
+          <nav className="hidden md:flex items-center gap-8">
+            {CONTENT.nav.links.map(l => (
+              <a key={l.href} href={l.href} className="text-sm text-[#3D3651] hover:text-[#3D2B57] transition-colors">{l.label}</a>
+            ))}
+            <Link to="/login" className="text-sm text-[#3D3651] hover:text-[#3D2B57] transition-colors">Se connecter</Link>
+          </nav>
           <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <Link to="/login">
-              <Button variant="outline" size="sm" className="gap-2">
-                <LogIn className="h-3.5 w-3.5" /> {t('pages.index_sign_in')}
-              </Button>
-            </Link>
+            <PrimaryCTA size="md" />
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-[hsl(222,47%,11%)] via-[hsl(222,47%,16%)] to-[hsl(222,47%,22%)] text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50" />
-        <div className="container relative py-20 md:py-28">
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-display font-black leading-[1.1] max-w-3xl">
-            {t('pages.index_hero_title_1')}{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[hsl(215,60%,55%)] to-[hsl(152,56%,45%)]">
-              {t('pages.index_hero_title_2')}
-            </span>
-          </h1>
-          <p className="text-base md:text-lg text-white/50 mt-5 max-w-xl leading-relaxed">
-            {t('pages.index_hero_subtitle')}
-          </p>
-          <div className="flex flex-wrap gap-3 mt-8">
-            {[
-              { label: t('pages.index_badge_1') },
-              { label: t('pages.index_badge_2') },
-              { label: t('pages.index_badge_3') },
-            ].map(badge => (
-              <div key={badge.label} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
-                <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(152,56%,45%)]" />
-                <p className="text-xs font-semibold text-white/90">{badge.label}</p>
+      {/* ─────────────── Hero ─────────────── */}
+      <section className="relative overflow-hidden">
+        <BrandPattern />
+        <div className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <p className="text-xs font-medium tracking-widest uppercase text-[#B08F52]">{CONTENT.hero.eyebrow}</p>
+              <h1 className="mt-5 font-display font-semibold text-[#3D2B57] leading-[1.1]" style={{ fontSize: 'clamp(2.25rem, 4.5vw, 3.75rem)' }}>
+                {CONTENT.hero.h1}
+              </h1>
+              <p className="mt-6 text-[17px] leading-relaxed text-[#3D3651] max-w-xl">{CONTENT.hero.subheadline}</p>
+              <div className="mt-9">
+                <PrimaryCTA size="xl" />
               </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-3 mt-8">
-            <Link to="/login">
-              <Button size="lg" className="gap-2 bg-white text-primary hover:bg-white/90 font-bold">
-                {t('pages.index_cta_access')} <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <a href="#comment-ca-marche">
-              <Button size="lg" variant="ghost" className="gap-2 text-white/70 hover:text-white hover:bg-white/10">
-                {t('pages.index_cta_how')} <ArrowDown className="h-4 w-4" />
-              </Button>
-            </a>
+            </div>
+            <div className="lg:pl-6">
+              <HeroMockup />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Comment ca marche */}
-      <section id="comment-ca-marche" className="container py-16 md:py-20">
-        <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t('pages.index_process')}</p>
-          <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">{t('pages.index_how_title')}</h2>
+      {/* ─────────────── Segment switcher ─────────────── */}
+      <section className="border-y border-[#E8E4EE] bg-white">
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-10">
+          <p className="text-center text-sm text-[#6B6680] mb-5">{CONTENT.switcher.intro}</p>
+          <div role="tablist" aria-label="Sélectionner votre segment" className="mx-auto grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-3xl">
+            {(['program', 'pe'] as Segment[]).map(s => {
+              const meta = CONTENT.switcher[s];
+              const active = segment === s;
+              return (
+                <button
+                  key={s}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => chooseSegment(s)}
+                  className={`rounded-xl border p-5 text-left transition-all ${active ? 'border-[#4F3A6F] bg-[#F6F4F9] shadow-sm' : 'border-[#E8E4EE] bg-white hover:border-[#B29FC9]'}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full border-2 ${active ? 'border-[#4F3A6F] bg-[#4F3A6F]' : 'border-[#B8B5C4] bg-white'}`} />
+                    <div>
+                      <div className={`font-display font-semibold ${active ? 'text-[#3D2B57]' : 'text-[#3D3651]'}`}>{meta.label}</div>
+                      <div className="mt-1 text-sm text-[#6B6680]">{meta.sublabel}</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {STEPS.map(s => {
+      </section>
+
+      {/* ─────────────── 3 · Problème ─────────────── */}
+      <section className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
+        <div className="text-center max-w-3xl mx-auto">
+          <h2 className="font-display font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.problem.title}</h2>
+          <p className="mt-4 text-[#3D3651] text-lg">{problem.sub}</p>
+        </div>
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
+          {problem.cards.map((c, i) => {
+            const Icon = c.icon;
+            return (
+              <div key={i} className="rounded-xl bg-white border border-[#E8E4EE] p-6 shadow-[0_1px_2px_rgba(61,43,87,0.04),0_2px_8px_rgba(61,43,87,0.04)] hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
+                <div className="h-11 w-11 rounded-xl bg-[#F6F4F9] flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-[#4F3A6F]" />
+                </div>
+                <h3 className="mt-4 font-display font-semibold text-[#1A1625] text-lg">{c.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{c.body}</p>
+              </div>
+            );
+          })}
+        </div>
+        <blockquote className="mt-10 rounded-xl bg-[#F6F4F9] p-8 max-w-4xl mx-auto">
+          <Quote className="h-6 w-6 text-[#B29FC9] mb-3" />
+          <p className="font-display text-xl italic text-[#3D2B57]">« {problem.quote.text} »</p>
+          <footer className="mt-3 text-sm text-[#6B6680]">— {problem.quote.author}</footer>
+        </blockquote>
+      </section>
+
+      {/* ─────────────── 4 · Solution ─────────────── */}
+      <section id="solution" className="bg-white border-y border-[#E8E4EE]">
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
+          <div className="text-center max-w-3xl mx-auto">
+            <h2 className="font-display font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.solution.title}</h2>
+            <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.solution.sub}</p>
+          </div>
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {solution.map((c, i) => {
+              const Icon = c.icon;
+              return (
+                <div key={i} className="rounded-xl bg-[#FAFAF7] border border-[#E8E4EE] p-6 hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
+                  <div className="h-11 w-11 rounded-xl bg-[#3D2B57] flex items-center justify-center">
+                    <Icon className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="mt-4 font-display font-semibold text-[#1A1625] text-lg">{c.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{c.body}</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-12 text-center">
+            <PrimaryCTA size="lg" />
+          </div>
+        </div>
+      </section>
+
+      {/* ─────────────── 5 · Comment ça marche ─────────────── */}
+      <section className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
+        <div className="text-center max-w-3xl mx-auto">
+          <h2 className="font-display font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.how.title}</h2>
+          <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.how.sub}</p>
+        </div>
+        <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {how.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={s.step} className="relative bg-card rounded-xl border p-6 hover:shadow-md transition-shadow">
-                <span className="text-4xl font-display font-black text-muted/60 absolute top-4 right-4">{s.step}</span>
-                <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <Icon className="h-5 w-5 text-primary" />
+              <div key={i} className="relative rounded-xl bg-white border border-[#E8E4EE] p-6">
+                <span className="absolute top-5 right-5 text-5xl font-display font-semibold text-[#F6F4F9]">{s.n}</span>
+                <div className="h-11 w-11 rounded-xl bg-[#F6F4F9] flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-[#4F3A6F]" />
                 </div>
-                <h3 className="text-base font-display font-bold text-foreground pr-10">{s.title}</h3>
-                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{s.desc}</p>
+                <h3 className="mt-4 font-display font-semibold text-[#1A1625] text-lg">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#3D3651] relative z-10">{s.body}</p>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* Ce que l'IA produit pour le coach */}
-      <section className="bg-card border-y">
-        <div className="container py-16 md:py-20">
-          <div className="text-center mb-12">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t('pages.index_deliverables_label')}</p>
-            <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">{t('pages.index_deliverables_title')}</h2>
+      {/* ─────────────── 6 · Preuve ─────────────── */}
+      <section className="bg-[#3D2B57] text-white relative overflow-hidden">
+        <BrandPattern />
+        <div className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
+          <div className="text-center">
+            <h2 className="font-display font-semibold" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.proof.title}</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
-            {DELIVERABLES.map(d => {
-              const Icon = d.icon;
-              return (
-                <div key={d.title} className="bg-background rounded-xl border p-5 hover:shadow-md hover:border-primary/20 transition-all group">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
-                    <Icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <h4 className="text-sm font-display font-bold text-foreground">{d.title}</h4>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{d.desc}</p>
+          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {CONTENT.proof.testimonials.map((t, i) => (
+              <figure key={i} className="rounded-xl bg-white/5 border border-white/10 p-7 backdrop-blur-sm">
+                <Quote className="h-6 w-6 text-[#C9A96E] mb-3" />
+                <blockquote className="font-display text-lg leading-relaxed text-white/90">« {t.text} »</blockquote>
+                <figcaption className="mt-4 text-sm text-white/60">— {t.author}</figcaption>
+              </figure>
+            ))}
+          </div>
+          <div className="mt-12 text-center">
+            <PrimaryCTA size="lg" />
+          </div>
+        </div>
+      </section>
+
+      {/* ─────────────── 7 · Sécurité ─────────────── */}
+      <section id="security" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
+        <div className="text-center max-w-3xl mx-auto">
+          <h2 className="font-display font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.security.title}</h2>
+          <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.security.sub}</p>
+        </div>
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {CONTENT.security.pillars.map((p, i) => {
+            const Icon = p.icon;
+            return (
+              <div key={i} className="rounded-xl bg-white border border-[#E8E4EE] p-6">
+                <div className="h-10 w-10 rounded-lg bg-[#F6F4F9] flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-[#4F3A6F]" />
                 </div>
-              );
-            })}
-          </div>
+                <h3 className="mt-4 font-display font-semibold text-[#1A1625]">{p.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{p.body}</p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-10 rounded-xl bg-[#F6F4F9] border border-[#E8E4EE] p-8 max-w-4xl mx-auto text-center">
+          <h3 className="font-display font-semibold text-[#3D2B57] text-2xl">{CONTENT.security.callout.title}</h3>
+          <p className="mt-3 text-[#3D3651] leading-relaxed">{CONTENT.security.callout.body}</p>
         </div>
       </section>
 
-      {/* Donnees fiables */}
-      <section className="container py-16 md:py-20">
-        <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t('pages.index_reliability_label')}</p>
-          <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground">{t('pages.index_reliability_title')}</h2>
-          <p className="text-sm text-muted-foreground mt-3 max-w-xl mx-auto">
-            {t('pages.index_reliability_subtitle')}
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
-          {[
-            { title: t('pages.index_reliability_1_title'), desc: t('pages.index_reliability_1_desc') },
-            { title: t('pages.index_reliability_2_title'), desc: t('pages.index_reliability_2_desc') },
-            { title: t('pages.index_reliability_3_title'), desc: t('pages.index_reliability_3_desc') },
-            { title: t('pages.index_reliability_4_title'), desc: t('pages.index_reliability_4_desc') },
-          ].map(item => (
-            <div key={item.title} className="bg-card rounded-xl border p-5 hover:shadow-md transition-shadow">
-              <h4 className="text-sm font-display font-bold text-foreground">{item.title}</h4>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{item.desc}</p>
+      {/* ─────────────── 8 · Contraste ─────────────── */}
+      <section className="bg-white border-y border-[#E8E4EE]">
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
+          <div className="text-center max-w-3xl mx-auto">
+            <h2 className="font-display font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.contrast.title}</h2>
+            <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.contrast.sub}</p>
+          </div>
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto">
+            <div className="rounded-xl border border-[#E8E4EE] bg-[#FAFAF7] p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <XCircle className="h-5 w-5 text-[#B84444]" />
+                <h3 className="font-display font-semibold text-[#3D2B57]">Sans ESONO</h3>
+              </div>
+              <ul className="space-y-3">
+                {contrast.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-[#3D3651]">
+                    <span className="mt-1.5 h-1 w-1 rounded-full bg-[#B84444] shrink-0" />
+                    <span>{r.without}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
+            <div className="rounded-xl border border-[#4F3A6F]/20 bg-[#F6F4F9] p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <CheckCircle2 className="h-5 w-5 text-[#2F8F5A]" />
+                <h3 className="font-display font-semibold text-[#3D2B57]">Avec ESONO</h3>
+              </div>
+              <ul className="space-y-3">
+                {contrast.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-[#1A1625] font-medium">
+                    <span className="mt-1.5 h-1 w-1 rounded-full bg-[#2F8F5A] shrink-0" />
+                    <span>{r.with}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Vos donnees sont protegees */}
-      <section className="bg-gradient-to-r from-[hsl(222,47%,14%)] to-[hsl(222,47%,20%)] text-white">
-        <div className="container py-16 md:py-20">
-          <div className="max-w-4xl mx-auto text-center mb-10">
-            <Shield className="h-10 w-10 text-[hsl(152,56%,45%)] mx-auto mb-4" />
-            <h2 className="text-2xl md:text-3xl font-display font-bold">{t('pages.index_trust_title')}</h2>
+      {/* ─────────────── 9 · CTA final ─────────────── */}
+      <section id="demo" className="relative overflow-hidden">
+        <BrandPattern />
+        <div className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-24">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="font-display font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)' }}>{CONTENT.finalCta.title}</h2>
+            <p className="mt-5 text-lg text-[#3D3651] leading-relaxed">{CONTENT.finalCta.sub}</p>
+            <div className="mt-9">
+              <PrimaryCTA size="xl" />
+            </div>
+            <p className="mt-5 text-sm text-[#6B6680]">{CONTENT.finalCta.microTrust}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
-            {TRUST_ITEMS.map(item => {
-              const Icon = item.icon;
-              return (
-                <div key={item.title} className="bg-white/5 border border-white/10 rounded-xl p-5">
-                  <div className="h-9 w-9 rounded-lg bg-white/10 flex items-center justify-center mb-3">
-                    <Icon className="h-4.5 w-4.5 text-[hsl(152,56%,45%)]" />
-                  </div>
-                  <h4 className="text-sm font-display font-bold text-white/90">{item.title}</h4>
-                  <p className="text-xs text-white/40 mt-2 leading-relaxed">{item.desc}</p>
+        </div>
+      </section>
+
+      {/* ─────────────── Footer ─────────────── */}
+      <footer className="bg-[#1E1529] text-white/80">
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-14">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-8 w-8 rounded-lg bg-[#C9A96E] flex items-center justify-center">
+                  <span className="text-[11px] font-display font-bold text-[#3D2B57]">ES</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t bg-card">
-        <div className="container py-8 flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded bg-primary flex items-center justify-center">
-              <span className="text-[8px] font-display font-bold text-primary-foreground">ES</span>
+                <span className="text-lg font-display font-semibold text-white">ESONO</span>
+              </div>
+              <p className="text-sm text-white/60 leading-relaxed">{CONTENT.footer.tagline}</p>
             </div>
-            <span className="font-display font-bold text-foreground">ESONO</span>
-            <span className="hidden sm:inline">— {t('pages.index_footer_tagline')}</span>
+            {CONTENT.footer.columns.map(col => (
+              <div key={col.title}>
+                <h4 className="text-sm font-semibold text-white mb-3">{col.title}</h4>
+                <ul className="space-y-2">
+                  {col.links.map(l => (
+                    <li key={l.label}>
+                      <a href={l.href} className="text-sm text-white/60 hover:text-white transition-colors">{l.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <Link to="/login" className="text-primary hover:underline font-medium">
-            {t('pages.index_sign_in')}
-          </Link>
+          <div className="mt-12 pt-6 border-t border-white/10 text-xs text-white/40">{CONTENT.footer.bottom}</div>
         </div>
       </footer>
+
+      {/* ─────────────── Sticky mobile CTA ─────────────── */}
+      <div className="md:hidden fixed bottom-4 inset-x-4 z-40">
+        <PrimaryCTA size="md" className="w-full justify-center shadow-[0_8px_24px_rgba(61,43,87,0.25)]" />
+      </div>
     </div>
   );
 }
