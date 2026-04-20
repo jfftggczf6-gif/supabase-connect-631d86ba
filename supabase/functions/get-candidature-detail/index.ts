@@ -32,11 +32,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Check role
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+    // Check role (legacy + org)
+    const [{ data: roleData }, { data: orgMem }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("organization_members").select("role, organization_id").eq("user_id", user.id).eq("is_active", true).limit(1).maybeSingle(),
+    ]);
+    const orgRole = orgMem?.role;
+    const userOrgId = orgMem?.organization_id;
     const isAdmin = roleData?.role === "super_admin";
-    const isChef = roleData?.role === "chef_programme";
-    const isCoach = roleData?.role === "coach";
+    const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    const isChef = roleData?.role === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
+    const isCoach = roleData?.role === "coach" || orgRole === "coach" || orgRole === "analyst";
     if (!isAdmin && !isChef && !isCoach) return jsonRes({ error: "Accès refusé" }, 403);
 
     const body = await req.json();
@@ -55,13 +61,18 @@ serve(async (req) => {
     // Get programme with criteria
     const { data: programme } = await supabase
       .from("programmes")
-      .select("id, name, organization, country_filter, sector_filter, criteria_id, chef_programme_id, programme_criteria:criteria_id(*)")
+      .select("id, name, organization, organization_id, country_filter, sector_filter, criteria_id, chef_programme_id, programme_criteria:criteria_id(*)")
       .eq("id", candidature.programme_id)
       .single();
 
-    // Check access
-    if (isChef && programme?.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
-    if (isCoach && candidature.assigned_coach_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+    // Check access: super_admin OU owner/admin dans l'org OU chef_programme du programme OU coach assigné
+    if (!isAdmin) {
+      const canAccess =
+        (isOwnerOrAdmin && programme?.organization_id === userOrgId) ||
+        (isChef && programme?.chef_programme_id === user.id) ||
+        (isCoach && candidature.assigned_coach_id === user.id);
+      if (!canAccess) return jsonRes({ error: "Accès refusé" }, 403);
+    }
 
     // Get coach info if assigned
     let coach = null;

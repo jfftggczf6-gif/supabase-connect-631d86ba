@@ -89,10 +89,14 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Check role
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+    // Check role (legacy + org)
+    const [{ data: roleData }, { data: orgMem }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("organization_members").select("role").eq("user_id", user.id).eq("is_active", true).limit(1).maybeSingle(),
+    ]);
+    const orgRole = orgMem?.role;
     const isAdmin = roleData?.role === "super_admin";
-    const isChef = roleData?.role === "chef_programme";
+    const isChef = roleData?.role === "chef_programme" || orgRole === "owner" || orgRole === "admin" || orgRole === "manager";
     if (!isAdmin && !isChef) return errorResponse("Accès refusé", 403);
 
     const body = await req.json();

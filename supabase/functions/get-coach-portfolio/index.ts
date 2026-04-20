@@ -30,10 +30,16 @@ serve(async (req) => {
     if (userErr || !user) return jsonRes({ error: "Non autorisé" }, 401);
 
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+    const [{ data: roleData }, { data: orgMem }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("organization_members").select("role, organization_id").eq("user_id", user.id).eq("is_active", true).limit(1).maybeSingle(),
+    ]);
+    const orgRole = orgMem?.role;
+    const userOrgId = orgMem?.organization_id;
     const isAdmin = roleData?.role === "super_admin";
-    const isChef = roleData?.role === "chef_programme";
-    const isCoach = roleData?.role === "coach";
+    const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    const isChef = roleData?.role === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
+    const isCoach = roleData?.role === "coach" || orgRole === "coach" || orgRole === "analyst";
 
     if (!isAdmin && !isChef && !isCoach) return jsonRes({ error: "Accès refusé" }, 403);
 
@@ -44,10 +50,11 @@ serve(async (req) => {
     if (!targetCoachId) return jsonRes({ error: "coach_id requis" }, 400);
 
     // Permission check
-    if (isCoach && targetCoachId !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
-    if (isChef) {
-      const { data: prog } = await supabase.from("programmes").select("chef_programme_id").eq("id", programme_id).single();
-      if (!prog || prog.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+    if (isCoach && !isChef && targetCoachId !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+    if (!isAdmin && isChef) {
+      const { data: prog } = await supabase.from("programmes").select("chef_programme_id, organization_id").eq("id", programme_id).single();
+      const canAccess = (isOwnerOrAdmin && prog?.organization_id === userOrgId) || prog?.chef_programme_id === user.id;
+      if (!prog || !canAccess) return jsonRes({ error: "Accès refusé" }, 403);
     }
 
     // Get coach profile

@@ -22,7 +22,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
-  const showProgrammes = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
+  const showProgrammes = isSuperAdmin || ['owner', 'admin', 'manager', 'coach', 'analyst'].includes(orgRole || '') || role === 'chef_programme' || role === 'coach';
   const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;
   const canManageMembers = ['owner', 'admin', 'manager'].includes(orgRole || '') || isSuperAdmin;
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');

@@ -33,17 +33,19 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Get user role
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // Get user role (legacy + org)
+    const [{ data: roleData }, { data: orgMem }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("organization_members").select("role, organization_id").eq("user_id", user.id).eq("is_active", true).limit(1).maybeSingle(),
+    ]);
 
     const userRole = roleData?.role;
+    const orgRole = orgMem?.role;
+    const userOrgId = orgMem?.organization_id;
     const isAdmin = userRole === "super_admin";
-    const isChefProg = userRole === "chef_programme";
-    const isCoach = userRole === "coach";
+    const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    const isChefProg = userRole === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
+    const isCoach = userRole === "coach" || orgRole === "coach" || orgRole === "analyst";
 
     if (!isAdmin && !isChefProg && !isCoach) return jsonRes({ error: "Accès refusé" }, 403);
 
@@ -52,14 +54,18 @@ serve(async (req) => {
 
     if (!programme_id) return jsonRes({ error: "programme_id requis" }, 400);
 
-    // Check programme access for chef_programme
-    if (isChefProg) {
+    // Check programme access: super_admin OU owner/admin dans l'org OU chef_programme du programme
+    if (!isAdmin) {
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id")
+        .select("chef_programme_id, organization_id")
         .eq("id", programme_id)
         .single();
-      if (!prog || prog.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+      if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
+      const canAccess = (isOwnerOrAdmin && prog.organization_id === userOrgId) ||
+                        (isChefProg && prog.chef_programme_id === user.id) ||
+                        isCoach; // coach check is done below via assigned_coach_id filter
+      if (!canAccess) return jsonRes({ error: "Accès refusé" }, 403);
     }
 
     // Build query

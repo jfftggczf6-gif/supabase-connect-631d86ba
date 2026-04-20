@@ -62,9 +62,15 @@ serve(async (req) => {
     if (userErr || !user) return jsonRes({ error: "Non autorisé" }, 401);
 
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+    const [{ data: roleData }, { data: orgMem }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("organization_members").select("role, organization_id").eq("user_id", user.id).eq("is_active", true).limit(1).maybeSingle(),
+    ]);
+    const orgRole = orgMem?.role;
+    const userOrgId = orgMem?.organization_id;
     const isAdmin = roleData?.role === "super_admin";
-    const isChef = roleData?.role === "chef_programme";
+    const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    const isChef = roleData?.role === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
     if (!isAdmin && !isChef) return jsonRes({ error: "Accès refusé" }, 403);
 
     const { programme_id } = await req.json();
@@ -73,7 +79,9 @@ serve(async (req) => {
     // Get programme
     const { data: programme } = await supabase.from("programmes").select("*").eq("id", programme_id).single();
     if (!programme) return jsonRes({ error: "Programme non trouvé" }, 404);
-    if (isChef && programme.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+    // Accès: super_admin OU owner/admin dans la même org OU chef_programme du programme
+    const canAccess = isAdmin || (isOwnerOrAdmin && programme.organization_id === userOrgId) || (isChef && programme.chef_programme_id === user.id);
+    if (!canAccess) return jsonRes({ error: "Accès refusé" }, 403);
 
     // Get selected candidatures → enterprise_ids
     const { data: candidatures } = await supabase
