@@ -1,14 +1,8 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /programmes
+Disallow: /login
+
+Sitemap: https://esono.tech/sitemap.xml
