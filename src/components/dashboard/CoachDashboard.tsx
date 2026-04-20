@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from './DashboardLayout';
 import EntrepreneurDashboard from './EntrepreneurDashboard';
@@ -50,6 +51,7 @@ type DetailTab = 'mirror' | 'coaching' | 'knowledge';
 export default function CoachDashboard() {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
+  const { currentOrg } = useOrganization();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const entIdFromUrl = searchParams.get('ent');
@@ -280,6 +282,11 @@ export default function CoachDashboard() {
 
       // Step 2: If no existing enterprise found, create a new coach-owned lead
       if (!linked) {
+        if (!currentOrg?.id) {
+          toast.error('Aucune organisation active. Contacte un administrateur.');
+          setAddLoading(false);
+          return;
+        }
         const { data: newEnt, error } = await supabase.from('enterprises').insert({
           name: addForm.name.trim(),
           contact_email: addForm.contact_email || null,
@@ -287,9 +294,10 @@ export default function CoachDashboard() {
           sector: addForm.sector || null,
           coach_id: user.id,
           user_id: user.id,
+          organization_id: currentOrg.id,
           phase: 'identite',
           score_ir: 0,
-        }).select('id').single();
+        } as any).select('id').single();
 
         if (error) throw error;
 
@@ -298,9 +306,10 @@ export default function CoachDashboard() {
           await supabase.from('enterprise_coaches').insert({
             enterprise_id: newEnt.id,
             coach_id: user.id,
+            organization_id: currentOrg.id,
             role: 'lead',
             assigned_by: user.id,
-          });
+          } as any);
         }
         toast.success(t('dashboard_coach.added_success', { name: addForm.name }));
       }

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ export default function EntrepreneurDashboard({
   onGeneratingChange,
 }: EntrepreneurDashboardProps = {}) {
   const { user, profile, session: authSession, signOut } = useAuth();
+  const { currentOrg } = useOrganization();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [initialLoading, setInitialLoading] = useState(true);
@@ -659,6 +661,10 @@ export default function EntrepreneurDashboard({
 
   const createEnterprise = async () => {
     if (!user || !newName.trim()) return;
+    if (!currentOrg?.id) {
+      toast.error('Aucune organisation active.');
+      return;
+    }
     setCreating(true);
     try {
       const { data, error } = await supabase
@@ -669,11 +675,16 @@ export default function EntrepreneurDashboard({
           legal_form: newLegalForm.trim() || null, description: newDescription.trim() || null,
           contact_email: profile?.email || user?.email || null,
           contact_name: profile?.full_name || null,
-        })
+          organization_id: currentOrg.id,
+        } as any)
         .select().single();
       if (error) throw error;
-      const moduleInserts = MODULE_CONFIG.map(m => ({ enterprise_id: data.id, module: m.code }));
-      await supabase.from('enterprise_modules').insert(moduleInserts);
+      const moduleInserts = MODULE_CONFIG.map(m => ({
+        enterprise_id: data.id,
+        module: m.code,
+        organization_id: currentOrg.id,
+      }));
+      await supabase.from('enterprise_modules').insert(moduleInserts as any);
       toast.success('Entreprise créée !');
       setShowCreate(false);
       setNewName('');
