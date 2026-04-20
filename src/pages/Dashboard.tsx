@@ -42,6 +42,11 @@ export default function Dashboard() {
   if (!user) return <Navigate to="/login" replace />;
   if (!authRole) return <Navigate to="/select-role" replace />;
 
+  // Debug (aide à diagnostiquer les mauvaises redirections)
+  if (typeof window !== 'undefined') {
+    console.log('[Dashboard] Routing decision:', { authRole, orgRole, currentOrg: currentOrg?.name, isSuperAdmin });
+  }
+
   // Super admin → god mode (SuperAdminDashboard)
   if (isSuperAdmin && authRole === 'super_admin') {
     return <SuperAdminDashboard />;
