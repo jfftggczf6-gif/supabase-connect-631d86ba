@@ -36,11 +36,15 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
       <LanguageToggle className="absolute top-4 right-4" />
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Logo — cliquable, retour à la landing */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">
+          <Link
+            to="/"
+            aria-label="Retour à l'accueil ESONO"
+            className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4 hover:opacity-90 transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
             <span className="text-lg font-display font-bold text-primary-foreground">ES</span>
-          </div>
+          </Link>
           <h1 className="text-2xl font-display font-bold text-foreground">{t('auth.welcome_back')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {t('auth.login_subtitle')}
