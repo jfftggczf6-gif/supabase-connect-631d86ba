@@ -86,17 +86,20 @@ serve(async (req) => {
       nb_entreprises: { value: ents.length, unit: "entreprises", category: "gouvernance" },
     };
 
-    // ODD detail
+    // ODD detail — hardening: skip any non-object entries to avoid `val.nom` throwing
     const oddParCount: Record<string, { nom: string; nb_entreprises: Set<string>; cibles_positives: number }> = {};
     for (const e of ents) {
       const odd = getDeliv(e.id, "odd_analysis");
-      const resume = odd?.evaluation_cibles_odd?.resume_par_odd || {};
-      for (const [key, val] of Object.entries(resume) as any[]) {
-        const num = key.replace("odd_", "");
-        if (!oddParCount[num]) oddParCount[num] = { nom: val.nom || `ODD ${num}`, nb_entreprises: new Set(), cibles_positives: 0 };
-        if (val.cibles_positives > 0) {
+      const resume = odd?.evaluation_cibles_odd?.resume_par_odd;
+      if (!resume || typeof resume !== "object") continue;
+      for (const [key, rawVal] of Object.entries(resume)) {
+        if (!rawVal || typeof rawVal !== "object") continue;
+        const val = rawVal as Record<string, any>;
+        const num = String(key).replace("odd_", "");
+        if (!oddParCount[num]) oddParCount[num] = { nom: String(val.nom || `ODD ${num}`), nb_entreprises: new Set(), cibles_positives: 0 };
+        if (Number(val.cibles_positives) > 0) {
           oddParCount[num].nb_entreprises.add(e.id);
-          oddParCount[num].cibles_positives += val.cibles_positives;
+          oddParCount[num].cibles_positives += Number(val.cibles_positives);
         }
       }
     }

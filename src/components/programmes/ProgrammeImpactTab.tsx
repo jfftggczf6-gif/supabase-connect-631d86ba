@@ -39,10 +39,27 @@ export default function ProgrammeImpactTab({ programmeId }: Props) {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: res, error } = await supabase.functions.invoke('get-programme-impact', { body: { programme_id: programmeId } });
-    if (error) toast.error(error.message);
-    else setData(res?.impact);
-    setLoading(false);
+    try {
+      const { data: res, error } = await supabase.functions.invoke('get-programme-impact', { body: { programme_id: programmeId } });
+      if (error) {
+        // L'API Fetch (navigateur) renvoie "Load failed" pour les erreurs réseau/CORS/timeout.
+        // On surface le contexte (ProgrammeImpactTab) + on log l'erreur complète pour debug.
+        console.error('[ProgrammeImpactTab] get-programme-impact error:', error);
+        const msg = error.message === 'Load failed'
+          ? "Impossible de charger l'impact (vérifiez votre connexion ou réessayez)"
+          : `Erreur impact : ${error.message}`;
+        toast.error(msg);
+        setData(null);
+      } else {
+        setData(res?.impact);
+      }
+    } catch (e: any) {
+      console.error('[ProgrammeImpactTab] unexpected error:', e);
+      toast.error(`Erreur impact : ${e.message || 'inconnue'}`);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, [programmeId]);
