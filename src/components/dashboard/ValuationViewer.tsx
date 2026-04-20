@@ -183,7 +183,7 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: 'Risk-Free Rate', val: wacc.risk_free_rate },
-                { label: 'ERP Afrique', val: wacc.equity_risk_premium_africa },
+                { label: 'Prime risque actions (ERP)', val: wacc.equity_risk_premium },
                 { label: 'Prime Taille', val: wacc.size_premium },
                 { label: 'Prime Illiquidité', val: wacc.illiquidity_premium },
                 { label: 'Cost of Equity', val: wacc.cost_of_equity },

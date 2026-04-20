@@ -54,10 +54,27 @@ serve(async (req) => {
       cashflows: valInputs.cashflows_projetes.length,
       pays: valInputs.pays,
       secteur: valInputs.secteur,
+      gouvernance: valInputs.has_gouvernance_formelle,
+      audit: valInputs.has_audit_externe,
     });
 
-    // 3. CALCUL DÉTERMINISTE
-    const calcResult = computeValuation(valInputs);
+    // 2bis. Récupérer les paramètres risque pays (Damodaran) depuis knowledge_risk_params
+    //       — évite de tomber sur les constantes hardcodées UEMOA/CEMAC si on a des valeurs à jour
+    const paysKey = (ent.country || "").toLowerCase().replace(/[\s'']/g, '_').replace(/côte_d_ivoire|cote_divoire/i, 'cote_d_ivoire');
+    const { data: riskParamsDB } = await ctx.supabase
+      .from('knowledge_risk_params')
+      .select('risk_free_rate, equity_risk_premium, country_risk_premium, size_premium_micro, size_premium_small, size_premium_medium, illiquidity_premium_min, illiquidity_premium_max, cost_of_debt, tax_rate')
+      .eq('pays', paysKey)
+      .maybeSingle();
+
+    if (riskParamsDB) {
+      console.log("[valuation] Risk params from DB:", { rf: riskParamsDB.risk_free_rate, erp: riskParamsDB.equity_risk_premium, crp: riskParamsDB.country_risk_premium });
+    } else {
+      console.log("[valuation] No risk_params in DB for", paysKey, "→ fallback sur constantes par zone");
+    }
+
+    // 3. CALCUL DÉTERMINISTE (utilise DB params si dispo, sinon fallback zone)
+    const calcResult = computeValuation(valInputs, riskParamsDB);
 
     console.log("[valuation] Calculated:", {
       dcf_equity: calcResult.dcf.equity_value,

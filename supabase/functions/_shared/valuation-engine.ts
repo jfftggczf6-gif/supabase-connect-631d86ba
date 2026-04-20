@@ -98,14 +98,26 @@ interface SyntheseResult {
 }
 
 // ═══════════════════════════════════════════════════════
-// PARAMÈTRES PAR ZONE GÉOGRAPHIQUE
+// PARAMÈTRES PAR ZONE GÉOGRAPHIQUE (fallback si knowledge_risk_params indispo)
 // ═══════════════════════════════════════════════════════
 
-const WACC_PARAMS: Record<string, { risk_free: number; erp_min: number; erp_max: number; size_min: number; size_max: number; illiq_min: number; illiq_max: number }> = {
-  uemoa:       { risk_free: 3.0, erp_min: 8,  erp_max: 10, size_min: 3, size_max: 5, illiq_min: 2, illiq_max: 4 },
-  cemac:       { risk_free: 3.0, erp_min: 9,  erp_max: 12, size_min: 3, size_max: 5, illiq_min: 3, illiq_max: 5 },
-  rdc:         { risk_free: 3.0, erp_min: 12, erp_max: 15, size_min: 4, size_max: 6, illiq_min: 4, illiq_max: 6 },
-  east_africa: { risk_free: 3.0, erp_min: 7,  erp_max: 9,  size_min: 3, size_max: 4, illiq_min: 2, illiq_max: 3 },
+export interface WaccZoneParams {
+  risk_free: number;
+  erp_min: number;
+  erp_max: number;
+  size_min: number;
+  size_max: number;
+  illiq_min: number;
+  illiq_max: number;
+  cost_of_debt: number;
+  tax_rate: number;
+}
+
+const WACC_PARAMS: Record<string, WaccZoneParams> = {
+  uemoa:       { risk_free: 3.0, erp_min: 8,  erp_max: 10, size_min: 3, size_max: 5, illiq_min: 2, illiq_max: 4, cost_of_debt: 8.0,  tax_rate: 0.25 },
+  cemac:       { risk_free: 3.0, erp_min: 9,  erp_max: 12, size_min: 3, size_max: 5, illiq_min: 3, illiq_max: 5, cost_of_debt: 10.0, tax_rate: 0.30 },
+  rdc:         { risk_free: 3.0, erp_min: 12, erp_max: 15, size_min: 4, size_max: 6, illiq_min: 4, illiq_max: 6, cost_of_debt: 14.0, tax_rate: 0.30 },
+  east_africa: { risk_free: 3.0, erp_min: 7,  erp_max: 9,  size_min: 3, size_max: 4, illiq_min: 2, illiq_max: 3, cost_of_debt: 9.0,  tax_rate: 0.30 },
 };
 
 const COUNTRY_TO_ZONE: Record<string, string> = {
@@ -149,9 +161,41 @@ function getSectorMultiples(secteur: string): { ebitda: [number, number]; ca: [n
   return SECTOR_MULTIPLES[key] || SECTOR_MULTIPLES['services_b2b'];
 }
 
-function computeWACC(inputs: ValuationInputs): DCFResult['wacc_detail'] & { wacc: number } {
+/**
+ * Construit les paramètres WACC — priorité à knowledge_risk_params (DB) si fourni,
+ * sinon fallback sur les constantes par zone UEMOA/CEMAC/RDC/East Africa.
+ */
+function resolveWaccParams(inputs: ValuationInputs, riskParamsDB?: any): WaccZoneParams {
   const zone = getZone(inputs.pays);
-  const params = WACC_PARAMS[zone] || WACC_PARAMS.uemoa;
+  const fallback = WACC_PARAMS[zone] || WACC_PARAMS.uemoa;
+  if (!riskParamsDB) return fallback;
+
+  // knowledge_risk_params stocke les valeurs finales (pas min/max) — on les encadre ±1pt
+  const rf = Number(riskParamsDB.risk_free_rate);
+  const erp = Number(riskParamsDB.equity_risk_premium);
+  const crp = Number(riskParamsDB.country_risk_premium ?? 0);
+  const sizePMicro = Number(riskParamsDB.size_premium_micro);
+  const sizePMedium = Number(riskParamsDB.size_premium_medium);
+  const illiqMin = Number(riskParamsDB.illiquidity_premium_min);
+  const illiqMax = Number(riskParamsDB.illiquidity_premium_max);
+  const cod = Number(riskParamsDB.cost_of_debt);
+  const tax = Number(riskParamsDB.tax_rate);
+
+  return {
+    risk_free: Number.isFinite(rf) ? rf : fallback.risk_free,
+    erp_min: Number.isFinite(erp) ? erp + crp - 1 : fallback.erp_min,
+    erp_max: Number.isFinite(erp) ? erp + crp + 1 : fallback.erp_max,
+    size_min: Number.isFinite(sizePMedium) ? sizePMedium : fallback.size_min,
+    size_max: Number.isFinite(sizePMicro) ? sizePMicro : fallback.size_max,
+    illiq_min: Number.isFinite(illiqMin) ? illiqMin : fallback.illiq_min,
+    illiq_max: Number.isFinite(illiqMax) ? illiqMax : fallback.illiq_max,
+    cost_of_debt: Number.isFinite(cod) ? cod : fallback.cost_of_debt,
+    tax_rate: Number.isFinite(tax) ? tax / 100 : fallback.tax_rate,
+  };
+}
+
+function computeWACC(inputs: ValuationInputs, riskParamsDB?: any): DCFResult['wacc_detail'] & { wacc: number } {
+  const params = resolveWaccParams(inputs, riskParamsDB);
 
   const sizeP = inputs.ca_dernier_exercice < 200_000_000
     ? params.size_max
@@ -163,14 +207,17 @@ function computeWACC(inputs: ValuationInputs): DCFResult['wacc_detail'] & { wacc
   const illiq = (params.illiq_min + params.illiq_max) / 2;
   const costOfEquity = params.risk_free + erp + sizeP + illiq;
 
-  const costOfDebt = zone === 'uemoa' ? 8.0 : zone === 'cemac' ? 10.0 : zone === 'rdc' ? 14.0 : 9.0;
-
-  const totalCapital = (inputs.dette_financiere || 0) + Math.max(inputs.ca_dernier_exercice * 0.5, 1);
+  // Poids D/E : si pas d'EV pré-calculée, proxy par equity basée sur résultat_net × multiple sectoriel médian
+  // Ça donne une estimation plus proche de la réalité qu'un arbitraire CA × 0.5
+  const sectorMult = getSectorMultiples(inputs.secteur);
+  const equityProxy = inputs.resultat_net > 0
+    ? inputs.resultat_net * ((sectorMult.ebitda[0] + sectorMult.ebitda[1]) / 2)
+    : Math.max(inputs.ca_dernier_exercice * 0.5, 1);
+  const totalCapital = (inputs.dette_financiere || 0) + equityProxy;
   const debtWeight = totalCapital > 0 ? (inputs.dette_financiere || 0) / totalCapital : 0.2;
   const equityWeight = 1 - debtWeight;
 
-  const taxRate = zone === 'uemoa' ? 0.25 : 0.30;
-  const wacc = equityWeight * costOfEquity + debtWeight * costOfDebt * (1 - taxRate);
+  const wacc = equityWeight * costOfEquity + debtWeight * params.cost_of_debt * (1 - params.tax_rate);
   const finalWacc = Math.max(wacc, 14);
 
   return {
@@ -179,7 +226,7 @@ function computeWACC(inputs: ValuationInputs): DCFResult['wacc_detail'] & { wacc
     size_premium: sizeP,
     illiquidity_premium: illiq,
     cost_of_equity: Math.round(costOfEquity * 10) / 10,
-    cost_of_debt: costOfDebt,
+    cost_of_debt: params.cost_of_debt,
     debt_weight: Math.round(debtWeight * 100) / 100,
     equity_weight: Math.round(equityWeight * 100) / 100,
     wacc: Math.round(finalWacc * 10) / 10,
@@ -196,8 +243,8 @@ function estimateFCFs(inputs: ValuationInputs): number[] {
   );
 }
 
-function computeDCF(inputs: ValuationInputs): DCFResult {
-  const waccResult = computeWACC(inputs);
+function computeDCF(inputs: ValuationInputs, riskParamsDB?: any): DCFResult {
+  const waccResult = computeWACC(inputs, riskParamsDB);
   const wacc = waccResult.wacc / 100;
 
   const fcfs = inputs.cashflows_projetes.length >= 5
@@ -378,8 +425,8 @@ function computeSynthese(dcf: DCFResult, multiples: MultiplesResult, decotes: De
 // FONCTION PRINCIPALE — EXPORT
 // ═══════════════════════════════════════════════════════
 
-export function computeValuation(inputs: ValuationInputs): ValuationResult {
-  const dcf = computeDCF(inputs);
+export function computeValuation(inputs: ValuationInputs, riskParamsDB?: any): ValuationResult {
+  const dcf = computeDCF(inputs, riskParamsDB);
   const multiples = computeMultiples(inputs);
   const decotes = computeDecotesPrimes(inputs);
   const synthese = computeSynthese(dcf, multiples, decotes);
@@ -438,6 +485,32 @@ export function extractValuationInputs(
     ca,
   ];
 
+  // Détection heuristique de la gouvernance et de l'audit externe
+  // Priorité 1 : info explicite dans les livrables (framework / inputs / enterprise)
+  // Priorité 2 : proxies (forme juridique SA = conseil d'administration obligatoire, effectifs > 50)
+  // Priorité 3 : par défaut true (bénéfice du doute — on ne pénalise pas sans preuve)
+  const formeJur = (enterprise?.legal_form || 'SARL').toString().toUpperCase();
+  const effectifs = Number(enterprise?.employees_count || 0);
+
+  const explicitAudit =
+    inputs?.metadata?.audit_externe ??
+    framework?.gouvernance?.audit_externe ??
+    framework?.audit_externe ??
+    enterprise?.has_audit_externe ??
+    null;
+
+  const explicitGouv =
+    inputs?.metadata?.gouvernance_formelle ??
+    framework?.gouvernance?.conseil_administration ??
+    framework?.gouvernance_formelle ??
+    enterprise?.has_gouvernance_formelle ??
+    null;
+
+  // SA/SAS = gouvernance formelle obligatoire (conseil d'administration)
+  const isSA = /^(SA|SAS)$/.test(formeJur);
+  const hasAuditExterne = explicitAudit !== null ? !!explicitAudit : (isSA && effectifs >= 50);
+  const hasGouvernanceFormelle = explicitGouv !== null ? !!explicitGouv : (isSA || effectifs >= 50);
+
   return {
     ca_dernier_exercice: ca,
     ebitda_dernier_exercice: ebitda,
@@ -450,9 +523,9 @@ export function extractValuationInputs(
     pays: enterprise?.country || '',
     secteur: enterprise?.sector || 'services_b2b',
     ca_historique_3ans: caHist,
-    effectifs: enterprise?.employees_count || 0,
-    has_audit_externe: false,
-    has_gouvernance_formelle: false,
+    effectifs,
+    has_audit_externe: hasAuditExterne,
+    has_gouvernance_formelle: hasGouvernanceFormelle,
     forme_juridique: enterprise?.legal_form || 'SARL',
   };
 }
