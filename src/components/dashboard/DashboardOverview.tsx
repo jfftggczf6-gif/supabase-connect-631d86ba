@@ -89,24 +89,8 @@ export default function DashboardOverview({ enterprise, deliverables, modules, g
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      {/* Score hero */}
-      <div className="flex items-center gap-6">
-        <div className="relative h-28 w-28 flex-none">
-          <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-            <circle
-              cx="60" cy="60" r="52" fill="none"
-              stroke={globalScore >= 60 ? 'hsl(var(--success))' : globalScore >= 40 ? 'hsl(45, 93%, 47%)' : 'hsl(var(--muted-foreground))'}
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={`${(globalScore / 100) * 327} 327`}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-2xl font-display font-bold ${scoreColor}`}>{globalScore || '—'}</span>
-            <span className="text-[10px] text-muted-foreground">/100</span>
-          </div>
-        </div>
+      {/* Header entreprise (score retiré sur demande) */}
+      <div className="flex items-center gap-4">
         <div>
           <h2 className="font-display font-bold text-xl">{enterprise.name}</h2>
           <p className="text-sm text-muted-foreground">{enterprise.sector || '—'} · {enterprise.country || '—'}</p>
