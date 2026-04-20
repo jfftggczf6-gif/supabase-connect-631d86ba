@@ -263,49 +263,77 @@ function IllustrationLivrer() {
 }
 const STEP_ILLUSTRATIONS = [IllustrationIngerer, IllustrationAnalyser, IllustrationLivrer];
 
-// Placeholder Investment Memo — utilisé dans la section Solution pour ancrer visuellement
-function DashboardMockup() {
-  const memoSections = [
-    { n: 1, title: 'Synthèse exécutive', status: 'done' },
-    { n: 2, title: 'Thèse d\'investissement', status: 'done' },
-    { n: 3, title: 'Marché & positionnement', status: 'done' },
-    { n: 4, title: 'Business model', status: 'done' },
-    { n: 5, title: 'Équipe & gouvernance', status: 'done' },
-    { n: 6, title: 'États financiers SYSCOHADA', status: 'progress' },
-    { n: 7, title: 'Projections 5 ans', status: 'progress' },
-    { n: 8, title: 'Valorisation DCF & multiples', status: 'progress' },
-    { n: 9, title: 'Structuration du deal', status: 'empty' },
-    { n: 10, title: 'Risques & mitigation', status: 'empty' },
-    { n: 11, title: 'Conditions suspensives', status: 'empty' },
-    { n: 12, title: 'Plan post-investissement', status: 'empty' },
-  ];
+// Placeholder Investment Memo / Livrables — adapte le contenu selon le segment sélectionné
+function DashboardMockup({ segment }: { segment: Segment }) {
+  const peData = {
+    toolbar: 'app.esono.io · Investment Memo · Kouassi Agro',
+    subtitle: "Série A · Côte d'Ivoire · Agro-industrie",
+    scoreLabel: 'Score 84',
+    statut: 'En diligence',
+    counts: { done: 5, progress: 3, empty: 4 },
+    rows: [
+      { n: 1, title: 'Synthèse exécutive', status: 'done' },
+      { n: 2, title: "Thèse d'investissement", status: 'done' },
+      { n: 3, title: 'Marché & positionnement', status: 'done' },
+      { n: 4, title: 'Business model', status: 'done' },
+      { n: 5, title: 'Équipe & gouvernance', status: 'done' },
+      { n: 6, title: 'États financiers SYSCOHADA', status: 'progress' },
+      { n: 7, title: 'Projections 5 ans', status: 'progress' },
+      { n: 8, title: 'Valorisation DCF & multiples', status: 'progress' },
+      { n: 9, title: 'Structuration du deal', status: 'empty' },
+      { n: 10, title: 'Risques & mitigation', status: 'empty' },
+      { n: 11, title: 'Conditions suspensives', status: 'empty' },
+      { n: 12, title: 'Plan post-investissement', status: 'empty' },
+    ],
+  };
+  const programData = {
+    toolbar: 'app.esono.io · Livrables · Kouassi Agro',
+    subtitle: "Cohorte Q2-26 · Côte d'Ivoire · Agro-industrie",
+    scoreLabel: 'Score IR 78',
+    statut: 'En accompagnement',
+    counts: { done: 4, progress: 3, empty: 4 },
+    rows: [
+      { n: 1, title: 'Pre-screening', status: 'done' },
+      { n: 2, title: 'Business Model Canvas', status: 'done' },
+      { n: 3, title: 'Stratégie & impact (SIC)', status: 'done' },
+      { n: 4, title: 'Inputs financiers', status: 'done' },
+      { n: 5, title: 'Plan financier 5 ans', status: 'progress' },
+      { n: 6, title: 'Business Plan', status: 'progress' },
+      { n: 7, title: 'Due Diligence ODD', status: 'progress' },
+      { n: 8, title: 'Valorisation', status: 'empty' },
+      { n: 9, title: 'One-pager bailleur', status: 'empty' },
+      { n: 10, title: 'Investment Memo', status: 'empty' },
+      { n: 11, title: 'Rapport de cohorte', status: 'empty' },
+    ],
+  };
+  const data = segment === 'program' ? programData : peData;
   const dotColor = (s: string) => s === 'done' ? 'bg-[#2F8F5A]' : s === 'progress' ? 'bg-[#4F7FC8]' : 'bg-[#B8B5C4]';
   return (
-    <div className="relative rounded-2xl border border-[#E8E4EE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden">
+    <div key={`dashboard-${segment}`} className="relative rounded-2xl border border-[#E8E4EE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden animate-in fade-in duration-300">
       <div className="flex items-center gap-1.5 border-b border-[#E8E4EE] px-4 py-3 bg-[#F6F4F9]">
         <div className="h-2.5 w-2.5 rounded-full bg-[#B84444]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#C8801F]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#2F8F5A]/40" />
-        <div className="ml-4 flex-1 text-[11px] text-[#6B6680]">app.esono.io · Investment Memo · Kouassi Agro</div>
+        <div className="ml-4 flex-1 text-[11px] text-[#6B6680]">{data.toolbar}</div>
       </div>
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
           <div>
             <h3 className="font-serif text-base font-semibold text-[#3D2B57]">Kouassi Agro Industries</h3>
-            <p className="text-[11px] text-[#6B6680]">Série A · Côte d'Ivoire · Agro-industrie</p>
+            <p className="text-[11px] text-[#6B6680]">{data.subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">Score 84</span>
-            <span className="rounded-full bg-[#F6F4F9] px-3 py-1 text-[11px] font-medium text-[#4F3A6F]">En diligence</span>
+            <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">{data.scoreLabel}</span>
+            <span className="rounded-full bg-[#F6F4F9] px-3 py-1 text-[11px] font-medium text-[#4F3A6F]">{data.statut}</span>
           </div>
         </div>
         <div className="mb-3 flex items-center gap-4 text-[10px] text-[#6B6680] flex-wrap">
-          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2F8F5A]" /> Validé (5)</div>
-          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4F7FC8]" /> En cours (3)</div>
-          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#B8B5C4]" /> À compléter (4)</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2F8F5A]" /> Validé ({data.counts.done})</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4F7FC8]" /> En cours ({data.counts.progress})</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#B8B5C4]" /> À compléter ({data.counts.empty})</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {memoSections.map(s => (
+          {data.rows.map(s => (
             <div key={s.n} className="flex items-center gap-2.5 rounded-md border border-[#E8E4EE] bg-white px-3 py-2">
               <span className={`h-2 w-2 rounded-full flex-none ${dotColor(s.status)}`} />
               <span className="text-[11px] font-medium text-[#3D3651] flex-none w-5">{s.n}.</span>
@@ -532,9 +560,9 @@ export default function Index() {
               );
             })}
           </div>
-          {/* Mockup Investment Memo — ancre visuelle de la section Solution */}
+          {/* Mockup Investment Memo / Livrables — adapte le contenu selon le segment sélectionné */}
           <div className="mt-14 max-w-4xl mx-auto">
-            <DashboardMockup />
+            <DashboardMockup segment={segment} />
           </div>
           <div className="mt-12 text-center">
             <PrimaryCTA size="lg" />
