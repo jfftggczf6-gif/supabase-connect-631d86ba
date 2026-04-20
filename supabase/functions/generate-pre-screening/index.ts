@@ -255,7 +255,16 @@ const PRE_SCREENING_SCHEMA = `{
     "criteres_ko": [{ "critere": "string", "detail": "string", "comment_corriger": "string" }],
     "criteres_partiels": [{ "critere": "string", "detail": "string", "manque": "string" }],
     "recommandation": "string"
-  }
+  },
+
+  "sources_consultees": [
+    {
+      "ref_id": "string — ex REF-1, REF-2 (doit correspondre aux [REF-N] fournis dans la section RESSOURCES DOCUMENTAIRES du prompt)",
+      "titre": "string — titre du rapport",
+      "source": "string — organisme publisher (AVCA, UNCTAD, FMI, IFC, BAD, I&P, etc.)",
+      "usage": "string — très courte description (8-15 mots) de CE QUI a été exploité dans ce rapport pour le diagnostic (ex: 'Benchmarks marges brutes agro-industrie UEMOA', 'Multiples EBITDA sectoriels', 'Contexte macro SSA 2024')"
+    }
+  ]
 }`;
 
 serve(async (req) => {

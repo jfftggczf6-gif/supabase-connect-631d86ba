@@ -926,7 +926,7 @@ export async function getKnowledgeForAgent(
     if (organizationId) {
       const { data: orgDocs } = await supabase
         .from('organization_knowledge')
-        .select('title, content, category, sector, country, source')
+        .select('id, title, content, category, sector, country, source, metadata')
         .eq('organization_id', organizationId)
         .eq('is_active', true)
         .limit(10);
@@ -941,6 +941,14 @@ export async function getKnowledgeForAgent(
       .eq('pays', paysKey)
       .maybeSingle();
 
+    // 8. Ressources documentaires (couche 2 — knowledge_base : rapports AVCA, UNCTAD, IFC, etc.)
+    //    Récupère les rapports pertinents pour le pays/secteur de l'entreprise
+    const { data: kbDocs } = await supabase
+      .from('knowledge_base')
+      .select('id, title, content, category, sector, country, source, metadata')
+      .or(`country.eq.${pays},country.eq.Afrique,country.eq.Monde`)
+      .limit(15);
+
     return buildKnowledgePrompt({
       benchmarks: benchmarks?.[0] || null,
       riskParams: riskParams || null,
@@ -948,6 +956,7 @@ export async function getKnowledgeForAgent(
       riskFactors: riskFactors || [],
       workspaceData,
       orgKnowledge,
+      kbDocs: kbDocs || [],
       aggBenchmarks: aggBenchmarks?.nb_entreprises >= 10 ? aggBenchmarks : null,
       agentType,
     });
@@ -959,7 +968,7 @@ export async function getKnowledgeForAgent(
 
 function buildKnowledgePrompt(ctx: {
   benchmarks: any; riskParams: any; countryData: any;
-  riskFactors: any[]; workspaceData: any; orgKnowledge?: any[]; aggBenchmarks: any; agentType: string;
+  riskFactors: any[]; workspaceData: any; orgKnowledge?: any[]; kbDocs?: any[]; aggBenchmarks: any; agentType: string;
 }): string {
   const parts: string[] = [];
 
@@ -1098,9 +1107,23 @@ EBITDA médiane: ${a.marge_ebitda_mediane}% | CA médiane: ${a.ca_mediane?.toLoc
   // Organization knowledge (Couche 1 — docs privés de l'org client)
   if (ctx.orgKnowledge?.length) {
     const orgLines = ctx.orgKnowledge.slice(0, 5).map((doc: any) =>
-      `[${doc.category}] ${doc.title}${doc.source ? ` (${doc.source})` : ''}\n${doc.content.slice(0, 1000)}`
+      `[${doc.category}] ${doc.title}${doc.source ? ` (${doc.source})` : ''}\n${(doc.content || '').slice(0, 1000)}`
     );
     parts.push(`══ RÉFÉRENCES ORGANISATION (documents privés du client) ══\n${orgLines.join('\n---\n')}`);
+  }
+
+  // Ressources documentaires knowledge_base (rapports AVCA, UNCTAD, IFC, BAD, FMI, etc.)
+  if (ctx.kbDocs?.length) {
+    const kbLines = ctx.kbDocs.slice(0, 10).map((doc: any, i: number) => {
+      const sourceStr = doc.source ? ` — ${doc.source}` : '';
+      const urlStr = doc.metadata?.source_url ? ` | ${doc.metadata.source_url}` : '';
+      const pubDate = doc.metadata?.publication_date ? ` (${doc.metadata.publication_date})` : '';
+      return `[REF-${i + 1}] ${doc.title}${sourceStr}${pubDate}${urlStr}\n${(doc.content || '').slice(0, 800)}`;
+    });
+    parts.push(`══ RESSOURCES DOCUMENTAIRES (knowledge_base, ${ctx.kbDocs.length} sources pertinentes) ══
+Instruction: lorsque tu utilises un chiffre ou une affirmation issue d'une de ces sources, note-la dans 'sources_consultees' (cf. schéma de sortie).
+
+${kbLines.join('\n---\n')}`);
   }
 
   return parts.length ? `\n${parts.join('\n\n')}\n` : '';
