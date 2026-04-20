@@ -26,6 +26,9 @@ export interface ValuationInputs {
   has_audit_externe: boolean;
   has_gouvernance_formelle: boolean;
   forme_juridique: string;
+  // Signale que l'EBITDA utilisé est un proxy (médiane historique ou marge sectorielle),
+  // pas la valeur réelle de l'année courante
+  ebitda_was_proxied?: boolean;
 }
 
 export interface ValuationResult {
@@ -34,9 +37,11 @@ export interface ValuationResult {
   decotes_primes: DecotesPrimes;
   synthese: SyntheseResult;
   metadata: {
-    inputs_quality: string;
+    inputs_quality: 'plan_ovo' | 'estimation' | 'degraded';
     methodes_applicables: string[];
     date_calcul: string;
+    // Signale si on a dû dégrader des inputs (EBITDA médian, exit multiple, etc.) — utile pour l'IA qualitative
+    degradations: string[];
   };
 }
 
@@ -57,6 +62,9 @@ interface DCFResult {
   terminal_growth_rate: number;
   terminal_value: number;
   pv_terminal_value: number;
+  // Méthode utilisée pour calculer le Terminal Value : 'gordon' (Gordon-Shapiro, par défaut)
+  // ou 'exit_multiple' (EV/EBITDA × EBITDA_Y5, en fallback si FCF final ≤ 0)
+  terminal_value_method: 'gordon' | 'exit_multiple';
   enterprise_value: number;
   equity_value: number;
   sensitivity: {
@@ -86,6 +94,9 @@ interface DecotesPrimes {
   decote_gouvernance_pct: number;
   prime_croissance_pct: number;
   ajustement_total_pct: number;
+  // Ajustement réservé au DCF : exclut l'illiquidité (déjà dans le WACC via illiquidity_premium)
+  // pour éviter de la compter deux fois
+  ajustement_dcf_pct: number;
   detail: string[];
 }
 
@@ -259,18 +270,42 @@ function computeDCF(inputs: ValuationInputs, riskParamsDB?: any): DCFResult {
     projections.push({ annee: `Y${i + 1}`, fcf: Math.round(fcfs[i]) });
   }
 
+  // Calcul du Terminal Value :
+  //  - Méthode nominale : Gordon-Shapiro si FCF final > 0
+  //  - Fallback PE-standard : Exit Multiple (EV/EBITDA_médian × EBITDA_Y5) si FCF ≤ 0
+  //    C'est ce que font les fonds PE dans la pratique quand Gordon ne converge pas
   const terminalGrowth = 0.03;
   const lastFCF = fcfs[fcfs.length - 1] || 0;
-  const terminalValue = lastFCF > 0 ? (lastFCF * (1 + terminalGrowth)) / (wacc - terminalGrowth) : 0;
-  const pvTerminalValue = terminalValue / Math.pow(1 + wacc, fcfs.length);
+  const sectorMult = getSectorMultiples(inputs.secteur);
+  const exitMultiple = (sectorMult.ebitda[0] + sectorMult.ebitda[1]) / 2;
+  const lastEbitda = inputs.ebitda_projetes.length >= 5
+    ? inputs.ebitda_projetes[4]
+    : inputs.ebitda_dernier_exercice * Math.pow(1.10, 5); // croissance 10%/an sur 5 ans si pas de projection
 
+  let terminalValue: number;
+  let terminalMethod: 'gordon' | 'exit_multiple';
+  if (lastFCF > 0) {
+    terminalValue = (lastFCF * (1 + terminalGrowth)) / (wacc - terminalGrowth);
+    terminalMethod = 'gordon';
+  } else if (lastEbitda > 0) {
+    terminalValue = lastEbitda * exitMultiple;
+    terminalMethod = 'exit_multiple';
+  } else {
+    terminalValue = 0;
+    terminalMethod = 'gordon';
+  }
+
+  const pvTerminalValue = terminalValue / Math.pow(1 + wacc, fcfs.length);
   const enterpriseValue = pvCashflows + pvTerminalValue;
   const equityValue = enterpriseValue - (inputs.dette_financiere || 0) + (inputs.tresorerie_nette || 0);
 
+  // Helper : recalcule l'EV pour un WACC ou un growth rate donné, avec le même fallback exit multiple
   const computeEVAtWacc = (w: number) => {
     let pv = 0;
     for (let i = 0; i < fcfs.length; i++) pv += fcfs[i] / Math.pow(1 + w, i + 1);
-    const tv = lastFCF > 0 ? (lastFCF * (1 + terminalGrowth)) / (w - terminalGrowth) : 0;
+    const tv = lastFCF > 0
+      ? (lastFCF * (1 + terminalGrowth)) / (w - terminalGrowth)
+      : (lastEbitda > 0 ? lastEbitda * exitMultiple : 0);
     pv += tv / Math.pow(1 + w, fcfs.length);
     return pv - (inputs.dette_financiere || 0) + (inputs.tresorerie_nette || 0);
   };
@@ -278,7 +313,9 @@ function computeDCF(inputs: ValuationInputs, riskParamsDB?: any): DCFResult {
   const computeEVAtGrowth = (g: number) => {
     let pv = 0;
     for (let i = 0; i < fcfs.length; i++) pv += fcfs[i] / Math.pow(1 + wacc, i + 1);
-    const tv = lastFCF > 0 ? (lastFCF * (1 + g)) / (wacc - g) : 0;
+    const tv = lastFCF > 0
+      ? (lastFCF * (1 + g)) / (wacc - g)
+      : (lastEbitda > 0 ? lastEbitda * exitMultiple : 0);
     pv += tv / Math.pow(1 + wacc, fcfs.length);
     return pv - (inputs.dette_financiere || 0) + (inputs.tresorerie_nette || 0);
   };
@@ -291,6 +328,7 @@ function computeDCF(inputs: ValuationInputs, riskParamsDB?: any): DCFResult {
     terminal_growth_rate: terminalGrowth * 100,
     terminal_value: Math.round(terminalValue),
     pv_terminal_value: Math.round(pvTerminalValue),
+    terminal_value_method: terminalMethod,
     enterprise_value: Math.round(enterpriseValue),
     equity_value: Math.round(Math.max(equityValue, 0)),
     sensitivity: {
@@ -375,7 +413,10 @@ function computeDecotesPrimes(inputs: ValuationInputs): DecotesPrimes {
   }
 
   const total = -(illiq + taille + gouv) + croissance;
-  detail.push(`Total : ${total}%`);
+  // Pour le DCF, on exclut l'illiquidité (déjà intégrée dans le WACC via illiquidity_premium)
+  // afin d'éviter une double-décote. Les multiples conservent l'illiquidité (non intégrée dans le calcul brut).
+  const totalDcf = -(taille + gouv) + croissance;
+  detail.push(`Total (multiples) : ${total}% — Total (DCF, hors illiquidité) : ${totalDcf}%`);
 
   return {
     decote_illiquidite_pct: illiq,
@@ -383,23 +424,26 @@ function computeDecotesPrimes(inputs: ValuationInputs): DecotesPrimes {
     decote_gouvernance_pct: gouv,
     prime_croissance_pct: croissance,
     ajustement_total_pct: total,
+    ajustement_dcf_pct: totalDcf,
     detail,
   };
 }
 
 function computeSynthese(dcf: DCFResult, multiples: MultiplesResult, decotes: DecotesPrimes): SyntheseResult {
-  const ajustement = 1 + (decotes.ajustement_total_pct / 100);
+  const ajustementMultiples = 1 + (decotes.ajustement_total_pct / 100);
+  const ajustementDcf = 1 + (decotes.ajustement_dcf_pct / 100);
 
   const valeurs: { methode: string; brute: number; ajustee: number }[] = [];
 
   if (dcf.equity_value > 0) {
-    valeurs.push({ methode: 'DCF', brute: dcf.equity_value, ajustee: Math.round(dcf.equity_value * ajustement) });
+    // Le WACC du DCF intègre déjà la prime d'illiquidité — on applique seulement taille/gouvernance/croissance
+    valeurs.push({ methode: 'DCF', brute: dcf.equity_value, ajustee: Math.round(dcf.equity_value * ajustementDcf) });
   }
   if (multiples.valeur_par_ebitda > 0) {
-    valeurs.push({ methode: 'Multiples EBITDA', brute: multiples.valeur_par_ebitda, ajustee: Math.round(multiples.valeur_par_ebitda * ajustement) });
+    valeurs.push({ methode: 'Multiples EBITDA', brute: multiples.valeur_par_ebitda, ajustee: Math.round(multiples.valeur_par_ebitda * ajustementMultiples) });
   }
   if (multiples.valeur_par_ca > 0) {
-    valeurs.push({ methode: 'Multiples CA', brute: multiples.valeur_par_ca, ajustee: Math.round(multiples.valeur_par_ca * ajustement) });
+    valeurs.push({ methode: 'Multiples CA', brute: multiples.valeur_par_ca, ajustee: Math.round(multiples.valeur_par_ca * ajustementMultiples) });
   }
 
   valeurs.sort((a, b) => a.ajustee - b.ajustee);
@@ -431,19 +475,39 @@ export function computeValuation(inputs: ValuationInputs, riskParamsDB?: any): V
   const decotes = computeDecotesPrimes(inputs);
   const synthese = computeSynthese(dcf, multiples, decotes);
 
+  // Traçage des dégradations appliquées pendant le calcul (pour transparence + IA qualitative)
+  const degradations: string[] = [];
+  if (inputs.ebitda_was_proxied) {
+    degradations.push("EBITDA négatif/nul sur l'exercice courant — remplacé par un proxy (médiane historique ou marge sectorielle × CA)");
+  }
+  if (dcf.terminal_value_method === 'exit_multiple') {
+    degradations.push("Terminal Value calculée via exit multiple (EV/EBITDA × EBITDA_Y5) au lieu de Gordon-Shapiro — FCF final non convergent");
+  }
+  const allCashflowsNegative = inputs.cashflows_projetes.every(cf => cf <= 0) && inputs.cashflows_projetes.length > 0;
+  if (allCashflowsNegative) {
+    degradations.push("Tous les cashflows projetés sont négatifs — DCF non applicable, valorisation par multiples uniquement");
+  }
+
+  const methodes: string[] = [];
+  if (!allCashflowsNegative && dcf.equity_value > 0) methodes.push('DCF');
+  if (multiples.valeur_par_ebitda > 0) methodes.push('Multiples EBITDA');
+  if (multiples.valeur_par_ca > 0) methodes.push('Multiples CA');
+
+  const quality: 'plan_ovo' | 'estimation' | 'degraded' =
+    degradations.length > 0
+      ? 'degraded'
+      : (inputs.cashflows_projetes.length >= 5 ? 'plan_ovo' : 'estimation');
+
   return {
     dcf,
     multiples,
     decotes_primes: decotes,
     synthese,
     metadata: {
-      inputs_quality: inputs.cashflows_projetes.length >= 5 ? 'plan_ovo' : 'estimation',
-      methodes_applicables: [
-        dcf.equity_value > 0 ? 'DCF' : null,
-        multiples.valeur_par_ebitda > 0 ? 'Multiples EBITDA' : null,
-        multiples.valeur_par_ca > 0 ? 'Multiples CA' : null,
-      ].filter(Boolean) as string[],
+      inputs_quality: quality,
+      methodes_applicables: methodes,
       date_calcul: new Date().toISOString(),
+      degradations,
     },
   };
 }
@@ -451,14 +515,61 @@ export function computeValuation(inputs: ValuationInputs, riskParamsDB?: any): V
 /**
  * Extraire les inputs de valorisation depuis les livrables existants
  */
+// Marge EBITDA sectorielle médiane (% du CA) — proxy quand l'EBITDA courant est négatif
+const SECTOR_EBITDA_MARGIN_MEDIAN: Record<string, number> = {
+  agro_industrie: 0.12,
+  aviculture: 0.10,
+  agriculture: 0.08,
+  commerce_detail: 0.05,
+  commerce_alimentaire: 0.05,
+  restauration: 0.10,
+  services_b2b: 0.15,
+  tic: 0.25,
+  services_it: 0.20,
+  sante: 0.18,
+  btp: 0.08,
+  industrie_manufacturiere: 0.10,
+  transport_logistique: 0.10,
+  education_formation: 0.15,
+  energie: 0.22,
+  immobilier: 0.30,
+};
+
 export function extractValuationInputs(
   planOvo: any, inputs: any, framework: any, enterprise: any
-): ValuationInputs {
+): ValuationInputs & { ebitda_was_proxied?: boolean } {
   const YEAR_KEYS = ['year2', 'year3', 'year4', 'year5', 'year6'];
 
   const ca = inputs?.compte_resultat?.chiffre_affaires || framework?.kpis?.ca_annee_n || 0;
-  const ebitda = inputs?.ebe || inputs?.ebitda || framework?.kpis?.ebitda || 0;
+  const ebitdaRaw = inputs?.ebe || inputs?.ebitda || framework?.kpis?.ebitda || 0;
   const rn = inputs?.compte_resultat?.resultat_net || framework?.kpis?.resultat_net || 0;
+
+  // EBITDA : si l'année courante est négative/nulle, prendre le max entre :
+  //  - l'EBITDA historique (N-1 ou médiane 3 ans si dispo)
+  //  - la marge EBITDA sectorielle médiane × CA
+  // Ça évite qu'une année creuse tue la valorisation. Le flag `ebitda_was_proxied` alerte l'IA qualitative.
+  let ebitda = ebitdaRaw;
+  let ebitdaWasProxied = false;
+  if (ebitdaRaw <= 0 && ca > 0) {
+    const hist3 = inputs?.historique_3ans || {};
+    const ebitdaHist = [
+      hist3.n_minus_2?.ebe || hist3.n_minus_2?.ebitda || 0,
+      hist3.n_minus_1?.ebe || hist3.n_minus_1?.ebitda || 0,
+    ].filter(x => x > 0);
+    const ebitdaMedianHist = ebitdaHist.length > 0
+      ? ebitdaHist.reduce((a, b) => a + b, 0) / ebitdaHist.length
+      : 0;
+
+    const secteurKey = (enterprise?.sector || 'services_b2b').toLowerCase().replace(/[\s\-\/]/g, '_');
+    const margeSecteur = SECTOR_EBITDA_MARGIN_MEDIAN[secteurKey] || 0.10;
+    const ebitdaSectorProxy = Math.round(ca * margeSecteur);
+
+    const proxy = Math.max(ebitdaMedianHist, ebitdaSectorProxy);
+    if (proxy > 0) {
+      ebitda = proxy;
+      ebitdaWasProxied = true;
+    }
+  }
 
   const treso = inputs?.bilan?.actif?.tresorerie || framework?.tresorerie_bfr?.tresorerie_nette || 0;
   const dette = inputs?.bilan?.passif?.dettes_financieres || 0;
@@ -527,5 +638,6 @@ export function extractValuationInputs(
     has_audit_externe: hasAuditExterne,
     has_gouvernance_formelle: hasGouvernanceFormelle,
     forme_juridique: enterprise?.legal_form || 'SARL',
+    ebitda_was_proxied: ebitdaWasProxied,
   };
 }

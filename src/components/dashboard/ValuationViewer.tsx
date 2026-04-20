@@ -77,6 +77,25 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
         </div>
       </div>
 
+      {/* Dégradations détectées pendant le calcul — transparence sur les fallbacks */}
+      {Array.isArray(data.metadata?.degradations) && data.metadata.degradations.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 flex-none mt-0.5" />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-amber-800 mb-1">Calcul dégradé — inputs incomplets ou atypiques</p>
+                <ul className="space-y-0.5">
+                  {data.metadata.degradations.map((d: string, i: number) => (
+                    <li key={i} className="text-xs text-amber-700">• {d}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Fourchette de valorisation */}
       <Card className="border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50">{/* Synthèse */}
         <CardContent className="pt-6">
@@ -110,7 +129,15 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">WACC</span><span className="font-semibold">{dcf.wacc_pct || '—'}%<ConfidenceIndicator field="wacc" confidence={data._confidence} /></span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Valeur Terminale</span><span className="font-semibold">{fmt(dcf.terminal_value, devise)}<ConfidenceIndicator field="terminal_value" confidence={data._confidence} /></span></div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                Valeur Terminale
+                {dcf.terminal_value_method === 'exit_multiple' && (
+                  <span className="ml-1 text-[10px] text-amber-600">(exit multiple)</span>
+                )}
+              </span>
+              <span className="font-semibold">{fmt(dcf.terminal_value, devise)}<ConfidenceIndicator field="terminal_value" confidence={data._confidence} /></span>
+            </div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Enterprise Value</span><span className="font-semibold">{fmt(dcf.enterprise_value, devise)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Equity Value</span><span className="font-bold text-blue-600">{fmt(dcf.equity_value, devise)}</span></div>
             {dcf.projections_cashflow && (
@@ -164,6 +191,9 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
             {multiples.comparables_references && multiples.comparables_references.length > 0 && (
               <div className="pt-2 border-t">
                 <p className="text-xs font-semibold mb-1">Comparables</p>
+                <p className="text-[10px] text-muted-foreground italic mb-1">
+                  À titre illustratif — non vérifiés contre une base de deals. À valider par l'analyste.
+                </p>
                 {multiples.comparables_references.map((r: string, i: number) => (
                   <p key={i} className="text-xs text-muted-foreground">• {r}</p>
                 ))}
