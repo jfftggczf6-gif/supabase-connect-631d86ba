@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2 } from 'lucide-react';
+import { Database, RefreshCw, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2, Eye } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile } from '@/lib/document-parser';
 
@@ -326,6 +326,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           <TableHead>Zone</TableHead>
           <TableHead>Secteur</TableHead>
           <TableHead>Date</TableHead>
+          <TableHead className="w-24 text-right">Action</TableHead>
           {showDelete && <TableHead className="w-10" />}
         </TableRow>
       </TableHeader>
@@ -343,6 +344,17 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
             <TableCell className="text-sm text-muted-foreground">{zone}</TableCell>
             <TableCell className="text-sm text-muted-foreground">{sector}</TableCell>
             <TableCell className="text-sm text-muted-foreground">{formatDate(docDate)}</TableCell>
+            <TableCell className="text-right" onClick={(ev) => ev.stopPropagation()}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-7 text-[11px] bg-white text-violet-700 border-violet-400 hover:bg-violet-50 hover:border-violet-600"
+                onClick={() => setPreviewEntry(e)}
+                title="Voir le contenu de cette ressource"
+              >
+                <Eye className="h-3 w-3" /> Voir
+              </Button>
+            </TableCell>
             {showDelete && (
               <TableCell>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(ev) => { ev.stopPropagation(); handleDeleteOrgEntry(e.id); }}>
@@ -354,7 +366,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           );
         })}
         {!entries.length && (
-          <TableRow><TableCell colSpan={showDelete ? 6 : 5} className="text-center text-muted-foreground py-8">Aucun document trouvé</TableCell></TableRow>
+          <TableRow><TableCell colSpan={showDelete ? 7 : 6} className="text-center text-muted-foreground py-8">Aucun document trouvé</TableCell></TableRow>
         )}
       </TableBody>
     </Table>
