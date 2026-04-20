@@ -1451,16 +1451,16 @@ export default function EntrepreneurDashboard({
       </Dialog>
 
 
-      {/* ===== ACTION BUTTONS BAR ===== */}
+      {/* ===== ACTION BUTTONS BAR (sticky en haut, toujours visible) ===== */}
       {!readOnly && (
-        <div className="flex-none border-b border-border bg-card/50 px-6 py-3 flex items-center justify-center gap-3">
+        <div className="sticky top-0 z-30 flex-none border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-6 py-3 flex items-center justify-center gap-3 shadow-sm">
           <Button
             size="sm"
             className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-sm"
             onClick={() => setSelectedModule('upload')}
           >
             <Upload className="h-3.5 w-3.5" />
-            <span className="text-xs font-medium">Uploader</span>
+            <span className="text-xs font-medium">Uploader des documents</span>
           </Button>
           <Button
             size="sm"
@@ -1469,7 +1469,7 @@ export default function EntrepreneurDashboard({
             disabled={generating || !!generatingModule}
           >
             <Search className="h-3.5 w-3.5" />
-            <span className="text-xs font-medium">Générer diagnostic</span>
+            <span className="text-xs font-medium">Générer le diagnostic</span>
           </Button>
           <Button
             size="sm"
@@ -1478,7 +1478,7 @@ export default function EntrepreneurDashboard({
             disabled={generating}
           >
             <Sparkles className="h-3.5 w-3.5" />
-            <span className="text-xs font-medium">{generating ? 'Génération...' : 'Générer tout'}</span>
+            <span className="text-xs font-medium">{generating ? 'Génération en cours...' : 'Générer tous les livrables'}</span>
           </Button>
           {generating && (
             <Button variant="destructive" size="sm" className="gap-2" onClick={handleStopGeneration}>
