@@ -206,7 +206,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {activeTab === 'org' ? `Ajouter un document — Ressources ${currentOrg?.name || 'de mon organisation'}` : 'Ajouter une ressource ESONO'}
+            {activeTab === 'org' ? `Ajouter une ressource — ${currentOrg?.name || 'mon organisation'}` : 'Ajouter une ressource ESONO'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
@@ -378,7 +378,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           <div className="flex items-center gap-2">
             {(activeTab === 'org' || (activeTab === 'shared' && isSuperAdmin)) && (
               <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" size="sm" onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-3.5 w-3.5" /> Ajouter une entrée
+                <Plus className="h-3.5 w-3.5" /> Ajouter une ressource
               </Button>
             )}
           </div>
