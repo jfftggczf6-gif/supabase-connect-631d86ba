@@ -42,8 +42,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   standard_reporting: 'Standard reporting', grille_scoring: 'Grille de scoring', template: 'Template',
 };
 
-const ZONES = ['Monde', 'Afrique', 'Afrique de l\'Ouest', 'UEMOA', 'CEMAC', 'Afrique de l\'Est', 'Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Mali', 'Burkina Faso', 'RDC', 'Guinée', 'Togo', 'Bénin', 'Niger', 'Maroc', 'Kenya', 'Nigeria', 'Ghana', 'Rwanda', 'Uganda'];
-const SECTORS = ['Tous secteurs', 'Agro-industrie', 'Aviculture', 'Agriculture', 'Commerce', 'Restauration', 'Services B2B', 'TIC', 'Énergie', 'Santé', 'BTP', 'Transport', 'Éducation', 'Immobilier', 'Textile', 'Mines', 'Pharmacie', 'Fintech'];
+// Zones groupées : globales en premier, puis pays par ordre alphabétique
+const ZONES_GLOBAL = ['Monde', 'Afrique', 'Afrique de l\'Ouest', 'Afrique de l\'Est', 'Afrique Centrale', 'UEMOA', 'CEMAC'];
+const ZONES_COUNTRIES = ['Bénin', 'Burkina Faso', 'Cameroun', 'Congo', 'Côte d\'Ivoire', 'Gabon', 'Ghana', 'Guinée', 'Kenya', 'Madagascar', 'Mali', 'Maroc', 'Niger', 'Nigeria', 'RDC', 'Rwanda', 'Sénégal', 'Tanzanie', 'Togo', 'Tunisie', 'Uganda'].sort((a, b) => a.localeCompare(b, 'fr'));
+const ZONES = [...ZONES_GLOBAL, ...ZONES_COUNTRIES];
+const SECTORS = ['Tous secteurs', 'Agro-industrie', 'Agriculture', 'Aviculture', 'BTP', 'Commerce', 'Éducation', 'Énergie', 'Fintech', 'Immobilier', 'Mines', 'Pharmacie', 'Restauration', 'Santé', 'Services B2B', 'TIC', 'Textile', 'Transport'];
 
 export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t } = useTranslation();
@@ -61,7 +64,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
   const [contentMode, setContentMode] = useState<'upload' | 'link' | 'text'>('upload');
   const [parsing, setParsing] = useState(false);
   const [parsedFileName, setParsedFileName] = useState('');
-  const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'general', country: '', sector: '', source: '', tags: '' });
+  const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'general', country: 'Monde', sector: 'Tous secteurs', source: '', tags: '' });
 
   const fetchData = async () => {
     setLoading(true);
@@ -169,7 +172,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
 
     toast({ title: 'Document ajouté' });
     setShowAddDialog(false);
-    setNewEntry({ title: '', content: '', category: 'general', country: '', sector: '', source: '', tags: '' });
+    setNewEntry({ title: '', content: '', category: 'general', country: 'Monde', sector: 'Tous secteurs', source: '', tags: '' });
     setParsedFileName('');
     fetchData();
   };
@@ -236,12 +239,24 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                 try {
                   const parsed = await parseFile(file);
                   if (parsed.quality === 'failed' || !parsed.content || parsed.content.length < 10) {
-                    toast({ title: 'Erreur', description: `Impossible d'extraire le contenu`, variant: 'destructive' });
+                    toast({
+                      title: 'Extraction impossible',
+                      description: `Le contenu de "${file.name}" n'a pas pu être extrait. Essaie l'onglet "Texte" pour coller le contenu manuellement, ou le format "Lien" pour pointer vers une URL.`,
+                      variant: 'destructive',
+                    });
+                    setParsedFileName('');
                   } else {
                     setNewEntry(p => ({ ...p, content: parsed.content, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
                     toast({ title: 'Contenu extrait', description: `${parsed.content.length.toLocaleString()} caractères` });
                   }
-                } catch (err: any) { toast({ title: 'Erreur', description: err.message, variant: 'destructive' }); }
+                } catch (err: any) {
+                  console.error('[KB Upload] Error:', err);
+                  const msg = err?.message?.includes('fetch') || err?.message?.includes('network')
+                    ? `Service de parsing indisponible. Bascule sur l'onglet "Texte" pour coller le contenu.`
+                    : `Erreur upload: ${err?.message || 'inconnue'}. Essaie l'onglet "Texte" en attendant.`;
+                  toast({ title: 'Upload échoué', description: msg, variant: 'destructive' });
+                  setParsedFileName('');
+                }
                 setParsing(false);
               }} />
             </label>
@@ -256,18 +271,31 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
             <div className="max-h-24 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">{newEntry.content.slice(0, 500)}{newEntry.content.length > 500 && '...'}</div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <select value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
-              <option value="">— Zone</option>
-              {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
-            </select>
-            <select value={newEntry.sector} onChange={e => setNewEntry(p => ({ ...p, sector: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
-              <option value="">— Secteur</option>
-              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground">Zone *</label>
+              <select value={newEntry.country} onChange={e => setNewEntry(p => ({ ...p, country: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
+                {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground">Secteur *</label>
+              <select value={newEntry.sector} onChange={e => setNewEntry(p => ({ ...p, sector: e.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background">
+                {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
-          <Input placeholder="Source" value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))} />
+          <Input placeholder="Source * (URL, document, organisme...)" value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))} />
           <Input placeholder="Tags (séparés par virgule)" value={newEntry.tags} onChange={e => setNewEntry(p => ({ ...p, tags: e.target.value }))} />
-          <Button onClick={handleAddEntry} className="w-full" disabled={!newEntry.title || !newEntry.content}>Ajouter</Button>
+          <Button
+            onClick={handleAddEntry}
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={!newEntry.title || !newEntry.content || !newEntry.country || !newEntry.sector || !newEntry.source}
+          >
+            Ajouter
+          </Button>
+          {(!newEntry.title || !newEntry.content || !newEntry.country || !newEntry.sector || !newEntry.source) && (
+            <p className="text-[10px] text-muted-foreground">Tous les champs avec * sont obligatoires (titre, contenu, zone, secteur, source)</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -335,8 +363,8 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           </TabsList>
           <div className="flex items-center gap-2">
             {(activeTab === 'org' || (activeTab === 'shared' && isSuperAdmin)) && (
-              <Button className="gap-2" size="sm" onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-3.5 w-3.5" /> Ajouter
+              <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" size="sm" onClick={() => setShowAddDialog(true)}>
+                <Plus className="h-3.5 w-3.5" /> Ajouter une entrée
               </Button>
             )}
           </div>
@@ -457,20 +485,80 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
       {/* Preview dialog */}
       {previewEntry && (
         <Dialog open={!!previewEntry} onOpenChange={() => setPreviewEntry(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{previewEntry.title}</DialogTitle>
+              <DialogTitle className="text-lg">{previewEntry.title}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Métadonnées */}
               <div className="flex gap-2 flex-wrap">
-                <Badge variant="outline">{CATEGORY_LABELS[previewEntry.category] || previewEntry.category}</Badge>
+                <Badge variant="outline">{CATEGORY_LABELS[previewEntry.category] || (previewEntry.category.charAt(0).toUpperCase() + previewEntry.category.slice(1))}</Badge>
                 <Badge variant={previewEntry.layer === 'org' ? 'default' : 'secondary'}>{previewEntry.layer === 'org' ? currentOrg?.name : 'ESONO'}</Badge>
-                {previewEntry.country && <Badge variant="secondary">{previewEntry.country}</Badge>}
-                {previewEntry.sector && <Badge variant="secondary">{previewEntry.sector}</Badge>}
+                {(previewEntry.country || previewEntry.metadata?.country || previewEntry.metadata?.region) && (
+                  <Badge variant="secondary">📍 {previewEntry.country || previewEntry.metadata?.country || previewEntry.metadata?.region}</Badge>
+                )}
+                {(previewEntry.sector || previewEntry.metadata?.sector) && (
+                  <Badge variant="secondary">🏢 {previewEntry.sector || previewEntry.metadata?.sector}</Badge>
+                )}
+                {(previewEntry.tags || []).map((tag: string) => (
+                  <Badge key={tag} variant="outline" className="text-[10px]">#{tag}</Badge>
+                ))}
               </div>
-              {previewEntry.source && <p className="text-sm text-muted-foreground">Source : {previewEntry.source}</p>}
-              <div className="prose prose-sm max-w-none whitespace-pre-wrap bg-muted/30 rounded-lg p-4 text-sm">
-                {previewEntry.content}
+
+              {/* Source cliquable */}
+              {previewEntry.source && (
+                <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Source</p>
+                  {previewEntry.source.startsWith('http') ? (
+                    <a href={previewEntry.source} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                      {previewEntry.source} ↗
+                    </a>
+                  ) : (
+                    <p className="text-foreground">{previewEntry.source}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Date */}
+              <p className="text-xs text-muted-foreground">
+                Date : {formatDate(previewEntry.metadata?.publication_date || previewEntry.metadata?.document_date || previewEntry.updated_at || previewEntry.created_at)} · {previewEntry.content.length.toLocaleString()} caractères
+              </p>
+
+              {/* Contenu */}
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-2">Contenu</p>
+                <div className="prose prose-sm max-w-none whitespace-pre-wrap bg-card border rounded-lg p-4 text-sm max-h-[400px] overflow-y-auto">
+                  {previewEntry.content}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const blob = new Blob([previewEntry.content], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${previewEntry.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Télécharger (.txt)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(previewEntry.content);
+                    toast({ title: 'Contenu copié dans le presse-papier' });
+                  }}
+                >
+                  Copier le contenu
+                </Button>
               </div>
             </div>
           </DialogContent>
