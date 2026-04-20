@@ -10,10 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Building2, Search, Loader2 } from 'lucide-react';
+import { Plus, Building2, Search, Loader2, Trash2, LogIn } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { LogIn } from 'lucide-react';
 
 interface OrgRow {
   id: string; name: string; slug: string; type: string;
@@ -28,6 +28,32 @@ export default function OrganizationsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showWizard, setShowWizard] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<OrgRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!orgToDelete) return;
+    setDeleting(true);
+    try {
+      // Vérifier qu'il n'y a pas d'entreprises actives
+      if (orgToDelete.enterprise_count > 0) {
+        toast.error(`Impossible de supprimer : ${orgToDelete.enterprise_count} entreprise(s) liée(s). Supprime-les d'abord.`);
+        setDeleting(false);
+        setOrgToDelete(null);
+        return;
+      }
+      const { error } = await supabase.from('organizations').delete().eq('id', orgToDelete.id);
+      if (error) throw error;
+      toast.success(`Organisation "${orgToDelete.name}" supprimée`);
+      setOrgToDelete(null);
+      await fetchOrgs();
+      await refreshOrganizations();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la suppression');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchOrgs = async () => {
     setLoading(true);
@@ -151,7 +177,7 @@ export default function OrganizationsPage() {
                 <TableHead>Entreprises</TableHead>
                 <TableHead>Créée le</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="w-24">Actions</TableHead>
+                <TableHead className="w-36">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -169,13 +195,24 @@ export default function OrganizationsPage() {
                   <TableCell className="text-sm text-muted-foreground">{formatDate(o.created_at)}</TableCell>
                   <TableCell><Badge variant={o.is_active ? 'default' : 'secondary'}>{o.is_active ? 'Actif' : 'Inactif'}</Badge></TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {isMember ? (
-                      <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => { switchOrganization(o.id); navigate('/dashboard'); }} title="Entrer dans cet espace">
-                        <LogIn className="h-3 w-3" /> Entrer
+                    <div className="flex items-center gap-1">
+                      {isMember ? (
+                        <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => { switchOrganization(o.id); navigate('/dashboard'); }} title="Entrer dans cet espace">
+                          <LogIn className="h-3 w-3" /> Entrer
+                        </Button>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground mr-1">non-membre</span>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setOrgToDelete(o)}
+                        title="Supprimer cette organisation"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">non-membre</span>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
                 );
@@ -256,6 +293,38 @@ export default function OrganizationsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de confirmation suppression */}
+      <AlertDialog open={!!orgToDelete} onOpenChange={(open) => !open && setOrgToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer l'organisation ?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                Tu es sur le point de supprimer <strong>{orgToDelete?.name}</strong>.
+              </span>
+              {orgToDelete && orgToDelete.enterprise_count > 0 && (
+                <span className="block text-destructive font-medium">
+                  ⚠ Cette org contient {orgToDelete.enterprise_count} entreprise(s). La suppression sera bloquée.
+                </span>
+              )}
+              {orgToDelete && orgToDelete.member_count > 0 && (
+                <span className="block text-amber-600">
+                  ⚠ {orgToDelete.member_count} membre(s) perdront l'accès.
+                </span>
+              )}
+              <span className="block">Cette action est <strong>irréversible</strong>.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive hover:bg-destructive/90">
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
