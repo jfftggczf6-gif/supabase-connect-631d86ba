@@ -58,13 +58,13 @@ const App = () => (
               <ProtectedRoute><Dashboard /></ProtectedRoute>
             } />
             <Route path="/programmes" element={
-              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeListPage /></RequireRole></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeListPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/new" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeCreatePage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id" element={
-              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
