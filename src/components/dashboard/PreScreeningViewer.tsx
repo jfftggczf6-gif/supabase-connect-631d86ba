@@ -515,43 +515,43 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
               </p>
             </div>
 
-            {/* Grille 3 colonnes : Deal breakers / Conditions / Quick wins */}
+            {/* Grille 3 colonnes : Deal breakers / Conditions / Quick wins (sans couleurs de fond) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {verdictAnalyste?.deal_breakers?.length > 0 && (
-                <div className="p-3 rounded-lg border-l-4 border-l-red-500 bg-red-50/40 border border-red-100">
+                <div className="p-3 rounded-lg bg-white border border-border">
                   <div className="flex items-center gap-1.5 mb-2">
-                    <XCircle className="h-3.5 w-3.5 text-red-600" />
-                    <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Deal breakers</p>
+                    <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[11px] font-semibold text-foreground uppercase tracking-wide">Deal breakers</p>
                   </div>
                   <ul className="space-y-1">
                     {verdictAnalyste.deal_breakers.map((d: string, i: number) => (
-                      <li key={i} className="text-xs text-red-800 leading-relaxed">• {d}</li>
+                      <li key={i} className="text-xs text-foreground leading-relaxed">• {d}</li>
                     ))}
                   </ul>
                 </div>
               )}
               {verdictAnalyste?.conditions_sine_qua_non?.length > 0 && (
-                <div className="p-3 rounded-lg border-l-4 border-l-amber-500 bg-amber-50/40 border border-amber-100">
+                <div className="p-3 rounded-lg bg-white border border-border">
                   <div className="flex items-center gap-1.5 mb-2">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                    <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">Conditions sine qua non</p>
+                    <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[11px] font-semibold text-foreground uppercase tracking-wide">Conditions sine qua non</p>
                   </div>
                   <ul className="space-y-1">
                     {verdictAnalyste.conditions_sine_qua_non.map((c: string, i: number) => (
-                      <li key={i} className="text-xs text-amber-800 leading-relaxed">• {c}</li>
+                      <li key={i} className="text-xs text-foreground leading-relaxed">• {c}</li>
                     ))}
                   </ul>
                 </div>
               )}
               {verdictAnalyste?.quick_wins?.length > 0 && (
-                <div className="p-3 rounded-lg border-l-4 border-l-emerald-500 bg-emerald-50/40 border border-emerald-100">
+                <div className="p-3 rounded-lg bg-white border border-border">
                   <div className="flex items-center gap-1.5 mb-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Quick wins</p>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[11px] font-semibold text-foreground uppercase tracking-wide">Quick wins</p>
                   </div>
                   <ul className="space-y-1">
                     {verdictAnalyste.quick_wins.map((q: string, i: number) => (
-                      <li key={i} className="text-xs text-emerald-800 leading-relaxed">• {q}</li>
+                      <li key={i} className="text-xs text-foreground leading-relaxed">• {q}</li>
                     ))}
                   </ul>
                 </div>
