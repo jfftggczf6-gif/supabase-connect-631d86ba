@@ -31,15 +31,29 @@ interface KBEntry {
   layer: 'org' | 'shared';
 }
 
-const SHARED_CATEGORIES = ['benchmarks', 'fiscal', 'secteurs', 'bailleurs', 'odd', 'reglementation', 'general'];
-const ORG_CATEGORIES = ['these', 'methodologie', 'ancien_deal', 'guide_coaching', 'note_sectorielle', 'comparable', 'standard_reporting', 'grille_scoring', 'template', 'general'];
+// Liste UNIFIÉE de catégories (même pour l'org et pour les ressources ESONO partagées)
+const UNIFIED_CATEGORIES = [
+  'bailleurs', 'base_legale', 'benchmarks', 'classement', 'communique', 'dataset',
+  'enquete', 'etude', 'fiscal', 'general', 'odd', 'rapport', 'reglementation', 'secteurs',
+].sort();
+const SHARED_CATEGORIES = UNIFIED_CATEGORIES;
+const ORG_CATEGORIES = UNIFIED_CATEGORIES;
 
 const CATEGORY_LABELS: Record<string, string> = {
-  benchmarks: 'Benchmarks', fiscal: 'Fiscal', secteurs: 'Secteurs', bailleurs: 'Bailleurs',
-  odd: 'ODD', reglementation: 'Réglementation', general: 'Général',
-  these: 'Thèse d\'investissement', methodologie: 'Méthodologie', ancien_deal: 'Ancien deal',
-  guide_coaching: 'Guide coaching', note_sectorielle: 'Note sectorielle', comparable: 'Comparable',
-  standard_reporting: 'Standard reporting', grille_scoring: 'Grille de scoring', template: 'Template',
+  bailleurs: 'Bailleurs',
+  base_legale: 'Base légale',
+  benchmarks: 'Benchmarks',
+  classement: 'Classement',
+  communique: 'Communiqué',
+  dataset: 'Dataset',
+  enquete: 'Enquête',
+  etude: 'Étude',
+  fiscal: 'Fiscal',
+  general: 'Général',
+  odd: 'ODD',
+  rapport: 'Rapport',
+  reglementation: 'Réglementation',
+  secteurs: 'Secteurs',
 };
 
 // Zones groupées : globales en premier, puis pays par ordre alphabétique
