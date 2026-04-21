@@ -32,7 +32,16 @@ serve(async (req) => {
       });
     }
 
-    const { enterprise_id, coach_comment, coach_recommendation } = await req.json();
+    const {
+      enterprise_id,
+      coach_comment,
+      coach_recommendation,
+      session_number,
+      session_date,
+      coach_names,
+      next_session_date,
+      next_session_objectives,
+    } = await req.json();
     if (!enterprise_id) {
       return new Response(JSON.stringify({ error: "enterprise_id requis" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -50,8 +59,8 @@ serve(async (req) => {
       });
     }
 
-    // Fetch all data
-    const [delivRes, modRes, profileRes, notesRes] = await Promise.all([
+    // Fetch all data — + score_history pour calculer delta IR
+    const [delivRes, modRes, profileRes, notesRes, scoreHistRes] = await Promise.all([
       supabase.from("deliverables").select("*").eq("enterprise_id", enterprise_id),
       supabase.from("enterprise_modules").select("*").eq("enterprise_id", enterprise_id),
       supabase.from("profiles").select("full_name, email").eq("user_id", user.id).single(),
@@ -59,12 +68,23 @@ serve(async (req) => {
         .select("titre, resume_ia, infos_extraites, date_rdv, raw_content")
         .eq("enterprise_id", enterprise_id)
         .order("created_at", { ascending: false }),
+      supabase.from("score_history")
+        .select("score, created_at")
+        .eq("enterprise_id", enterprise_id)
+        .order("created_at", { ascending: true }),
     ]);
 
     const deliverables = delivRes.data || [];
     const modules = modRes.data || [];
     const coachProfile = profileRes.data;
     const coachingNotes = notesRes.data || [];
+    const scoreHistory = scoreHistRes.data || [];
+
+    // Delta score IR : prend le premier score connu (entrée du programme) et le score actuel
+    const scoreIrDebut = scoreHistory.length > 0 ? Number(scoreHistory[0].score) : 0;
+    const scoreIrActuel = Number(ent.score_ir || 0);
+    const scoreIrDelta = scoreIrActuel - scoreIrDebut;
+    const scoreIrClassification = scoreIrActuel >= 70 ? 'AVANCER' : scoreIrActuel >= 40 ? 'ACCOMPAGNER' : scoreIrActuel >= 20 ? 'COMPLETER D\'ABORD' : 'REJETER';
 
     const delivMap: Record<string, any> = {};
     deliverables.forEach((d: any) => { delivMap[d.type] = d.data; });
@@ -137,47 +157,81 @@ ${donorCriteria}
 
     const coachName = coachProfile?.full_name || coachProfile?.email || "Coach";
     const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    const sessionDateFmt = session_date
+      ? new Date(session_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+      : today;
+    const sessionNumberFmt = session_number ? `n°${session_number}` : '';
+    const coachesDisplay = coach_names || coachName;
+    const nextSessionFmt = next_session_date
+      ? new Date(next_session_date).toLocaleDateString("fr-FR", { weekday: 'long', day: "numeric", month: "long", year: "numeric" })
+      : 'à planifier';
 
-    const systemPrompt = `Tu es un expert en accompagnement de PME en Afrique subsaharienne (UEMOA/CEMAC). Tu rédiges un RAPPORT FINAL DE COACHING professionnel. Le rapport est destiné au chef de programme et aux bailleurs de fonds (GIZ, AFD, I&P, Proparco). Tu connais les normes SYSCOHADA, la fiscalité locale et les benchmarks sectoriels africains.
+    const systemPrompt = `Tu rédiges un RAPPORT DE COACHING pour une PME africaine francophone, destiné au chef de programme et potentiellement aux bailleurs.
 
-STRUCTURE EXACTE (respecter cet ordre) :
+STRUCTURE EXACTE, 8 sections (respecter la numérotation et les titres d'icônes) :
 
-1. EN-TÊTE — Entreprise, coach, programme, période, nombre de sessions
-2. COMMENTAIRE ET RECOMMANDATION DU COACH — Le texte fourni par le coach, tel quel, en premier (en citation visuelle)
-3. RÉSUMÉ EXÉCUTIF — 1 paragraphe synthèse : l'entreprise, ce qu'on a fait, les résultats, la recommandation
-4. L'ENTREPRISE À L'ENTRÉE — État au début de l'accompagnement (depuis le diagnostic initial)
-5. LE TRAVAIL RÉALISÉ — Les sessions de coaching, documents collectés, actions menées (depuis les notes)
-6. ÉTAT DU BUSINESS AUJOURD'HUI — 6 blocs :
-   - Modèle économique (comment la boîte gagne de l'argent)
-   - Santé financière (CA, marges, trésorerie, ratios vs benchmarks)
-   - Projections (crédibilité, scénarios)
-   - Impact social (emplois, ODD)
-   - Gouvernance (structuration, équipe)
-   - Risques principaux
-7. RÉSULTATS MESURABLES — Tableau avant/après sur les indicateurs clés
-8. ANNEXE — Scores des livrables
+1) EN-TÊTE (déjà fourni, ne pas le refaire) : Titre "Rapport de coaching", Nom entreprise, ligne "Session n°X — date — Coachs : xxx", bloc Score IR (before → after, delta, classification).
 
-STYLE : Formel mais accessible. Chiffré. Narratif (paragraphes, pas de bullet points secs). Le commentaire du coach est en citation visuelle en haut du rapport.
+2) SECTION "📌 Synthèse de la session"
+   Un seul paragraphe dense (4 à 7 phrases) qui décrit : ce qui a été fait pendant la session, les acquis concrets, les signaux d'alerte éventuels. Pas de bullet. Pas de liste.
 
-Retourne le HTML complet (<!DOCTYPE html>...) avec CSS inline pour impression A4.
-Police : 'Segoe UI', system-ui, sans-serif pour les titres, Georgia pour le corps.
-Couleurs : bleu marine (#0F2B46) pour les en-têtes. Mise en page A4 optimisée.`;
+3) SECTION "🎯 Points clés à retenir"
+   Liste à puces (3 à 5 items max). Chaque item commence par un tag :
+   - "URGENT" pour les blocages / actions impératives
+   - "ATTENTION" pour les risques à surveiller
+   - "POSITIF" pour les acquis à consolider
+   Format : "<strong>TAG</strong> <em>Sujet</em> — description chiffrée et actionnable."
 
-    const userPrompt = `Génère le rapport final.
+4) SECTION "✅ Sujets travaillés"
+   Tableau HTML à 3 colonnes : Sujet | Avancement | Statut.
+   Statut = une de ces 3 valeurs : "En cours", "Clos", "Bloqué". N'utilise pas d'emoji dans le statut (juste texte).
 
-Coach: ${coachName}
-Date: ${today}
+5) SECTION "📋 Feuille de route 30 jours"
+   Tableau HTML à 4 colonnes : Prio | Action | Resp. | Échéance.
+   Prio = "URGENT", "HAUTE", "MOYENNE", "BASSE".
+   Resp. = "Entrep.", "Coach", "Coach+Compta", etc.
+   Échéance au format DD/MM.
 
-COMMENTAIRE DU COACH (à mettre EN PREMIER dans le rapport, tel quel) :
-${coach_comment || 'Aucun commentaire fourni'}
+6) SECTION "📎 En attente & prochaine session"
+   Sous-titre "📂 Documents à obtenir" : bullet list des documents attendus (5 à 8 items).
+   Sous-titre "📅 Prochaine session" : Date + Objectifs (bullets numérotés 1-3).
 
-RECOMMANDATION DU COACH :
-${coach_recommendation || 'Aucune recommandation'}
+7) SECTION "💬 Note coach (visibilité chef de programme)"
+   Un seul paragraphe (3 à 6 phrases). Ton direct, observations du coach sur la posture de l'entrepreneur, vigilance, contexte psychologique. Visible par le chef de programme uniquement.
 
-NOTES DE COACHING (sessions réalisées) :
+8) FOOTER : "ESONO Investment Readiness Platform © ${new Date().getFullYear()} — Confidentiel"
+
+RÈGLES DE STYLE STRICTES :
+- Monochrome total : TEXTE NOIR uniquement (#111). PAS de couleurs sur les textes ni sur les titres. Les tags (URGENT/ATTENTION/POSITIF/HAUTE…) sont en GRAS noir — pas de fond coloré, pas de texte coloré.
+- Les tableaux : bordures fines 1px #333, en-têtes en gras, pas de fond coloré.
+- Police : "Inter", "Segoe UI", system-ui, sans-serif pour tout le document.
+- Retourne un document HTML COMPLET avec <!DOCTYPE html>, <head> avec CSS inline optimisé pour impression A4 ET pour ouverture dans Microsoft Word.
+- Pas de blocs <style> colorés, pas de backgrounds, pas de borders colorées. Juste noir sur blanc avec hiérarchie typographique (tailles, graisses, italiques).`;
+
+    const userPrompt = `Génère le rapport de coaching au format HTML, monochrome noir sur blanc.
+
+EN-TÊTE À UTILISER TEL QUEL EN HAUT :
+- Titre : "Rapport de coaching"
+- Entreprise : ${ent.name}
+- Session ${sessionNumberFmt} — ${sessionDateFmt} — Coachs : ${coachesDisplay}
+- Score IR : ${scoreIrDebut} → ${scoreIrActuel} (${scoreIrDelta >= 0 ? '↑ +' : '↓ '}${scoreIrDelta} pts · ${scoreIrClassification})
+
+PROCHAINE SESSION (à placer en section 6) :
+- Date : ${nextSessionFmt}
+- Objectifs fournis par le coach : ${next_session_objectives || '(à définir par le coach)'}
+
+NOTE COACH POUR CHEF DE PROGRAMME (section 7, tel quel) :
+${coach_comment || 'Aucune note fournie'}
+
+RECOMMANDATION GLOBALE (à intégrer dans section 2 Synthèse) :
+${coach_recommendation || '(aucune)'}
+
+NOTES DES SESSIONS DE COACHING (source pour les sections Synthèse, Points clés, Sujets travaillés, Feuille de route) :
 ${notesBlock || 'Aucune note de coaching'}
 
-${dataContext}`;
+${dataContext}
+
+RAPPEL : retour en HTML complet, MONOCHROME noir sur blanc, ouvrable dans Word.`;
 
     console.log("Generating coach report for enterprise:", ent.name);
 
