@@ -1,93 +1,206 @@
-export function buildSuiviReportHtml(data: {
+// Builder du Rapport de suivi de coaching (format ESONO, monochrome)
+// Reproduit la mise en page du template Ideal Vivrier sans couleurs.
+
+export interface RoadmapItem {
+  prio: string;       // URGENT / HAUTE / MOYENNE / BASSE
+  action: string;
+  resp: string;
+  echeance: string;
+}
+
+export interface SujetTravaille {
+  sujet: string;
+  avancement: string;
+  statut: string;     // En cours / Clos / Bloqué
+}
+
+export interface PointCle {
+  tag: string;        // URGENT / ATTENTION / POSITIF
+  titre: string;
+  description: string;
+}
+
+export interface SuiviReportInput {
   enterprise: any;
-  deliverables: any[];
-  notes: any[];
-  uploads: any[];
-  coachComment: string;
-  nextSteps: string;
-  coachName: string;
-}): string {
-  const { enterprise: ent, deliverables, notes, uploads, coachComment, nextSteps, coachName } = data;
+  // Métadonnées session
+  sessionNumber: string;
+  sessionDate: string;      // ISO YYYY-MM-DD
+  coachNames: string;
+  // Contenu généré / saisi
+  synthese: string;
+  pointsCles: PointCle[];
+  sujetsTravailles: SujetTravaille[];
+  roadmap: RoadmapItem[];
+  documentsAObtenir: string[];
+  nextSessionDate: string;  // ISO
+  nextSessionObjectives: string[];
+  noteCoach: string;
+  // Scores auto-calculés
+  scoreIrDebut: number;
+  scoreIrActuel: number;
+}
 
-  const preScreening = deliverables.find(d => d.type === 'pre_screening')?.data as any;
-  const diagnostic = deliverables.find(d => d.type === 'diagnostic_data')?.data as any;
-  const framework = deliverables.find(d => d.type === 'framework_data')?.data as any;
-  const inputs = deliverables.find(d => d.type === 'inputs_data')?.data as any;
+const esc = (s: string) =>
+  (s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
-  const scoreInitial = preScreening?.pre_screening_score || null;
-  const scoreActuel = diagnostic?.score_global || ent.score_ir || 0;
-  const ca = inputs?.compte_resultat?.chiffre_affaires || framework?.kpis?.ca_annee_n || 0;
-  const margeBrute = framework?.kpis?.marge_brute || inputs?.kpis?.marge_brute_pct || 0;
-  const ebitda = framework?.kpis?.ebitda || 0;
-  const tresorerie = inputs?.bilan?.actif?.tresorerie || framework?.tresorerie_bfr?.tresorerie_nette || 0;
-  const effectifs = ent.employees_count || 0;
+const frDate = (iso: string) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+};
 
-  const rdvNotes = notes.filter((n: any) => n.date_rdv).sort((a: any, b: any) =>
-    new Date(b.date_rdv).getTime() - new Date(a.date_rdv).getTime()
-  );
-  const livrableTypes = deliverables.map((d: any) => d.type);
+const frDateLong = (iso: string) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+};
 
-  const bloquantsLeves = diagnostic?.progression?.bloquants_leves || [];
-  const bloquantsRestants = diagnostic?.progression?.bloquants_restants || [];
+const classification = (score: number) => {
+  if (score >= 70) return 'AVANCER';
+  if (score >= 40) return 'ACCOMPAGNER';
+  if (score >= 20) return "COMPLETER D'ABORD";
+  return 'REJETER';
+};
 
-  const fmt = (v: number) => v ? Math.round(v / 1e6) + 'M' : '—';
+export function buildSuiviReportHtml(input: SuiviReportInput): string {
+  const {
+    enterprise: ent,
+    sessionNumber,
+    sessionDate,
+    coachNames,
+    synthese,
+    pointsCles,
+    sujetsTravailles,
+    roadmap,
+    documentsAObtenir,
+    nextSessionDate,
+    nextSessionObjectives,
+    noteCoach,
+    scoreIrDebut,
+    scoreIrActuel,
+  } = input;
+
+  const delta = scoreIrActuel - scoreIrDebut;
+  const deltaArrow = delta >= 0 ? '↑' : '↓';
+  const deltaSign = delta > 0 ? '+' : '';
+
+  const pointsClesRows = (pointsCles || [])
+    .filter((p) => p.tag || p.titre || p.description)
+    .map(
+      (p) => `<li><strong>${esc(p.tag)}</strong>  <em>${esc(p.titre)}</em> — ${esc(p.description)}</li>`
+    )
+    .join('');
+
+  const sujetsRows = (sujetsTravailles || [])
+    .filter((s) => s.sujet)
+    .map(
+      (s) => `<tr><td>${esc(s.sujet)}</td><td>${esc(s.avancement)}</td><td>${esc(s.statut)}</td></tr>`
+    )
+    .join('');
+
+  const roadmapRows = (roadmap || [])
+    .filter((r) => r.action)
+    .map(
+      (r) =>
+        `<tr><td>${esc(r.prio)}</td><td>${esc(r.action)}</td><td>${esc(r.resp)}</td><td>${esc(r.echeance)}</td></tr>`
+    )
+    .join('');
+
+  const docsItems = (documentsAObtenir || [])
+    .filter((d) => d && d.trim())
+    .map((d) => `<li>${esc(d)}</li>`)
+    .join('');
+
+  const objectifsItems = (nextSessionObjectives || [])
+    .filter((o) => o && o.trim())
+    .map((o, i) => `<li>(${i + 1}) ${esc(o)}</li>`)
+    .join('');
+
+  // CSS strictement monochrome : noir sur blanc, hiérarchie par graisse/taille/italique.
+  const css = `
+@page { size: A4; margin: 18mm; }
+body { font-family: "Inter", "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #111; line-height: 1.5; max-width: 180mm; margin: 0 auto; padding: 0; }
+h1 { font-size: 20pt; margin: 0 0 2px; font-weight: 700; color: #111; }
+h2 { font-size: 12pt; margin: 22px 0 10px; font-weight: 700; color: #111; border-bottom: 1px solid #111; padding-bottom: 3px; }
+h3 { font-size: 11pt; margin: 14px 0 6px; font-weight: 600; color: #111; }
+.subtitle { font-size: 12pt; color: #111; margin: 2px 0; }
+.meta { font-size: 10pt; color: #111; margin: 2px 0 14px; }
+.score-box { border: 1px solid #111; padding: 10px 14px; margin: 12px 0 22px; font-size: 11pt; }
+.score-box .score { font-size: 16pt; font-weight: 700; color: #111; }
+.score-box .delta { font-size: 10pt; color: #111; margin-top: 2px; }
+p { margin: 6px 0; color: #111; }
+ul { margin: 6px 0 6px 22px; padding: 0; color: #111; }
+ul li { margin: 3px 0; color: #111; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 10pt; }
+th, td { border: 1px solid #333; padding: 6px 10px; text-align: left; vertical-align: top; color: #111; }
+th { font-weight: 700; background: transparent; }
+.note-coach { border: 1px solid #333; padding: 10px 14px; margin: 8px 0; font-style: italic; color: #111; }
+.footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #333; font-size: 9pt; color: #111; text-align: center; }
+strong { color: #111; }
+em { color: #111; }
+/* Impression monochrome stricte — on force la couleur noire partout même si un style externe tente d'injecter une couleur */
+* { color: #111 !important; }
+`;
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<title>Rapport de suivi — ${ent.name}</title>
-<style>
-@page{size:A4;margin:16mm}
-body{font-family:"Segoe UI",system-ui,sans-serif;font-size:10pt;color:#1E293B;line-height:1.6;max-width:190mm;margin:0 auto;padding:20px}
-h1{font-size:16pt;color:#0F2B46;margin:0 0 4px}
-h2{font-size:11pt;color:#1B5E8A;border-bottom:1.5px solid #1B5E8A;padding-bottom:3px;margin:18px 0 8px}
-.meta{font-size:9pt;color:#64748B;line-height:1.8}
-.coach-box{background:#EEEDFE;border-left:3px solid #AFA9EC;padding:10px 14px;margin:8px 0;font-size:10pt;color:#3C3489}
-.reco-box{background:#E1F5EE;border-left:3px solid #5DCAA5;padding:8px 14px;margin:4px 0;font-size:10pt;color:#085041;font-weight:600}
-.kpi-row{display:flex;gap:8px;margin:8px 0}
-.kpi{flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:8px;text-align:center}
-.kpi .v{font-size:14pt;font-weight:700;color:#0F2B46}
-.kpi .l{font-size:8pt;color:#64748B}
-.check{font-size:9pt;margin:2px 0}
-.check .g{color:#16a34a}
-.check .r{color:#dc2626}
-.rdv{font-size:9pt;margin:2px 0;color:#475569}
-.rdv b{color:#1E293B}
-.liv{display:inline-block;padding:2px 8px;border-radius:4px;font-size:8pt;margin:2px}
-.liv.ok{background:#EAF3DE;color:#27500A}
-.liv.pending{background:#F1EFE8;color:#5F5E5A}
-</style></head><body>
-<h1>Rapport de suivi — ${ent.name}</h1>
-<div class="meta">
-${ent.sector || ''} — ${ent.country || ''}<br>
-Coach : ${coachName} | Date : ${new Date().toLocaleDateString('fr-FR')}<br>
-Accompagnement depuis : ${rdvNotes.length > 0 ? new Date(rdvNotes[rdvNotes.length - 1].date_rdv).toLocaleDateString('fr-FR') : '—'}
+<title>Rapport de coaching — ${esc(ent?.name || '')}</title>
+<style>${css}</style>
+</head><body>
+
+<h1>Rapport de coaching</h1>
+<div class="subtitle">${esc(ent?.name || '')}</div>
+<div class="meta">Session${sessionNumber ? ' n°' + esc(sessionNumber) : ''}${sessionDate ? ' — ' + esc(frDate(sessionDate)) : ''}${coachNames ? ' — Coachs : ' + esc(coachNames) : ''}</div>
+
+<div class="score-box">
+  <div><strong>Score IR</strong></div>
+  <div class="score">${scoreIrDebut} → ${scoreIrActuel}</div>
+  <div class="delta">${deltaArrow} ${deltaSign}${delta} pts · ${classification(scoreIrActuel)}</div>
 </div>
 
-<h2>Commentaire du coach</h2>
-<div class="coach-box">${coachComment || 'Aucun commentaire'}</div>
-${nextSteps ? `<div class="reco-box">Prochaines étapes : ${nextSteps}</div>` : ''}
+<h2>📌 Synthèse de la session</h2>
+<p>${esc(synthese) || '—'}</p>
 
-<h2>L'entreprise en bref</h2>
-<div class="kpi-row">
-<div class="kpi"><div class="v">${fmt(ca)}</div><div class="l">CA</div></div>
-<div class="kpi"><div class="v">${margeBrute ? margeBrute + '%' : '—'}</div><div class="l">Marge brute</div></div>
-<div class="kpi"><div class="v">${fmt(ebitda)}</div><div class="l">EBITDA</div></div>
-<div class="kpi"><div class="v">${fmt(tresorerie)}</div><div class="l">Trésorerie</div></div>
-<div class="kpi"><div class="v">${effectifs || '—'}</div><div class="l">Effectifs</div></div>
-</div>
+<h2>🎯 Points clés à retenir</h2>
+${pointsClesRows ? `<ul>${pointsClesRows}</ul>` : '<p>—</p>'}
 
-<h2>Progression</h2>
-<p style="font-size:10pt"><strong>${scoreInitial || '?'}</strong> → <strong>${scoreActuel}</strong> ${scoreInitial ? `(${scoreActuel - scoreInitial > 0 ? '+' : ''}${scoreActuel - scoreInitial} pts)` : ''}</p>
-${bloquantsLeves.map((b: string) => `<div class="check"><span class="g">✓</span> ${b}</div>`).join('')}
-${bloquantsRestants.map((b: string) => `<div class="check"><span class="r">✗</span> ${b}</div>`).join('')}
+<h2>✅ Sujets travaillés</h2>
+${
+  sujetsRows
+    ? `<table>
+  <thead><tr><th style="width:38%">Sujet</th><th style="width:42%">Avancement</th><th style="width:20%">Statut</th></tr></thead>
+  <tbody>${sujetsRows}</tbody>
+</table>`
+    : '<p>—</p>'
+}
 
-<h2>Activité de coaching</h2>
-${rdvNotes.map((n: any) => `<div class="rdv"><b>${new Date(n.date_rdv).toLocaleDateString('fr-FR')}</b> — ${n.titre || (n.resume_ia as string)?.substring(0, 100) || 'Note'}</div>`).join('')}
-<p style="font-size:9pt;color:#64748B;margin-top:6px">Documents collectés : ${uploads.length} | Livrables : ${livrableTypes.length}</p>
-<div>
-${['pre_screening','bmc_analysis','sic_analysis','inputs_data','plan_financier','business_plan','odd_analysis','valuation','onepager','investment_memo','diagnostic_data','screening_report'].map(t =>
-  `<span class="liv ${livrableTypes.includes(t) ? 'ok' : 'pending'}">${t.replace(/_/g,' ')}</span>`
-).join('')}
-</div>
+<h2>📋 Feuille de route 30 jours</h2>
+${
+  roadmapRows
+    ? `<table>
+  <thead><tr><th style="width:14%">Prio.</th><th style="width:54%">Action</th><th style="width:18%">Resp.</th><th style="width:14%">Échéance</th></tr></thead>
+  <tbody>${roadmapRows}</tbody>
+</table>`
+    : '<p>—</p>'
+}
+
+<h2>📎 En attente &amp; prochaine session</h2>
+<h3>📂 Documents à obtenir</h3>
+${docsItems ? `<ul>${docsItems}</ul>` : '<p>—</p>'}
+
+<h3>📅 Prochaine session</h3>
+<p><strong>Date :</strong> ${esc(frDateLong(nextSessionDate))}</p>
+${objectifsItems ? `<p><strong>Objectifs :</strong></p><ul>${objectifsItems}</ul>` : ''}
+
+<h2>💬 Note coach (visibilité chef de programme)</h2>
+<div class="note-coach">${esc(noteCoach) || '—'}</div>
+
+<div class="footer">ESONO Investment Readiness Platform © ${new Date().getFullYear()} — Confidentiel</div>
 
 </body></html>`;
 }

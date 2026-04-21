@@ -4,10 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, FileDown, FileText } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 interface FinalReportModalProps {
@@ -16,23 +15,11 @@ interface FinalReportModalProps {
   onClose: () => void;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
 export default function FinalReportModal({ enterpriseId, enterpriseName, onClose }: FinalReportModalProps) {
   const { t } = useTranslation();
   const { session: authSession } = useAuth();
-
-  // Métadonnées de la session de coaching (en-tête du rapport)
-  const [sessionNumber, setSessionNumber] = useState('');
-  const [sessionDate, setSessionDate] = useState(todayIso());
-  const [coachNames, setCoachNames] = useState('');
-  const [nextSessionDate, setNextSessionDate] = useState('');
-  const [nextSessionObjectives, setNextSessionObjectives] = useState('');
-
-  // Note coach interne + recommandation globale
   const [comment, setComment] = useState('');
   const [recommendation, setRecommendation] = useState('');
-
   const [reportHtml, setReportHtml] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
@@ -49,11 +36,6 @@ export default function FinalReportModal({ enterpriseId, enterpriseName, onClose
             enterprise_id: enterpriseId,
             coach_comment: comment,
             coach_recommendation: recommendation,
-            session_number: sessionNumber || null,
-            session_date: sessionDate || null,
-            coach_names: coachNames || null,
-            next_session_date: nextSessionDate || null,
-            next_session_objectives: nextSessionObjectives || null,
           }),
         }
       );
@@ -70,35 +52,17 @@ export default function FinalReportModal({ enterpriseId, enterpriseName, onClose
     }
   };
 
-  const baseFilename = `Rapport_Coaching_${enterpriseName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-  const downloadFile = (content: string, mime: string, ext: string) => {
-    const blob = new Blob([content], { type: mime });
+  const downloadAsHtml = () => {
+    if (!reportHtml) return;
+    const blob = new Blob([reportHtml], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${baseFilename}.${ext}`;
+    a.download = `Rapport_Final_${enterpriseName.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-  };
-
-  const downloadAsHtml = () => {
-    if (!reportHtml) return;
-    downloadFile(reportHtml, 'text/html', 'html');
-    toast.success('HTML téléchargé');
-  };
-
-  const downloadAsWord = () => {
-    if (!reportHtml) return;
-    // HTML servi avec application/msword + extension .doc → Word l'ouvre nativement,
-    // l'utilisateur peut ensuite « Enregistrer sous » en .docx s'il le souhaite.
-    // Préfixe MIME pour forcer l'interprétation Word.
-    const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
-xmlns:w="urn:schemas-microsoft-com:office:word"
-xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${baseFilename}</title></head>${reportHtml.replace(/<!DOCTYPE[^>]*>/i, '').replace(/<\/?html[^>]*>/gi, '')}</html>`;
-    downloadFile(wordHtml, 'application/msword', 'doc');
-    toast.success('Word téléchargé — ouvre avec Microsoft Word');
+    toast.success('Rapport téléchargé');
   };
 
   return (
@@ -107,85 +71,24 @@ xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${bas
         {!reportHtml ? (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport de coaching — {enterpriseName}</DialogTitle>
+              <DialogTitle>Rapport final — {enterpriseName}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-medium">Numéro de session</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={sessionNumber}
-                    onChange={(e) => setSessionNumber(e.target.value)}
-                    placeholder="4"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Date de la session</Label>
-                  <Input
-                    type="date"
-                    value={sessionDate}
-                    onChange={(e) => setSessionDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
+            <div className="space-y-3">
               <div>
-                <Label className="text-xs font-medium">Coachs présents</Label>
-                <Input
-                  value={coachNames}
-                  onChange={(e) => setCoachNames(e.target.value)}
-                  placeholder="K. Diabaté / P. N'Guessan"
-                />
+                <Label className="text-xs font-medium">Commentaire du coach</Label>
+                <Textarea value={comment} onChange={e => setComment(e.target.value)} rows={4}
+                  placeholder="L'entreprise présente des fondamentaux solides…" />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-medium">Date prochaine session</Label>
-                  <Input
-                    type="date"
-                    value={nextSessionDate}
-                    onChange={(e) => setNextSessionDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Objectifs prochaine session</Label>
-                  <Input
-                    value={nextSessionObjectives}
-                    onChange={(e) => setNextSessionObjectives(e.target.value)}
-                    placeholder="Valider chiffrage fiscal, BP v2..."
-                  />
-                </div>
-              </div>
-
               <div>
-                <Label className="text-xs font-medium">
-                  Note coach (visible par le chef de programme)
-                </Label>
-                <Textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={4}
-                  placeholder="Entrepreneure très forte sur l'opérationnel mais réticente au volet fiscal..."
-                />
+                <Label className="text-xs font-medium">Recommandation</Label>
+                <Textarea value={recommendation} onChange={e => setRecommendation(e.target.value)} rows={2}
+                  placeholder="ÉLIGIBLE SOUS CONDITIONS — Financer après…" />
               </div>
-
-              <div>
-                <Label className="text-xs font-medium">Recommandation globale</Label>
-                <Textarea
-                  value={recommendation}
-                  onChange={(e) => setRecommendation(e.target.value)}
-                  rows={2}
-                  placeholder="ACCOMPAGNER — financer après régularisation fiscale..."
-                />
-              </div>
-
               <Button onClick={handleGenerate} disabled={generating} className="w-full">
                 {generating ? (
                   <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Génération en cours (30-60s)…</>
                 ) : (
-                  <><Sparkles className="h-4 w-4 mr-1" /> Générer le rapport</>
+                  <><Sparkles className="h-4 w-4 mr-1" /> Générer le rapport final</>
                 )}
               </Button>
             </div>
@@ -193,17 +96,10 @@ xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${bas
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport de coaching</DialogTitle>
-              <div className="flex gap-2 flex-wrap">
-                <Button size="sm" onClick={downloadAsWord}>
-                  <FileDown className="h-4 w-4 mr-1" /> Télécharger Word
-                </Button>
-                <Button size="sm" variant="outline" onClick={downloadAsHtml}>
-                  <FileText className="h-4 w-4 mr-1" /> HTML
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setReportHtml(null)}>
-                  Modifier
-                </Button>
+              <DialogTitle>Rapport final</DialogTitle>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={downloadAsHtml}>HTML</Button>
+                <Button size="sm" variant="outline" onClick={() => setReportHtml(null)}>Modifier</Button>
               </div>
             </DialogHeader>
             <iframe srcDoc={reportHtml} className="w-full h-[600px] border rounded-lg" />
