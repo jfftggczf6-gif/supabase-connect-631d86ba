@@ -127,10 +127,12 @@ export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose
     if (!reportHtml) return;
     // HTML + namespaces Office → Microsoft Word ouvre le .doc nativement.
     // L'utilisateur peut ensuite "Enregistrer sous" en .docx.
-    const body = reportHtml
-      .replace(/<!DOCTYPE[^>]*>/i, '')
-      .replace(/<\/?html[^>]*>/gi, '');
-    const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${baseFilename}</title></head>${body}</html>`;
+    // On extrait <head>...</head> et <body>...</body> séparément pour éviter les doublons.
+    const headMatch = reportHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    const bodyMatch = reportHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const headInner = headMatch ? headMatch[1] : `<title>${baseFilename}</title>`;
+    const bodyInner = bodyMatch ? bodyMatch[1] : reportHtml;
+    const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">${headInner}</head><body>${bodyInner}</body></html>`;
     downloadFile(wordHtml, 'application/msword', 'doc');
     toast.success('Word téléchargé — ouvre avec Microsoft Word');
   };
