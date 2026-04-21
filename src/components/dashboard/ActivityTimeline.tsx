@@ -16,7 +16,7 @@ interface ActivityEntry {
 }
 
 const ACTION_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
-  generate: { icon: Cpu, label: 'Génération IA', color: 'text-blue-500' },
+  generate: { icon: Cpu, label: 'Génération IA', color: 'text-violet-500' },
   upload: { icon: Upload, label: 'Upload', color: 'text-green-500' },
   correction: { icon: PenLine, label: 'Correction', color: 'text-amber-500' },
   share: { icon: Share2, label: 'Partage', color: 'text-purple-500' },

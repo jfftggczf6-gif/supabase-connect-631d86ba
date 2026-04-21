@@ -75,7 +75,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
           <p className="text-xs text-muted-foreground">{t('dashboard_programme.score_avg')}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
-          <BarChart3 className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+          <BarChart3 className="h-5 w-5 mx-auto text-violet-500 mb-1" />
           <p className="text-2xl font-bold">{kpis.pipeline_completion_pct ?? 0}%</p>
           <p className="text-xs text-muted-foreground">{t('dashboard_programme.completion')}</p>
         </CardContent></Card>
@@ -244,7 +244,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
               <h3 className="font-semibold mb-3">{t('dashboard_programme.activity_7d')}</h3>
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div className="text-center p-2 bg-muted/50 rounded">
-                  <Bot className="h-3.5 w-3.5 mx-auto text-blue-500 mb-0.5" />
+                  <Bot className="h-3.5 w-3.5 mx-auto text-violet-500 mb-0.5" />
                   <p className="text-lg font-bold">{activite7j.totaux.generations}</p>
                   <p className="text-[10px] text-muted-foreground">{t('dashboard_programme.generations')}</p>
                 </div>

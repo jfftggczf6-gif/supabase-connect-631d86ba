@@ -16,7 +16,7 @@ const SLIDE_COLORS: Record<string, string> = {
   cover: 'from-indigo-600 to-violet-700',
   probleme: 'from-red-500 to-red-700',
   solution: 'from-emerald-500 to-emerald-700',
-  marche: 'from-blue-500 to-blue-700',
+  marche: 'from-violet-500 to-violet-700',
   business_model: 'from-amber-500 to-amber-700',
   traction: 'from-teal-500 to-teal-700',
   financier: 'from-purple-600 to-purple-800',

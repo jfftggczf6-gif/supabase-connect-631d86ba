@@ -71,7 +71,7 @@ export default function ValidationBanner({ validation }: Props) {
             <div key={i} className="flex items-start gap-2 p-2 rounded bg-background/50">
               {issue.severity === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" /> :
                issue.severity === 'warning' ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" /> :
-               <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />}
+               <CheckCircle2 className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />}
               <div>
                 <span className="font-mono text-muted-foreground">{issue.field}</span>
                 <span className="mx-1">—</span>

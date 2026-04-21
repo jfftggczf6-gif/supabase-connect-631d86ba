@@ -82,7 +82,7 @@ export default function DashboardOverview({ enterprise, deliverables, modules, g
   const phaseColorBar: Record<string, string> = {
     emerald: 'bg-emerald-500',
     rose: 'bg-rose-500',
-    blue: 'bg-blue-500',
+    blue: 'bg-violet-500',
     violet: 'bg-violet-500',
     amber: 'bg-amber-500',
   };

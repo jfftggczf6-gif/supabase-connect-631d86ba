@@ -17,10 +17,10 @@ const DEMO_URL = 'https://cal.com/phil-yace-d73gey/demo-esono';
 // Palette (rappel du brief) — appliquée via arbitrary Tailwind values pour éviter
 // toute rupture avec le reste du design system de l'app (app.esono.io).
 //   canvas  #FAFAF7   surface #FFFFFF
-//   brand-600 #4F3A6F  brand-700 #3D2B57  brand-50 #F6F4F9
+//   brand-600 #7C3AED  brand-700 #6D28D9  brand-50 #F5F3FF
 //   accent-500 #C9A96E  accent-600 #B08F52
 //   ink-900 #1A1625  ink-700 #3D3651  ink-500 #6B6680
-//   border #E8E4EE
+//   border #EDE9FE
 //   success #2F8F5A  danger #B84444
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -213,7 +213,7 @@ function BrandPattern() {
           <circle cx="100" cy="20" r="2" fill="currentColor" />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill="url(#esono-pattern)" className="text-[#4F3A6F]" />
+      <rect width="100%" height="100%" fill="url(#esono-pattern)" className="text-[#7C3AED]" />
     </svg>
   );
 }
@@ -221,7 +221,7 @@ function BrandPattern() {
 // ─── Illustrations SVG custom pour les 3 étapes de "Comment ça marche" ───
 function IllustrationIngerer() {
   return (
-    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#4F3A6F]" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#7C3AED]" fill="none" aria-hidden="true">
       <rect x="4" y="10" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" />
       <rect x="10" y="16" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" />
       <rect x="16" y="22" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" />
@@ -234,7 +234,7 @@ function IllustrationIngerer() {
 }
 function IllustrationAnalyser() {
   return (
-    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#4F3A6F]" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#7C3AED]" fill="none" aria-hidden="true">
       <circle cx="18" cy="32" r="7" stroke="currentColor" strokeWidth="1.2" />
       <circle cx="60" cy="14" r="5" stroke="currentColor" strokeWidth="1.2" />
       <circle cx="60" cy="50" r="5" stroke="currentColor" strokeWidth="1.2" />
@@ -250,7 +250,7 @@ function IllustrationAnalyser() {
 }
 function IllustrationLivrer() {
   return (
-    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#4F3A6F]" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 120 64" className="h-14 w-24 text-[#7C3AED]" fill="none" aria-hidden="true">
       <rect x="8" y="16" width="28" height="32" rx="3" stroke="currentColor" strokeWidth="1.2" />
       <path d="M44 32 L74 32" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <path d="M68 26 L76 32 L68 38" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -307,10 +307,10 @@ function DashboardMockup({ segment }: { segment: Segment }) {
     ],
   };
   const data = segment === 'program' ? programData : peData;
-  const dotColor = (s: string) => s === 'done' ? 'bg-[#2F8F5A]' : s === 'progress' ? 'bg-[#4F7FC8]' : 'bg-[#B8B5C4]';
+  const dotColor = (s: string) => s === 'done' ? 'bg-[#2F8F5A]' : s === 'progress' ? 'bg-[#A78BFA]' : 'bg-[#B8B5C4]';
   return (
-    <div key={`dashboard-${segment}`} className="relative rounded-2xl border border-[#E8E4EE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden animate-in fade-in duration-300">
-      <div className="flex items-center gap-1.5 border-b border-[#E8E4EE] px-4 py-3 bg-[#F6F4F9]">
+    <div key={`dashboard-${segment}`} className="relative rounded-2xl border border-[#EDE9FE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden animate-in fade-in duration-300">
+      <div className="flex items-center gap-1.5 border-b border-[#EDE9FE] px-4 py-3 bg-[#F5F3FF]">
         <div className="h-2.5 w-2.5 rounded-full bg-[#B84444]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#C8801F]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#2F8F5A]/40" />
@@ -319,22 +319,22 @@ function DashboardMockup({ segment }: { segment: Segment }) {
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 className="font-serif text-base font-semibold text-[#3D2B57]">Kouassi Agro Industries</h3>
+            <h3 className="font-serif text-base font-semibold text-[#6D28D9]">Kouassi Agro Industries</h3>
             <p className="text-[11px] text-[#6B6680]">{data.subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">{data.scoreLabel}</span>
-            <span className="rounded-full bg-[#F6F4F9] px-3 py-1 text-[11px] font-medium text-[#4F3A6F]">{data.statut}</span>
+            <span className="rounded-full bg-[#F5F3FF] px-3 py-1 text-[11px] font-medium text-[#7C3AED]">{data.statut}</span>
           </div>
         </div>
         <div className="mb-3 flex items-center gap-4 text-[10px] text-[#6B6680] flex-wrap">
           <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2F8F5A]" /> Validé ({data.counts.done})</div>
-          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4F7FC8]" /> En cours ({data.counts.progress})</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#A78BFA]" /> En cours ({data.counts.progress})</div>
           <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#B8B5C4]" /> À compléter ({data.counts.empty})</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {data.rows.map(s => (
-            <div key={s.n} className="flex items-center gap-2.5 rounded-md border border-[#E8E4EE] bg-white px-3 py-2">
+            <div key={s.n} className="flex items-center gap-2.5 rounded-md border border-[#EDE9FE] bg-white px-3 py-2">
               <span className={`h-2 w-2 rounded-full flex-none ${dotColor(s.status)}`} />
               <span className="text-[11px] font-medium text-[#3D3651] flex-none w-5">{s.n}.</span>
               <span className="text-[11px] text-[#1A1625] truncate">{s.title}</span>
@@ -363,8 +363,8 @@ function HeroMockup() {
     ] },
   ];
   return (
-    <div className="relative rounded-2xl border border-[#E8E4EE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-[#E8E4EE] px-4 py-3 bg-[#F6F4F9]">
+    <div className="relative rounded-2xl border border-[#EDE9FE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden">
+      <div className="flex items-center gap-1.5 border-b border-[#EDE9FE] px-4 py-3 bg-[#F5F3FF]">
         <div className="h-2.5 w-2.5 rounded-full bg-[#B84444]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#C8801F]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#2F8F5A]/40" />
@@ -372,12 +372,12 @@ function HeroMockup() {
       </div>
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-serif text-base font-semibold text-[#3D2B57]">Deals actifs</h3>
+          <h3 className="font-serif text-base font-semibold text-[#6D28D9]">Deals actifs</h3>
           <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">6 en pipeline</span>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {cols.map((col, i) => (
-            <div key={i} className="rounded-lg bg-[#F6F4F9] p-3">
+            <div key={i} className="rounded-lg bg-[#F5F3FF] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-medium text-[#3D3651]">{col.title}</span>
                 <span className="text-[11px] text-[#6B6680]">{col.items.length}</span>
@@ -425,7 +425,7 @@ export default function Index() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAF7]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#4F3A6F]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#7C3AED]" />
       </div>
     );
   }
@@ -439,19 +439,19 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1625] font-body antialiased">
       {/* ─────────────── Header ─────────────── */}
-      <header className="sticky top-0 z-50 border-b border-[#E8E4EE] bg-[#FAFAF7]/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-[#EDE9FE] bg-[#FAFAF7]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <a href="#" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-[#3D2B57] flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-[#6D28D9] flex items-center justify-center">
               <span className="text-[11px] font-serif font-bold text-white">ES</span>
             </div>
-            <span className="text-lg font-serif font-semibold text-[#3D2B57] tracking-tight">ESONO</span>
+            <span className="text-lg font-serif font-semibold text-[#6D28D9] tracking-tight">ESONO</span>
           </a>
           <nav className="hidden md:flex items-center gap-8">
             {CONTENT.nav.links.map(l => (
-              <a key={l.href} href={l.href} className="text-sm text-[#3D3651] hover:text-[#3D2B57] transition-colors">{l.label}</a>
+              <a key={l.href} href={l.href} className="text-sm text-[#3D3651] hover:text-[#6D28D9] transition-colors">{l.label}</a>
             ))}
-            <Link to="/login" className="text-sm text-[#3D3651] hover:text-[#3D2B57] transition-colors">Se connecter</Link>
+            <Link to="/login" className="text-sm text-[#3D3651] hover:text-[#6D28D9] transition-colors">Se connecter</Link>
           </nav>
           <div className="flex items-center gap-3">
             {/* Masqué sur mobile pour éviter le doublon avec le sticky bottom CTA */}
@@ -467,7 +467,7 @@ export default function Index() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <p className="text-xs font-medium tracking-widest uppercase text-[#B08F52]">{CONTENT.hero.eyebrow}</p>
-              <h1 className="mt-5 font-serif font-semibold text-[#3D2B57] leading-[1.1]" style={{ fontSize: 'clamp(2.25rem, 4.5vw, 3.75rem)' }}>
+              <h1 className="mt-5 font-serif font-semibold text-[#6D28D9] leading-[1.1]" style={{ fontSize: 'clamp(2.25rem, 4.5vw, 3.75rem)' }}>
                 {CONTENT.hero.h1}
               </h1>
               <p className="mt-6 text-[17px] leading-relaxed text-[#3D3651] max-w-xl">{CONTENT.hero.subheadline}</p>
@@ -483,7 +483,7 @@ export default function Index() {
       </section>
 
       {/* ─────────────── Segment switcher ─────────────── */}
-      <section className="border-y border-[#E8E4EE] bg-white">
+      <section className="border-y border-[#EDE9FE] bg-white">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-10">
           <p className="text-center text-sm text-[#6B6680] mb-5">{CONTENT.switcher.intro}</p>
           <div role="tablist" aria-label="Sélectionner votre segment" className="mx-auto grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-3xl">
@@ -496,12 +496,12 @@ export default function Index() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => chooseSegment(s)}
-                  className={`rounded-xl border p-5 text-left transition-all ${active ? 'border-[#4F3A6F] bg-[#F6F4F9] shadow-sm' : 'border-[#E8E4EE] bg-white hover:border-[#B29FC9]'}`}
+                  className={`rounded-xl border p-5 text-left transition-all ${active ? 'border-[#7C3AED] bg-[#F5F3FF] shadow-sm' : 'border-[#EDE9FE] bg-white hover:border-[#A78BFA]'}`}
                 >
                   <div className="flex items-start gap-3">
-                    <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full border-2 ${active ? 'border-[#4F3A6F] bg-[#4F3A6F]' : 'border-[#B8B5C4] bg-white'}`} />
+                    <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full border-2 ${active ? 'border-[#7C3AED] bg-[#7C3AED]' : 'border-[#B8B5C4] bg-white'}`} />
                     <div>
-                      <div className={`font-serif font-semibold ${active ? 'text-[#3D2B57]' : 'text-[#3D3651]'}`}>{meta.label}</div>
+                      <div className={`font-serif font-semibold ${active ? 'text-[#6D28D9]' : 'text-[#3D3651]'}`}>{meta.label}</div>
                       <div className="mt-1 text-sm text-[#6B6680]">{meta.sublabel}</div>
                     </div>
                   </div>
@@ -515,16 +515,16 @@ export default function Index() {
       {/* ─────────────── 3 · Problème ─────────────── */}
       <AnimatedSection className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-serif font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.problem.title}</h2>
+          <h2 className="font-serif font-semibold text-[#6D28D9]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.problem.title}</h2>
           <p key={`sub-${segment}`} className="mt-4 text-[#3D3651] text-lg animate-in fade-in duration-300">{problem.sub}</p>
         </div>
         <div key={`cards-${segment}`} className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
           {problem.cards.map((c, i) => {
             const Icon = c.icon;
             return (
-              <div key={i} className="rounded-xl bg-white border border-[#E8E4EE] p-6 shadow-[0_1px_2px_rgba(61,43,87,0.04),0_2px_8px_rgba(61,43,87,0.04)] hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
-                <div className="h-11 w-11 rounded-xl bg-[#F6F4F9] flex items-center justify-center">
-                  <Icon className="h-5 w-5 text-[#4F3A6F]" />
+              <div key={i} className="rounded-xl bg-white border border-[#EDE9FE] p-6 shadow-[0_1px_2px_rgba(61,43,87,0.04),0_2px_8px_rgba(61,43,87,0.04)] hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
+                <div className="h-11 w-11 rounded-xl bg-[#F5F3FF] flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-[#7C3AED]" />
                 </div>
                 <h3 className="mt-4 font-serif font-semibold text-[#1A1625] text-lg">{c.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{c.body}</p>
@@ -532,26 +532,26 @@ export default function Index() {
             );
           })}
         </div>
-        <blockquote key={`quote-${segment}`} className="mt-10 rounded-xl bg-[#F6F4F9] p-8 max-w-4xl mx-auto animate-in fade-in duration-300">
-          <Quote className="h-6 w-6 text-[#B29FC9] mb-3" />
-          <p className="font-serif text-xl italic text-[#3D2B57]">« {problem.quote.text} »</p>
+        <blockquote key={`quote-${segment}`} className="mt-10 rounded-xl bg-[#F5F3FF] p-8 max-w-4xl mx-auto animate-in fade-in duration-300">
+          <Quote className="h-6 w-6 text-[#A78BFA] mb-3" />
+          <p className="font-serif text-xl italic text-[#6D28D9]">« {problem.quote.text} »</p>
           <footer className="mt-3 text-sm text-[#6B6680]">{problem.quote.author}</footer>
         </blockquote>
       </AnimatedSection>
 
       {/* ─────────────── 4 · Solution ─────────────── */}
-      <section id="solution" className="bg-white border-y border-[#E8E4EE]">
+      <section id="solution" className="bg-white border-y border-[#EDE9FE]">
         <AnimatedSection as="div" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="font-serif font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.solution.title}</h2>
+            <h2 className="font-serif font-semibold text-[#6D28D9]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.solution.title}</h2>
             <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.solution.sub}</p>
           </div>
           <div key={`sol-${segment}`} className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {solution.map((c, i) => {
               const Icon = c.icon;
               return (
-                <div key={i} className="rounded-xl bg-[#FAFAF7] border border-[#E8E4EE] p-6 hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
-                  <div className="h-11 w-11 rounded-xl bg-[#3D2B57] flex items-center justify-center">
+                <div key={i} className="rounded-xl bg-[#FAFAF7] border border-[#EDE9FE] p-6 hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
+                  <div className="h-11 w-11 rounded-xl bg-[#6D28D9] flex items-center justify-center">
                     <Icon className="h-5 w-5 text-white" />
                   </div>
                   <h3 className="mt-4 font-serif font-semibold text-[#1A1625] text-lg">{c.title}</h3>
@@ -573,15 +573,15 @@ export default function Index() {
       {/* ─────────────── 5 · Comment ça marche ─────────────── */}
       <AnimatedSection className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-serif font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.how.title}</h2>
+          <h2 className="font-serif font-semibold text-[#6D28D9]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.how.title}</h2>
           <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.how.sub}</p>
         </div>
         <div key={`how-${segment}`} className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
           {how.map((s, i) => {
             const Illustration = STEP_ILLUSTRATIONS[i] ?? (() => null);
             return (
-              <div key={i} className="relative rounded-xl bg-white border border-[#E8E4EE] p-6">
-                <span className="absolute top-5 right-5 text-5xl font-serif font-semibold text-[#F6F4F9]">{s.n}</span>
+              <div key={i} className="relative rounded-xl bg-white border border-[#EDE9FE] p-6">
+                <span className="absolute top-5 right-5 text-5xl font-serif font-semibold text-[#F5F3FF]">{s.n}</span>
                 <div className="h-14 flex items-start">
                   <Illustration />
                 </div>
@@ -594,7 +594,7 @@ export default function Index() {
       </AnimatedSection>
 
       {/* ─────────────── 6 · Preuve ─────────────── */}
-      <section className="bg-[#3D2B57] text-white relative overflow-hidden">
+      <section className="bg-[#6D28D9] text-white relative overflow-hidden">
         <BrandPattern />
         <AnimatedSection as="div" className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
           <div className="text-center">
@@ -618,16 +618,16 @@ export default function Index() {
       {/* ─────────────── 7 · Sécurité ─────────────── */}
       <AnimatedSection id="security" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-serif font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.security.title}</h2>
+          <h2 className="font-serif font-semibold text-[#6D28D9]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.security.title}</h2>
           <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.security.sub}</p>
         </div>
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {CONTENT.security.pillars.map((p, i) => {
             const Icon = p.icon;
             return (
-              <div key={i} className="rounded-xl bg-white border border-[#E8E4EE] p-6">
-                <div className="h-10 w-10 rounded-lg bg-[#F6F4F9] flex items-center justify-center">
-                  <Icon className="h-5 w-5 text-[#4F3A6F]" />
+              <div key={i} className="rounded-xl bg-white border border-[#EDE9FE] p-6">
+                <div className="h-10 w-10 rounded-lg bg-[#F5F3FF] flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-[#7C3AED]" />
                 </div>
                 <h3 className="mt-4 font-serif font-semibold text-[#1A1625]">{p.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{p.body}</p>
@@ -635,24 +635,24 @@ export default function Index() {
             );
           })}
         </div>
-        <div className="mt-10 rounded-xl bg-[#F6F4F9] border border-[#E8E4EE] p-8 max-w-4xl mx-auto text-center">
-          <h3 className="font-serif font-semibold text-[#3D2B57] text-2xl">{CONTENT.security.callout.title}</h3>
+        <div className="mt-10 rounded-xl bg-[#F5F3FF] border border-[#EDE9FE] p-8 max-w-4xl mx-auto text-center">
+          <h3 className="font-serif font-semibold text-[#6D28D9] text-2xl">{CONTENT.security.callout.title}</h3>
           <p className="mt-3 text-[#3D3651] leading-relaxed">{CONTENT.security.callout.body}</p>
         </div>
       </AnimatedSection>
 
       {/* ─────────────── 8 · Contraste ─────────────── */}
-      <section className="bg-white border-y border-[#E8E4EE]">
+      <section className="bg-white border-y border-[#EDE9FE]">
         <AnimatedSection as="div" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="font-serif font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.contrast.title}</h2>
+            <h2 className="font-serif font-semibold text-[#6D28D9]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.contrast.title}</h2>
             <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.contrast.sub}</p>
           </div>
           <div key={`contrast-${segment}`} className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="rounded-xl border border-[#E8E4EE] bg-[#FAFAF7] p-6">
+            <div className="rounded-xl border border-[#EDE9FE] bg-[#FAFAF7] p-6">
               <div className="flex items-center gap-2 mb-5">
                 <XCircle className="h-5 w-5 text-[#B84444]" />
-                <h3 className="font-serif font-semibold text-[#3D2B57]">Sans ESONO</h3>
+                <h3 className="font-serif font-semibold text-[#6D28D9]">Sans ESONO</h3>
               </div>
               <ul className="space-y-3">
                 {contrast.map((r, i) => (
@@ -663,10 +663,10 @@ export default function Index() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-xl border border-[#4F3A6F]/20 bg-[#F6F4F9] p-6">
+            <div className="rounded-xl border border-[#7C3AED]/20 bg-[#F5F3FF] p-6">
               <div className="flex items-center gap-2 mb-5">
                 <CheckCircle2 className="h-5 w-5 text-[#2F8F5A]" />
-                <h3 className="font-serif font-semibold text-[#3D2B57]">Avec ESONO</h3>
+                <h3 className="font-serif font-semibold text-[#6D28D9]">Avec ESONO</h3>
               </div>
               <ul className="space-y-3">
                 {contrast.map((r, i) => (
@@ -686,7 +686,7 @@ export default function Index() {
         <BrandPattern />
         <AnimatedSection as="div" className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-24">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="font-serif font-semibold text-[#3D2B57]" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)' }}>{CONTENT.finalCta.title}</h2>
+            <h2 className="font-serif font-semibold text-[#6D28D9]" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)' }}>{CONTENT.finalCta.title}</h2>
             <p className="mt-5 text-lg text-[#3D3651] leading-relaxed">{CONTENT.finalCta.sub}</p>
             <div className="mt-9">
               <PrimaryCTA size="xl" />
@@ -697,13 +697,13 @@ export default function Index() {
       </section>
 
       {/* ─────────────── Footer ─────────────── */}
-      <footer className="bg-[#1E1529] text-white/80">
+      <footer className="bg-[#1E1B4B] text-white/80">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-14">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="h-8 w-8 rounded-lg bg-[#C9A96E] flex items-center justify-center">
-                  <span className="text-[11px] font-serif font-bold text-[#3D2B57]">ES</span>
+                  <span className="text-[11px] font-serif font-bold text-[#6D28D9]">ES</span>
                 </div>
                 <span className="text-lg font-serif font-semibold text-white">ESONO</span>
               </div>

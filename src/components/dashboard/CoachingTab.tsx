@@ -499,7 +499,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName, viewMode = '
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] ${
-                      note.date_rdv ? 'bg-emerald-50 text-emerald-700' : note.file_name ? 'bg-blue-50 text-blue-700' : 'bg-indigo-50 text-indigo-700'
+                      note.date_rdv ? 'bg-emerald-50 text-emerald-700' : note.file_name ? 'bg-violet-50 text-violet-700' : 'bg-indigo-50 text-indigo-700'
                     }`}>
                       {note.date_rdv ? t('coaching.rdv_label') : note.file_name ? t('coaching.file_label') : t('coaching.note_label')}
                     </Badge>

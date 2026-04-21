@@ -128,7 +128,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
   const urgenceBadge = (u: string) => {
     if (u === 'bloquant') return <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300">Bloquant</Badge>;
     if (u === 'important') return <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-300">Important</Badge>;
-    return <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-300">Utile</Badge>;
+    return <Badge className="text-[10px] bg-violet-100 text-violet-700 border-violet-300">Utile</Badge>;
   };
 
   // ─── Radar chart data — score by scope ───
@@ -145,7 +145,7 @@ export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate
 
   const benchmarkVerdictColor = (v: string) => {
     if (v === 'conforme') return 'text-emerald-700 bg-emerald-50';
-    if (v === 'optimiste') return 'text-blue-700 bg-blue-50';
+    if (v === 'optimiste') return 'text-violet-700 bg-violet-50';
     if (v === 'alerte') return 'text-amber-700 bg-amber-50';
     if (v === 'critique') return 'text-red-700 bg-red-50';
     return 'text-muted-foreground bg-muted';

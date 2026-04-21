@@ -337,7 +337,7 @@ export default function SicViewer({ data, enterpriseId, onUpdated }: SicViewerPr
               {(canvas.indicateurs_mesure?.indicateurs || []).map((ind: any, i: number) => (
                 <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
                   <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                    ind.type === 'impact' ? 'bg-green-100 text-green-700' : ind.type === 'outcome' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                    ind.type === 'impact' ? 'bg-green-100 text-green-700' : ind.type === 'outcome' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
                   }`}>{ind.type}</span>
                   <span>{ind.nom}</span>
                 </li>

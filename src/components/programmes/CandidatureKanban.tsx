@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 const COLUMN_IDS = [
-  { id: 'received', labelKey: 'candidature.received', color: 'bg-blue-50 border-blue-200' },
+  { id: 'received', labelKey: 'candidature.received', color: 'bg-violet-50 border-violet-200' },
   { id: 'pre_selected', labelKey: 'candidature.pre_selected', color: 'bg-violet-50 border-violet-200' },
   { id: 'selected', labelKey: 'candidature.selected', color: 'bg-emerald-50 border-emerald-200' },
   { id: 'rejected', labelKey: 'candidature.rejected', color: 'bg-red-50 border-red-200' },

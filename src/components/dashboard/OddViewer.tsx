@@ -108,8 +108,8 @@ export function OddViewer({ data, enterpriseId, onUpdated }: OddViewerProps) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-4 text-center">
-            <div className="bg-blue-50 rounded-lg p-3">
-              <div className="text-3xl font-bold text-blue-700">{scoreGlobal}%</div>
+            <div className="bg-violet-50 rounded-lg p-3">
+              <div className="text-3xl font-bold text-violet-700">{scoreGlobal}%</div>
               <div className="text-xs text-muted-foreground mt-1">Score global</div>
             </div>
             <div className="bg-green-50 rounded-lg p-3">

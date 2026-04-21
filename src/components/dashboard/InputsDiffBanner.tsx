@@ -32,16 +32,16 @@ export default function InputsDiffBanner({ enterpriseId }: InputsDiffBannerProps
   if (!hasChanges) return null;
 
   return (
-    <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/20 dark:border-blue-800 mb-4">
+    <Card className="border-violet-200 bg-violet-50/30 dark:bg-violet-950/20 dark:border-violet-800 mb-4">
       <CardContent className="py-3 px-4">
         <div className="flex items-start gap-2">
-          <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <RefreshCw className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">
+            <p className="text-xs font-semibold text-violet-900 dark:text-violet-200">
               Données mises à jour le {new Date(diffData.created_at).toLocaleDateString('fr-FR')}
             </p>
             {diffData.documents_added?.length > 0 && (
-              <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
+              <p className="text-[10px] text-violet-600 dark:text-violet-400 mt-1">
                 Documents ajoutés : {diffData.documents_added.join(', ')}
               </p>
             )}

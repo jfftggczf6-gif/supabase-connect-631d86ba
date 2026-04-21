@@ -276,13 +276,13 @@ export default function ProgrammeDetailPage() {
               {selection.length > 0 && (
                 <Card><CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-blue-500" />
+                    <ShieldCheck className="h-5 w-5 text-violet-500" />
                     <h3 className="font-semibold">{t('programme_tabs.selection_criteria')}</h3>
                   </div>
                   <ul className="space-y-1.5">
                     {selection.map((c, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
-                        <span className="text-blue-500 mt-0.5">◆</span>
+                        <span className="text-violet-500 mt-0.5">◆</span>
                         <span>{c}</span>
                       </li>
                     ))}

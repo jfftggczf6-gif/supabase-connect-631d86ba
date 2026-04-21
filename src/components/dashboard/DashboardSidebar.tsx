@@ -73,10 +73,11 @@ export default function DashboardSidebar({
 
 
 
+  // Couleurs des phases — bleu remplacé par violet pour harmonisation globale
   const phaseColorMap: Record<string, string> = {
     emerald: 'text-emerald-600 bg-emerald-500/10',
     rose: 'text-rose-600 bg-rose-500/10',
-    blue: 'text-blue-600 bg-blue-500/10',
+    blue: 'text-violet-600 bg-violet-500/10',
     violet: 'text-violet-600 bg-violet-500/10',
     amber: 'text-amber-600 bg-amber-500/10',
   };
@@ -84,7 +85,7 @@ export default function DashboardSidebar({
   const phaseAccentMap: Record<string, string> = {
     emerald: 'border-l-emerald-500',
     rose: 'border-l-rose-500',
-    blue: 'border-l-blue-500',
+    blue: 'border-l-violet-500',
     violet: 'border-l-violet-500',
     amber: 'border-l-amber-500',
   };

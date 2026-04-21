@@ -1,21 +1,17 @@
 # Handoff
 
 ## State
-- Branch `main`: Phase 1 multi-tenant + UX refactor merged and pushed to prod. 19 SQL migrations applied, 13 Edge Functions deployed. Supabase types regenerated (`src/integrations/supabase/types.ts`).
-- Lovable currently has infrastructure issues (build failures + Supabase auth). Status: https://status.lovable.com/
-- Fixed `has_role()` in prod (missing `SET search_path = 'public'`), set `APP_URL=https://esono.tech` secret.
-- Backup branch: `main-backup-before-phase1` on GitHub.
+Phase 2 RAG (Voyage AI, 1024-dim) **branché et opérationnel**. 14/14 KB éligibles ingérées avec embeddings (0 NULL). `helpers_v5.ts::getKnowledgeForAgent` utilise maintenant Voyage + `search_knowledge_chunks` RPC avec fallback legacy. 12 EFs de génération redéployées (pre-screening, BMC, SIC, business plan, valuation, diagnostic, ODD, onepager, memo, screening-report, inputs, framework, plan-financier, plan-ovo). Migration `fix_search_knowledge_chunks_search_path` appliquée (opérateur `<=>` de pgvector).
 
 ## Next
-1. **UX Round 2 — 5 changes** (user approved, ready to code):
-   - `PlanFinancierViewer.tsx`: move Avis section to end of synthesis
-   - `BusinessPlanPreview.tsx`: make TOC interactive/clickable (like investment memo)
-   - All viewers (6-7 files): remove individual scores per deliverable, keep only IR score at top
-   - `EntrepreneurDashboard.tsx`: add 3 action buttons under tabs (Uploader→upload tab, Diagnostic, Générer tout) + remove green generate button at bottom
-   - All viewers: uniform CTA buttons (aligned, violet borders matching sidebar color, like valorisation/one-pager style)
-2. **Wait for Lovable to stabilize** then verify invitation flow works end-to-end
+1. **Backlog** — Footer "sources consultées" dans les viewers (PreScreening, BMC, SIC, PlanFin, BP, ODD, Memo, OnePager). Reporté.
+2. **Backlog** — Uploader les vrais PDFs pour les 23 entrées KB stub (<100 chars), puis re-ingérer.
+3. Monitorer les logs `rag-voyage` et `rag-search` dans les prochaines générations pour détecter rate-limits Voyage.
 
 ## Context
-- User domain is `esono.tech` (NOT app.esono.io). APP_URL secret set in prod.
-- Supabase types.ts must be regenerated after schema changes or Lovable builds fail silently.
-- User is frustrated by debugging loops — go straight to root cause, test thoroughly before pushing.
+- User n'utilise **PAS** OpenAI. `VOYAGE_API_KEY` dans Supabase secrets, modèle `voyage-3` (1024 dim).
+- Voyage rate-limite les appels parallèles rapprochés → `rag-ingest` fait retry per-item et skip insert si embedding null.
+- RPC `search_knowledge_chunks` nécessite `search_path = public, extensions` pour trouver l'opérateur `<=>`.
+- User preferences: test avant deploy, push direct sur `main` quand approuvé, qualité > complétude, pas de force-push.
+- Lovable auto-deploy depuis `main` → esono.tech.
+- Deferred tools (TaskCreate, Supabase MCP, Playwright MCP…) nécessitent `ToolSearch` avant appel.

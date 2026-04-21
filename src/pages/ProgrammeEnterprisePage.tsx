@@ -10,12 +10,12 @@ export default function ProgrammeEnterprisePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-blue-50 border-b border-blue-200 px-6 py-2 flex items-center gap-3">
-        <button onClick={() => nav(`/programmes/${programmeId}`)} className="flex items-center gap-1 text-sm text-blue-700 hover:text-blue-900">
+      <div className="bg-violet-50 border-b border-violet-200 px-6 py-2 flex items-center gap-3">
+        <button onClick={() => nav(`/programmes/${programmeId}`)} className="flex items-center gap-1 text-sm text-violet-700 hover:text-violet-900">
           <ArrowLeft className="h-4 w-4" /> {t('programme.back_to_programme')}
         </button>
         <div className="flex-1" />
-        <div className="flex items-center gap-2 text-sm text-blue-600">
+        <div className="flex items-center gap-2 text-sm text-violet-600">
           <BookOpen className="h-4 w-4" />
           {t('programme.readonly_view')}
         </div>

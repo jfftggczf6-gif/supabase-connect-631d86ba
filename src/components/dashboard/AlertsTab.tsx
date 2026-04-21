@@ -92,7 +92,7 @@ export default function AlertsTab() {
       case 'bloquant': return <XCircle className="h-4 w-4 text-red-500" />;
       case 'opportunite': return <TrendingUp className="h-4 w-4 text-emerald-500" />;
       case 'action': return <Clock className="h-4 w-4 text-amber-500" />;
-      default: return <AlertTriangle className="h-4 w-4 text-blue-500" />;
+      default: return <AlertTriangle className="h-4 w-4 text-violet-500" />;
     }
   };
 
@@ -101,7 +101,7 @@ export default function AlertsTab() {
       case 'bloquant': return 'bg-red-100 text-red-700';
       case 'opportunite': return 'bg-emerald-100 text-emerald-700';
       case 'action': return 'bg-amber-100 text-amber-700';
-      default: return 'bg-blue-100 text-blue-700';
+      default: return 'bg-violet-100 text-violet-700';
     }
   };
 
@@ -116,11 +116,11 @@ export default function AlertsTab() {
         <Badge className="bg-red-100 text-red-700">{bloquants} bloquant(s)</Badge>
         <Badge className="bg-emerald-100 text-emerald-700">{opportunites} opportunité(s)</Badge>
         <Badge className="bg-amber-100 text-amber-700">{alerts.filter(a => a.type === 'action').length} action(s)</Badge>
-        <Badge className="bg-blue-100 text-blue-700">{alerts.filter(a => a.type === 'info').length} info(s)</Badge>
+        <Badge className="bg-violet-100 text-violet-700">{alerts.filter(a => a.type === 'info').length} info(s)</Badge>
       </div>
 
       {alerts.map((alert, i) => (
-        <Card key={i} className={`border-l-4 ${alert.type === 'bloquant' ? 'border-l-red-500' : alert.type === 'opportunite' ? 'border-l-emerald-500' : alert.type === 'action' ? 'border-l-amber-500' : 'border-l-blue-500'}`}>
+        <Card key={i} className={`border-l-4 ${alert.type === 'bloquant' ? 'border-l-red-500' : alert.type === 'opportunite' ? 'border-l-emerald-500' : alert.type === 'action' ? 'border-l-amber-500' : 'border-l-violet-500'}`}>
           <CardContent className="py-2.5 flex items-start gap-3">
             {icon(alert.type)}
             <div className="flex-1 min-w-0">

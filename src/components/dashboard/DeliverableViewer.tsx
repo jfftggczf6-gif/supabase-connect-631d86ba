@@ -814,7 +814,7 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
     'text-green-600 bg-green-50 border-green-200';
   const qualiteColor = (q: string) =>
     q === 'excellent' ? 'bg-green-100 text-green-700' :
-    q === 'bon' ? 'bg-blue-100 text-blue-700' :
+    q === 'bon' ? 'bg-violet-100 text-violet-700' :
     q === 'moyen' ? 'bg-yellow-100 text-yellow-700' :
     'bg-orange-100 text-orange-700';
 
@@ -846,7 +846,7 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
             <div className="grid grid-cols-2 gap-2">
               <SwotBox title="Forces" items={data.swot.forces} className="bg-green-50 border-green-200" />
               <SwotBox title="Faiblesses" items={data.swot.faiblesses} className="bg-red-50 border-red-200" />
-              <SwotBox title="Opportunités" items={data.swot.opportunites} className="bg-blue-50 border-blue-200" />
+              <SwotBox title="Opportunités" items={data.swot.opportunites} className="bg-violet-50 border-violet-200" />
               <SwotBox title="Menaces" items={data.swot.menaces} className="bg-yellow-50 border-yellow-200" />
             </div>
           </div>
@@ -879,11 +879,11 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
   return (
     <div className="space-y-4">
       {!data.metadata?.donnees_completes && (
-        <div className="flex items-start gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50">
-          <AlertCircle className="h-4 w-4 text-blue-500 flex-none mt-0.5" />
+        <div className="flex items-start gap-3 p-3 rounded-xl border border-violet-200 bg-violet-50">
+          <AlertCircle className="h-4 w-4 text-violet-500 flex-none mt-0.5" />
           <div>
-            <p className="text-xs font-semibold text-blue-800">Diagnostic partiel</p>
-            <p className="text-xs text-blue-600 mt-0.5">
+            <p className="text-xs font-semibold text-violet-800">Diagnostic partiel</p>
+            <p className="text-xs text-violet-600 mt-0.5">
               {data.message_incomplet || "Pour un diagnostic complet, complétez les modules manquants."}
             </p>
           </div>

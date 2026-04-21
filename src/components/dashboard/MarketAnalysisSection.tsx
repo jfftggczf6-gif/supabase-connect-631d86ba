@@ -24,7 +24,7 @@ function PositionBadge({ position }: { position: string }) {
       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
       : position.toLowerCase().includes("niche")
         ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300"
-        : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
+        : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{position}</span>;
 }
 

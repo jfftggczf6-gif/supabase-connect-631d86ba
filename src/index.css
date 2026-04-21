@@ -4,75 +4,77 @@
 
 @layer base {
   :root {
-    /* Esono original: slate-blue background, navy primary, clean corporate */
-    --background: 216 25% 92%;
-    --foreground: 222 47% 11%;
+    /* ESONO — palette violette harmonisée (Tailwind violet-600 = #7C3AED)
+       Remplace l'ancien bleu marine par le violet institutionnel utilisé
+       dans la sidebar (text-violet-600) pour cohérence globale. */
+    --background: 255 25% 95%;
+    --foreground: 260 20% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 260 20% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 260 20% 12%;
 
-    --primary: 222 47% 20%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 263 69% 50%;          /* Violet-700 #6D28D9 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 65%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 260 15% 70%;
+    --secondary-foreground: 260 20% 12%;
 
-    --muted: 214 20% 88%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 260 20% 92%;
+    --muted-foreground: 260 10% 45%;
 
-    --accent: 214 25% 85%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 262 83% 95%;            /* Violet-50 #F5F3FF très clair */
+    --accent-foreground: 263 69% 30%; /* Violet-800 pour contraste */
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 85%;
-    --input: 214 20% 85%;
-    --ring: 222 47% 20%;
+    --border: 260 20% 88%;
+    --input: 260 20% 88%;
+    --ring: 262 83% 58%;              /* Violet-600 pour focus rings */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 222 47% 15%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 215 60% 55%;
+    --sidebar-background: 263 30% 15%;  /* Sidebar dark, teintée violet */
+    --sidebar-foreground: 260 20% 90%;
+    --sidebar-primary: 262 83% 58%;     /* Violet-600 */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 22%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 222 35% 25%;
-    --sidebar-ring: 215 60% 55%;
+    --sidebar-accent: 263 25% 22%;
+    --sidebar-accent-foreground: 260 20% 90%;
+    --sidebar-border: 263 20% 25%;
+    --sidebar-ring: 262 83% 58%;
 
     --success: 152 56% 38%;
     --success-foreground: 0 0% 100%;
     --warning: 36 90% 55%;
     --warning-foreground: 0 0% 100%;
-    --info: 210 80% 52%;
+    --info: 263 69% 50%;               /* Info harmonisée violet (plus de bleu) */
     --info-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 20% 92%;
+    --background: 263 30% 8%;
+    --foreground: 260 20% 92%;
 
-    --card: 222 40% 12%;
-    --card-foreground: 210 20% 92%;
+    --card: 263 25% 12%;
+    --card-foreground: 260 20% 92%;
 
-    --popover: 222 40% 12%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 263 25% 12%;
+    --popover-foreground: 260 20% 92%;
 
-    --primary: 215 60% 55%;
+    --primary: 262 83% 65%;            /* Violet-500 plus clair pour dark mode */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 30%;
-    --secondary-foreground: 210 20% 92%;
+    --secondary: 263 20% 30%;
+    --secondary-foreground: 260 20% 92%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 215 16% 60%;
+    --muted: 263 25% 18%;
+    --muted-foreground: 260 10% 60%;
 
-    --accent: 222 30% 20%;
-    --accent-foreground: 210 20% 85%;
+    --accent: 263 25% 20%;
+    --accent-foreground: 260 20% 85%;
 
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 100%;

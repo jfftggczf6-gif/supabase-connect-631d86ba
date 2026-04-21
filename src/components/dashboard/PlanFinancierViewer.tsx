@@ -356,8 +356,8 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                 {['pessimiste', 'realiste', 'optimiste'].map((s) => {
                   const vals = scenarios[s] || [];
                   const caFinal = vals[vals.length - 1] || 0;
-                  const cls = s === 'pessimiste' ? 'bg-red-50' : s === 'realiste' ? 'bg-green-50 border border-green-200' : 'bg-blue-50';
-                  const txtCls = s === 'pessimiste' ? 'text-red-700' : s === 'realiste' ? 'text-green-700' : 'text-blue-700';
+                  const cls = s === 'pessimiste' ? 'bg-red-50' : s === 'realiste' ? 'bg-green-50 border border-green-200' : 'bg-violet-50';
+                  const txtCls = s === 'pessimiste' ? 'text-red-700' : s === 'realiste' ? 'text-green-700' : 'text-violet-700';
                   return (
                     <div key={s} className={`rounded-lg p-3 text-center ${cls}`}>
                       <p className={`text-[10px] font-semibold capitalize ${txtCls}`}>{s}</p>
@@ -533,7 +533,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                     const amort = cyProj?.amortissement || 0;
                     const rn = cyProj?.resultat_net || (ebitda - amort);
                     const steps = [
-                      { label: "Chiffre d'affaires", value: ca, color: 'bg-blue-500' },
+                      { label: "Chiffre d'affaires", value: ca, color: 'bg-violet-500' },
                       { label: 'Achats / COGS', value: -Math.abs(cogs), color: 'bg-red-400' },
                       { label: 'Marge brute', value: mb, color: 'bg-green-500', bold: true },
                       { label: 'OPEX', value: -Math.abs(opex), color: 'bg-red-400' },
@@ -834,7 +834,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Coûts fixes ({(100 - (data.structure_couts.pct_variables || 0)).toFixed(0)}%)</p>
                       {data.structure_couts.fixes?.map((c: any, i: number) => (
-                        <CostBar key={i} label={c.poste} amount={c.montant} max={kpis.ca || 1} color="bg-blue-400" />
+                        <CostBar key={i} label={c.poste} amount={c.montant} max={kpis.ca || 1} color="bg-violet-400" />
                       ))}
                     </div>
                   </div>

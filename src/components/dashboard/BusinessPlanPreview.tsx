@@ -52,7 +52,7 @@ function SwotTable({ swot }: { swot: Record<string, string[]> }) {
   const cells = [
     { title: "💪 Points forts", items: swot?.forces || [], cls: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800" },
     { title: "⚠️ Faiblesses", items: swot?.faiblesses || [], cls: "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" },
-    { title: "🚀 Opportunités", items: swot?.opportunites || [], cls: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800" },
+    { title: "🚀 Opportunités", items: swot?.opportunites || [], cls: "bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-800" },
     { title: "🛡️ Menaces", items: swot?.menaces || [], cls: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800" },
   ];
   return (
