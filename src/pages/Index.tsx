@@ -151,7 +151,11 @@ const CONTENT = {
     columns: [
       { title: 'Produit', links: [{ label: 'Module Programme', href: '#solution' }, { label: 'Module Private Equity', href: '#solution' }, { label: 'Sécurité & Conformité', href: '#security' }] },
       { title: 'Ressources', links: [{ label: 'Documentation', href: '#' }, { label: 'Changelog', href: '#' }, { label: 'Status', href: '#' }] },
-      { title: 'Contact', links: [{ label: 'contact@esono.tech', href: 'mailto:contact@esono.tech' }, { label: 'LinkedIn', href: '#' }, { label: "Abidjan, Côte d'Ivoire", href: '#' }] },
+      { title: 'Contact', links: [
+        { label: 'philyace@gmail.com', href: 'mailto:philyace@gmail.com' },
+        { label: 'WhatsApp +33 6 15 51 09 76', href: 'https://wa.me/33615510976' },
+        { label: "Abidjan, Côte d'Ivoire", href: '#' },
+      ] },
     ],
     bottom: '© 2026 ESONO BIS Studio. Tous droits réservés. Mentions légales. Confidentialité.',
   },
