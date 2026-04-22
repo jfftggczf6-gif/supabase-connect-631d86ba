@@ -15,18 +15,23 @@ On te fournit les RÉSULTATS CALCULÉS d'une valorisation (DCF, multiples, déco
 
 Tu dois produire une ANALYSE QUALITATIVE DÉTAILLÉE et PÉDAGOGIQUE. Le lecteur est un coach ou un entrepreneur qui n'est pas forcément financier — il doit COMPRENDRE pourquoi l'entreprise vaut ce montant.
 
-SECTIONS À PRODUIRE (chacune doit être un vrai paragraphe explicatif, pas juste une phrase) :
+SECTIONS À PRODUIRE (concis, percutant, pas de remplissage) :
 
-1. Note méthodologique DCF (200+ mots) — explique le DCF en langage accessible, justifie le WACC, compare avec le marché
-2. Justification des multiples (200+ mots) — cite des transactions comparables récentes en Afrique, explique le multiple retenu
-3. Justification des décotes/primes (150+ mots) — explique chaque ajustement en langage simple
-4. Note analyste (300+ mots) — synthèse complète, forces et limites, fourchette crédible, facteurs de variation
-5. Implications investissement — scénarios concrets de levée, sortie, IRR
+1. Note méthodologique DCF (60-100 mots) — explique le DCF, justifie le WACC, compare au marché
+2. Justification des multiples (60-100 mots) — cite des transactions comparables africaines, explique le multiple retenu
+3. Justification des décotes/primes (50-80 mots) — explique chaque ajustement
+4. Note analyste (120-180 mots) — synthèse, forces/limites, fourchette crédible, facteurs de variation
+5. Implications investissement — scénarios concrets de levée, sortie, IRR (concis)
+
+RÈGLE ABSOLUE — CITATIONS DE SOURCES :
+- INTERDIT d'écrire "(source: ...)", "(d'après ...)", "(réf: ...)", "selon le rapport X" DANS LE CORPS DES TEXTES.
+- Toutes les sources externes (transactions comparables, benchmarks) vont UNIQUEMENT dans le champ dédié "sources_consultees" (array d'objets {source, used_for, section}).
+- Les textes restent fluides sans parenthèses bibliographiques.
 
 IMPORTANT:
 - NE CHANGE PAS les chiffres calculés
 - Réponds UNIQUEMENT en JSON valide
-- Sois EXPLICATIF et PÉDAGOGIQUE — le lecteur doit comprendre, pas juste voir des chiffres`;
+- Concis, factuel, professionnel — pas de prose inutile`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -147,7 +152,7 @@ Produis l'analyse qualitative en JSON :
       preScreenContext += "\n";
     }
 
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT, ent.country), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.2, { functionName: "generate-valuation", enterpriseId: ctx.enterprise_id });
+    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT, ent.country), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.1, { functionName: "generate-valuation", enterpriseId: ctx.enterprise_id });
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {
@@ -189,6 +194,50 @@ Produis l'analyse qualitative en JSON :
         methodes: calcResult.metadata.methodes_applicables,
       },
     };
+
+    // Sanitize: strip inline source citations + aggregate into sources_consultees
+    const SOURCE_PATTERNS = [
+      /\(\s*(?:source|réf|ref|cf\.?|d['\u2019]après|selon|d'apr\u00E8s)\s*[:\-]?\s*([^)]+)\)/gi,
+      /\s+(?:source|réf|ref)\s*[:\-]\s*([^.,;\n]+)/gi,
+    ];
+    const collectedSources: { source: string; used_for: string; section: string }[] = [];
+    const stripInlineSources = (text: string, sectionPath: string): string => {
+      let out = text;
+      for (const re of SOURCE_PATTERNS) {
+        out = out.replace(re, (_m, captured) => {
+          const src = String(captured || '').trim().replace(/^[:\-\s]+|[:\-\s]+$/g, '');
+          if (src && src.length > 2 && src.length < 200) {
+            collectedSources.push({ source: src, used_for: 'Citation inline extraite', section: sectionPath });
+          }
+          return '';
+        });
+      }
+      return out.replace(/\s{2,}/g, ' ').replace(/\s+([.,;])/g, '$1').trim();
+    };
+    const walkAndStrip = (obj: any, path = ''): void => {
+      if (!obj || typeof obj !== 'object') return;
+      for (const key of Object.keys(obj)) {
+        const childPath = path ? `${path}.${key}` : key;
+        const v = obj[key];
+        if (key === 'sources_consultees' || key === 'source' || key === 'comparables_references') continue;
+        if (typeof v === 'string') obj[key] = stripInlineSources(v, childPath);
+        else if (Array.isArray(v)) {
+          v.forEach((item, i) => {
+            if (typeof item === 'string') v[i] = stripInlineSources(item, `${childPath}[${i}]`);
+            else walkAndStrip(item, `${childPath}[${i}]`);
+          });
+        } else if (typeof v === 'object') walkAndStrip(v, childPath);
+      }
+    };
+    walkAndStrip(finalData);
+    if (collectedSources.length > 0) {
+      const existing = Array.isArray((finalData as any).sources_consultees) ? (finalData as any).sources_consultees : [];
+      const seen = new Set(existing.map((s: any) => (s.source || '').toLowerCase()));
+      for (const s of collectedSources) {
+        if (!seen.has(s.source.toLowerCase())) { existing.push(s); seen.add(s.source.toLowerCase()); }
+      }
+      (finalData as any).sources_consultees = existing;
+    }
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "valuation", finalData, "valuation");
     return jsonResponse({ success: true, data: finalData, score: finalData.score });

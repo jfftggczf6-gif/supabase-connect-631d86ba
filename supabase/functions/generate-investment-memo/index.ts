@@ -26,7 +26,7 @@ EXIGENCES QUALITÉ :
 - La thèse d'investissement doit être HONNÊTE
 - Les projections financières citent le scénario réaliste du Plan OVO
 - La recommandation finale doit être COHÉRENTE avec le score et les risques
-- Minimum 200 mots par section narrative
+- Concision: 80-150 mots par section narrative (pas de remplissage, pas de répétitions, pas de phrases d'accroche superflues)
 
 RÈGLE ABSOLUE — CITATIONS DE SOURCES :
 - INTERDIT d'écrire "(source: AFD 2024)", "(d'après BCEAO)", "(réf: ...)", "selon le rapport X" DANS LE CORPS DES TEXTES.
@@ -51,13 +51,13 @@ const MEMO_SCHEMA_PART1 = `{
     "version": "string — v1.0"
   },
   "resume_executif": {
-    "synthese": "string — 500+ mots, résumé complet du dossier",
+    "synthese": "string — 200-280 mots, résumé synthétique",
     "points_cles": ["string — 5-8 points clés"],
     "recommandation_preliminaire": "INVESTIR | APPROFONDIR | DECLINER",
     "score_ir": <0-100>
   },
   "presentation_entreprise": {
-    "historique": "string — 200+ mots",
+    "historique": "string — 100-150 mots",
     "activites": "string — description détaillée des activités",
     "positionnement": "string — positionnement marché",
     "gouvernance": "string — structure de gouvernance, actionnariat",
@@ -131,8 +131,8 @@ const MEMO_SCHEMA_PART2 = `{
     "matrice_risque_synthese": "string — résumé global"
   },
   "these_investissement": {
-    "these_positive": "string — 300+ mots, pourquoi investir",
-    "these_negative": "string — 200+ mots, pourquoi ne pas investir",
+    "these_positive": "string — 150-220 mots, pourquoi investir",
+    "these_negative": "string — 100-150 mots, pourquoi ne pas investir",
     "facteurs_cles_succes": ["string"],
     "catalyseurs": ["string — événements qui déclencheraient la croissance"],
     "scenarios_sortie": "string — options de sortie à 5-7 ans"
@@ -146,7 +146,7 @@ const MEMO_SCHEMA_PART2 = `{
   },
   "recommandation_finale": {
     "verdict": "INVESTIR | APPROFONDIR | DECLINER",
-    "justification": "string — 300+ mots",
+    "justification": "string — 150-220 mots, concis",
     "conditions": ["string — conditions pour que le verdict soit valide"],
     "prochaines_etapes": ["string — actions immédiates recommandées"]
   },
@@ -302,7 +302,7 @@ ${part1Summary}
 ══════ INSTRUCTIONS — PASSE 2/2 ══════
 Rédige les sections 8 à 15 (besoins de financement → annexes).
 La recommandation finale doit être COHÉRENTE avec le score IR (${part1.resume_executif?.score_ir || '?'}/100) et les risques identifiés.
-Minimum 200 mots pour la thèse d'investissement et la recommandation finale.
+Concision: 150-220 mots pour la thèse d'investissement et la recommandation finale.
 
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
@@ -405,7 +405,7 @@ ${MEMO_SCHEMA_PART2}`;
 ══════ INSTRUCTIONS — PASSE 1/2 ══════
 Rédige les sections 1 à 7 du mémo d'investissement (page de garde → valorisation).
 La section valorisation doit CITER les résultats de l'agent Valuation, pas recalculer.
-Chaque section narrative doit faire au minimum 200 mots.
+Chaque section narrative: 80-150 mots, concise et factuelle (pas de remplissage).
 
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;

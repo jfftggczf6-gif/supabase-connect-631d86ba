@@ -41,10 +41,23 @@ Quand tu produis un objet JSON avec des constats, bloquants, ou observations chi
 { "titre": "Chute du CA de 39%", "constat": "Le CA est passé de 759M à 460M FCFA", "source": "États financiers 2023 et 2024", "severite": "urgent" }
 `;
 
+// ── CONCISION GUARDRAIL — appliquée à TOUS les agents ESONO ──
+// Toutes les sorties IA doivent être SYNTHÉTIQUES et factuelles.
+// Le ton "consultant prolixe" / "rapport bavard" est explicitement banni.
+const CONCISION_GUARDRAIL = `
+RÈGLE DE CONCISION (s'applique à tous les champs texte) :
+- Va à l'essentiel. Pas de phrases d'accroche, pas de "il convient de noter que", pas de répétitions.
+- Une idée par phrase. Pas de circonvolutions.
+- Si une cellule de tableau attend un chiffre, METTS UN CHIFFRE — pas de paragraphe explicatif.
+- Les justifications, hypothèses et contexte vont dans les CHAMPS PRÉVUS pour ça (jamais dans les cellules numériques).
+- INTERDIT de citer (source: ...), (réf: ...), (d'après ...) DANS le corps des textes — toutes les sources vont dans le champ "sources_consultees" prévu à cet effet (s'il existe dans le schéma).
+- Préfère 100 mots denses à 300 mots dilués.
+`;
+
 /** Injecte les guardrails dans un prompt système. Si country est fourni, ajoute l'instruction de langue. */
 export function injectGuardrails(systemPrompt: string, country?: string | null): string {
   const langInstruction = country ? getLanguageInstruction(country) : '';
-  return `${systemPrompt}\n\n══════ GUARDRAILS ANTI-HALLUCINATION ══════\n${AI_GUARDRAILS}\n══════ FIN GUARDRAILS ══════${langInstruction}`;
+  return `${systemPrompt}\n\n══════ GUARDRAILS ANTI-HALLUCINATION ══════\n${AI_GUARDRAILS}\n══════ FIN GUARDRAILS ══════\n\n══════ GUARDRAIL CONCISION ══════\n${CONCISION_GUARDRAIL}\n══════ FIN CONCISION ══════${langInstruction}`;
 }
 
 // ── Country → Language mapping ──

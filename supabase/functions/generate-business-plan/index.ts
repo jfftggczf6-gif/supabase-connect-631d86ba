@@ -41,7 +41,7 @@ const SCHEMA_PART1 = `{
   "date_creation": "string",
   "numero_entreprise": "string ou À compléter",
   "compte_bancaire": "string ou À compléter",
-  "resume_gestion": "string — 3-4 paragraphes, 400-500 mots",
+  "resume_gestion": "string — 2 paragraphes, 120-180 mots, concis",
   "historique": "string — chronologie narrative",
   "vision": "string — 2-3 phrases, horizon 10 ans",
   "mission": "string — 2-3 phrases",
