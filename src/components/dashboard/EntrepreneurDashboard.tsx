@@ -514,6 +514,9 @@ export default function EntrepreneurDashboard({
       return;
     }
     setGeneratingModule(moduleCode);
+    // Active la barre de progression globale + bouton Arrêter (mêmes états que le pipeline)
+    setGenerating(true);
+    setGenerationProgress({ current: 0, total: 1, name: 'Lancement…' });
 
     const MODULE_TYPE_MAP: Record<string, string> = {
       pre_screening: 'pre_screening', bmc: 'bmc_analysis', sic: 'sic_analysis',
@@ -523,22 +526,65 @@ export default function EntrepreneurDashboard({
       investment_memo: 'investment_memo', screening_report: 'screening_report',
     };
 
+    const MODULE_LABELS: Record<string, string> = {
+      pre_screening: 'Diagnostic initial', bmc: 'Business Model Canvas', sic: 'Stratégie & innovation',
+      inputs: 'Inputs financiers', framework: 'Framework', diagnostic: 'Diagnostic',
+      plan_financier: 'Plan Financier', business_plan: 'Business Plan', odd: 'Impact ODD',
+      valuation: 'Valorisation', onepager: 'One-Pager', investment_memo: 'Memo Investissement',
+      screening_report: 'Rapport de screening',
+    };
+    const moduleLabel = MODULE_LABELS[moduleCode] || moduleCode;
+
     const pollDeliverableReady = async (entId: string, delivType: string, maxPolls = 72): Promise<boolean> => {
-      for (let i = 0; i < maxPolls; i++) {
-        await new Promise(r => setTimeout(r, 5000));
-        const { data: deliv } = await supabase
-          .from('deliverables')
-          .select('data, version, updated_at')
-          .eq('enterprise_id', entId)
-          .eq('type', delivType as any)
-          .single();
-        if (deliv?.data) {
-          const delivData = deliv.data as Record<string, any>;
-          if (delivData.status === 'error') throw new Error(delivData.error || 'Erreur de génération');
-          if (delivData.status !== 'processing' && Object.keys(delivData).length > 10) return true;
+      // Realtime listener pour détection instantanée + polling fallback
+      let settled = false;
+      let realtimeSuccess = false;
+      const channel = supabase
+        .channel(`module-wait-${delivType}-${Date.now()}`)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'deliverables',
+          filter: `enterprise_id=eq.${entId}`,
+        }, (payload) => {
+          const newType = (payload.new as any)?.type;
+          const newData = (payload.new as any)?.data;
+          if (newType !== delivType || !newData || settled) return;
+          if (newData.status === 'error' || newData._error) return; // laisse le poll throw
+          if (newData.status !== 'processing' && !newData._processing && Object.keys(newData).length > 10) {
+            realtimeSuccess = true;
+            settled = true;
+          }
+        }).subscribe();
+
+      try {
+        for (let i = 0; i < maxPolls; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          if (realtimeSuccess) return true;
+          // Mise à jour de la barre (% basé sur le temps écoulé, plafonné à 95%)
+          setGenerationProgress({
+            current: 0, total: 1,
+            name: `${moduleLabel}… (${Math.min(95, (i + 1) * 8)}%)`,
+          });
+          const { data: deliv } = await supabase
+            .from('deliverables')
+            .select('data, version, updated_at')
+            .eq('enterprise_id', entId)
+            .eq('type', delivType as any)
+            .single();
+          if (deliv?.data) {
+            const delivData = deliv.data as Record<string, any>;
+            if (delivData.status === 'error' || delivData._error) {
+              throw new Error(delivData.error || delivData._error || 'Erreur de génération');
+            }
+            // Fix BUG #4 : ignorer les rows avec _processing: true (état intermédiaire)
+            if (delivData.status !== 'processing' && !delivData._processing && Object.keys(delivData).length > 10) {
+              return true;
+            }
+          }
         }
+        return false;
+      } finally {
+        supabase.removeChannel(channel);
       }
-      return false;
     };
 
     const runSingleAttempt = async (functionName: string, token: string, entId: string, timeoutMs: number) => {
@@ -656,6 +702,8 @@ export default function EntrepreneurDashboard({
       }
     } finally {
       setGeneratingModule(null);
+      setGenerating(false);
+      setGenerationProgress(null);
     }
   };
 
