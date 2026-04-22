@@ -61,7 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Then listen for auth changes (don't await inside callback)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      // Ne réémettre user que si l'id change : TOKEN_REFRESHED fournit un nouvel objet
+      // user à chaque retour d'onglet, ce qui ferait re-render tous les consumers
+      // (OrganizationContext, dashboards) et interromprait les générations en cours.
+      setUser(prev => (prev?.id === session?.user?.id ? prev : (session?.user ?? null)));
       if (session?.user) {
         // Only set roleLoading=true if role is not yet known (first load).
         // On token refresh the role is already set — skip spinner to avoid unmounting dashboard.

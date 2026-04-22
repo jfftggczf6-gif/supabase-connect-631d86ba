@@ -49,7 +49,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = authRole === 'super_admin';
 
   const fetchMemberships = useCallback(async () => {
-    if (!user) {
+    if (!user?.id) {
       setMemberships([]);
       setCurrentOrg(null);
       setCurrentRole(null);
@@ -109,13 +109,18 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     if (!authLoading) {
       fetchMemberships();
     }
-  }, [user, authLoading, fetchMemberships]);
+    // Ne dépend que de user?.id (string stable) pour éviter les re-fires
+    // sur TOKEN_REFRESHED qui réémet un nouvel objet user à chaque retour
+    // d'onglet — sinon ça interrompt les générations en cours.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading]);
 
   const switchOrganization = useCallback((orgId: string) => {
     const membership = memberships.find(m => m.organization.id === orgId);
