@@ -74,7 +74,7 @@ export default function MeteringDashboard() {
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Zap className="h-5 w-5 text-violet-600" />
+              <Zap className="h-5 w-5 text-violet-700" />
             </div>
             <div>
               <p className="text-2xl font-bold">{totalCalls.toLocaleString()}</p>
@@ -85,7 +85,7 @@ export default function MeteringDashboard() {
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-violet-600" />
+              <Building2 className="h-5 w-5 text-violet-700" />
             </div>
             <div>
               <p className="text-2xl font-bold">{totalEnterprises}</p>

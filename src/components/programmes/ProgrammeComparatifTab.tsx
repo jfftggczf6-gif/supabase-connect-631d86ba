@@ -55,7 +55,7 @@ export default function ProgrammeComparatifTab({ programmeId }: Props) {
           <p className="text-xs text-muted-foreground">Meilleur secteur</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
-          <Users className="h-5 w-5 mx-auto text-violet-500 mb-1" />
+          <Users className="h-5 w-5 mx-auto text-violet-600 mb-1" />
           <p className="text-lg font-bold">{stats.meilleur_coach || '—'}</p>
           <p className="text-xs text-muted-foreground">Top coach</p>
         </CardContent></Card>
@@ -129,7 +129,7 @@ export default function ProgrammeComparatifTab({ programmeId }: Props) {
       {analyseIa && (
         <Card className="bg-violet-50/50 border-violet-200"><CardContent className="p-5">
           <h3 className="font-semibold text-violet-900 mb-2">Analyse comparative</h3>
-          <p className="text-sm text-violet-800 leading-relaxed">{analyseIa}</p>
+          <p className="text-sm text-violet-600 leading-relaxed">{analyseIa}</p>
         </CardContent></Card>
       )}
     </div>

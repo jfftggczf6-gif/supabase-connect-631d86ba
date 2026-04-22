@@ -15,7 +15,7 @@ export default function ProgrammeEnterprisePage() {
           <ArrowLeft className="h-4 w-4" /> {t('programme.back_to_programme')}
         </button>
         <div className="flex-1" />
-        <div className="flex items-center gap-2 text-sm text-violet-600">
+        <div className="flex items-center gap-2 text-sm text-violet-700">
           <BookOpen className="h-4 w-4" />
           {t('programme.readonly_view')}
         </div>

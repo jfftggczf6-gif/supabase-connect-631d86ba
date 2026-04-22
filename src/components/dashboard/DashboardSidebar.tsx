@@ -73,20 +73,20 @@ export default function DashboardSidebar({
 
 
 
-  // Couleurs des phases — violet-800 partout pour cohérence avec landing
+  // Couleurs des phases — violet-600 partout pour cohérence avec landing
   const phaseColorMap: Record<string, string> = {
     emerald: 'text-emerald-600 bg-emerald-500/10',
     rose: 'text-rose-600 bg-rose-500/10',
-    blue: 'text-violet-800 bg-violet-800/10',
-    violet: 'text-violet-800 bg-violet-800/10',
+    blue: 'text-violet-600 bg-violet-600/10',
+    violet: 'text-violet-600 bg-violet-600/10',
     amber: 'text-amber-600 bg-amber-500/10',
   };
 
   const phaseAccentMap: Record<string, string> = {
     emerald: 'border-l-emerald-500',
     rose: 'border-l-rose-500',
-    blue: 'border-l-violet-800',
-    violet: 'border-l-violet-800',
+    blue: 'border-l-violet-600',
+    violet: 'border-l-violet-600',
     amber: 'border-l-amber-500',
   };
 

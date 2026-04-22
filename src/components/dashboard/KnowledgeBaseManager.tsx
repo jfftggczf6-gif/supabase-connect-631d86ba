@@ -349,7 +349,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5 h-7 text-[11px] bg-white text-violet-700 border-violet-400 hover:bg-violet-50 hover:border-violet-800"
+                className="gap-1.5 h-7 text-[11px] bg-white text-violet-700 border-violet-400 hover:bg-violet-50 hover:border-violet-600"
                 onClick={() => setPreviewEntry(e)}
                 title="Voir le contenu de cette ressource"
               >

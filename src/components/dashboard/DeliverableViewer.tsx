@@ -880,10 +880,10 @@ function LegacyDiagnosticViewer({ data }: { data: any }) {
     <div className="space-y-4">
       {!data.metadata?.donnees_completes && (
         <div className="flex items-start gap-3 p-3 rounded-xl border border-violet-200 bg-violet-50">
-          <AlertCircle className="h-4 w-4 text-violet-500 flex-none mt-0.5" />
+          <AlertCircle className="h-4 w-4 text-violet-600 flex-none mt-0.5" />
           <div>
-            <p className="text-xs font-semibold text-violet-800">Diagnostic partiel</p>
-            <p className="text-xs text-violet-800 mt-0.5">
+            <p className="text-xs font-semibold text-violet-600">Diagnostic partiel</p>
+            <p className="text-xs text-violet-600 mt-0.5">
               {data.message_incomplet || "Pour un diagnostic complet, complétez les modules manquants."}
             </p>
           </div>

@@ -524,9 +524,9 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
               {d.methodes_utilisees?.map((m: string, i: number) => <Badge key={i} variant="secondary" className="justify-center">{m}</Badge>)}
             </div>
             <div className="p-4 rounded-lg bg-violet-50 text-center border border-violet-200">
-              <p className="text-xs text-violet-800 mb-1">Fourchette de Valorisation</p>
+              <p className="text-xs text-violet-600 mb-1">Fourchette de Valorisation</p>
               <p className="text-xl font-bold text-violet-700">{d.fourchette_valorisation || '—'}</p>
-              <p className="text-sm text-violet-800">Médiane : {d.valeur_mediane || '—'}</p>
+              <p className="text-sm text-violet-600">Médiane : {d.valeur_mediane || '—'}</p>
               {d.source && (
                 <p className="text-[10px] text-muted-foreground/60 mt-1 italic">{d.source}</p>
               )}

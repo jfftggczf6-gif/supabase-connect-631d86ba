@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = [
-  { id: 'legal', label: 'Juridique', icon: Shield, color: 'bg-violet-100 text-violet-800', description: 'RCCM, statuts, PV AG, licences' },
+  { id: 'legal', label: 'Juridique', icon: Shield, color: 'bg-violet-100 text-violet-600', description: 'RCCM, statuts, PV AG, licences' },
   { id: 'finance', label: 'Finance', icon: BarChart3, color: 'bg-emerald-100 text-emerald-600', description: 'Bilans, CdR, relevés bancaires' },
   { id: 'commercial', label: 'Commercial', icon: Briefcase, color: 'bg-amber-100 text-amber-600', description: 'Contrats clients, factures, pipeline' },
   { id: 'team', label: 'Équipe', icon: Users, color: 'bg-purple-100 text-purple-600', description: 'Organigramme, CVs, fiches de paie' },

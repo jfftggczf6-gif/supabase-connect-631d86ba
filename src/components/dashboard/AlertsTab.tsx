@@ -92,7 +92,7 @@ export default function AlertsTab() {
       case 'bloquant': return <XCircle className="h-4 w-4 text-red-500" />;
       case 'opportunite': return <TrendingUp className="h-4 w-4 text-emerald-500" />;
       case 'action': return <Clock className="h-4 w-4 text-amber-500" />;
-      default: return <AlertTriangle className="h-4 w-4 text-violet-500" />;
+      default: return <AlertTriangle className="h-4 w-4 text-violet-600" />;
     }
   };
 
@@ -120,7 +120,7 @@ export default function AlertsTab() {
       </div>
 
       {alerts.map((alert, i) => (
-        <Card key={i} className={`border-l-4 ${alert.type === 'bloquant' ? 'border-l-red-500' : alert.type === 'opportunite' ? 'border-l-emerald-500' : alert.type === 'action' ? 'border-l-amber-500' : 'border-l-violet-800'}`}>
+        <Card key={i} className={`border-l-4 ${alert.type === 'bloquant' ? 'border-l-red-500' : alert.type === 'opportunite' ? 'border-l-emerald-500' : alert.type === 'action' ? 'border-l-amber-500' : 'border-l-violet-600'}`}>
           <CardContent className="py-2.5 flex items-start gap-3">
             {icon(alert.type)}
             <div className="flex-1 min-w-0">

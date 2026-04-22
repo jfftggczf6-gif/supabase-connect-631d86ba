@@ -16,14 +16,14 @@ const SLIDE_COLORS: Record<string, string> = {
   cover: 'from-indigo-600 to-violet-700',
   probleme: 'from-red-500 to-red-700',
   solution: 'from-emerald-500 to-emerald-700',
-  marche: 'from-violet-500 to-violet-700',
+  marche: 'from-violet-600 to-violet-700',
   business_model: 'from-amber-500 to-amber-700',
   traction: 'from-teal-500 to-teal-700',
   financier: 'from-purple-600 to-purple-800',
   impact: 'from-green-500 to-green-700',
   equipe: 'from-cyan-500 to-cyan-700',
   concurrence: 'from-orange-500 to-orange-700',
-  ask: 'from-violet-600 to-violet-800',
+  ask: 'from-violet-700 to-violet-600',
   contact: 'from-slate-600 to-slate-800',
 };
 

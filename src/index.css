@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    /* ESONO — palette violette harmonisée (Tailwind violet-800 = #5B21B6)
-       Fonds en blanc pur pour aérer, accents violet pour identité. */
+    /* ESONO — palette violette harmonisée (Tailwind violet-600 = #7C3AED)
+       Fonds en blanc pur pour aérer, accents violet vif pour identité. */
     --background: 0 0% 100%;
     --foreground: 260 20% 12%;
 
@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 260 20% 12%;
 
-    --primary: 263 67% 42%;          /* Violet-800 #5B21B6 (légèrement plus foncé) */
+    --primary: 262 83% 58%;          /* Violet-600 #7C3AED */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 260 15% 70%;
@@ -25,14 +25,14 @@
     --muted-foreground: 220 10% 40%;
 
     --accent: 262 83% 95%;            /* Violet-50 #F5F3FF très clair */
-    --accent-foreground: 263 69% 30%; /* Violet-800 pour contraste */
+    --accent-foreground: 263 69% 35%; /* Violet-700 pour contraste sur accent clair */
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 260 20% 88%;
     --input: 260 20% 88%;
-    --ring: 263 69% 50%;              /* Violet-700 pour focus rings (plus foncé) */
+    --ring: 262 83% 58%;              /* Violet-600 pour focus rings */
 
     --radius: 0.5rem;
 
@@ -49,7 +49,7 @@
     --success-foreground: 0 0% 100%;
     --warning: 36 90% 55%;
     --warning-foreground: 0 0% 100%;
-    --info: 263 67% 42%;               /* Info harmonisée violet (plus de bleu) */
+    --info: 262 83% 58%;               /* Info harmonisée violet-600 */
     --info-foreground: 0 0% 100%;
   }
 

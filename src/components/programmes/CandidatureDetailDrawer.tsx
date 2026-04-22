@@ -574,7 +574,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                       {r.type && <Badge variant="outline" className="text-[9px]">{r.type}</Badge>}
                                     </div>
                                     {r.impact_programme && <p className="text-muted-foreground">Impact : {r.impact_programme}</p>}
-                                    {r.mitigation && <p className="text-violet-800">Mitigation : {r.mitigation}</p>}
+                                    {r.mitigation && <p className="text-violet-600">Mitigation : {r.mitigation}</p>}
                                   </div>
                                 ))}
                               </div>

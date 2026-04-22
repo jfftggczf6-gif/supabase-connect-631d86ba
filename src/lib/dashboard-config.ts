@@ -26,7 +26,7 @@ export const MODULE_CONFIG = [
   { code: 'plan_financier' as ModuleCode, title: 'Plan Financier', shortTitle: 'Plan Financier', icon: BarChart3, color: 'bg-purple-100 text-purple-600', step: 4 },
   { code: 'business_plan' as ModuleCode, title: 'Business Plan',         shortTitle: 'Business Plan',            icon: FileText,    color: 'bg-indigo-100 text-indigo-600', step: 5 },
   { code: 'odd' as ModuleCode,        title: 'ODD',                      shortTitle: 'ODD',                      icon: Target,      color: 'bg-red-100 text-red-600',      step: 6 },
-  { code: 'valuation' as ModuleCode,  title: 'Valorisation',             shortTitle: 'Valorisation',             icon: TrendingUp,  color: 'bg-violet-100 text-violet-600', step: 7 },
+  { code: 'valuation' as ModuleCode,  title: 'Valorisation',             shortTitle: 'Valorisation',             icon: TrendingUp,  color: 'bg-violet-100 text-violet-700', step: 7 },
   { code: 'onepager' as ModuleCode,   title: 'One-Pager Investisseur',   shortTitle: 'One-Pager',                icon: FileText,    color: 'bg-cyan-100 text-cyan-600',    step: 8 },
   { code: 'investment_memo' as ModuleCode, title: "Mémo d'Investissement", shortTitle: 'Mémo Investisseur',      icon: Briefcase,   color: 'bg-slate-100 text-slate-700',  step: 9 },
 ];

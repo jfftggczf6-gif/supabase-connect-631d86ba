@@ -17,7 +17,7 @@ const DEMO_URL = 'https://cal.com/phil-yace-d73gey/demo-esono';
 // Palette (rappel du brief) — appliquée via arbitrary Tailwind values pour éviter
 // toute rupture avec le reste du design system de l'app (esono.tech).
 //   canvas  #FAFAF7   surface #FFFFFF
-//   brand-600 #6D28D9  brand-700 #5B21B6  brand-50 #F5F3FF
+//   brand-600 #6D28D9  brand-700 #7C3AED  brand-50 #F5F3FF
 //   accent-500 #C9A96E  accent-600 #B08F52
 //   ink-900 #1A1625  ink-700 #3D3651  ink-500 #6B6680
 //   border #EDE9FE
@@ -311,7 +311,7 @@ function DashboardMockup({ segment }: { segment: Segment }) {
     ],
   };
   const data = segment === 'program' ? programData : peData;
-  const dotColor = (s: string) => s === 'done' ? 'bg-[#2F8F5A]' : s === 'progress' ? 'bg-[#8B5CF6]' : 'bg-[#B8B5C4]';
+  const dotColor = (s: string) => s === 'done' ? 'bg-[#2F8F5A]' : s === 'progress' ? 'bg-[#7C3AED]' : 'bg-[#B8B5C4]';
   return (
     <div key={`dashboard-${segment}`} className="relative rounded-2xl border border-[#EDE9FE] bg-white shadow-[0_4px_8px_rgba(61,43,87,0.08),0_16px_40px_rgba(61,43,87,0.08)] overflow-hidden animate-in fade-in duration-300">
       <div className="flex items-center gap-1.5 border-b border-[#EDE9FE] px-4 py-3 bg-[#F5F3FF]">
@@ -323,7 +323,7 @@ function DashboardMockup({ segment }: { segment: Segment }) {
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 className="font-serif text-base font-semibold text-[#5B21B6]">Kouassi Agro Industries</h3>
+            <h3 className="font-sans text-base font-semibold text-[#7C3AED]">Kouassi Agro Industries</h3>
             <p className="text-[11px] text-[#6B6680]">{data.subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ function DashboardMockup({ segment }: { segment: Segment }) {
         </div>
         <div className="mb-3 flex items-center gap-4 text-[10px] text-[#6B6680] flex-wrap">
           <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2F8F5A]" /> Validé ({data.counts.done})</div>
-          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#8B5CF6]" /> En cours ({data.counts.progress})</div>
+          <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#7C3AED]" /> En cours ({data.counts.progress})</div>
           <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#B8B5C4]" /> À compléter ({data.counts.empty})</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -376,7 +376,7 @@ function HeroMockup() {
       </div>
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-serif text-base font-semibold text-[#5B21B6]">Deals actifs</h3>
+          <h3 className="font-sans text-base font-semibold text-[#7C3AED]">Deals actifs</h3>
           <span className="rounded-full bg-[#FDF6EC] px-3 py-1 text-[11px] font-medium text-[#8A6E3D]">6 en pipeline</span>
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -446,16 +446,16 @@ export default function Index() {
       <header className="sticky top-0 z-50 border-b border-[#EDE9FE] bg-[#FAFAF7]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <a href="#" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-[#5B21B6] flex items-center justify-center">
-              <span className="text-[11px] font-serif font-bold text-white">ES</span>
+            <div className="h-8 w-8 rounded-lg bg-[#7C3AED] flex items-center justify-center">
+              <span className="text-[11px] font-sans font-bold text-white">ES</span>
             </div>
-            <span className="text-lg font-serif font-semibold text-[#5B21B6] tracking-tight">ESONO</span>
+            <span className="text-lg font-sans font-semibold text-[#7C3AED] tracking-tight">ESONO</span>
           </a>
           <nav className="hidden md:flex items-center gap-8">
             {CONTENT.nav.links.map(l => (
-              <a key={l.href} href={l.href} className="text-sm text-[#3D3651] hover:text-[#5B21B6] transition-colors">{l.label}</a>
+              <a key={l.href} href={l.href} className="text-sm text-[#3D3651] hover:text-[#7C3AED] transition-colors">{l.label}</a>
             ))}
-            <Link to="/login" className="text-sm text-[#3D3651] hover:text-[#5B21B6] transition-colors">Se connecter</Link>
+            <Link to="/login" className="text-sm text-[#3D3651] hover:text-[#7C3AED] transition-colors">Se connecter</Link>
           </nav>
           <div className="flex items-center gap-3">
             {/* Masqué sur mobile pour éviter le doublon avec le sticky bottom CTA */}
@@ -471,7 +471,7 @@ export default function Index() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <p className="text-xs font-medium tracking-widest uppercase text-[#B08F52]">{CONTENT.hero.eyebrow}</p>
-              <h1 className="mt-5 font-serif font-semibold text-[#5B21B6] leading-[1.1]" style={{ fontSize: 'clamp(2.25rem, 4.5vw, 3.75rem)' }}>
+              <h1 className="mt-5 font-sans font-semibold text-[#7C3AED] leading-[1.1]" style={{ fontSize: 'clamp(2.25rem, 4.5vw, 3.75rem)' }}>
                 {CONTENT.hero.h1}
               </h1>
               <p className="mt-6 text-[17px] leading-relaxed text-[#3D3651] max-w-xl">{CONTENT.hero.subheadline}</p>
@@ -500,12 +500,12 @@ export default function Index() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => chooseSegment(s)}
-                  className={`rounded-xl border p-5 text-left transition-all ${active ? 'border-[#6D28D9] bg-[#F5F3FF] shadow-sm' : 'border-[#EDE9FE] bg-white hover:border-[#8B5CF6]'}`}
+                  className={`rounded-xl border p-5 text-left transition-all ${active ? 'border-[#6D28D9] bg-[#F5F3FF] shadow-sm' : 'border-[#EDE9FE] bg-white hover:border-[#7C3AED]'}`}
                 >
                   <div className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full border-2 ${active ? 'border-[#6D28D9] bg-[#6D28D9]' : 'border-[#B8B5C4] bg-white'}`} />
                     <div>
-                      <div className={`font-serif font-semibold ${active ? 'text-[#5B21B6]' : 'text-[#3D3651]'}`}>{meta.label}</div>
+                      <div className={`font-sans font-semibold ${active ? 'text-[#7C3AED]' : 'text-[#3D3651]'}`}>{meta.label}</div>
                       <div className="mt-1 text-sm text-[#6B6680]">{meta.sublabel}</div>
                     </div>
                   </div>
@@ -519,7 +519,7 @@ export default function Index() {
       {/* ─────────────── 3 · Problème ─────────────── */}
       <AnimatedSection className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-serif font-semibold text-[#5B21B6]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.problem.title}</h2>
+          <h2 className="font-sans font-semibold text-[#7C3AED]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.problem.title}</h2>
           <p key={`sub-${segment}`} className="mt-4 text-[#3D3651] text-lg animate-in fade-in duration-300">{problem.sub}</p>
         </div>
         <div key={`cards-${segment}`} className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -530,15 +530,15 @@ export default function Index() {
                 <div className="h-11 w-11 rounded-xl bg-[#F5F3FF] flex items-center justify-center">
                   <Icon className="h-5 w-5 text-[#6D28D9]" />
                 </div>
-                <h3 className="mt-4 font-serif font-semibold text-[#1A1625] text-lg">{c.title}</h3>
+                <h3 className="mt-4 font-sans font-semibold text-[#1A1625] text-lg">{c.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{c.body}</p>
               </div>
             );
           })}
         </div>
         <blockquote key={`quote-${segment}`} className="mt-10 rounded-xl bg-[#F5F3FF] p-8 max-w-4xl mx-auto animate-in fade-in duration-300">
-          <Quote className="h-6 w-6 text-[#8B5CF6] mb-3" />
-          <p className="font-serif text-xl italic text-[#5B21B6]">« {problem.quote.text} »</p>
+          <Quote className="h-6 w-6 text-[#7C3AED] mb-3" />
+          <p className="font-sans text-xl italic text-[#7C3AED]">« {problem.quote.text} »</p>
           <footer className="mt-3 text-sm text-[#6B6680]">{problem.quote.author}</footer>
         </blockquote>
       </AnimatedSection>
@@ -547,7 +547,7 @@ export default function Index() {
       <section id="solution" className="bg-white border-y border-[#EDE9FE]">
         <AnimatedSection as="div" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="font-serif font-semibold text-[#5B21B6]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.solution.title}</h2>
+            <h2 className="font-sans font-semibold text-[#7C3AED]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.solution.title}</h2>
             <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.solution.sub}</p>
           </div>
           <div key={`sol-${segment}`} className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -555,10 +555,10 @@ export default function Index() {
               const Icon = c.icon;
               return (
                 <div key={i} className="rounded-xl bg-[#FAFAF7] border border-[#EDE9FE] p-6 hover:shadow-[0_2px_4px_rgba(61,43,87,0.06),0_8px_24px_rgba(61,43,87,0.06)] transition-shadow">
-                  <div className="h-11 w-11 rounded-xl bg-[#5B21B6] flex items-center justify-center">
+                  <div className="h-11 w-11 rounded-xl bg-[#7C3AED] flex items-center justify-center">
                     <Icon className="h-5 w-5 text-white" />
                   </div>
-                  <h3 className="mt-4 font-serif font-semibold text-[#1A1625] text-lg">{c.title}</h3>
+                  <h3 className="mt-4 font-sans font-semibold text-[#1A1625] text-lg">{c.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{c.body}</p>
                 </div>
               );
@@ -577,7 +577,7 @@ export default function Index() {
       {/* ─────────────── 5 · Comment ça marche ─────────────── */}
       <AnimatedSection className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-serif font-semibold text-[#5B21B6]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.how.title}</h2>
+          <h2 className="font-sans font-semibold text-[#7C3AED]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.how.title}</h2>
           <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.how.sub}</p>
         </div>
         <div key={`how-${segment}`} className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -585,11 +585,11 @@ export default function Index() {
             const Illustration = STEP_ILLUSTRATIONS[i] ?? (() => null);
             return (
               <div key={i} className="relative rounded-xl bg-white border border-[#EDE9FE] p-6">
-                <span className="absolute top-5 right-5 text-5xl font-serif font-semibold text-[#F5F3FF]">{s.n}</span>
+                <span className="absolute top-5 right-5 text-5xl font-sans font-semibold text-[#F5F3FF]">{s.n}</span>
                 <div className="h-14 flex items-start">
                   <Illustration />
                 </div>
-                <h3 className="mt-4 font-serif font-semibold text-[#1A1625] text-lg">{s.title}</h3>
+                <h3 className="mt-4 font-sans font-semibold text-[#1A1625] text-lg">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#3D3651] relative z-10">{s.body}</p>
               </div>
             );
@@ -598,17 +598,17 @@ export default function Index() {
       </AnimatedSection>
 
       {/* ─────────────── 6 · Preuve ─────────────── */}
-      <section className="bg-[#5B21B6] text-white relative overflow-hidden">
+      <section className="bg-[#7C3AED] text-white relative overflow-hidden">
         <BrandPattern />
         <AnimatedSection as="div" className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
           <div className="text-center">
-            <h2 className="font-serif font-semibold" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.proof.title}</h2>
+            <h2 className="font-sans font-semibold" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.proof.title}</h2>
           </div>
           <div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
             {CONTENT.proof.testimonials.map((t, i) => (
               <figure key={i} className="rounded-xl bg-white/5 border border-white/10 p-7 backdrop-blur-sm">
                 <Quote className="h-6 w-6 text-[#C9A96E] mb-3" />
-                <blockquote className="font-serif text-lg leading-relaxed text-white/90">« {t.text} »</blockquote>
+                <blockquote className="font-sans text-lg leading-relaxed text-white/90">« {t.text} »</blockquote>
                 <figcaption className="mt-4 text-sm text-white/60">{t.author}</figcaption>
               </figure>
             ))}
@@ -622,7 +622,7 @@ export default function Index() {
       {/* ─────────────── 7 · Sécurité ─────────────── */}
       <AnimatedSection id="security" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-serif font-semibold text-[#5B21B6]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.security.title}</h2>
+          <h2 className="font-sans font-semibold text-[#7C3AED]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.security.title}</h2>
           <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.security.sub}</p>
         </div>
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -633,14 +633,14 @@ export default function Index() {
                 <div className="h-10 w-10 rounded-lg bg-[#F5F3FF] flex items-center justify-center">
                   <Icon className="h-5 w-5 text-[#6D28D9]" />
                 </div>
-                <h3 className="mt-4 font-serif font-semibold text-[#1A1625]">{p.title}</h3>
+                <h3 className="mt-4 font-sans font-semibold text-[#1A1625]">{p.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#3D3651]">{p.body}</p>
               </div>
             );
           })}
         </div>
         <div className="mt-10 rounded-xl bg-[#F5F3FF] border border-[#EDE9FE] p-8 max-w-4xl mx-auto text-center">
-          <h3 className="font-serif font-semibold text-[#5B21B6] text-2xl">{CONTENT.security.callout.title}</h3>
+          <h3 className="font-sans font-semibold text-[#7C3AED] text-2xl">{CONTENT.security.callout.title}</h3>
           <p className="mt-3 text-[#3D3651] leading-relaxed">{CONTENT.security.callout.body}</p>
         </div>
       </AnimatedSection>
@@ -649,14 +649,14 @@ export default function Index() {
       <section className="bg-white border-y border-[#EDE9FE]">
         <AnimatedSection as="div" className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-20 md:py-24">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="font-serif font-semibold text-[#5B21B6]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.contrast.title}</h2>
+            <h2 className="font-sans font-semibold text-[#7C3AED]" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>{CONTENT.contrast.title}</h2>
             <p className="mt-4 text-[#3D3651] text-lg">{CONTENT.contrast.sub}</p>
           </div>
           <div key={`contrast-${segment}`} className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="rounded-xl border border-[#EDE9FE] bg-[#FAFAF7] p-6">
               <div className="flex items-center gap-2 mb-5">
                 <XCircle className="h-5 w-5 text-[#B84444]" />
-                <h3 className="font-serif font-semibold text-[#5B21B6]">Sans ESONO</h3>
+                <h3 className="font-sans font-semibold text-[#7C3AED]">Sans ESONO</h3>
               </div>
               <ul className="space-y-3">
                 {contrast.map((r, i) => (
@@ -670,7 +670,7 @@ export default function Index() {
             <div className="rounded-xl border border-[#6D28D9]/20 bg-[#F5F3FF] p-6">
               <div className="flex items-center gap-2 mb-5">
                 <CheckCircle2 className="h-5 w-5 text-[#2F8F5A]" />
-                <h3 className="font-serif font-semibold text-[#5B21B6]">Avec ESONO</h3>
+                <h3 className="font-sans font-semibold text-[#7C3AED]">Avec ESONO</h3>
               </div>
               <ul className="space-y-3">
                 {contrast.map((r, i) => (
@@ -690,7 +690,7 @@ export default function Index() {
         <BrandPattern />
         <AnimatedSection as="div" className="relative mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12 py-24">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="font-serif font-semibold text-[#5B21B6]" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)' }}>{CONTENT.finalCta.title}</h2>
+            <h2 className="font-sans font-semibold text-[#7C3AED]" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)' }}>{CONTENT.finalCta.title}</h2>
             <p className="mt-5 text-lg text-[#3D3651] leading-relaxed">{CONTENT.finalCta.sub}</p>
             <div className="mt-9">
               <PrimaryCTA size="xl" />
@@ -707,9 +707,9 @@ export default function Index() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="h-8 w-8 rounded-lg bg-[#C9A96E] flex items-center justify-center">
-                  <span className="text-[11px] font-serif font-bold text-[#5B21B6]">ES</span>
+                  <span className="text-[11px] font-sans font-bold text-[#7C3AED]">ES</span>
                 </div>
-                <span className="text-lg font-serif font-semibold text-white">ESONO</span>
+                <span className="text-lg font-sans font-semibold text-white">ESONO</span>
               </div>
               <p className="text-sm text-white/60 leading-relaxed">{CONTENT.footer.tagline}</p>
             </div>

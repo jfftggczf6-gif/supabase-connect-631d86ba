@@ -279,7 +279,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
                   <div className="space-y-1.5">
                     {items.map((c: any, i: number) => {
                       const badgeColor = c.responsable === 'entrepreneur'
-                        ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'
+                        ? 'bg-violet-100 text-violet-600 dark:bg-violet-900 dark:text-violet-200'
                         : c.responsable === 'coach'
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
                         : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
@@ -315,7 +315,7 @@ export default function ScreeningReportViewer({ data, enterpriseId, enterpriseNa
                   ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                   : r.probabilite === 'moyenne'
                   ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-                  : 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200';
+                  : 'bg-violet-100 text-violet-600 dark:bg-violet-900 dark:text-violet-200';
                 return (
                   <div key={i} className="p-3 rounded-lg border bg-card">
                     <div className="flex items-start gap-3">

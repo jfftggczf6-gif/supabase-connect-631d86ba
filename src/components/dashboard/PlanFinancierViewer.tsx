@@ -533,7 +533,7 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                     const amort = cyProj?.amortissement || 0;
                     const rn = cyProj?.resultat_net || (ebitda - amort);
                     const steps = [
-                      { label: "Chiffre d'affaires", value: ca, color: 'bg-violet-500' },
+                      { label: "Chiffre d'affaires", value: ca, color: 'bg-violet-600' },
                       { label: 'Achats / COGS', value: -Math.abs(cogs), color: 'bg-red-400' },
                       { label: 'Marge brute', value: mb, color: 'bg-green-500', bold: true },
                       { label: 'OPEX', value: -Math.abs(opex), color: 'bg-red-400' },

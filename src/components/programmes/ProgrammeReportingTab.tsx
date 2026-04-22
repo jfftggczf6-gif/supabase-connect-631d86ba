@@ -157,7 +157,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
           {report.resume_executif && (
             <div className="bg-violet-50 border border-violet-200 rounded-lg p-4">
               <h4 className="font-medium text-violet-900 mb-1">{t('reporting.executive_summary')}</h4>
-              <p className="text-sm text-violet-800 whitespace-pre-line">{report.resume_executif}</p>
+              <p className="text-sm text-violet-600 whitespace-pre-line">{report.resume_executif}</p>
             </div>
           )}
 
@@ -237,7 +237,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
                 <div key={i} className="p-3 rounded bg-red-50 border border-red-200 mb-2 text-sm">
                   <p className="font-medium">{e.nom}</p>
                   <p className="text-red-700 text-xs">{e.risque}</p>
-                  <p className="text-violet-800 text-xs mt-1">Action: {e.action_recommandee}</p>
+                  <p className="text-violet-600 text-xs mt-1">Action: {e.action_recommandee}</p>
                 </div>
               ))}
             </div>

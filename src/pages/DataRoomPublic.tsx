@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Loader2, FileText, Download, Shield, BarChart3, Briefcase, Users, Globe, FolderOpen, Lock } from 'lucide-react';
 
 const CATEGORY_META: Record<string, { label: string; icon: typeof FileText; color: string }> = {
-  legal: { label: 'Juridique', icon: Shield, color: 'bg-violet-100 text-violet-600' },
+  legal: { label: 'Juridique', icon: Shield, color: 'bg-violet-100 text-violet-700' },
   finance: { label: 'Finance', icon: BarChart3, color: 'bg-emerald-100 text-emerald-600' },
   commercial: { label: 'Commercial', icon: Briefcase, color: 'bg-amber-100 text-amber-600' },
   team: { label: 'Équipe', icon: Users, color: 'bg-purple-100 text-purple-600' },
