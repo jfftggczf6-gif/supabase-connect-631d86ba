@@ -4,9 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, FileDown, FileText } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 interface FinalReportModalProps {
@@ -17,9 +18,18 @@ interface FinalReportModalProps {
 
 export default function FinalReportModal({ enterpriseId, enterpriseName, onClose }: FinalReportModalProps) {
   const { t } = useTranslation();
-  const { session: authSession } = useAuth();
-  const [comment, setComment] = useState('');
+  const { session: authSession, profile } = useAuth();
+
+  // Métadonnées de l'accompagnement
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [sessionsCount, setSessionsCount] = useState('');
+  const [coachNames, setCoachNames] = useState(profile?.full_name || '');
+
+  // Inputs coach
+  const [verdict, setVerdict] = useState('');
   const [recommendation, setRecommendation] = useState('');
+
   const [reportHtml, setReportHtml] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
@@ -34,8 +44,12 @@ export default function FinalReportModal({ enterpriseId, enterpriseName, onClose
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             enterprise_id: enterpriseId,
-            coach_comment: comment,
-            coach_recommendation: recommendation,
+            period_start: periodStart || null,
+            period_end: periodEnd || null,
+            sessions_count: sessionsCount ? Number(sessionsCount) : null,
+            coach_names: coachNames || null,
+            coach_verdict: verdict || null,
+            coach_recommendation: recommendation || null,
           }),
         }
       );
@@ -52,17 +66,35 @@ export default function FinalReportModal({ enterpriseId, enterpriseName, onClose
     }
   };
 
-  const downloadAsHtml = () => {
-    if (!reportHtml) return;
-    const blob = new Blob([reportHtml], { type: 'text/html' });
+  const baseFilename = `Rapport_FinCoaching_${enterpriseName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  const downloadFile = (content: string, mime: string, ext: string) => {
+    const blob = new Blob([content], { type: mime });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `Rapport_Final_${enterpriseName.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+    a.download = `${baseFilename}.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-    toast.success('Rapport téléchargé');
+  };
+
+  const downloadAsHtml = () => {
+    if (!reportHtml) return;
+    downloadFile(reportHtml, 'text/html', 'html');
+    toast.success('HTML téléchargé');
+  };
+
+  const downloadAsWord = () => {
+    if (!reportHtml) return;
+    // HTML + namespaces Office → Microsoft Word ouvre le .doc nativement.
+    const headMatch = reportHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    const bodyMatch = reportHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const headInner = headMatch ? headMatch[1] : `<title>${baseFilename}</title>`;
+    const bodyInner = bodyMatch ? bodyMatch[1] : reportHtml;
+    const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">${headInner}</head><body>${bodyInner}</body></html>`;
+    downloadFile(wordHtml, 'application/msword', 'doc');
+    toast.success('Word téléchargé — ouvre avec Microsoft Word');
   };
 
   return (
@@ -71,24 +103,78 @@ export default function FinalReportModal({ enterpriseId, enterpriseName, onClose
         {!reportHtml ? (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport final — {enterpriseName}</DialogTitle>
+              <DialogTitle>Rapport de fin de coaching — {enterpriseName}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs font-medium">Commentaire du coach</Label>
-                <Textarea value={comment} onChange={e => setComment(e.target.value)} rows={4}
-                  placeholder="L'entreprise présente des fondamentaux solides…" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs font-medium">Période — début</Label>
+                  <Input
+                    value={periodStart}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    placeholder="Oct. 2025"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">Période — fin</Label>
+                  <Input
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    placeholder="Avr. 2026"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">Nb sessions</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={sessionsCount}
+                    onChange={(e) => setSessionsCount(e.target.value)}
+                    placeholder="8"
+                  />
+                </div>
               </div>
+
               <div>
-                <Label className="text-xs font-medium">Recommandation</Label>
-                <Textarea value={recommendation} onChange={e => setRecommendation(e.target.value)} rows={2}
-                  placeholder="ÉLIGIBLE SOUS CONDITIONS — Financer après…" />
+                <Label className="text-xs font-medium">Coachs</Label>
+                <Input
+                  value={coachNames}
+                  onChange={(e) => setCoachNames(e.target.value)}
+                  placeholder="K. Diabaté / P. N'Guessan"
+                />
               </div>
+
+              <div>
+                <Label className="text-xs font-medium">
+                  ⭐ Verdict global (sera intégré en section 2)
+                </Label>
+                <Textarea
+                  value={verdict}
+                  onChange={(e) => setVerdict(e.target.value)}
+                  rows={4}
+                  placeholder="Accompagnement réussi sur les fondamentaux mais pivot stratégique prématuré. Éligible à 30-80M FCFA."
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-medium">Recommandation complémentaire (optionnel)</Label>
+                <Textarea
+                  value={recommendation}
+                  onChange={(e) => setRecommendation(e.target.value)}
+                  rows={2}
+                  placeholder="Prioriser I&P Acceleration pour un ticket 60-80M FCFA..."
+                />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                L'IA générera : évolution du score par dimension, diagnostic avant/après, accomplissements/chantiers, bilan qualitatif, recommandations 3 horizons, matching financement, annexes (livrables + historique sessions).
+              </p>
+
               <Button onClick={handleGenerate} disabled={generating} className="w-full">
                 {generating ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Génération en cours (30-60s)…</>
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Génération en cours (30-90s)…</>
                 ) : (
-                  <><Sparkles className="h-4 w-4 mr-1" /> Générer le rapport final</>
+                  <><Sparkles className="h-4 w-4 mr-1" /> Générer le rapport de fin</>
                 )}
               </Button>
             </div>
@@ -96,10 +182,17 @@ export default function FinalReportModal({ enterpriseId, enterpriseName, onClose
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport final</DialogTitle>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={downloadAsHtml}>HTML</Button>
-                <Button size="sm" variant="outline" onClick={() => setReportHtml(null)}>Modifier</Button>
+              <DialogTitle>Rapport de fin de coaching</DialogTitle>
+              <div className="flex gap-2 flex-wrap">
+                <Button size="sm" onClick={downloadAsWord}>
+                  <FileDown className="h-4 w-4 mr-1" /> Télécharger Word
+                </Button>
+                <Button size="sm" variant="outline" onClick={downloadAsHtml}>
+                  <FileText className="h-4 w-4 mr-1" /> HTML
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setReportHtml(null)}>
+                  Modifier
+                </Button>
               </div>
             </DialogHeader>
             <iframe srcDoc={reportHtml} className="w-full h-[600px] border rounded-lg" />
