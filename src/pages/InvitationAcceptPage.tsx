@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Building2, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
-import { useOrganization } from '@/contexts/OrganizationContext';
+// useOrganization n'est plus utilisé : on force un full reload après acceptation
+// pour éviter les race conditions sur le contexte org.
 
 interface InvitationDetails {
   organization_name: string;
@@ -22,7 +23,6 @@ interface InvitationDetails {
 export default function InvitationAcceptPage() {
   const { token } = useParams<{ token: string }>();
   const { user, session } = useAuth();
-  const { refreshOrganizations, switchOrganization } = useOrganization();
   const navigate = useNavigate();
   const [details, setDetails] = useState<InvitationDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ export default function InvitationAcceptPage() {
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || result.message);
 
-      // Force la sélection de la nouvelle org AVANT le refresh (le refresh lira ce localStorage)
+      // Force la sélection de la nouvelle org AVANT le refresh (le contexte lira ce localStorage au prochain init)
       if (result.organization_id) {
         try { localStorage.setItem('esono_current_org_id', result.organization_id); } catch {}
       }
@@ -69,18 +69,19 @@ export default function InvitationAcceptPage() {
       setAccepted(true);
       toast.success(`Bienvenue dans ${details?.organization_name} !`);
 
-      // Rafraîchir le contexte org (lira localStorage et activera la bonne org)
-      await refreshOrganizations();
-      if (result.organization_id) switchOrganization(result.organization_id);
-
-      // Redirection selon le rôle (évite le passage par /dashboard qui peut servir l'EntrepreneurDashboard par fallback)
+      // Détermine la cible selon le rôle accordé par cette invitation
+      // (et NON selon le contexte global qui peut être encore sur l'ancienne org)
       const role = (result.role || details?.role || '').toLowerCase();
       const targetPath =
         role === 'owner' || role === 'admin' || role === 'manager' ? '/programmes' :
         role === 'entrepreneur' ? '/dashboard' :
         '/dashboard'; // coach/analyst → CoachDashboard rendu par /dashboard
 
-      setTimeout(() => navigate(targetPath), 1500);
+      // FULL RELOAD au lieu de navigate() — évite la race condition où le contexte
+      // org React n'a pas encore intégré le nouveau membership avant que /programmes
+      // (RequireRole) ne lise currentRole. Avec window.location, le contexte est
+      // recréé from scratch et lit localStorage proprement.
+      setTimeout(() => { window.location.href = targetPath; }, 1200);
     } catch (err: any) {
       toast.error(err.message);
     }
