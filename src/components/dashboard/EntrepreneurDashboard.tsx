@@ -1456,7 +1456,7 @@ export default function EntrepreneurDashboard({
         <div className="sticky top-0 z-30 flex-none border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-6 py-3 flex items-center justify-center gap-3 shadow-sm">
           <Button
             size="sm"
-            className="gap-2 bg-violet-600 text-white hover:bg-violet-700 shadow-sm"
+            className="gap-2 bg-violet-800 text-white hover:bg-violet-900 shadow-sm"
             onClick={() => setSelectedModule('upload')}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -1464,7 +1464,7 @@ export default function EntrepreneurDashboard({
           </Button>
           <Button
             size="sm"
-            className="gap-2 bg-violet-600 text-white hover:bg-violet-700 shadow-sm"
+            className="gap-2 bg-violet-800 text-white hover:bg-violet-900 shadow-sm"
             onClick={() => handleGenerateModule('pre_screening')}
             disabled={generating || !!generatingModule}
           >
@@ -1473,7 +1473,7 @@ export default function EntrepreneurDashboard({
           </Button>
           <Button
             size="sm"
-            className="gap-2 bg-violet-600 text-white hover:bg-violet-700 shadow-sm"
+            className="gap-2 bg-violet-800 text-white hover:bg-violet-900 shadow-sm"
             onClick={() => handleGenerate(false)}
             disabled={generating}
           >
@@ -1669,8 +1669,8 @@ export default function EntrepreneurDashboard({
                 {/* Barre d'actions unifiée — diagnostic */}
                 {(() => {
                   // Style uniforme: blanc avec contour violet pour tous les CTA
-                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
-                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
+                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-800 transition-colors disabled:opacity-50";
+                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-800 transition-colors disabled:opacity-50";
                   const entName = enterprise?.name || 'entreprise';
                   const regenerate = async () => {
                     if (!enterprise) return;
@@ -1691,7 +1691,7 @@ export default function EntrepreneurDashboard({
                       <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center">
-                            <Stethoscope className="h-5 w-5 text-violet-600" />
+                            <Stethoscope className="h-5 w-5 text-violet-800" />
                           </div>
                           <p className="text-sm font-semibold text-foreground">Diagnostic initial</p>
                         </div>
@@ -1759,9 +1759,9 @@ export default function EntrepreneurDashboard({
                   };
                   const cfg = moduleCfg[selectedModule] || { icon: <FileText className="h-5 w-5 text-primary" />, title: selectedModule };
                   // Style uniforme: blanc avec contour violet pour tous les CTA
-                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
-                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
-                  const btnSecondary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-600 transition-colors disabled:opacity-50";
+                  const btnOutline = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-800 transition-colors disabled:opacity-50";
+                  const btnPrimary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-800 transition-colors disabled:opacity-50";
+                  const btnSecondary = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-violet-700 border border-violet-400 text-xs font-semibold hover:bg-violet-50 hover:border-violet-800 transition-colors disabled:opacity-50";
                   const entName = enterprise?.name || 'entreprise';
 
                   // Module-specific download buttons
@@ -1856,7 +1856,7 @@ export default function EntrepreneurDashboard({
                     <div className="mb-4 rounded-xl border border-border bg-white p-4 shadow-sm">
                       <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center [&>svg]:text-violet-600">{cfg.icon}</div>
+                          <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center [&>svg]:text-violet-800">{cfg.icon}</div>
                           <p className="text-sm font-semibold text-foreground">{cfg.title}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-end">

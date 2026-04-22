@@ -71,7 +71,7 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-display font-bold flex items-center gap-2">
-            <DollarSign className="h-6 w-6 text-violet-600" /> Valorisation
+            <DollarSign className="h-6 w-6 text-violet-800" /> Valorisation
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Analyse par 3 méthodes — DCF, Multiples EBITDA, Multiples CA</p>
         </div>
@@ -125,7 +125,7 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
         {/* DCF */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-violet-600" /> DCF {editBtn('dcf', 'DCF')}</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-violet-800" /> DCF {editBtn('dcf', 'DCF')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">WACC</span><span className="font-semibold">{dcf.wacc_pct || '—'}%<ConfidenceIndicator field="wacc" confidence={data._confidence} /></span></div>
@@ -139,7 +139,7 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
               <span className="font-semibold">{fmt(dcf.terminal_value, devise)}<ConfidenceIndicator field="terminal_value" confidence={data._confidence} /></span>
             </div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Enterprise Value</span><span className="font-semibold">{fmt(dcf.enterprise_value, devise)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Equity Value</span><span className="font-bold text-violet-600">{fmt(dcf.equity_value, devise)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Equity Value</span><span className="font-bold text-violet-800">{fmt(dcf.equity_value, devise)}</span></div>
             {dcf.projections_cashflow && (
               <div className="pt-2 border-t">
                 <p className="text-xs font-semibold mb-1">Cash-flows projetés</p>
@@ -249,7 +249,7 @@ export default function ValuationViewer({ data, enterpriseId, deliverableId, ent
                 <p className="font-bold text-sm">{fmt(dcf.sensitivity.wacc_plus_2, devise)}</p>
               </div>
               <div className="p-3 rounded-lg bg-violet-50">
-                <p className="text-xs text-violet-600 mb-1">Base</p>
+                <p className="text-xs text-violet-800 mb-1">Base</p>
                 <p className="font-bold text-sm">{fmt(dcf.sensitivity.wacc_base, devise)}</p>
               </div>
               <div className="p-3 rounded-lg bg-emerald-50">

@@ -120,7 +120,7 @@ export default function AlertsTab() {
       </div>
 
       {alerts.map((alert, i) => (
-        <Card key={i} className={`border-l-4 ${alert.type === 'bloquant' ? 'border-l-red-500' : alert.type === 'opportunite' ? 'border-l-emerald-500' : alert.type === 'action' ? 'border-l-amber-500' : 'border-l-violet-500'}`}>
+        <Card key={i} className={`border-l-4 ${alert.type === 'bloquant' ? 'border-l-red-500' : alert.type === 'opportunite' ? 'border-l-emerald-500' : alert.type === 'action' ? 'border-l-amber-500' : 'border-l-violet-800'}`}>
           <CardContent className="py-2.5 flex items-start gap-3">
             {icon(alert.type)}
             <div className="flex-1 min-w-0">

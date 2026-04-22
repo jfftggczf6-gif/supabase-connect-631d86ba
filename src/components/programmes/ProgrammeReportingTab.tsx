@@ -237,7 +237,7 @@ export default function ProgrammeReportingTab({ programmeId, programmeName, prog
                 <div key={i} className="p-3 rounded bg-red-50 border border-red-200 mb-2 text-sm">
                   <p className="font-medium">{e.nom}</p>
                   <p className="text-red-700 text-xs">{e.risque}</p>
-                  <p className="text-violet-600 text-xs mt-1">Action: {e.action_recommandee}</p>
+                  <p className="text-violet-800 text-xs mt-1">Action: {e.action_recommandee}</p>
                 </div>
               ))}
             </div>
