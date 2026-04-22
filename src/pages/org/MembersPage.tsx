@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useCurrentRole, humanizeRole } from '@/hooks/useCurrentRole';
+import { useCurrentRole } from '@/hooks/useCurrentRole';
+import { humanizeRole, getInvitableRoles } from '@/lib/roles';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ import { getValidAccessToken } from '@/lib/getValidAccessToken';
 export default function MembersPage() {
   const navigate = useNavigate();
   const { currentOrg } = useOrganization();
-  const { canInviteMembers, canManageOrg } = useCurrentRole();
+  const { canInviteMembers, canManageOrg, role: myRole, isSuperAdmin } = useCurrentRole();
   const [members, setMembers] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,13 +87,9 @@ export default function MembersPage() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const INVITABLE_ROLES = [
-    { value: 'admin', label: 'Administrateur' },
-    { value: 'manager', label: humanizeRole('manager', currentOrg?.type || null) },
-    { value: 'analyst', label: humanizeRole('analyst', currentOrg?.type || null) },
-    { value: 'coach', label: humanizeRole('coach', currentOrg?.type || null) },
-    { value: 'entrepreneur', label: 'Entrepreneur' },
-  ];
+  // Liste filtrée selon le type d'org (pas d'analyste pour Programme, pas de coach pour PE)
+  // et selon la hiérarchie (un manager ne peut pas inviter un admin par exemple).
+  const INVITABLE_ROLES = getInvitableRoles(currentOrg?.type, myRole, isSuperAdmin);
 
   return (
     <DashboardLayout title="Membres" subtitle={currentOrg?.name || ''}>

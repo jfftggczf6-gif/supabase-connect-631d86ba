@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Users, Building2, Settings, UserPlus, Mail, RefreshCw } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
-import { humanizeRole } from '@/hooks/useCurrentRole';
+import { humanizeRole, getInvitableRoles } from '@/lib/roles';
 
 interface OrgDetail {
   id: string; name: string; slug: string; type: string;
@@ -135,14 +135,9 @@ export default function OrganizationDetailPage() {
     );
   }
 
-  const ROLES = [
-    { value: 'owner', label: 'Propriétaire' },
-    { value: 'admin', label: 'Administrateur' },
-    { value: 'manager', label: humanizeRole('manager', org.type) },
-    { value: 'analyst', label: humanizeRole('analyst', org.type) },
-    { value: 'coach', label: humanizeRole('coach', org.type) },
-    { value: 'entrepreneur', label: 'Entrepreneur' },
-  ];
+  // Liste filtrée selon le type d'org. Super_admin (cette page) peut inviter
+  // n'importe quel rôle y compris Propriétaire (= transfert de propriété).
+  const ROLES = getInvitableRoles(org.type, 'owner', /* isSuperAdmin */ true, /* includeOwner */ true);
 
   return (
     <DashboardLayout title={org.name} subtitle={`${org.type} — ${org.country || '—'}`}>
