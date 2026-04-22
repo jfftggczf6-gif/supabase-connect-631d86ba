@@ -4,10 +4,9 @@
 
 @layer base {
   :root {
-    /* ESONO — palette violette harmonisée (Tailwind violet-600 = #7C3AED)
-       Remplace l'ancien bleu marine par le violet institutionnel utilisé
-       dans la sidebar (text-violet-600) pour cohérence globale. */
-    --background: 255 25% 95%;
+    /* ESONO — palette violette harmonisée (Tailwind violet-800 = #5B21B6)
+       Fonds en blanc pur pour aérer, accents violet pour identité. */
+    --background: 0 0% 100%;
     --foreground: 260 20% 12%;
 
     --card: 0 0% 100%;
@@ -22,8 +21,8 @@
     --secondary: 260 15% 70%;
     --secondary-foreground: 260 20% 12%;
 
-    --muted: 260 20% 92%;
-    --muted-foreground: 260 10% 45%;
+    --muted: 220 15% 96%;             /* Gris très clair neutre, sans tint violet */
+    --muted-foreground: 220 10% 40%;
 
     --accent: 262 83% 95%;            /* Violet-50 #F5F3FF très clair */
     --accent-foreground: 263 69% 30%; /* Violet-800 pour contraste */
