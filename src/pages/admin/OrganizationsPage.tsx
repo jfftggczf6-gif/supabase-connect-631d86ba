@@ -40,21 +40,25 @@ export default function OrganizationsPage() {
   const [showWizard, setShowWizard] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<OrgRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmCascade, setConfirmCascade] = useState(false);
+
+  // Reset cascade confirm quand on change/ferme la modale
+  useEffect(() => { setConfirmCascade(false); }, [orgToDelete]);
 
   const handleDelete = async () => {
     if (!orgToDelete) return;
+    // Si entreprises liées et cascade non confirmée → bloquer
+    if (orgToDelete.enterprise_count > 0 && !confirmCascade) {
+      toast.error(`Coche la case pour confirmer la suppression en cascade des ${orgToDelete.enterprise_count} entreprise(s) liée(s).`);
+      return;
+    }
     setDeleting(true);
     try {
-      // Vérifier qu'il n'y a pas d'entreprises actives
-      if (orgToDelete.enterprise_count > 0) {
-        toast.error(`Impossible de supprimer : ${orgToDelete.enterprise_count} entreprise(s) liée(s). Supprime-les d'abord.`);
-        setDeleting(false);
-        setOrgToDelete(null);
-        return;
-      }
+      // Toutes les FK pointant vers organizations sont ON DELETE CASCADE
+      // → enterprises, deliverables, coaching_notes, candidatures, etc. sont supprimées automatiquement
       const { error } = await supabase.from('organizations').delete().eq('id', orgToDelete.id);
       if (error) throw error;
-      toast.success(`Organisation "${orgToDelete.name}" supprimée`);
+      toast.success(`Organisation "${orgToDelete.name}" supprimée${orgToDelete.enterprise_count > 0 ? ` (avec ${orgToDelete.enterprise_count} entreprise(s) en cascade)` : ''}`);
       setOrgToDelete(null);
       await fetchOrgs();
       await refreshOrganizations();
@@ -324,7 +328,7 @@ export default function OrganizationsPage() {
               </span>
               {orgToDelete && orgToDelete.enterprise_count > 0 && (
                 <span className="block text-destructive font-medium">
-                  ⚠ Cette org contient {orgToDelete.enterprise_count} entreprise(s). La suppression sera bloquée.
+                  ⚠ Cette org contient {orgToDelete.enterprise_count} entreprise(s) qui seront supprimées en cascade (livrables, coaching notes, candidatures, etc.).
                 </span>
               )}
               {orgToDelete && orgToDelete.member_count > 0 && (
@@ -335,9 +339,27 @@ export default function OrganizationsPage() {
               <span className="block">Cette action est <strong>irréversible</strong>.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {orgToDelete && orgToDelete.enterprise_count > 0 && (
+            <label className="flex items-start gap-2 text-sm bg-destructive/5 border border-destructive/20 rounded-md p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={confirmCascade}
+                onChange={(e) => setConfirmCascade(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+                disabled={deleting}
+              />
+              <span>
+                Je confirme la suppression en cascade des <strong>{orgToDelete.enterprise_count} entreprise(s)</strong> et de toutes leurs données associées.
+              </span>
+            </label>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting || (!!orgToDelete && orgToDelete.enterprise_count > 0 && !confirmCascade)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Supprimer définitivement
             </AlertDialogAction>
