@@ -7,10 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Users } from 'lucide-react';
+import { Loader2, Users, Plus, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganization } from '@/contexts/OrganizationContext';
+
+const SUPPORTED_COUNTRIES = [
+  "Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo",
+  "Côte d'Ivoire", "Éthiopie", "Gabon", "Ghana", "Guinée",
+  "Guinée-Bissau", "Kenya", "Madagascar", "Mali", "Maroc",
+  "Niger", "Nigeria", "RDC", "Rwanda", "Sénégal",
+  "Tanzanie", "Togo", "Tunisie",
+].sort((a, b) => a.localeCompare(b, 'fr'));
 
 interface Props {
   open: boolean;
@@ -32,56 +40,103 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // Sous-formulaire création nouvelle entreprise
+  const [showNewEnt, setShowNewEnt] = useState(false);
+  const [newEntName, setNewEntName] = useState('');
+  const [newEntSector, setNewEntSector] = useState('');
+  const [newEntCountry, setNewEntCountry] = useState('');
+  const [newEntContactEmail, setNewEntContactEmail] = useState('');
+  const [creatingEnt, setCreatingEnt] = useState(false);
+
+  const fetchEnterprises = async () => {
+    setLoading(true);
+    let entQ = supabase
+      .from('enterprises')
+      .select('id, name, score_ir, coach_id, sector, country, created_at')
+      .order('created_at', { ascending: false });
+    if (currentOrg?.id) entQ = entQ.eq('organization_id', currentOrg.id);
+    const { data: ents } = await entQ;
+
+    // N-to-N: fetch enterprise_coaches
+    const entIds = (ents || []).map(e => e.id);
+    const { data: ecLinks } = entIds.length > 0
+      ? await supabase.from('enterprise_coaches').select('enterprise_id, coach_id').in('enterprise_id', entIds).eq('is_active', true)
+      : { data: [] as any[] };
+    const ecMap: Record<string, string> = {};
+    (ecLinks || []).forEach(ec => { ecMap[ec.enterprise_id] = ec.coach_id; });
+
+    // Get coach names
+    const coachIds = [...new Set((ents || []).map(e => ecMap[e.id] || e.coach_id).filter(Boolean))];
+    let coachMap: Record<string, string> = {};
+    if (coachIds.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', coachIds);
+      (profiles || []).forEach(p => { coachMap[p.user_id] = p.full_name || ''; });
+    }
+
+    // Count deliverables per enterprise
+    const { data: delivCounts } = await supabase
+      .from('deliverables')
+      .select('enterprise_id');
+    const countMap: Record<string, number> = {};
+    (delivCounts || []).forEach((d: any) => { countMap[d.enterprise_id] = (countMap[d.enterprise_id] || 0) + 1; });
+
+    // Affiche TOUTES les entreprises de l'org (même sans pipeline démarré)
+    setEnterprises((ents || []).map(e => ({
+      ...e,
+      coach_name: coachMap[ecMap[e.id] || e.coach_id] || '',
+      deliverables_count: countMap[e.id] || 0,
+    })));
+    setLoading(false);
+  };
+
   useEffect(() => {
-    if (!open) return;
-    (async () => {
-      setLoading(true);
-      let entQ = supabase
-        .from('enterprises')
-        .select('id, name, score_ir, coach_id, sector, country')
-        .order('score_ir', { ascending: false });
-      if (currentOrg?.id) entQ = entQ.eq('organization_id', currentOrg.id);
-      const { data: ents } = await entQ;
-
-      // N-to-N: fetch enterprise_coaches
-      const entIds = (ents || []).map(e => e.id);
-      const { data: ecLinks } = entIds.length > 0
-        ? await supabase.from('enterprise_coaches').select('enterprise_id, coach_id').in('enterprise_id', entIds).eq('is_active', true)
-        : { data: [] as any[] };
-      const ecMap: Record<string, string> = {};
-      (ecLinks || []).forEach(ec => { ecMap[ec.enterprise_id] = ec.coach_id; });
-
-      // Get coach names
-      const coachIds = [...new Set((ents || []).map(e => ecMap[e.id] || e.coach_id).filter(Boolean))];
-      let coachMap: Record<string, string> = {};
-      if (coachIds.length) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name')
-          .in('user_id', coachIds);
-        (profiles || []).forEach(p => { coachMap[p.user_id] = p.full_name || ''; });
-      }
-
-      // Count deliverables per enterprise
-      const { data: delivCounts } = await supabase
-        .from('deliverables')
-        .select('enterprise_id');
-      const countMap: Record<string, number> = {};
-      (delivCounts || []).forEach((d: any) => { countMap[d.enterprise_id] = (countMap[d.enterprise_id] || 0) + 1; });
-
-      setEnterprises((ents || []).map(e => ({
-        ...e,
-        coach_name: coachMap[ecMap[e.id] || e.coach_id] || '',
-        deliverables_count: countMap[e.id] || 0,
-      })).filter(e => e.deliverables_count > 0 || e.score_ir > 0));
-      setLoading(false);
-    })();
+    if (open) fetchEnterprises();
   }, [open]);
 
   const toggle = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
+  };
+
+  const handleCreateEnterprise = async () => {
+    if (!newEntName.trim() || !newEntCountry || !currentOrg?.id) {
+      toast.error('Nom et pays requis');
+      return;
+    }
+    setCreatingEnt(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: ent, error } = await supabase
+        .from('enterprises' as any)
+        .insert({
+          name: newEntName.trim(),
+          sector: newEntSector.trim() || null,
+          country: newEntCountry,
+          contact_email: newEntContactEmail.trim() || null,
+          organization_id: currentOrg.id,
+          user_id: user?.id || null,
+          phase: 'identite',
+        })
+        .select('id, name')
+        .single();
+      if (error) throw error;
+      const inserted = ent as any;
+      toast.success(`Entreprise "${inserted.name}" créée`);
+      // Refresh + select automatiquement la nouvelle entreprise
+      await fetchEnterprises();
+      setSelected(new Set([...selected, inserted.id]));
+      // Reset form
+      setNewEntName(''); setNewEntSector(''); setNewEntCountry(''); setNewEntContactEmail('');
+      setShowNewEnt(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur création entreprise');
+    } finally {
+      setCreatingEnt(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -133,18 +188,88 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="font-semibold text-sm mb-3">{t('cohorte.select_enterprises')}</h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-sm">{t('cohorte.select_enterprises')}</h4>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNewEnt(!showNewEnt)}
+                className="gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Nouvelle entreprise
+              </Button>
+            </div>
+
+            {/* Sous-formulaire création */}
+            {showNewEnt && (
+              <div className="rounded-lg border border-dashed bg-muted/30 p-4 mb-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Building2 className="h-4 w-4" /> Créer une nouvelle entreprise
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Nom *</Label>
+                    <Input value={newEntName} onChange={e => setNewEntName(e.target.value)} placeholder="EcoBuild CI SARL" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Pays *</Label>
+                    <select
+                      value={newEntCountry}
+                      onChange={e => setNewEntCountry(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">— Sélectionner —</option>
+                      {SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Secteur</Label>
+                    <Input value={newEntSector} onChange={e => setNewEntSector(e.target.value)} placeholder="Agro-industrie, BTP..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email contact entrepreneur</Label>
+                    <Input type="email" value={newEntContactEmail} onChange={e => setNewEntContactEmail(e.target.value)} placeholder="contact@pme.ci" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewEnt(false)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCreateEnterprise}
+                    disabled={creatingEnt || !newEntName.trim() || !newEntCountry}
+                  >
+                    {creatingEnt ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+                    Créer et ajouter
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {loading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : enterprises.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Aucune entreprise dans cette org. Clique sur "Nouvelle entreprise" pour en créer une.
+              </p>
             ) : (
               <div className="space-y-1 max-h-[40vh] overflow-y-auto">
                 {enterprises.map(e => (
                   <label key={e.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer">
                     <Checkbox checked={selected.has(e.id)} onCheckedChange={() => toggle(e.id)} />
                     <span className="flex-1 text-sm font-medium truncate">{e.name}</span>
-                    {e.score_ir > 0 && (
+                    {e.score_ir > 0 ? (
                       <Badge variant="outline" className={`text-[10px] ${e.score_ir >= 70 ? 'border-emerald-300 text-emerald-700' : e.score_ir >= 40 ? 'border-amber-300 text-amber-700' : 'border-red-300 text-red-700'}`}>
                         {e.score_ir}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] border-muted-foreground/30 text-muted-foreground">
+                        Pipeline non démarré
                       </Badge>
                     )}
                     <span className="text-[10px] text-muted-foreground">{e.deliverables_count} livr.</span>
