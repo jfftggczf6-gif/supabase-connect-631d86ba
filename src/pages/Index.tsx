@@ -15,7 +15,7 @@ const DEMO_URL = 'https://cal.com/phil-yace-d73gey/demo-esono';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Palette (rappel du brief) — appliquée via arbitrary Tailwind values pour éviter
-// toute rupture avec le reste du design system de l'app (app.esono.io).
+// toute rupture avec le reste du design system de l'app (esono.tech).
 //   canvas  #FAFAF7   surface #FFFFFF
 //   brand-600 #7C3AED  brand-700 #6D28D9  brand-50 #F5F3FF
 //   accent-500 #C9A96E  accent-600 #B08F52
@@ -151,7 +151,7 @@ const CONTENT = {
     columns: [
       { title: 'Produit', links: [{ label: 'Module Programme', href: '#solution' }, { label: 'Module Private Equity', href: '#solution' }, { label: 'Sécurité & Conformité', href: '#security' }] },
       { title: 'Ressources', links: [{ label: 'Documentation', href: '#' }, { label: 'Changelog', href: '#' }, { label: 'Status', href: '#' }] },
-      { title: 'Contact', links: [{ label: 'contact@esono.io', href: 'mailto:contact@esono.io' }, { label: 'LinkedIn', href: '#' }, { label: "Abidjan, Côte d'Ivoire", href: '#' }] },
+      { title: 'Contact', links: [{ label: 'contact@esono.tech', href: 'mailto:contact@esono.tech' }, { label: 'LinkedIn', href: '#' }, { label: "Abidjan, Côte d'Ivoire", href: '#' }] },
     ],
     bottom: '© 2026 ESONO BIS Studio. Tous droits réservés. Mentions légales. Confidentialité.',
   },
@@ -266,7 +266,7 @@ const STEP_ILLUSTRATIONS = [IllustrationIngerer, IllustrationAnalyser, Illustrat
 // Placeholder Investment Memo / Livrables — adapte le contenu selon le segment sélectionné
 function DashboardMockup({ segment }: { segment: Segment }) {
   const peData = {
-    toolbar: 'app.esono.io · Investment Memo · Kouassi Agro',
+    toolbar: 'esono.tech · Investment Memo · Kouassi Agro',
     subtitle: "Série A · Côte d'Ivoire · Agro-industrie",
     scoreLabel: 'Score 84',
     statut: 'En diligence',
@@ -287,7 +287,7 @@ function DashboardMockup({ segment }: { segment: Segment }) {
     ],
   };
   const programData = {
-    toolbar: 'app.esono.io · Livrables · Kouassi Agro',
+    toolbar: 'esono.tech · Livrables · Kouassi Agro',
     subtitle: "Cohorte Q2-26 · Côte d'Ivoire · Agro-industrie",
     scoreLabel: 'Score IR 78',
     statut: 'En accompagnement',
@@ -368,7 +368,7 @@ function HeroMockup() {
         <div className="h-2.5 w-2.5 rounded-full bg-[#B84444]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#C8801F]/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-[#2F8F5A]/40" />
-        <div className="ml-4 flex-1 text-[11px] text-[#6B6680]">app.esono.io · Pipeline · Q2 2026</div>
+        <div className="ml-4 flex-1 text-[11px] text-[#6B6680]">esono.tech · Pipeline · Q2 2026</div>
       </div>
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between">
