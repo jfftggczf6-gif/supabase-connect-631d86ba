@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 260 20% 12%;
 
-    --primary: 263 69% 50%;          /* Violet-700 #6D28D9 */
+    --primary: 263 67% 42%;          /* Violet-800 #5B21B6 (légèrement plus foncé) */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 260 15% 70%;
@@ -33,7 +33,7 @@
 
     --border: 260 20% 88%;
     --input: 260 20% 88%;
-    --ring: 262 83% 58%;              /* Violet-600 pour focus rings */
+    --ring: 263 69% 50%;              /* Violet-700 pour focus rings (plus foncé) */
 
     --radius: 0.5rem;
 
@@ -50,7 +50,7 @@
     --success-foreground: 0 0% 100%;
     --warning: 36 90% 55%;
     --warning-foreground: 0 0% 100%;
-    --info: 263 69% 50%;               /* Info harmonisée violet (plus de bleu) */
+    --info: 263 67% 42%;               /* Info harmonisée violet (plus de bleu) */
     --info-foreground: 0 0% 100%;
   }
 
