@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Building2, Search, Loader2, Trash2, LogIn } from 'lucide-react';
@@ -20,6 +21,15 @@ interface OrgRow {
   country: string | null; is_active: boolean; member_count: number;
   enterprise_count: number; created_at: string;
 }
+
+// Liste des pays supportés (alignée sur EntrepreneurDashboard / FISCAL_PARAMS backend)
+const SUPPORTED_COUNTRIES = [
+  "Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo",
+  "Côte d'Ivoire", "Éthiopie", "Gabon", "Ghana", "Guinée",
+  "Guinée-Bissau", "Kenya", "Madagascar", "Mali", "Maroc",
+  "Niger", "Nigeria", "RDC", "Rwanda", "Sénégal",
+  "Tanzanie", "Togo", "Tunisie",
+].sort((a, b) => a.localeCompare(b, 'fr'));
 
 export default function OrganizationsPage() {
   const navigate = useNavigate();
@@ -260,7 +270,16 @@ export default function OrganizationsPage() {
               </div>
               <div>
                 <Label>Pays</Label>
-                <Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="Côte d'Ivoire" />
+                <Select value={form.country} onValueChange={(v) => setForm(f => ({ ...f, country: v }))}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Sélectionner un pays…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_COUNTRIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button className="w-full" onClick={() => setWizStep(2)} disabled={!form.name || !form.slug}>
                 Suivant
