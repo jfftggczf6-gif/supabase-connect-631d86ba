@@ -109,9 +109,10 @@ const SCHEMA_PART2 = `{
   "investissement_plan": "string",
   "financement_plan": "string",
   "financier_tableau": {
-    "annee1": { "contrib_locale": "string", "prets_locaux": "string", "prets_etrangers": "string", "subventions": "string", "total": "string", "revenu": "string", "depenses": "string", "marge_brute": "string", "benefice_net": "string", "seuil_rentabilite": "string", "tresorerie_finale": "string" },
-    "annee2": { "...same..." },
-    "annee3": { "...same..." }
+    "_RÈGLE_STRICTE": "Chaque cellule ci-dessous = MONTANT NUMÉRIQUE UNIQUEMENT, format '20 000 000 FCFA' ou '0 FCFA'. INTERDIT: parenthèses explicatives, sources, taux, hypothèses, formules, justifications. Toute justification/hypothèse va dans investissement_plan ou financement_plan, JAMAIS dans une cellule de tableau.",
+    "annee1": { "contrib_locale": "ex: '20 000 000 FCFA'", "prets_locaux": "ex: '25 000 000 FCFA'", "prets_etrangers": "ex: '0 FCFA'", "subventions": "ex: '15 000 000 FCFA'", "total": "ex: '60 000 000 FCFA'", "revenu": "ex: '120 000 000 FCFA'", "depenses": "ex: '92 000 000 FCFA'", "marge_brute": "ex: '28 000 000 FCFA'", "benefice_net": "ex: '18 000 000 FCFA'", "seuil_rentabilite": "ex: '85 000 000 FCFA'", "tresorerie_finale": "ex: '12 000 000 FCFA'" },
+    "annee2": { "...mêmes champs, mêmes règles : QUE des nombres + FCFA..." },
+    "annee3": { "...mêmes champs, mêmes règles : QUE des nombres + FCFA..." }
   },
   "ovo_financier": "string",
   "ovo_expertise": "string",
@@ -928,6 +929,24 @@ serve(async (req) => {
       .createSignedUrl(fileName, 7200);
 
     const downloadUrl = signedData?.signedUrl || "";
+
+    // Sanitize: strip parenthesized explanations from financial table cells
+    // (the model sometimes ignores the schema instruction and adds justifications)
+    const stripExplanation = (v: any): any => {
+      if (typeof v !== 'string') return v;
+      // Removes "(...)" content and trailing commentary, keeps numeric + currency only
+      return v.replace(/\s*\([^)]*\)\s*/g, '').replace(/\s+(?:source|réf|ref|cf\.?|hypothèse|taux)\b.*$/i, '').trim();
+    };
+    if (bpJson?.financier_tableau) {
+      for (const yearKey of ['annee1', 'annee2', 'annee3']) {
+        const year = bpJson.financier_tableau[yearKey];
+        if (year && typeof year === 'object') {
+          for (const cellKey of Object.keys(year)) {
+            year[cellKey] = stripExplanation(year[cellKey]);
+          }
+        }
+      }
+    }
 
     const deliverableData = {
       ...bpJson,
