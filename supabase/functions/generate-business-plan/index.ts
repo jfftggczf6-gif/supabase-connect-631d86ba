@@ -15,16 +15,20 @@ const BP_SYSTEM_PROMPT = `Tu es un consultant senior en business plan avec 20+ a
 Tu connais les normes SYSCOHADA, la fiscalité UEMOA/CEMAC, et les critères des bailleurs de fonds (Enabel, GIZ, BAD, AFD, IFC, OVO).
 Tu génères UNIQUEMENT du JSON structuré. Pas de markdown, pas de texte autour. Rédige en français. Sois précis, factuel, stratégique. JAMAIS de contenu générique.
 
+RÈGLE ABSOLUE — CITATIONS DE SOURCES :
+- INTERDIT d'écrire "(source: AFD 2024)", "(d'après BCEAO)", "(réf: ...)", "selon le rapport ..." DANS LE CORPS DES TEXTES, des cellules, ou de toute valeur de champ.
+- Toutes les sources externes vont UNIQUEMENT dans le champ dédié "sources_consultees" (array d'objets {source, used_for, section}).
+- Les textes sont rédigés comme un consultant qui parle naturellement, sans parenthèses bibliographiques.
+
 SECTION analyse_marche — INSTRUCTIONS SPÉCIALES :
-1. Estimer la taille du marché (TAM/SAM/SOM) avec des CHIFFRES dans la devise locale et la SOURCE
+1. Estimer la taille du marché (TAM/SAM/SOM) avec des CHIFFRES dans la devise locale (les sources vont dans sources_consultees, PAS inline)
 2. Identifier au minimum 3 concurrents RÉELS ou catégories de concurrents du pays
 3. Pour chaque concurrent : positionnement, forces, faiblesses, taille estimée
 4. Identifier les barrières à l'entrée SPÉCIFIQUES au secteur et au pays
 5. Donner le positionnement de l'entreprise (Leader/Challenger/Niche/Nouvel entrant)
 6. Croiser : BMC (proposition valeur, canaux), SIC (impact), inputs (CA, marge), notes coaching
-7. Si tu as des données web (fournies dans le contexte), les utiliser avec la source
-8. Toujours citer la source de chaque estimation (rapport AFD, Banque Mondiale, INS, estimation IA, etc.)
-9. Les champs marche_potentiel, competitivite, tendances_marche doivent être des SYNTHÈSES de analyse_marche`;
+7. Si tu as des données web (fournies dans le contexte), les utiliser et lister la source dans sources_consultees
+8. Les champs marche_potentiel, competitivite, tendances_marche doivent être des SYNTHÈSES de analyse_marche, sans citation inline`;
 
 // ── SPLIT SCHEMAS ──────────────────────────────────────────────────────
 const SCHEMA_PART1 = `{
@@ -116,6 +120,13 @@ const SCHEMA_PART2 = `{
   },
   "ovo_financier": "string",
   "ovo_expertise": "string",
+  "sources_consultees": [
+    {
+      "source": "string — ex: 'Rapport AFD Côte d'Ivoire 2024'",
+      "used_for": "string — ex: 'Estimation TAM marché agro-industriel'",
+      "section": "string — ex: 'analyse_marche.taille_marche'"
+    }
+  ],
   "score": 0-100
 }`;
 
@@ -752,6 +763,25 @@ async function generateWordDoc(bp: any): Promise<Uint8Array> {
         italic("B : Expertise :"),
         guideText("Quel type d'accompagnement ou d'expertise attendez-vous d'OVO en plus du financement ?"),
         ...multiPara(bp.ovo_expertise),
+        // ── BIBLIOGRAPHIE / SOURCES CONSULTÉES — page de fin discrète ──
+        ...(Array.isArray(bp?.sources_consultees) && bp.sources_consultees.length > 0
+          ? [
+              new Paragraph({ children: [new PageBreak()] }),
+              new Paragraph({
+                children: [new TextRun({ text: "Sources consultées", font: "Calibri", size: 22, bold: true, color: "555555" })],
+                spacing: { before: 200, after: 200 },
+              }),
+              ...bp.sources_consultees.map((src: any) => new Paragraph({
+                children: [
+                  new TextRun({ text: "• ", font: "Calibri", size: 18, color: "777777" }),
+                  new TextRun({ text: String(src?.source || ""), font: "Calibri", size: 18, color: "555555", bold: true }),
+                  src?.used_for ? new TextRun({ text: ` — ${src.used_for}`, font: "Calibri", size: 18, color: "777777" }) : new TextRun({ text: "" }),
+                  src?.section ? new TextRun({ text: ` [${src.section}]`, font: "Calibri", size: 16, color: "999999", italics: true }) : new TextRun({ text: "" }),
+                ],
+                spacing: { after: 80 },
+              })),
+            ]
+          : []),
       ],
     }],
   });
@@ -934,7 +964,6 @@ serve(async (req) => {
     // (the model sometimes ignores the schema instruction and adds justifications)
     const stripExplanation = (v: any): any => {
       if (typeof v !== 'string') return v;
-      // Removes "(...)" content and trailing commentary, keeps numeric + currency only
       return v.replace(/\s*\([^)]*\)\s*/g, '').replace(/\s+(?:source|réf|ref|cf\.?|hypothèse|taux)\b.*$/i, '').trim();
     };
     if (bpJson?.financier_tableau) {
@@ -946,6 +975,54 @@ serve(async (req) => {
           }
         }
       }
+    }
+
+    // Sanitize: strip inline source citations from all string fields and aggregate them
+    // into sources_consultees. The model sometimes ignores the "no inline source" rule.
+    const SOURCE_PATTERNS = [
+      /\(\s*(?:source|réf|ref|cf\.?|d['\u2019]après|selon|d'apr\u00E8s)\s*[:\-]?\s*([^)]+)\)/gi,
+      /\s+(?:source|réf|ref)\s*[:\-]\s*([^.,;\n]+)/gi,
+    ];
+    const collectedSources: { source: string; used_for: string; section: string }[] = [];
+    const stripInlineSources = (text: string, sectionPath: string): string => {
+      let out = text;
+      for (const re of SOURCE_PATTERNS) {
+        out = out.replace(re, (_match, captured) => {
+          const src = String(captured || '').trim().replace(/^[:\-\s]+|[:\-\s]+$/g, '');
+          if (src && src.length > 2 && src.length < 200) {
+            collectedSources.push({ source: src, used_for: 'Citation inline extraite', section: sectionPath });
+          }
+          return '';
+        });
+      }
+      return out.replace(/\s{2,}/g, ' ').replace(/\s+([.,;])/g, '$1').trim();
+    };
+    const walkAndStrip = (obj: any, path = ''): void => {
+      if (!obj || typeof obj !== 'object') return;
+      for (const key of Object.keys(obj)) {
+        const childPath = path ? `${path}.${key}` : key;
+        const v = obj[key];
+        if (key === 'sources_consultees' || key === 'source') continue;
+        if (typeof v === 'string') {
+          obj[key] = stripInlineSources(v, childPath);
+        } else if (Array.isArray(v)) {
+          v.forEach((item, i) => {
+            if (typeof item === 'string') v[i] = stripInlineSources(item, `${childPath}[${i}]`);
+            else walkAndStrip(item, `${childPath}[${i}]`);
+          });
+        } else if (typeof v === 'object') {
+          walkAndStrip(v, childPath);
+        }
+      }
+    };
+    walkAndStrip(bpJson);
+    if (collectedSources.length > 0) {
+      const existing = Array.isArray(bpJson.sources_consultees) ? bpJson.sources_consultees : [];
+      const seen = new Set(existing.map((s: any) => (s.source || '').toLowerCase()));
+      for (const s of collectedSources) {
+        if (!seen.has(s.source.toLowerCase())) { existing.push(s); seen.add(s.source.toLowerCase()); }
+      }
+      bpJson.sources_consultees = existing;
     }
 
     const deliverableData = {

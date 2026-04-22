@@ -21,19 +21,24 @@ TU CONNAIS :
 - Les multiples de valorisation réels en Afrique (PAS les multiples occidentaux)
 
 EXIGENCES QUALITÉ :
-- Chaque affirmation doit être sourcée (données entreprise, benchmark sectoriel, ou estimation explicite)
+- Chaque affirmation s'appuie sur des données (entreprise, benchmark sectoriel, ou estimation explicite)
 - La section valorisation utilise les résultats de l'agent Valuation — ne PAS recalculer, citer et commenter
 - La thèse d'investissement doit être HONNÊTE
 - Les projections financières citent le scénario réaliste du Plan OVO
 - La recommandation finale doit être COHÉRENTE avec le score et les risques
 - Minimum 200 mots par section narrative
 
+RÈGLE ABSOLUE — CITATIONS DE SOURCES :
+- INTERDIT d'écrire "(source: AFD 2024)", "(d'après BCEAO)", "(réf: ...)", "selon le rapport X" DANS LE CORPS DES TEXTES.
+- Toutes les sources externes vont UNIQUEMENT dans le champ dédié "sources_consultees" (array d'objets {source, used_for, section}).
+- Les textes restent FLUIDES sans parenthèses bibliographiques. Le lecteur du memo trouvera la bibliographie en annexe.
+
 STYLE DE RÉDACTION :
 - Rédige comme un VRAI ANALYSTE qui écrit un RAPPORT — pas comme une IA qui liste des faits
 - Chaque section doit être un TEXTE FLUIDE avec des phrases qui s'enchaînent logiquement
 - PAS de listes de bullet points entassées — des PARAGRAPHES rédigés avec transitions
 - Structure narrative : contexte → constat → analyse → implication pour l'investisseur
-- Les chiffres sont INTÉGRÉS dans le raisonnement, pas empilés : "La marge brute de 54% (source: CdR 2024) témoigne d'un positionnement premium, supérieur à la médiane sectorielle de 35-45%"
+- Les chiffres sont INTÉGRÉS dans le raisonnement, pas empilés : "La marge brute de 54% témoigne d'un positionnement premium, supérieur à la médiane sectorielle de 35-45%"
 - Chaque section doit pouvoir se lire INDÉPENDAMMENT comme un paragraphe cohérent
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
@@ -149,7 +154,14 @@ const MEMO_SCHEMA_PART2 = `{
     "sources_donnees": ["string — liste des documents analysés"],
     "hypotheses_cles": ["string — hypothèses de projection"],
     "glossaire": ["string — termes techniques utilisés"]
-  }
+  },
+  "sources_consultees": [
+    {
+      "source": "string — ex: 'IFC PS5 — Land Acquisition guidelines 2024'",
+      "used_for": "string — ex: 'Évaluation conformité ESG section esg_impact'",
+      "section": "string — ex: 'esg_impact.conformite_ifc_ps'"
+    }
+  ]
 }`;
 
 /** Upsert the enterprise_modules row for investment_memo with checkpoint data */
@@ -299,6 +311,51 @@ ${MEMO_SCHEMA_PART2}`;
 
           const mergedMemo = { ...part1, ...part2 };
           mergedMemo.score = part1.resume_executif?.score_ir || 0;
+
+          // Sanitize: strip inline source citations and aggregate them in sources_consultees.
+          // The model sometimes ignores the "no inline source" rule — defensive cleanup.
+          const SOURCE_PATTERNS = [
+            /\(\s*(?:source|réf|ref|cf\.?|d['\u2019]après|selon|d'apr\u00E8s)\s*[:\-]?\s*([^)]+)\)/gi,
+            /\s+(?:source|réf|ref)\s*[:\-]\s*([^.,;\n]+)/gi,
+          ];
+          const collectedSources: { source: string; used_for: string; section: string }[] = [];
+          const stripInlineSources = (text: string, sectionPath: string): string => {
+            let out = text;
+            for (const re of SOURCE_PATTERNS) {
+              out = out.replace(re, (_m, captured) => {
+                const src = String(captured || '').trim().replace(/^[:\-\s]+|[:\-\s]+$/g, '');
+                if (src && src.length > 2 && src.length < 200) {
+                  collectedSources.push({ source: src, used_for: 'Citation inline extraite', section: sectionPath });
+                }
+                return '';
+              });
+            }
+            return out.replace(/\s{2,}/g, ' ').replace(/\s+([.,;])/g, '$1').trim();
+          };
+          const walkAndStrip = (obj: any, path = ''): void => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const key of Object.keys(obj)) {
+              const childPath = path ? `${path}.${key}` : key;
+              const v = obj[key];
+              if (key === 'sources_consultees' || key === 'source' || key === 'sources_donnees') continue;
+              if (typeof v === 'string') obj[key] = stripInlineSources(v, childPath);
+              else if (Array.isArray(v)) {
+                v.forEach((item, i) => {
+                  if (typeof item === 'string') v[i] = stripInlineSources(item, `${childPath}[${i}]`);
+                  else walkAndStrip(item, `${childPath}[${i}]`);
+                });
+              } else if (typeof v === 'object') walkAndStrip(v, childPath);
+            }
+          };
+          walkAndStrip(mergedMemo);
+          if (collectedSources.length > 0) {
+            const existing = Array.isArray(mergedMemo.sources_consultees) ? mergedMemo.sources_consultees : [];
+            const seen = new Set(existing.map((s: any) => (s.source || '').toLowerCase()));
+            for (const s of collectedSources) {
+              if (!seen.has(s.source.toLowerCase())) { existing.push(s); seen.add(s.source.toLowerCase()); }
+            }
+            mergedMemo.sources_consultees = existing;
+          }
 
           await saveDeliverable(ctx.supabase, ctx.enterprise_id, "investment_memo", mergedMemo, "investment_memo");
 

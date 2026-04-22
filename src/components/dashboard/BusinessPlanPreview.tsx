@@ -331,6 +331,21 @@ export default function BusinessPlanPreview({ data, enterpriseId, deliverableId,
         <MultiText text={bp.ovo_expertise} />
       </Section>
 
+      {/* Bibliographie discrète en bas de document */}
+      {Array.isArray((bp as any)?.sources_consultees) && (bp as any).sources_consultees.length > 0 && (
+        <Section title="Sources consultées" id="bp-sources">
+          <ul className="space-y-1.5">
+            {(bp as any).sources_consultees.map((src: any, i: number) => (
+              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground/80">{src.source}</span>
+                {src.used_for && <span className="text-muted-foreground/70"> — {src.used_for}</span>}
+                {src.section && <span className="text-muted-foreground/50 ml-1">[{src.section}]</span>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
         <CheckCircle size={14} className="text-[hsl(var(--success))]" />
         Business Plan généré par esono · Format OVO officiel

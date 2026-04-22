@@ -758,14 +758,45 @@ export default function InvestmentMemoViewer({ data, onRegenerate, enterpriseId,
 
             {/* Content */}
             <div className="flex-1 space-y-6 overflow-y-auto">
-              {SECTIONS.map(s => (
-                <div key={s.key} ref={el => { sectionRefs.current[s.key] = el; }}>
-                  <Card>
-                    <CardHeader className="pb-3"><CardTitle className="text-sm font-display flex items-center gap-2">{s.label} {editBtn(s.key, s.label)}</CardTitle></CardHeader>
-                    <CardContent>{renderSection(s.key)}</CardContent>
-                  </Card>
-                </div>
-              ))}
+              {SECTIONS.map(s => {
+                // Filtre les sources de cette section pour le footer discret
+                const sectionSources = arr((data as any)?.sources_consultees).filter(
+                  (src: any) => typeof src?.section === 'string' && src.section.startsWith(s.key)
+                );
+                return (
+                  <div key={s.key} ref={el => { sectionRefs.current[s.key] = el; }}>
+                    <Card>
+                      <CardHeader className="pb-3"><CardTitle className="text-sm font-display flex items-center gap-2">{s.label} {editBtn(s.key, s.label)}</CardTitle></CardHeader>
+                      <CardContent>
+                        {renderSection(s.key)}
+                        {sectionSources.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-border/50 text-[10px] text-muted-foreground/70 italic">
+                            Sources : {sectionSources.map((src: any) => src.source).filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
+
+              {/* Bibliographie globale — discrète, en bas de document */}
+              {arr((data as any)?.sources_consultees).length > 0 && (
+                <Card className="border-dashed">
+                  <CardHeader className="pb-3"><CardTitle className="text-xs font-display text-muted-foreground uppercase tracking-wider">Bibliographie & sources consultées</CardTitle></CardHeader>
+                  <CardContent>
+                    <ul className="space-y-1.5">
+                      {arr((data as any).sources_consultees).map((src: any, i: number) => (
+                        <li key={i} className="text-xs text-muted-foreground leading-relaxed">
+                          <span className="font-medium text-foreground/80">{src.source}</span>
+                          {src.used_for && <span className="text-muted-foreground/70"> — {src.used_for}</span>}
+                          {src.section && <span className="text-muted-foreground/50 ml-1">[{src.section}]</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </TabsContent>
