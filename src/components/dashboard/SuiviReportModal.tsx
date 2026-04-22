@@ -1,20 +1,14 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, FileDown, FileText, Plus, Trash2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import {
-  buildSuiviReportHtml,
-  type PointCle,
-  type SujetTravaille,
-  type RoadmapItem,
-} from '@/lib/suivi-report-builder';
+import { Loader2, Sparkles, FileDown, FileText } from 'lucide-react';
+import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 interface SuiviReportModalProps {
   enterpriseId: string;
@@ -22,89 +16,48 @@ interface SuiviReportModalProps {
   onClose: () => void;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose }: SuiviReportModalProps) {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { session: authSession, profile } = useAuth();
 
-  // Métadonnées session
-  const [sessionNumber, setSessionNumber] = useState('');
-  const [sessionDate, setSessionDate] = useState(today());
   const [coachNames, setCoachNames] = useState(profile?.full_name || '');
-
-  // Sections narratives
-  const [synthese, setSynthese] = useState('');
-  const [pointsCles, setPointsCles] = useState<PointCle[]>([{ tag: 'URGENT', titre: '', description: '' }]);
-  const [sujets, setSujets] = useState<SujetTravaille[]>([{ sujet: '', avancement: '', statut: 'En cours' }]);
-  const [roadmap, setRoadmap] = useState<RoadmapItem[]>([{ prio: 'URGENT', action: '', resp: 'Entrep.', echeance: '' }]);
-  const [docs, setDocs] = useState('');
   const [nextSessionDate, setNextSessionDate] = useState('');
-  const [nextObjectives, setNextObjectives] = useState('');
   const [noteCoach, setNoteCoach] = useState('');
 
   const [reportHtml, setReportHtml] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
-  const addPoint = () => setPointsCles([...pointsCles, { tag: 'ATTENTION', titre: '', description: '' }]);
-  const removePoint = (i: number) => setPointsCles(pointsCles.filter((_, idx) => idx !== i));
-  const updatePoint = (i: number, field: keyof PointCle, val: string) => {
-    setPointsCles(pointsCles.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)));
-  };
-
-  const addSujet = () => setSujets([...sujets, { sujet: '', avancement: '', statut: 'En cours' }]);
-  const removeSujet = (i: number) => setSujets(sujets.filter((_, idx) => idx !== i));
-  const updateSujet = (i: number, field: keyof SujetTravaille, val: string) => {
-    setSujets(sujets.map((s, idx) => (idx === i ? { ...s, [field]: val } : s)));
-  };
-
-  const addRoadmap = () => setRoadmap([...roadmap, { prio: 'HAUTE', action: '', resp: 'Entrep.', echeance: '' }]);
-  const removeRoadmap = (i: number) => setRoadmap(roadmap.filter((_, idx) => idx !== i));
-  const updateRoadmap = (i: number, field: keyof RoadmapItem, val: string) => {
-    setRoadmap(roadmap.map((r, idx) => (idx === i ? { ...r, [field]: val } : r)));
-  };
-
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const [entRes, scoreHistRes] = await Promise.all([
-        supabase.from('enterprises').select('*').eq('id', enterpriseId).single(),
-        supabase
-          .from('score_history')
-          .select('score, created_at')
-          .eq('enterprise_id', enterpriseId)
-          .order('created_at', { ascending: true }),
-      ]);
-
-      const scoreHistory = scoreHistRes.data || [];
-      const scoreIrDebut = scoreHistory.length > 0 ? Number(scoreHistory[0].score) : 0;
-      const scoreIrActuel = Number(entRes.data?.score_ir || 0);
-
-      const html = buildSuiviReportHtml({
-        enterprise: entRes.data,
-        sessionNumber,
-        sessionDate,
-        coachNames,
-        synthese,
-        pointsCles,
-        sujetsTravailles: sujets,
-        roadmap,
-        documentsAObtenir: docs.split('\n').map((l) => l.trim()).filter(Boolean),
-        nextSessionDate,
-        nextSessionObjectives: nextObjectives.split('\n').map((l) => l.trim()).filter(Boolean),
-        noteCoach,
-        scoreIrDebut,
-        scoreIrActuel,
-      });
-      setReportHtml(html);
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+      const token = await getValidAccessToken(authSession);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-coaching-followup`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            enterprise_id: enterpriseId,
+            coach_names: coachNames || null,
+            next_session_date: nextSessionDate || null,
+            note_coach: noteCoach || null,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Erreur' }));
+        throw new Error(err.error || 'Erreur génération');
+      }
+      const result = await resp.json();
+      setReportHtml(result.html);
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur génération');
     } finally {
       setGenerating(false);
     }
   };
 
-  const baseFilename = `Rapport_Coaching_${enterpriseName.replace(/[^a-zA-Z0-9]/g, '_')}${sessionNumber ? '_S' + sessionNumber : ''}`;
+  const baseFilename = `Rapport_Suivi_${enterpriseName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}`;
 
   const downloadFile = (content: string, mime: string, ext: string) => {
     const blob = new Blob([content], { type: mime });
@@ -125,9 +78,6 @@ export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose
 
   const downloadAsWord = () => {
     if (!reportHtml) return;
-    // HTML + namespaces Office → Microsoft Word ouvre le .doc nativement.
-    // L'utilisateur peut ensuite "Enregistrer sous" en .docx.
-    // On extrait <head>...</head> et <body>...</body> séparément pour éviter les doublons.
     const headMatch = reportHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
     const bodyMatch = reportHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     const headInner = headMatch ? headMatch[1] : `<title>${baseFilename}</title>`;
@@ -139,176 +89,65 @@ export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         {!reportHtml ? (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport de suivi de coaching — {enterpriseName}</DialogTitle>
+              <DialogTitle>Rapport de suivi — {enterpriseName}</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Snapshot de l'état actuel de l'entreprise. Généré par l'IA à partir des livrables, scores et notes de coaching récentes.
+              </p>
             </DialogHeader>
-            <div className="space-y-5">
-              {/* Métadonnées */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs font-medium">Session n°</Label>
-                  <Input type="number" min="1" value={sessionNumber} onChange={(e) => setSessionNumber(e.target.value)} placeholder="4" />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Date de la session</Label>
-                  <Input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Coachs</Label>
-                  <Input value={coachNames} onChange={(e) => setCoachNames(e.target.value)} placeholder="K. Diabaté / P. N'Guessan" />
-                </div>
-              </div>
-
-              {/* 📌 Synthèse */}
+            <div className="space-y-4">
               <div>
-                <Label className="text-xs font-medium">📌 Synthèse de la session</Label>
-                <Textarea
-                  value={synthese}
-                  onChange={(e) => setSynthese(e.target.value)}
-                  rows={4}
-                  placeholder="Session consacrée à la réconciliation bancaire et au cadrage de l'étude marché..."
+                <Label className="text-xs font-medium">Coachs</Label>
+                <Input
+                  value={coachNames}
+                  onChange={(e) => setCoachNames(e.target.value)}
+                  placeholder="K. Diabaté / P. N'Guessan"
                 />
               </div>
 
-              {/* 🎯 Points clés */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs font-medium">🎯 Points clés à retenir</Label>
-                  <Button type="button" size="sm" variant="ghost" onClick={addPoint}>
-                    <Plus className="h-3 w-3 mr-1" /> Ajouter
-                  </Button>
-                </div>
-                {pointsCles.map((p, i) => (
-                  <div key={i} className="grid grid-cols-[110px_1fr_2fr_auto] gap-2 mb-2">
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={p.tag}
-                      onChange={(e) => updatePoint(i, 'tag', e.target.value)}
-                    >
-                      <option>URGENT</option>
-                      <option>ATTENTION</option>
-                      <option>POSITIF</option>
-                    </select>
-                    <Input value={p.titre} onChange={(e) => updatePoint(i, 'titre', e.target.value)} placeholder="Trésorerie" />
-                    <Input
-                      value={p.description}
-                      onChange={(e) => updatePoint(i, 'description', e.target.value)}
-                      placeholder="écart 12M FCFA réconcilié à 9,6M..."
-                    />
-                    <Button type="button" size="sm" variant="ghost" onClick={() => removePoint(i)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* ✅ Sujets travaillés */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs font-medium">✅ Sujets travaillés</Label>
-                  <Button type="button" size="sm" variant="ghost" onClick={addSujet}>
-                    <Plus className="h-3 w-3 mr-1" /> Ajouter
-                  </Button>
-                </div>
-                {sujets.map((s, i) => (
-                  <div key={i} className="grid grid-cols-[2fr_3fr_120px_auto] gap-2 mb-2">
-                    <Input value={s.sujet} onChange={(e) => updateSujet(i, 'sujet', e.target.value)} placeholder="Réconciliation trésorerie" />
-                    <Input value={s.avancement} onChange={(e) => updateSujet(i, 'avancement', e.target.value)} placeholder="Relevés 6 mois obtenus, 9,6M/12M réconciliés" />
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={s.statut}
-                      onChange={(e) => updateSujet(i, 'statut', e.target.value)}
-                    >
-                      <option>En cours</option>
-                      <option>Clos</option>
-                      <option>Bloqué</option>
-                    </select>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => removeSujet(i)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* 📋 Feuille de route */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs font-medium">📋 Feuille de route 30 jours</Label>
-                  <Button type="button" size="sm" variant="ghost" onClick={addRoadmap}>
-                    <Plus className="h-3 w-3 mr-1" /> Ajouter
-                  </Button>
-                </div>
-                {roadmap.map((r, i) => (
-                  <div key={i} className="grid grid-cols-[110px_2fr_130px_100px_auto] gap-2 mb-2">
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={r.prio}
-                      onChange={(e) => updateRoadmap(i, 'prio', e.target.value)}
-                    >
-                      <option>URGENT</option>
-                      <option>HAUTE</option>
-                      <option>MOYENNE</option>
-                      <option>BASSE</option>
-                    </select>
-                    <Input value={r.action} onChange={(e) => updateRoadmap(i, 'action', e.target.value)} placeholder="Obtenir attestation DGI" />
-                    <Input value={r.resp} onChange={(e) => updateRoadmap(i, 'resp', e.target.value)} placeholder="Entrep." />
-                    <Input value={r.echeance} onChange={(e) => updateRoadmap(i, 'echeance', e.target.value)} placeholder="30/04" />
-                    <Button type="button" size="sm" variant="ghost" onClick={() => removeRoadmap(i)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* 📎 Documents à obtenir */}
-              <div>
-                <Label className="text-xs font-medium">📂 Documents à obtenir (un par ligne)</Label>
-                <Textarea
-                  value={docs}
-                  onChange={(e) => setDocs(e.target.value)}
-                  rows={4}
-                  placeholder={`Attestation régularité fiscale DGI\nÉtats financiers certifiés 2023 et 2024\nAttestation CNPS 2025`}
+                <Label className="text-xs font-medium">Date prochaine session (optionnel)</Label>
+                <Input
+                  type="datetime-local"
+                  value={nextSessionDate}
+                  onChange={(e) => setNextSessionDate(e.target.value)}
                 />
               </div>
 
-              {/* 📅 Prochaine session */}
-              <div className="grid grid-cols-[200px_1fr] gap-3">
-                <div>
-                  <Label className="text-xs font-medium">📅 Date prochaine session</Label>
-                  <Input type="datetime-local" value={nextSessionDate} onChange={(e) => setNextSessionDate(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Objectifs prochaine session (un par ligne)</Label>
-                  <Textarea
-                    value={nextObjectives}
-                    onChange={(e) => setNextObjectives(e.target.value)}
-                    rows={3}
-                    placeholder={`Valider chiffrage passif fiscal\nPrésenter BP v2 et challenger hypothèses\nRoadmap financement (I&P, Comoé)`}
-                  />
-                </div>
-              </div>
-
-              {/* 💬 Note coach */}
               <div>
-                <Label className="text-xs font-medium">💬 Note coach (visibilité chef de programme)</Label>
+                <Label className="text-xs font-medium">
+                  💬 Note coach (visibilité chef de programme — optionnel)
+                </Label>
                 <Textarea
                   value={noteCoach}
                   onChange={(e) => setNoteCoach(e.target.value)}
                   rows={4}
                   placeholder="Entrepreneure très forte sur l'opérationnel mais réticente au volet fiscal..."
                 />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Si vide, l'IA déduit le contexte des données. Tu peux aussi écrire ce qui n'apparaît pas dans les notes.
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
+                <p className="font-semibold">L'IA générera automatiquement :</p>
+                <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                  <li>📌 Synthèse de l'état actuel</li>
+                  <li>🎯 Points clés à date (URGENT/ATTENTION/POSITIF)</li>
+                  <li>✅ Chantiers en cours (table)</li>
+                  <li>📋 Feuille de route 30 jours (table)</li>
+                  <li>📂 Documents à obtenir + objectifs prochaine session</li>
+                </ul>
               </div>
 
               <Button onClick={handleGenerate} disabled={generating} className="w-full">
                 {generating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Génération…
-                  </>
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Génération en cours (30-60s)…</>
                 ) : (
-                  'Générer le rapport'
+                  <><Sparkles className="h-4 w-4 mr-1" /> Générer le rapport de suivi</>
                 )}
               </Button>
             </div>
@@ -316,7 +155,7 @@ export default function SuiviReportModal({ enterpriseId, enterpriseName, onClose
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Rapport de suivi de coaching</DialogTitle>
+              <DialogTitle>Rapport de suivi</DialogTitle>
               <div className="flex gap-2 flex-wrap">
                 <Button size="sm" onClick={downloadAsWord}>
                   <FileDown className="h-4 w-4 mr-1" /> Télécharger Word
