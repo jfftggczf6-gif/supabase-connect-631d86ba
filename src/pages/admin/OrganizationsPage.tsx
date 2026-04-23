@@ -22,13 +22,15 @@ interface OrgRow {
   enterprise_count: number; created_at: string;
 }
 
-// Liste des pays supportés (alignée sur EntrepreneurDashboard / FISCAL_PARAMS backend)
+// Liste des pays supportés (Afrique alignée sur FISCAL_PARAMS backend + pays européens)
 const SUPPORTED_COUNTRIES = [
   "Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo",
   "Côte d'Ivoire", "Éthiopie", "Gabon", "Ghana", "Guinée",
   "Guinée-Bissau", "Kenya", "Madagascar", "Mali", "Maroc",
   "Niger", "Nigeria", "RDC", "Rwanda", "Sénégal",
   "Tanzanie", "Togo", "Tunisie",
+  "Allemagne", "Belgique", "Espagne", "France", "Irlande",
+  "Italie", "Luxembourg", "Pays-Bas", "Portugal", "Royaume-Uni", "Suisse",
 ].sort((a, b) => a.localeCompare(b, 'fr'));
 
 export default function OrganizationsPage() {
