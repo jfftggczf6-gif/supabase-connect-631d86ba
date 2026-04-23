@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Loader2, FileUp, PenLine, Sparkles, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { parseFile } from '@/lib/document-parser';
 import SuiviReportModal from './SuiviReportModal';
 import FinalReportModal from './FinalReportModal';
 
@@ -105,9 +106,18 @@ export default function CoachingTab({ enterpriseId, enterpriseName, viewMode = '
         const filePath = `${enterpriseId}/${Date.now()}_${file.name}`;
         await supabase.storage.from('coaching-files').upload(filePath, file, { upsert: true });
         if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-          content = await file.text() + '\n\n' + text;
+          const txt = await file.text();
+          content = text ? `${txt}\n\n═══ Notes additionnelles ═══\n${text}` : txt;
         } else {
-          content = `[Fichier joint : ${file.name}]\n\n${text}`;
+          const parsed = await parseFile(file);
+          if (parsed.content && parsed.quality !== 'failed') {
+            const header = `[Fichier : ${file.name} — ${parsed.summary || parsed.method}]`;
+            const extra = text ? `\n\n═══ Notes additionnelles ═══\n${text}` : '';
+            content = `${header}\n\n${parsed.content}${extra}`;
+          } else {
+            toast.error(`Extraction impossible : ${parsed.summary || 'fichier illisible'}`);
+            content = `[Fichier joint (extraction échouée) : ${file.name}]\n\n${text}`;
+          }
         }
       }
 
