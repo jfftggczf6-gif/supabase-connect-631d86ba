@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Database, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2, Eye } from 'lucide-react';
+import { Database, Plus, Search, Sparkles, Globe, Loader2, Upload, Link, FileText, Building2, BookOpen, BarChart3, Trash2, Eye, RefreshCw, AlertTriangle } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile } from '@/lib/document-parser';
 
@@ -78,6 +78,8 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
   const [parsing, setParsing] = useState(false);
   const [parsedFileName, setParsedFileName] = useState('');
   const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'general', country: 'Monde', sector: 'Tous secteurs', source: '', tags: '' });
+  const [chunkCounts, setChunkCounts] = useState<Record<string, number>>({});
+  const [reindexing, setReindexing] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -99,10 +101,47 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
 
     setSharedEntries((results[0].data || []).map((e: any) => ({ ...e, layer: 'shared' as const })));
     setBenchmarks(results[1].data || []);
-    if (results[2]) {
-      setOrgEntries((results[2].data || []).map((e: any) => ({ ...e, layer: 'org' as const })));
+    const orgEntriesArr = results[2] ? (results[2].data || []).map((e: any) => ({ ...e, layer: 'org' as const })) : [];
+    if (results[2]) setOrgEntries(orgEntriesArr);
+
+    // Fetch chunk counts to detect entries that failed rag-ingest
+    const allIds = [
+      ...(results[0].data || []).map((e: any) => e.id),
+      ...orgEntriesArr.map((e: any) => e.id),
+    ];
+    if (allIds.length) {
+      const { data: allChunks } = await supabase
+        .from('knowledge_chunks')
+        .select('kb_entry_id, org_entry_id')
+        .or(`kb_entry_id.in.(${allIds.join(',')}),org_entry_id.in.(${allIds.join(',')})`);
+      const counts: Record<string, number> = {};
+      for (const c of allChunks || []) {
+        const id = (c as any).kb_entry_id || (c as any).org_entry_id;
+        if (id) counts[id] = (counts[id] || 0) + 1;
+      }
+      setChunkCounts(counts);
     }
     setLoading(false);
+  };
+
+  const handleReindex = async (entry: KBEntry) => {
+    setReindexing(entry.id);
+    try {
+      const payload = entry.layer === 'org' ? { org_entry_id: entry.id, force: true } : { kb_entry_id: entry.id, force: true };
+      const result = await callEdgeFunction('rag-ingest', payload);
+      if (result?.error) {
+        toast({ title: 'Échec réindexation', description: result.error, variant: 'destructive' });
+      } else if (result?.skipped) {
+        toast({ title: 'Réindexation ignorée', description: result.reason || 'Contenu trop court' });
+      } else {
+        toast({ title: 'Indexation relancée', description: `${result?.chunks_created || 0} chunks générés` });
+      }
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Erreur réseau', description: err.message, variant: 'destructive' });
+    } finally {
+      setReindexing(null);
+    }
   };
 
   useEffect(() => { fetchData(); }, [currentOrg?.id]);
@@ -162,10 +201,27 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
         toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
         return;
       }
-      // Fire-and-forget: chunking + embeddings Voyage (RAG Phase 2)
+      // Chunking + embeddings Voyage (RAG Phase 2) — on log les échecs au lieu de les avaler
       const insertedId = (inserted as any)?.id;
       if (insertedId) {
-        callEdgeFunction('rag-ingest', { org_entry_id: insertedId, force: false }).catch(() => {});
+        try {
+          const ragResult = await callEdgeFunction('rag-ingest', { org_entry_id: insertedId, force: false });
+          if (ragResult?.error) {
+            console.warn('[rag-ingest] failed:', ragResult.error);
+            toast({
+              title: 'Document ajouté mais indexation RAG échouée',
+              description: `${ragResult.error}. Clique sur le bouton "Réindexer" dans la liste pour réessayer.`,
+            });
+          } else if (ragResult?.skipped) {
+            console.info('[rag-ingest] skipped:', ragResult.reason);
+          }
+        } catch (err: any) {
+          console.warn('[rag-ingest] exception:', err);
+          toast({
+            title: 'Document ajouté mais indexation RAG échouée',
+            description: `Erreur réseau : ${err.message}. Utilise "Réindexer" dans la liste.`,
+          });
+        }
       }
     } else {
       // Insert into shared knowledge_base via EF
@@ -340,21 +396,47 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
           const sector = e.sector || e.metadata?.sector || '—';
           return (
           <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewEntry(e)}>
-            <TableCell className="font-medium max-w-[300px] truncate">{e.title}</TableCell>
+            <TableCell className="font-medium max-w-[300px]">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate">{e.title}</span>
+                {chunkCounts[e.id] === 0 || chunkCounts[e.id] === undefined ? (
+                  (e.content && e.content.length >= 100) ? (
+                    <span title="Ce document n'est pas indexé dans le RAG — l'IA ne peut pas le trouver par recherche sémantique. Clique sur Réindexer pour corriger.">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    </span>
+                  ) : null
+                ) : null}
+              </div>
+            </TableCell>
             <TableCell><Badge variant="outline" className="text-xs">{CATEGORY_LABELS[e.category] || (e.category.charAt(0).toUpperCase() + e.category.slice(1))}</Badge></TableCell>
             <TableCell className="text-sm text-muted-foreground">{zone}</TableCell>
             <TableCell className="text-sm text-muted-foreground">{sector}</TableCell>
             <TableCell className="text-sm text-muted-foreground">{formatDate(docDate)}</TableCell>
             <TableCell className="text-right" onClick={(ev) => ev.stopPropagation()}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 h-7 text-[11px] bg-white text-violet-700 border-violet-400 hover:bg-violet-50 hover:border-violet-600"
-                onClick={() => setPreviewEntry(e)}
-                title="Voir le contenu de cette ressource"
-              >
-                <Eye className="h-3 w-3" /> Voir
-              </Button>
+              <div className="flex items-center justify-end gap-1.5">
+                {(chunkCounts[e.id] === 0 || chunkCounts[e.id] === undefined) && e.content && e.content.length >= 100 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 h-7 text-[11px] text-amber-700 border-amber-400 hover:bg-amber-50"
+                    onClick={() => handleReindex(e)}
+                    disabled={reindexing === e.id}
+                    title="Relancer le chunking et les embeddings RAG"
+                  >
+                    {reindexing === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Réindexer
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-7 text-[11px] bg-white text-violet-700 border-violet-400 hover:bg-violet-50 hover:border-violet-600"
+                  onClick={() => setPreviewEntry(e)}
+                  title="Voir le contenu de cette ressource"
+                >
+                  <Eye className="h-3 w-3" /> Voir
+                </Button>
+              </div>
             </TableCell>
             {showDelete && (
               <TableCell>
