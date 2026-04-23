@@ -40,6 +40,7 @@ import VersionHistory from './VersionHistory';
 import TranslateButton from './TranslateButton';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardOverview from './DashboardOverview';
+import EnterpriseCoachesManager from './EnterpriseCoachesManager';
 import { generateMemoHtml } from '@/lib/memo-html-generator';
 import {
   MODULE_CONFIG, PIPELINE, MODULE_FN_MAP,
@@ -67,7 +68,7 @@ export default function EntrepreneurDashboard({
   onGeneratingChange,
 }: EntrepreneurDashboardProps = {}) {
   const { user, profile, session: authSession, signOut } = useAuth();
-  const { currentOrg } = useOrganization();
+  const { currentOrg, memberships, isSuperAdmin } = useOrganization();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [initialLoading, setInitialLoading] = useState(true);
@@ -1426,6 +1427,15 @@ export default function EntrepreneurDashboard({
         <Button variant="ghost" size="icon" className="h-7 w-7 ml-1" onClick={openEditDialog}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
+        {coachMode && enterprise.organization_id && (
+          <div className="ml-4 border-l pl-4">
+            <EnterpriseCoachesManager
+              enterpriseId={enterprise.id}
+              organizationId={enterprise.organization_id}
+              canManage={isSuperAdmin || !!memberships.find(m => m.organization.id === enterprise.organization_id && ['owner', 'admin', 'manager'].includes(m.role))}
+            />
+          </div>
+        )}
         <div className="mr-auto" />
         <div className="flex items-center gap-4">
           <span className="text-sm text-foreground">
