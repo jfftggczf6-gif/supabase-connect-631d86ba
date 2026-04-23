@@ -918,6 +918,7 @@ async function ragSearchChunks(
   secteur: string,
   agentType: string,
   matchCount = 8,
+  organizationId?: string | null,
 ): Promise<any[]> {
   try {
     const agentQuery = AGENT_RAG_QUERIES[agentType] || AGENT_RAG_QUERIES.pre_screening;
@@ -930,7 +931,7 @@ async function ragSearchChunks(
       match_count: matchCount,
       filter_country: null,
       filter_sector: null,
-      filter_organization_id: null,
+      filter_organization_id: organizationId ?? null,
     });
     if (error) {
       console.warn("[rag-search] rpc error", error.message);
@@ -1018,7 +1019,7 @@ export async function getKnowledgeForAgent(
     // 8. Ressources documentaires — Phase 2 RAG (recherche vectorielle Voyage → knowledge_chunks)
     //    Fallback sur l'ancien filtre country/limit si Voyage absent, rate-limit, ou base vide
     let kbDocs: any[] = [];
-    const ragChunks = await ragSearchChunks(supabase, pays, secteur, agentType, 8);
+    const ragChunks = await ragSearchChunks(supabase, pays, secteur, agentType, 8, organizationId);
     if (ragChunks.length > 0) {
       // Mapper vers le shape attendu par buildKnowledgePrompt (metadata.source_url, metadata.publication_date)
       kbDocs = ragChunks.map((c: any) => ({
