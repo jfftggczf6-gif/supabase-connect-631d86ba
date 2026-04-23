@@ -147,9 +147,10 @@ export default function EntrepreneurDashboard({
         ent = retry;
       }
     } else {
-      // Entrepreneur mode: load own enterprise
+      // Entrepreneur mode: load own enterprise (take the most recent if multiple)
       const { data } = await supabase
-        .from('enterprises').select('*').eq('user_id', user.id).maybeSingle();
+        .from('enterprises').select('*').eq('user_id', user.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
       ent = data;
     }
 

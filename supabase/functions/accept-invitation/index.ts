@@ -64,18 +64,51 @@ serve(async (req: Request) => {
 
     if (memberError) throw memberError;
 
+    // Attribuer le rôle applicatif (user_roles) pour que le router puisse orienter vers le bon dashboard
+    const VALID_APP_ROLES = ['entrepreneur', 'coach', 'admin', 'super_admin'];
+    if (VALID_APP_ROLES.includes(invitation.role)) {
+      const { error: roleError } = await adminClient
+        .from("user_roles")
+        .upsert({ user_id: user.id, role: invitation.role }, { onConflict: "user_id,role" });
+      if (roleError) console.warn("[accept-invitation] user_roles upsert failed:", roleError.message);
+    }
+
+    // Si l'invitation portait un enterprise_id : devenir propriétaire de ce dossier
+    let linked_enterprise_id: string | null = null;
+    if (invitation.enterprise_id) {
+      const { data: ent, error: entSelErr } = await adminClient
+        .from("enterprises")
+        .select("id, user_id, organization_id")
+        .eq("id", invitation.enterprise_id)
+        .single();
+      if (entSelErr) {
+        console.warn("[accept-invitation] enterprise lookup failed:", entSelErr.message);
+      } else if (ent && ent.organization_id === invitation.organization_id) {
+        const { error: entUpdErr } = await adminClient
+          .from("enterprises")
+          .update({ user_id: user.id, contact_email: user.email ?? null })
+          .eq("id", ent.id);
+        if (entUpdErr) {
+          console.warn("[accept-invitation] enterprise transfer failed:", entUpdErr.message);
+        } else {
+          linked_enterprise_id = ent.id;
+        }
+      }
+    }
+
     // Marquer l'invitation comme acceptée
     await adminClient
       .from("organization_invitations")
       .update({ accepted_at: new Date().toISOString() })
       .eq("id", invitation.id);
 
-    console.log(`[accept-invitation] User ${user.id} joined org ${invitation.organization_id} as ${invitation.role}`);
+    console.log(`[accept-invitation] User ${user.id} joined org ${invitation.organization_id} as ${invitation.role}${linked_enterprise_id ? ` (linked to enterprise ${linked_enterprise_id})` : ''}`);
 
     return new Response(JSON.stringify({
       success: true,
       organization_id: invitation.organization_id,
       role: invitation.role,
+      enterprise_id: linked_enterprise_id,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

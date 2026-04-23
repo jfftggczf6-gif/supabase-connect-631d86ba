@@ -11,6 +11,7 @@ const INVITE_PERMISSIONS: Record<string, string[]> = {
   owner: ['admin', 'manager', 'analyst', 'coach', 'entrepreneur'],
   admin: ['admin', 'manager', 'analyst', 'coach', 'entrepreneur'],
   manager: ['analyst', 'coach', 'entrepreneur'],
+  coach: ['entrepreneur'],
 };
 
 serve(async (req: Request) => {
@@ -32,7 +33,7 @@ serve(async (req: Request) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
-    const { email, role, organization_id, personal_message } = await req.json();
+    const { email, role, organization_id, personal_message, enterprise_id } = await req.json();
     if (!email || !role || !organization_id) {
       return new Response(JSON.stringify({ error: "email, role, organization_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,6 +63,33 @@ serve(async (req: Request) => {
       const allowed = INVITE_PERMISSIONS[inviterRole || ''] || [];
       if (!allowed.includes(role)) {
         return new Response(JSON.stringify({ error: `Cannot invite role '${role}' with your permissions` }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Si enterprise_id fourni : vérifier que l'enterprise appartient à l'org
+    // et que l'inviteur est coach propriétaire ou a un rôle privilégié
+    if (enterprise_id) {
+      const { data: ent } = await adminClient
+        .from("enterprises")
+        .select("id, organization_id, coach_id, user_id")
+        .eq("id", enterprise_id)
+        .single();
+      if (!ent) {
+        return new Response(JSON.stringify({ error: "enterprise_id invalid" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (ent.organization_id !== organization_id) {
+        return new Response(JSON.stringify({ error: "enterprise does not belong to this organization" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const isOwningCoach = ent.coach_id === user.id || ent.user_id === user.id;
+      const isPrivileged = !!isSA.data || ['owner', 'admin', 'manager'].includes(inviterRole || '');
+      if (!isOwningCoach && !isPrivileged) {
+        return new Response(JSON.stringify({ error: "Not allowed to invite entrepreneur for this enterprise" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -101,7 +129,12 @@ serve(async (req: Request) => {
       // Régénérer le token
       const { data, error } = await adminClient
         .from("organization_invitations")
-        .update({ token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, ''), expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), role })
+        .update({
+          token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, ''),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          role,
+          enterprise_id: enterprise_id ?? null,
+        })
         .eq("id", existing.id)
         .select()
         .single();
@@ -110,7 +143,7 @@ serve(async (req: Request) => {
     } else {
       const { data, error } = await adminClient
         .from("organization_invitations")
-        .insert({ organization_id, email, role, invited_by: user.id, personal_message })
+        .insert({ organization_id, email, role, invited_by: user.id, personal_message, enterprise_id: enterprise_id ?? null })
         .select()
         .single();
       if (error) throw error;

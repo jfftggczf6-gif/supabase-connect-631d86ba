@@ -74,7 +74,7 @@ export default function CoachDashboard() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const SUPPORTED_COUNTRIES = ["Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo", "Côte d'Ivoire", "Éthiopie", "Gabon", "Ghana", "Guinée", "Kenya", "Madagascar", "Mali", "Maroc", "Niger", "Nigeria", "RDC", "Rwanda", "Sénégal", "Tanzanie", "Togo", "Tunisie"].sort((a, b) => a.localeCompare(b, 'fr'));
-  const [addForm, setAddForm] = useState({ name: '', contact_email: '', country: '', sector: '' });
+  const [addForm, setAddForm] = useState({ name: '', contact_email: '', country: '', sector: '', send_invitation: true });
   const [addLoading, setAddLoading] = useState(false);
   const [_mirrorPipelineState, setMirrorPipelineState] = useState<PipelineState>('generate');
   const [reportPreview, setReportPreview] = useState<{ html: string; enterpriseName: string } | null>(null);
@@ -311,11 +311,43 @@ export default function CoachDashboard() {
             assigned_by: user.id,
           } as any);
         }
-        toast.success(t('dashboard_coach.added_success', { name: addForm.name }));
+
+        // Step 3: Envoyer l'invitation par email si activé et email fourni
+        if (newEnt?.id && addForm.send_invitation && addForm.contact_email?.trim()) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invitation`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  email: addForm.contact_email.trim(),
+                  role: 'entrepreneur',
+                  organization_id: currentOrg.id,
+                  enterprise_id: newEnt.id,
+                  personal_message: `Accès à votre dossier "${addForm.name.trim()}" sur ESONO.`,
+                }),
+              });
+              if (!resp.ok) {
+                const errBody = await resp.json().catch(() => ({}));
+                toast.warning(`Entreprise créée mais invitation échouée : ${errBody.error || resp.statusText}`);
+              } else {
+                toast.success(`${addForm.name} ajouté + invitation envoyée à ${addForm.contact_email}`);
+              }
+            }
+          } catch (e: any) {
+            toast.warning(`Entreprise créée mais invitation échouée : ${e.message}`);
+          }
+        } else {
+          toast.success(t('dashboard_coach.added_success', { name: addForm.name }));
+        }
       }
 
       setShowAddModal(false);
-      setAddForm({ name: '', contact_email: '', country: '', sector: '' });
+      setAddForm({ name: '', contact_email: '', country: '', sector: '', send_invitation: true });
       await fetchData();
     } catch (err: any) {
       toast.error(err.message || t('dashboard_coach.add_error'));
@@ -721,6 +753,19 @@ export default function CoachDashboard() {
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{t('dashboard_coach.email_label')}</label>
               <input type="email" placeholder="contact@entreprise.com" value={addForm.contact_email} onChange={e => setAddForm(f => ({ ...f, contact_email: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
+            <label className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 border ${addForm.contact_email.trim() ? 'bg-primary/5 border-primary/20 cursor-pointer' : 'bg-muted/30 border-muted-foreground/10 text-muted-foreground cursor-not-allowed'}`}>
+              <input
+                type="checkbox"
+                checked={addForm.send_invitation && !!addForm.contact_email.trim()}
+                disabled={!addForm.contact_email.trim()}
+                onChange={e => setAddForm(f => ({ ...f, send_invitation: e.target.checked }))}
+                className="mt-0.5 rounded border-border"
+              />
+              <span className="leading-snug">
+                Envoyer un email d'invitation à l'entrepreneur pour qu'il crée son compte et accède à son dossier.
+                {!addForm.contact_email.trim() && <span className="block text-xs mt-0.5">— Ajoutez d'abord un email.</span>}
+              </span>
+            </label>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowAddModal(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleAddEntrepreneur} disabled={addLoading || !addForm.name.trim()} className="gap-2">
