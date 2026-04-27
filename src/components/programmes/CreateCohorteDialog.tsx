@@ -46,7 +46,11 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
   const [newEntSector, setNewEntSector] = useState('');
   const [newEntCountry, setNewEntCountry] = useState('');
   const [newEntContactEmail, setNewEntContactEmail] = useState('');
+  const [newEntCoaches, setNewEntCoaches] = useState<Set<string>>(new Set());
   const [creatingEnt, setCreatingEnt] = useState(false);
+
+  // Coaches disponibles dans l'org courante (pour assignation à la création)
+  const [availableCoaches, setAvailableCoaches] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
 
   const fetchEnterprises = async () => {
     setLoading(true);
@@ -92,9 +96,42 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
     setLoading(false);
   };
 
+  // Charge les coaches actifs de l'org pour le multi-select de création d'entreprise
+  const fetchAvailableCoaches = async () => {
+    if (!currentOrg?.id) { setAvailableCoaches([]); return; }
+    const { data: members } = await supabase
+      .from('organization_members')
+      .select('user_id')
+      .eq('organization_id', currentOrg.id)
+      .eq('is_active', true)
+      .eq('role', 'coach');
+    const userIds = (members || []).map((m: any) => m.user_id);
+    if (!userIds.length) { setAvailableCoaches([]); return; }
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, email')
+      .in('user_id', userIds);
+    setAvailableCoaches((profs || []).map((p: any) => ({
+      user_id: p.user_id,
+      full_name: p.full_name,
+      email: p.email,
+    })));
+  };
+
   useEffect(() => {
-    if (open) fetchEnterprises();
-  }, [open]);
+    if (open) {
+      fetchEnterprises();
+      fetchAvailableCoaches();
+    }
+  }, [open, currentOrg?.id]);
+
+  const toggleNewEntCoach = (userId: string) => {
+    setNewEntCoaches(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
 
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -125,12 +162,37 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
         .single();
       if (error) throw error;
       const inserted = ent as any;
-      toast.success(`Entreprise "${inserted.name}" créée`);
+
+      // Assignation des coaches sélectionnés (si applicable) — N-à-N enterprise_coaches
+      if (newEntCoaches.size > 0) {
+        const rows = Array.from(newEntCoaches).map(coachId => ({
+          enterprise_id: inserted.id,
+          coach_id: coachId,
+          organization_id: currentOrg.id,
+          role: 'principal',
+          assigned_by: user?.id || null,
+          is_active: true,
+        }));
+        const { error: ecError } = await supabase
+          .from('enterprise_coaches' as any)
+          .insert(rows);
+        if (ecError) {
+          // L'entreprise est créée mais l'assignation a échoué → toast warning, pas blocking
+          console.warn('[create-enterprise] coach assignment failed:', ecError);
+          toast.warning(`Entreprise créée mais ${newEntCoaches.size} coach(es) non assignés : ${ecError.message}`);
+        } else {
+          toast.success(`Entreprise "${inserted.name}" créée avec ${newEntCoaches.size} coach(es) assigné(s)`);
+        }
+      } else {
+        toast.success(`Entreprise "${inserted.name}" créée`);
+      }
+
       // Refresh + select automatiquement la nouvelle entreprise
       await fetchEnterprises();
       setSelected(new Set([...selected, inserted.id]));
       // Reset form
       setNewEntName(''); setNewEntSector(''); setNewEntCountry(''); setNewEntContactEmail('');
+      setNewEntCoaches(new Set());
       setShowNewEnt(false);
     } catch (err: any) {
       toast.error(err.message || 'Erreur création entreprise');
@@ -234,6 +296,43 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
                     <Input type="email" value={newEntContactEmail} onChange={e => setNewEntContactEmail(e.target.value)} placeholder="contact@pme.ci" />
                   </div>
                 </div>
+
+                {/* Section assignation coaches (optionnelle) */}
+                <div className="space-y-1.5 pt-2 border-t border-dashed">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    <Users className="h-3 w-3" />
+                    Coaches assignés (optionnel)
+                  </Label>
+                  {availableCoaches.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic px-1">
+                      Aucun coach disponible dans cette organisation. Tu peux créer l'entreprise sans coach et l'assigner plus tard.
+                    </p>
+                  ) : (
+                    <div className="max-h-32 overflow-y-auto rounded-md border border-input bg-background p-2 space-y-1">
+                      {availableCoaches.map(c => (
+                        <label
+                          key={c.user_id}
+                          className="flex items-center gap-2 text-sm rounded px-1.5 py-1 hover:bg-muted/50 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={newEntCoaches.has(c.user_id)}
+                            onCheckedChange={() => toggleNewEntCoach(c.user_id)}
+                          />
+                          <span className="flex-1 truncate">
+                            <span className="font-medium">{c.full_name || 'Sans nom'}</span>
+                            {c.email && <span className="text-muted-foreground text-xs ml-1.5">{c.email}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {newEntCoaches.size > 0 && (
+                    <p className="text-[11px] text-muted-foreground px-1">
+                      {newEntCoaches.size} coach(es) assigné(s) à la création (rôle « principal »)
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewEnt(false)}>
                     Annuler
