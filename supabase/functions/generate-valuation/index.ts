@@ -8,8 +8,10 @@ import { getValuationBenchmarksPrompt } from "../_shared/financial-knowledge.ts"
 import { computeValuation, extractValuationInputs } from "../_shared/valuation-engine.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const ANALYSIS_PROMPT = `Tu es un analyste senior en valorisation d'entreprises, spécialisé dans le private equity africain (I&P, Partech, Phatisa, AfricInvest). 15 ans d'expérience.
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const ANALYSIS_PROMPT = `Tu produis l'analyse qualitative de la valorisation d'une cible (DCF, multiples, décotes, synthèse).
 
 On te fournit les RÉSULTATS CALCULÉS d'une valorisation (DCF, multiples, décotes, synthèse). Les chiffres sont déjà calculés et corrects — NE LES MODIFIE PAS.
 
@@ -152,7 +154,9 @@ Produis l'analyse qualitative en JSON :
       preScreenContext += "\n";
     }
 
-    const aiAnalysis = await callAI(injectGuardrails(ANALYSIS_PROMPT, ent.country), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.1, { functionName: "generate-valuation", enterpriseId: ctx.enterprise_id });
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${ANALYSIS_PROMPT}`;
+    const aiAnalysis = await callAI(injectGuardrails(finalSystemPrompt, ent.country), analysisInput + kbContext + coachingContext + preScreenContext, 8192, undefined, 0.1, { functionName: "generate-valuation", enterpriseId: ctx.enterprise_id });
 
     // 5. Fusionner calculs + analyse IA
     const finalData = {

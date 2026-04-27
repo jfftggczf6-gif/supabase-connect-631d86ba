@@ -6,10 +6,10 @@ import {
 } from "../_shared/helpers_v5.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const SYSTEM_PROMPT = `Tu es un analyste deal sourcing senior spécialisé en investissement d'impact en Afrique francophone.
-
-Tu rédiges un One-Pager au format I&P (Investisseurs & Partenaires). C'est un document de 1 page qui synthétise une entreprise pour susciter l'intérêt d'un investisseur ou d'un bailleur.
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const SYSTEM_PROMPT = `Tu rédiges un One-Pager au format I&P (Investisseurs & Partenaires). C'est un document de 1 page qui synthétise une entreprise pour susciter l'intérêt d'un investisseur ou d'un bailleur.
 
 FORMAT :
 Le one-pager suit EXACTEMENT la structure du template I&P :
@@ -161,7 +161,9 @@ Réponds en JSON selon ce schéma :
 ${ONEPAGER_SCHEMA}`;
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext, 8192, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-onepager", enterpriseId: ctx.enterprise_id });
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${SYSTEM_PROMPT}`;
+    const rawData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), prompt + coachingContext, 8192, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-onepager", enterpriseId: ctx.enterprise_id });
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "onepager", rawData, "onepager");
 

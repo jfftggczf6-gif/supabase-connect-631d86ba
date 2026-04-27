@@ -7,11 +7,12 @@ import {
 import { getFinancialKnowledgePrompt, getValuationBenchmarksPrompt, getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
 const SONNET_MODEL = "claude-sonnet-4-6";
 
-const MEMO_SYSTEM_PROMPT = `Tu es un analyste senior en Private Equity / Impact Investing avec 15+ ans d'expérience en Afrique subsaharienne.
-Tu rédiges des Investment Memorandums professionnels pour des comités d'investissement de fonds (BAD, IFC, Proparco, I&P, Partech Africa, BII).
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const MEMO_SYSTEM_PROMPT = `Tu rédiges des Investment Memorandums professionnels pour des comités d'investissement de fonds (BAD, IFC, Proparco, I&P, Partech Africa, BII).
 
 TU CONNAIS :
 - Les normes SYSCOHADA révisé 2017 et la fiscalité UEMOA/CEMAC
@@ -307,7 +308,9 @@ Concision: 150-220 mots pour la thèse d'investissement et la recommandation fin
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART2}`;
 
-          const part2 = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT, ent.country), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.15, { functionName: "generate-investment-memo", enterpriseId: ctx.enterprise_id });
+          const toneBlock2 = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+          const finalSystemPrompt2 = `${toneBlock2}\n\n${MEMO_SYSTEM_PROMPT}`;
+          const part2 = await callAI(injectGuardrails(finalSystemPrompt2, ent.country), prompt2 + coachingContext, 16384, SONNET_MODEL, 0.15, { functionName: "generate-investment-memo", enterpriseId: ctx.enterprise_id });
 
           const mergedMemo = { ...part1, ...part2 };
           mergedMemo.score = part1.resume_executif?.score_ir || 0;
@@ -410,7 +413,9 @@ Chaque section narrative: 80-150 mots, concise et factuelle (pas de remplissage)
 Réponds en JSON selon ce schéma :
 ${MEMO_SCHEMA_PART1}`;
 
-          const part1Result = await callAI(injectGuardrails(MEMO_SYSTEM_PROMPT, ent.country), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.15, { functionName: "generate-investment-memo", enterpriseId: ctx.enterprise_id });
+          const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+          const finalSystemPrompt = `${toneBlock}\n\n${MEMO_SYSTEM_PROMPT}`;
+          const part1Result = await callAI(injectGuardrails(finalSystemPrompt, ent.country), prompt1 + coachingContext, 16384, SONNET_MODEL, 0.15, { functionName: "generate-investment-memo", enterpriseId: ctx.enterprise_id });
           const score = part1Result.resume_executif?.score_ir || 0;
 
           console.log("Investment Memo — Pass 1 done, saving checkpoint...");

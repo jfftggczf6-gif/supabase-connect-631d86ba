@@ -71,11 +71,14 @@ SEGMENT GROS TICKETS (tickets 8M+ EUR) : données auditées requises, scoring st
  */
 export async function buildToneForAgent(
   supabase: any,
-  organizationId: string,
+  organizationId: string | null | undefined,
 ): Promise<string> {
-  const segment = await detectSegment(supabase, organizationId);
+  // Si pas d'organizationId (cas edge où l'agent est invoqué sans contexte org),
+  // on tombe gracieusement sur le segment 'programme' avec ses défauts.
+  const safeOrgId = organizationId ?? '';
+  const segment = await detectSegment(supabase, safeOrgId);
   const config = getSegmentConfig(segment);
-  const presets = await getPresets(supabase, organizationId);
+  const presets = safeOrgId ? await getPresets(supabase, safeOrgId) : null;
 
   let tone = config.tone.system_prompt_block;
 

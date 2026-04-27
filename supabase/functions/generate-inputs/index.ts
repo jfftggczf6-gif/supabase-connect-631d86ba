@@ -5,6 +5,7 @@ import { normalizeInputs } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { getExtractionKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
 /* ───── Financial document detection ───── */
 
@@ -88,7 +89,9 @@ function buildEmptyInputs(name: string, sector: string, country: string, devise:
 
 /* ───── Prompts ───── */
 
-const buildSystemPrompt = (devise: string) => `Tu es un analyste financier expert certifié SYSCOHADA révisé (2017), spécialisé PME africaines (zones UEMOA/CEMAC).
+// Identité du persona composée par buildToneForAgent (multi-segment).
+// Ce prompt ne contient plus que les instructions de tâche.
+const buildSystemPrompt = (devise: string) => `Tu es certifié SYSCOHADA révisé (2017).
 
 MISSION: EXTRAIRE les données financières HISTORIQUES des documents fournis (comptes de résultat, bilans, états financiers, templates Excel multi-feuilles), puis ESTIMER les données manquantes.
 Tu NE FAIS PAS de projections futures, PAS de scénarios, PAS de plan d'action.
@@ -580,7 +583,9 @@ EXEMPLES :
       + `\n\nPARAMÈTRES FISCAUX ${ent.country || ''}:\n${JSON.stringify(fiscalParams)}`
       + `\n\n${benchmarks}`;
 
-    const rawData = await callAI(injectGuardrails(buildSystemPrompt(fiscalParams.devise), ent.country), enrichedPrompt, 16384, "claude-opus-4-6", undefined, { functionName: "generate-inputs", enterpriseId: ctx.enterprise_id });
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${buildSystemPrompt(fiscalParams.devise)}`;
+    const rawData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), enrichedPrompt, 16384, "claude-opus-4-6", undefined, { functionName: "generate-inputs", enterpriseId: ctx.enterprise_id });
     const normalized = normalizeInputs(rawData);
     const data = validateAndEnrich(normalized, ent.country, ent.sector);
 

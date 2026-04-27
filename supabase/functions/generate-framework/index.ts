@@ -6,10 +6,12 @@ import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { fillFrameworkExcelTemplate } from "../_shared/framework-excel-template.ts";
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
 const OPUS_MODEL = "claude-opus-4-6";
 
-const SYSTEM_PROMPT = `Tu es un expert financier senior de niveau CFO/analyste institutionnel, certifié SYSCOHADA révisé (2017), spécialisé dans l'analyse et la modélisation financière des PME africaines (zones UEMOA/CEMAC). Tu produis des analyses financières institutionnelles de type "Framework d'Analyse Financière PME" sans aucune erreur de calcul.
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const SYSTEM_PROMPT = `Tu es certifié SYSCOHADA révisé (2017). Tu produis des analyses financières institutionnelles de type "Framework d'Analyse Financière PME" sans aucune erreur de calcul.
 
 ═══════════════════════════════════════════════════════════
 RÈGLE FONDAMENTALE — CASCADE P&L (à respecter ABSOLUMENT)
@@ -493,7 +495,8 @@ UTILISE CETTE CHAÎNE pour projeter : applique les taux de croissance à CHAQUE 
     ) + truthBlock + produitsContext + historiqueContext + capexContext + financementContext + bfrContext + hypothesesContext + coutsContext + equipeContext + preScreenBlock + ragContext + `\n\nPARAMÈTRES FISCAUX:\n${JSON.stringify(fiscalParams)}`;
 
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "framework", undefined, ctx.organization_id);
-    const enrichedSystemPrompt = injectGuardrails(SYSTEM_PROMPT + "\n\n" + knowledgeBase, ent.country);
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const enrichedSystemPrompt = injectGuardrails(`${toneBlock}\n\n${SYSTEM_PROMPT}\n\n${knowledgeBase}`, ent.country);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
 
     const rawData = await callAI(enrichedSystemPrompt, enrichedPrompt + kbContext + coachingContext, 16384, OPUS_MODEL, undefined, { functionName: "generate-framework", enterpriseId: ctx.enterprise_id });

@@ -4,8 +4,11 @@ import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, 
 import { normalizeBmc } from "../_shared/normalizers.ts";
 import { getSectorKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const BMC_SYSTEM_PROMPT = `Tu es un expert en analyse de business models pour les PME africaines. Tu produis des analyses BMC (Business Model Canvas) professionnelles.
+// SYSTEM_PROMPT — instructions de tâche uniquement.
+// L'identité du persona est désormais composée par buildToneForAgent (multi-segment).
+const BMC_SYSTEM_PROMPT = `Tu produis des analyses BMC (Business Model Canvas) professionnelles.
 
 STYLE : ÉQUILIBRÉ — ni trop court ni trop long. Informatif mais lisible.
 - "detail" d'un bloc canvas : 3-5 phrases avec explications claires. Cite la source entre parenthèses.
@@ -174,7 +177,11 @@ serve(async (req) => {
       if (preScreen.classification) upstreamContext += `Classification: ${preScreen.classification}\n`;
     }
 
-    const rawBmcData = await callAI(injectGuardrails(BMC_SYSTEM_PROMPT, ent.country), BMC_USER_PROMPT(
+    // Multi-segment : prepend tone d'identité (segment + presets) au SYSTEM_PROMPT
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${BMC_SYSTEM_PROMPT}`;
+
+    const rawBmcData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), BMC_USER_PROMPT(
       ent.name, ent.sector || "", ent.country || "", ent.city || "", agentDocs
     ) + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}` + ragContext + kbContext + coachingContext + upstreamContext, 32768, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-bmc", enterpriseId: ctx.enterprise_id });
 

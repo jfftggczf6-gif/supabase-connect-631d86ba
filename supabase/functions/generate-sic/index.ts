@@ -3,8 +3,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { normalizeSic } from "../_shared/normalizers.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const SYSTEM_PROMPT = `Tu es un expert en Impact Investing et évaluation ESG spécialisé dans les PME en Afrique de l'Ouest (UEMOA).
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const SYSTEM_PROMPT = `MISSION : analyse Impact Investing / ESG.
 
 MISSION : Analyser le Social Impact Canvas et produire un JSON scoré.
 
@@ -241,7 +243,9 @@ serve(async (req) => {
     }
     if (impactContext) impactContext = `\n══════ DONNÉES STRUCTURÉES (pour calibrer l'impact) ══════\n${impactContext}`;
 
-    const rawAiData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), userPrompt(
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${SYSTEM_PROMPT}`;
+    const rawAiData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), userPrompt(
       ent.name, ent.sector || "", ent.country || "", agentDocs, bmcData
     ) + ragContext + kbContext + coachingContext + impactContext, 16384, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-sic", enterpriseId: ctx.enterprise_id });
 

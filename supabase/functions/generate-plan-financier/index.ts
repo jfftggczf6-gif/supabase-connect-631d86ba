@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, getDocumentContentForAgent, saveDeliverable, getFiscalParams, getFiscalParamsForPrompt, getCoachingContext, getKnowledgeForAgent, buildRAGContext } from "../_shared/helpers_v5.ts";
 import { callAIWithCalculator } from "../_shared/ai-with-tools.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 import { getSectorGuardrails, getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { computeFullPlan } from "../_shared/financial-compute.ts";
 import { adaptPlanFinancierToOvoFormat } from "../_shared/plan-to-ovo-adapter.ts";
@@ -116,7 +117,9 @@ serve(async (req: Request) => {
       const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework', undefined, organizationId);
       const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
 
-      const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
+      // Multi-segment : prepend tone d'identité (segment + presets) au SYSTEM_PROMPT
+      const toneBlock = await buildToneForAgent(supabase, organizationId);
+      const systemPrompt = `${toneBlock}\n\n${buildSystemPrompt(country, sector, fp, guardrails)}`;
       const userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, preScreenData, diagnosticData, coachingContext, currentYear, fp)
         + knowledgeContext + ragContext;
 
@@ -266,9 +269,8 @@ function buildSystemPrompt(
   fp: any,
   guardrails: any,
 ): string {
-  return `Tu es un analyste financier senior spécialisé dans les PME africaines francophones.
-
-MISSION : Analyser les documents financiers d'une entreprise et produire une analyse qualitative structurée.
+  // Identité du persona composée par buildToneForAgent (multi-segment) — voir l'appelant.
+  return `MISSION : Analyser les documents financiers d'une entreprise et produire une analyse qualitative structurée.
 
 OUTILS DE CALCUL DISPONIBLES :
 Tu as accès à une calculatrice financière via les outils suivants :
