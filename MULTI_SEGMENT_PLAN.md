@@ -30,13 +30,20 @@ La source de vérité pour le segment est `organizations.type`. Les presets ne c
 
 ## État Phase 1 (cette branche)
 
-✅ **Migration SQL** (`supabase/migrations/20260427000000_multi_segment_infra.sql`)
-- Élargit `organizations.type` CHECK
-- Crée `organization_presets` (avec RLS)
+✅ **Migrations SQL** (split en 2 fichiers — `ALTER TYPE` ne fonctionne pas en transaction) :
+
+`supabase/migrations/20260427000000_multi_segment_tables.sql` (compatible transaction) :
+- Élargit `organizations.type` CHECK (+banque_affaires, +banque, garde mixed)
+- Crée `organization_presets` (avec RLS, devise nullable)
 - Crée `organization_workflows` (avec RLS)
-- Élargit `deliverable_type`, `module_code`, `app_role` enums
-- Élargit `organization_members.role` CHECK
-- **NE PAS APPLIQUER** tant que le code Phase 1 n'est pas validé
+- Élargit `organization_members.role` CHECK (11 valeurs)
+
+`supabase/migrations/20260427000001_multi_segment_enums.sql` (hors transaction) :
+- `ALTER TYPE deliverable_type ADD VALUE` × 4
+- `ALTER TYPE module_code ADD VALUE` × 4
+- `ALTER TYPE app_role ADD VALUE` × 5
+
+**NE PAS APPLIQUER** tant que le code Phase 1 n'est pas validé. Application recommandée via le SQL editor Supabase ou le MCP — pas via `supabase db push` qui peut planter sur le 2ᵉ fichier.
 
 ✅ **`_shared/segment-config.ts`** — source de vérité pour les défauts par segment :
 - 4 tons (Programme / PE / BA / Banque) **sans devise hardcodée** (multi-devise respecté)

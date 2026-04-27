@@ -1,23 +1,24 @@
 -- ===========================================================================
--- Migration : Infrastructure Multi-Segment ESONO
--- Phase 1 — Tables et enums uniquement, aucune modif des données existantes.
+-- Migration : Multi-Segment ESONO — Phase 1 (1/2) — Tables, CHECK, RLS
 --
--- ⚠ NE PAS APPLIQUER tant que le code de Phase 1 n'est pas validé en review.
--- Tout est ADDITIF (CREATE TABLE, ADD CONSTRAINT, ADD VALUE) — zéro régression
--- prévue sur les 7 orgs / 35 entreprises / 238 deliverables actuels.
+-- Cette migration crée les tables et étend les CHECK contraintes.
+-- Elle peut être exécutée dans une transaction (compatible supabase db push).
 --
--- ⚠ ALTER TYPE ADD VALUE ne fonctionne PAS dans une transaction Postgres.
--- Si appliqué via supabase CLI / migrations, il faut séparer le bloc enums
--- en migrations distinctes ou exécuter chaque ALTER TYPE séparément
--- dans le SQL editor Supabase.
+-- Le fichier compagnon `20260427000001_multi_segment_enums.sql` ajoute les
+-- nouvelles valeurs aux enums (ALTER TYPE ADD VALUE) et DOIT être exécuté
+-- séparément hors transaction (voir le commentaire en tête de ce fichier-là).
+--
+-- Toutes les opérations sont ADDITIVES — aucun DROP, aucune modif de données.
+-- Les 7 orgs / 35 entreprises / 238 deliverables actuels fonctionnent à
+-- l'identique après application.
 -- ===========================================================================
 
 
 -- ============================================================
 -- 1. Élargir organizations.type CHECK
---    Ajout des 2 nouveaux segments (banque_affaires, banque)
+--    Ajout des 2 nouveaux segments (banque_affaires, banque).
 --    'mixed' est conservé pour rétrocompat des données existantes
---    (le code applicatif le traite comme 'programme' via detectSegment)
+--    (le code applicatif le traite comme 'programme' via detectSegment).
 -- ============================================================
 ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_type_check;
 ALTER TABLE organizations ADD CONSTRAINT organizations_type_check
@@ -30,6 +31,10 @@ ALTER TABLE organizations ADD CONSTRAINT organizations_type_check
 --    1 ligne max par org (UNIQUE), nullable au démarrage —
 --    les 7 orgs Programme actuelles n'en ont pas besoin pour
 --    fonctionner (fallback sur les défauts du segment).
+--
+--    NOTE devise : nullable pour que getDevise() puisse appliquer
+--    proprement le fallback config.tone.devise_defaut spécifique au
+--    segment (FCFA pour programme/banque, EUR pour pe/banque_affaires).
 -- ============================================================
 CREATE TABLE IF NOT EXISTS organization_presets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -37,7 +42,7 @@ CREATE TABLE IF NOT EXISTS organization_presets (
 
   -- Overrides segment
   fund_segment TEXT CHECK (fund_segment IN ('amorcage', 'mid_market', 'gros_tickets')),
-  devise TEXT NOT NULL DEFAULT 'FCFA',
+  devise TEXT,                                 -- nullable, fallback sur config segment
   langue TEXT NOT NULL DEFAULT 'fr',
   horizon_projection INTEGER CHECK (horizon_projection IN (5, 7, 10)),
 
@@ -72,6 +77,9 @@ CREATE TABLE IF NOT EXISTS organization_presets (
 
 ALTER TABLE organization_presets ENABLE ROW LEVEL SECURITY;
 
+-- Lecture : tout membre actif de l'org
+-- Écriture : owner/admin/manager via une 2ᵉ policy à durcir en Phase 2 si besoin.
+-- Pour Phase 1 (table vide), policy unique permissive.
 CREATE POLICY "presets_org_member" ON organization_presets
   FOR ALL USING (
     organization_id IN (
@@ -90,7 +98,7 @@ CREATE TABLE IF NOT EXISTS organization_workflows (
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   etape_id TEXT NOT NULL,
   label TEXT NOT NULL,
-  ordre INTEGER NOT NULL,
+  ordre INTEGER NOT NULL,                      -- pas de DEFAULT — l'appelant doit décider
   type TEXT CHECK (type IN ('action', 'decision', 'external')) DEFAULT 'action',
   roles TEXT[] DEFAULT '{}',
   is_active BOOLEAN DEFAULT true,
@@ -110,29 +118,9 @@ CREATE POLICY "workflows_org_member" ON organization_workflows
 
 
 -- ============================================================
--- 4. Élargir les enums (4 livrables banque + 5 rôles banque)
---    ATTENTION : ces ALTER TYPE doivent être exécutés HORS transaction
---    si tu utilises supabase CLI. Sinon les exécuter dans le SQL editor.
--- ============================================================
-ALTER TYPE deliverable_type ADD VALUE IF NOT EXISTS 'diagnostic_bancabilite';
-ALTER TYPE deliverable_type ADD VALUE IF NOT EXISTS 'credit_readiness_pack';
-ALTER TYPE deliverable_type ADD VALUE IF NOT EXISTS 'note_credit';
-ALTER TYPE deliverable_type ADD VALUE IF NOT EXISTS 'teaser_anonymise';
-
-ALTER TYPE module_code ADD VALUE IF NOT EXISTS 'diagnostic_bancabilite';
-ALTER TYPE module_code ADD VALUE IF NOT EXISTS 'credit_readiness_pack';
-ALTER TYPE module_code ADD VALUE IF NOT EXISTS 'note_credit';
-ALTER TYPE module_code ADD VALUE IF NOT EXISTS 'teaser_anonymise';
-
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'conseiller_pme';
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'analyste_credit';
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'directeur_agence';
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'direction_pme';
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'partner';
-
-
--- ============================================================
--- 5. Élargir organization_members.role CHECK
+-- 4. Élargir organization_members.role CHECK (TEXT, pas l'enum app_role)
+--    Ajout des 5 rôles banque (conseiller_pme, analyste_credit,
+--    directeur_agence, direction_pme, partner) en plus des 6 existants.
 -- ============================================================
 ALTER TABLE organization_members DROP CONSTRAINT IF EXISTS organization_members_role_check;
 ALTER TABLE organization_members ADD CONSTRAINT organization_members_role_check
@@ -143,8 +131,6 @@ ALTER TABLE organization_members ADD CONSTRAINT organization_members_role_check
 
 
 -- ============================================================
--- Fin de la migration Phase 1.
--- Phase 2 : modification de generate-deliverables et generate-pre-screening
---           pour consommer SegmentConfig + organization_presets.
--- Phase 3 : extension aux 12 autres agents + 3 edge functions banque.
+-- Fin migration tables (1/2). Voir 20260427000001_multi_segment_enums.sql
+-- pour les ALTER TYPE qui doivent tourner hors transaction.
 -- ============================================================

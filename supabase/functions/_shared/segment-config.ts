@@ -133,7 +133,7 @@ export const SEGMENT_CONFIGS: Record<SegmentType, SegmentConfig> = {
         'business_plan',
         'odd_analysis',
         'diagnostic_data',
-        'screening',
+        'screening_report',
       ],
       livrable_central: 'diagnostic_data',
     },
@@ -268,15 +268,21 @@ export function getSegmentConfig(segment: SegmentType): SegmentConfig {
  * toutes sur 'programme', identique à avant.
  */
 export async function detectSegment(supabase: any, organizationId: string): Promise<SegmentType> {
-  const { data: org } = await supabase
+  if (!organizationId) return 'programme';
+  const { data: org, error } = await supabase
     .from('organizations')
     .select('type')
     .eq('id', organizationId)
-    .single();
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[detectSegment] error fetching organization, fallback programme:', error.message);
+    return 'programme';
+  }
 
   const t = org?.type;
   if (t === 'programme' || t === 'pe' || t === 'banque_affaires' || t === 'banque') return t;
-  // 'mixed' et types inconnus → fallback Programme (rétrocompatibilité)
+  // 'mixed', null, et types inconnus → fallback Programme (rétrocompatibilité)
   return 'programme';
 }
 

@@ -107,8 +107,12 @@ export async function buildToneForAgent(
 
   // Devise par défaut de l'org — signal contextuel uniquement.
   // Les chiffres réels dans les livrables restent calculés via getFiscalParams(country).
+  // Formulation explicite pour éviter que l'IA mélange devise org et devise entreprise
+  // (cas typique : org en FCFA, entreprise au Ghana qui doit produire des chiffres en GHS).
   const devise = presets?.devise || config.tone.devise_defaut;
-  tone += `\n\nDEVISE PAR DÉFAUT DE L'ORGANISATION : ${devise}. Pour chaque entreprise, utilise la devise locale réelle de son pays (résolue automatiquement par les paramètres fiscaux).`;
+  tone += `\n\nCONTEXTE DEVISE :
+- Devise par défaut de l'organisation : ${devise} (utilisée uniquement pour les vues agrégées multi-entreprises et les paramètres org).
+- Pour les chiffres d'une entreprise spécifique : utilise TOUJOURS la devise locale réelle de son pays (FCFA-XOF en UEMOA, FCFA-XAF en CEMAC, USD pour la RDC, GHS au Ghana, NGN au Nigeria, KES au Kenya, MAD au Maroc, TND en Tunisie, GNF en Guinée, etc.). La devise de l'org NE s'applique JAMAIS aux livrables individuels d'entreprise.`;
 
   return tone;
 }
