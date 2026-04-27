@@ -125,6 +125,15 @@ export default function OrganizationsPage() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
+  // Label affichable des types d'organisation (segments multi-segment)
+  const TYPE_LABELS: Record<string, string> = {
+    programme: 'Programme',
+    pe: 'Private Equity',
+    banque_affaires: "Banque d'affaires",
+    banque: 'Banque / IMF',
+    mixed: 'Mixte',
+  };
+
   // Aggregate KPIs
   const kpis = {
     total: orgs.length,
@@ -134,6 +143,8 @@ export default function OrganizationsPage() {
     byType: {
       programme: orgs.filter(o => o.type === 'programme').length,
       pe: orgs.filter(o => o.type === 'pe').length,
+      banque_affaires: orgs.filter(o => o.type === 'banque_affaires').length,
+      banque: orgs.filter(o => o.type === 'banque').length,
       mixed: orgs.filter(o => o.type === 'mixed').length,
     },
   };
@@ -163,10 +174,12 @@ export default function OrganizationsPage() {
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Répartition</p>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-1.5 mt-2 flex-wrap">
             <Badge variant="outline" className="text-[10px]">Prog: {kpis.byType.programme}</Badge>
             <Badge variant="outline" className="text-[10px]">PE: {kpis.byType.pe}</Badge>
-            <Badge variant="outline" className="text-[10px]">Mixte: {kpis.byType.mixed}</Badge>
+            <Badge variant="outline" className="text-[10px]">BA: {kpis.byType.banque_affaires}</Badge>
+            <Badge variant="outline" className="text-[10px]">Banque: {kpis.byType.banque}</Badge>
+            {kpis.byType.mixed > 0 && <Badge variant="outline" className="text-[10px]">Mixte: {kpis.byType.mixed}</Badge>}
           </div>
         </CardContent></Card>
       </div>
@@ -204,7 +217,7 @@ export default function OrganizationsPage() {
                 return (
                 <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/organizations/${o.id}`)}>
                   <TableCell className="font-medium">{o.name}<br /><span className="text-xs text-muted-foreground">{o.slug}</span></TableCell>
-                  <TableCell><Badge variant="outline">{o.type}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{TYPE_LABELS[o.type] || o.type}</Badge></TableCell>
                   <TableCell className="text-sm">{o.country || '—'}</TableCell>
                   <TableCell className="text-sm">{o.member_count}</TableCell>
                   <TableCell className="text-sm">{o.enterprise_count}</TableCell>
@@ -264,9 +277,11 @@ export default function OrganizationsPage() {
                   {[
                     { value: 'programme', label: 'Programme', desc: 'Bailleur, incubateur' },
                     { value: 'pe', label: 'Private Equity', desc: 'Fonds, family office' },
-                    { value: 'mixed', label: 'Mixte', desc: 'Les deux' },
+                    { value: 'banque_affaires', label: "Banque d'affaires", desc: 'Mandant pour fonds PE' },
+                    { value: 'banque', label: 'Banque / IMF', desc: 'Crédit PME, bancabilité' },
+                    { value: 'mixed', label: 'Mixte', desc: 'Programme + PE' },
                   ].map(t => (
-                    <button key={t.value} onClick={() => setForm(f => ({ ...f, type: t.value }))}
+                    <button key={t.value} type="button" onClick={() => setForm(f => ({ ...f, type: t.value }))}
                       className={`p-3 rounded-lg border text-left transition-colors ${form.type === t.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'}`}>
                       <p className="text-sm font-medium">{t.label}</p>
                       <p className="text-[10px] text-muted-foreground">{t.desc}</p>
