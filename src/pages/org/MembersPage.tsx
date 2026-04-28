@@ -75,7 +75,20 @@ export default function MembersPage() {
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error);
-      toast.success(`Invitation envoyée à ${inviteForm.email}`);
+
+      // L'edge function indique si l'email a vraiment été envoyé (Resend up vs down).
+      // Si non envoyé : on conserve l'invitation en DB et on propose le lien à copier
+      // pour que le manager puisse le transmettre manuellement.
+      if (result.email_sent === false && result.invitation_url) {
+        try { await navigator.clipboard.writeText(result.invitation_url); } catch { /* clipboard refusé */ }
+        toast.warning(
+          `Invitation créée mais email pas envoyé (${result.email_error || 'erreur inconnue'}). Lien copié dans le presse-papier — transmets-le manuellement à ${inviteForm.email}.`,
+          { duration: 12000 },
+        );
+      } else {
+        toast.success(`Invitation envoyée à ${inviteForm.email}`);
+      }
+
       setShowInvite(false);
       setInviteForm({ email: '', role: 'coach', message: '' });
       fetchData();

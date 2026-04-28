@@ -165,28 +165,58 @@ serve(async (req: Request) => {
       analyst: 'Analyste', coach: 'Coach', entrepreneur: 'Entrepreneur',
     };
 
-    await adminClient.functions.invoke("send-email", {
-      body: {
-        to: email,
-        subject: `Vous êtes invité à rejoindre ${org?.name || 'une organisation'} sur ESONO`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Invitation ESONO</h2>
-            <p>${inviterProfile?.full_name || 'Un membre'} vous invite à rejoindre <strong>${org?.name || 'une organisation'}</strong> en tant que <strong>${roleLabels[role] || role}</strong>.</p>
-            ${personal_message ? `<p style="background: #f5f5f5; padding: 12px; border-radius: 8px; font-style: italic;">"${personal_message}"</p>` : ''}
-            <p style="margin: 24px 0;">
-              <a href="${invitationUrl}" style="background: #1a2744; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                Accepter l'invitation
-              </a>
-            </p>
-            <p style="color: #666; font-size: 12px;">Ce lien expire dans 7 jours.</p>
-            <p style="color: #999; font-size: 11px;">— L'équipe ESONO</p>
-          </div>
-        `,
-      },
-    });
+    // Envoi email — on capture l'erreur explicitement pour que l'UI puisse alerter
+    // l'inviteur si le mail n'est pas parti (Resend down, quota atteint, etc.).
+    // L'invitation est conservée en DB de toute façon : le manager peut renvoyer
+    // ou copier le lien manuellement.
+    let emailSent = true;
+    let emailError: string | undefined;
+    try {
+      const emailRes = await adminClient.functions.invoke("send-email", {
+        body: {
+          to: email,
+          subject: `Vous êtes invité à rejoindre ${org?.name || 'une organisation'} sur ESONO`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Invitation ESONO</h2>
+              <p>${inviterProfile?.full_name || 'Un membre'} vous invite à rejoindre <strong>${org?.name || 'une organisation'}</strong> en tant que <strong>${roleLabels[role] || role}</strong>.</p>
+              ${personal_message ? `<p style="background: #f5f5f5; padding: 12px; border-radius: 8px; font-style: italic;">"${personal_message}"</p>` : ''}
+              <p style="margin: 24px 0;">
+                <a href="${invitationUrl}" style="background: #1a2744; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                  Accepter l'invitation
+                </a>
+              </p>
+              <p style="color: #666; font-size: 12px;">Ce lien expire dans 7 jours.</p>
+              <p style="color: #999; font-size: 11px;">— L'équipe ESONO</p>
+            </div>
+          `,
+        },
+      });
+      // Le client supabase ne throw pas pour les erreurs HTTP des edge functions —
+      // on inspecte explicitement `error` ET le data { error: ... } éventuel.
+      if (emailRes.error) {
+        emailSent = false;
+        emailError = emailRes.error.message || 'send-email a retourné une erreur';
+      } else if ((emailRes.data as any)?.error) {
+        emailSent = false;
+        emailError = String((emailRes.data as any).error).slice(0, 300);
+      }
+    } catch (mailErr: any) {
+      emailSent = false;
+      emailError = mailErr?.message || 'Échec exception send-email';
+    }
 
-    return new Response(JSON.stringify({ success: true, invitation_id: invitation.id }), {
+    if (!emailSent) {
+      console.warn(`[send-invitation] email NOT sent for ${email} — invitation ${invitation.id} : ${emailError}`);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      invitation_id: invitation.id,
+      invitation_url: invitationUrl,  // l'UI peut proposer "Copier le lien" en fallback
+      email_sent: emailSent,
+      email_error: emailError,
+    }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
