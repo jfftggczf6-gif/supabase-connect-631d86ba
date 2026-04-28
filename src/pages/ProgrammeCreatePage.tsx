@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, X, Loader2, Upload, FileText, CheckCircle2, AlertTriangle, ListChecks } from 'lucide-react';
+import { CalendarIcon, Plus, X, Loader2, Upload, FileText, CheckCircle2, AlertTriangle, ListChecks, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -302,6 +302,9 @@ export default function ProgrammeCreatePage() {
 
   return (
     <DashboardLayout title={t('programme.create')} subtitle={t('programme.create_subtitle')}>
+      <Button variant="ghost" size="sm" onClick={() => nav('/programmes')} className="mb-4 gap-1.5">
+        <ArrowLeft className="h-4 w-4" /> Retour aux programmes
+      </Button>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Upload fiche programme */}
