@@ -1,1 +1,0 @@
-DELETE FROM public.user_roles WHERE user_id = '908888d9-47f1-4d74-982b-b7243525f451' AND role IN ('coach', 'entrepreneur');

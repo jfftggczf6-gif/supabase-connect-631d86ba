@@ -27,7 +27,7 @@ export default function MembersPage() {
   const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'coach', message: '' });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: '', message: '' });
   const [inviting, setInviting] = useState(false);
 
   const fetchData = async () => {
@@ -77,7 +77,7 @@ export default function MembersPage() {
       if (!resp.ok) throw new Error(result.error);
       toast.success(`Invitation envoyée à ${inviteForm.email}`);
       setShowInvite(false);
-      setInviteForm({ email: '', role: 'coach', message: '' });
+      setInviteForm({ email: '', role: INVITABLE_ROLES[0]?.value || '', message: '' });
       fetchData();
     } catch (err: any) {
       toast.error(err.message);
@@ -103,7 +103,10 @@ export default function MembersPage() {
             <TabsTrigger value="invitations">Invitations ({invitations.length})</TabsTrigger>
           </TabsList>
           {canInviteMembers && (
-            <Button className="gap-2" onClick={() => setShowInvite(true)}>
+            <Button className="gap-2" onClick={() => {
+              setInviteForm(f => ({ ...f, role: f.role || INVITABLE_ROLES[0]?.value || '' }));
+              setShowInvite(true);
+            }}>
               <UserPlus className="h-4 w-4" /> Inviter un membre
             </Button>
           )}

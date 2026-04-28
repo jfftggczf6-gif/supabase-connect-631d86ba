@@ -1,13 +1,22 @@
 // ESONO — source unique des rôles d'organisation et de leurs labels.
 // Toute l'app doit passer par ces helpers pour afficher / filtrer les rôles.
 
-export type OrgRole = 'owner' | 'admin' | 'manager' | 'coach' | 'analyst' | 'entrepreneur';
-export type OrgType = 'programme' | 'pe' | 'mixed';
+export type OrgRole =
+  // Rôles génériques (tous segments)
+  | 'owner' | 'admin' | 'manager'
+  // Rôles segment programme
+  | 'coach' | 'entrepreneur'
+  // Rôles segment PE
+  | 'analyst'
+  // Rôles segment banque (NSIA-style et apparentés)
+  | 'directeur_pme' | 'direction_pme' | 'directeur_agence'
+  | 'analyste_credit' | 'conseiller_pme' | 'partner';
+
+export type OrgType = 'programme' | 'pe' | 'mixed' | 'banque';
 
 // Labels affichés à l'utilisateur, par type d'org.
-// La même clé technique (ex: 'manager') a un label différent selon le contexte
-// (Chef de programme pour une org programme, Directeur d'investissement pour une org PE).
-export const ROLE_LABELS: Record<OrgType, Record<OrgRole, string>> = {
+// La même clé technique (ex: 'manager') a un label différent selon le contexte.
+export const ROLE_LABELS: Record<OrgType, Partial<Record<OrgRole, string>>> = {
   programme: {
     owner: 'Propriétaire',
     admin: 'Administrateur',
@@ -32,23 +41,50 @@ export const ROLE_LABELS: Record<OrgType, Record<OrgRole, string>> = {
     analyst: 'Analyste',
     entrepreneur: 'Entrepreneur',
   },
+  banque: {
+    owner: 'Propriétaire',
+    admin: 'Administrateur',
+    manager: 'Responsable',
+    directeur_pme: 'Directeur PME',
+    direction_pme: 'Direction PME',           // alias historique du directeur_pme
+    directeur_agence: 'Directeur d\'agence',
+    analyste_credit: 'Analyste crédit',
+    conseiller_pme: 'Conseiller PME',
+    partner: 'Partenaire (OEC, courtier…)',
+  },
 };
 
 // Définit quels rôles sont pertinents (donc invitables) selon le type d'org.
-// Une org Programme n'a pas d'analyste (poste PE).
-// Une org PE n'a pas de coach (poste programme).
-// Une org Mixte propose tout.
 const RELEVANT_ROLES: Record<OrgType, OrgRole[]> = {
   programme: ['owner', 'admin', 'manager', 'coach', 'entrepreneur'],
   pe:        ['owner', 'admin', 'manager', 'analyst', 'entrepreneur'],
   mixed:     ['owner', 'admin', 'manager', 'coach', 'analyst', 'entrepreneur'],
+  banque:    [
+    'owner', 'admin', 'manager',
+    'directeur_pme', 'directeur_agence',
+    'analyste_credit', 'conseiller_pme',
+    'partner',
+  ],
 };
 
-// Hiérarchie : un rôle peut inviter ceux du même niveau ou inférieur (jamais owner sauf super_admin).
+// Hiérarchie : un rôle peut inviter ceux du même niveau ou inférieur.
+// Plus le nombre est BAS, plus le rôle est haut placé.
+// Banque : directeur_pme < directeur_agence < analyste_credit < conseiller_pme.
+// Le manager (Responsable) reste org-level au-dessus du directeur_pme et n'est
+// donc jamais invitable depuis l'UI banque (cohérent avec INVITE_PERMISSIONS du
+// edge function send-invitation).
 const ROLE_PRIORITY: Record<OrgRole, number> = {
   owner: 0,
   admin: 1,
   manager: 2,
+  // banque (ordre strictement décroissant)
+  directeur_pme: 2.5,
+  direction_pme: 2.5,
+  directeur_agence: 3,
+  analyste_credit: 3.5,
+  conseiller_pme: 4,
+  partner: 4,
+  // programme + pe
   coach: 3,
   analyst: 3,
   entrepreneur: 4,
@@ -63,7 +99,7 @@ export function humanizeRole(role: string | null | undefined, orgType: OrgType |
 
 /**
  * Liste des rôles invitables par un user, dans le contexte d'une org.
- * - Filtre sur les rôles pertinents (programme vs pe vs mixed)
+ * - Filtre sur les rôles pertinents (programme vs pe vs mixed vs banque)
  * - Filtre sur la hiérarchie : un user ne peut inviter que des rôles ≤ au sien
  *   (sauf super_admin qui peut tout)
  *
@@ -85,7 +121,7 @@ export function getInvitableRoles(
   return relevant
     .filter((r) => includeOwner || r !== 'owner')
     .filter((r) => ROLE_PRIORITY[r] >= inviterPriority || isSuperAdmin)
-    .map((r) => ({ value: r, label: ROLE_LABELS[type][r] }));
+    .map((r) => ({ value: r, label: ROLE_LABELS[type]?.[r] || r }));
 }
 
 /** Description courte d'un rôle (utile dans les wizards / tooltips). */
@@ -96,4 +132,11 @@ export const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   coach: 'Accompagne des PME. Génère livrables et notes coaching pour ses entreprises.',
   analyst: 'Analyse des deals PE. Produit memos et valorisations pour ses dossiers.',
   entrepreneur: 'Bénéficiaire (PME). Voit uniquement sa propre boîte.',
+  // banque
+  directeur_pme: 'Pilote la BU PME : voit tous les dossiers de l\'org, valide les exceptions, gère ses équipes.',
+  direction_pme: 'Direction PME (équivalent de directeur_pme — alias historique).',
+  directeur_agence: 'Pilote une agence : voit les dossiers de ses analystes / conseillers.',
+  analyste_credit: 'Analyse les dossiers crédit : valide ou demande corrections sur les livrables Credit Readiness, prépare la note crédit.',
+  conseiller_pme: 'Sur le terrain : crée les dossiers, dépose les pièces, génère les livrables initiaux et les soumet pour validation.',
+  partner: 'Partenaire externe (OEC, courtier, consultant) : accès limité aux dossiers qu\'il apporte.',
 };

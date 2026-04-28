@@ -3,7 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
-type OrgRole = 'owner' | 'admin' | 'manager' | 'coach' | 'analyst' | 'entrepreneur';
+type OrgRole =
+  | 'owner' | 'admin' | 'manager' | 'coach' | 'analyst' | 'entrepreneur'
+  // Rôles banque
+  | 'conseiller_pme' | 'analyste_credit' | 'directeur_agence' | 'direction_pme' | 'directeur_pme' | 'partner';
 
 interface RequireRoleProps {
   children: ReactNode;

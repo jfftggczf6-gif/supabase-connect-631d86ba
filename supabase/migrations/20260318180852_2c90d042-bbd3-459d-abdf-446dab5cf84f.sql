@@ -1,1 +1,0 @@
-ALTER TYPE public.deliverable_type ADD VALUE IF NOT EXISTS 'screening_report';

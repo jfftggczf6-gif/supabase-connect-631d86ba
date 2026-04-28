@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -7,10 +8,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -382,6 +403,103 @@ export type Database = {
           },
           {
             foreignKeyName: "coaching_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_dossiers: {
+        Row: {
+          analyste_id: string | null
+          classification_diagnostic: string | null
+          classification_monitoring: string | null
+          conseiller_id: string | null
+          created_at: string | null
+          date_decaissement: string | null
+          devise: string | null
+          duree_mois: number | null
+          encours_actuel: number | null
+          enterprise_id: string
+          funding_line_id: string | null
+          id: string
+          metadata: Json | null
+          montant_decaisse: number | null
+          montant_demande: number | null
+          numero: string | null
+          organization_id: string
+          pipeline_status: string
+          produit_retenu_code: string | null
+          retard_jours: number | null
+          type_credit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          analyste_id?: string | null
+          classification_diagnostic?: string | null
+          classification_monitoring?: string | null
+          conseiller_id?: string | null
+          created_at?: string | null
+          date_decaissement?: string | null
+          devise?: string | null
+          duree_mois?: number | null
+          encours_actuel?: number | null
+          enterprise_id: string
+          funding_line_id?: string | null
+          id?: string
+          metadata?: Json | null
+          montant_decaisse?: number | null
+          montant_demande?: number | null
+          numero?: string | null
+          organization_id: string
+          pipeline_status?: string
+          produit_retenu_code?: string | null
+          retard_jours?: number | null
+          type_credit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          analyste_id?: string | null
+          classification_diagnostic?: string | null
+          classification_monitoring?: string | null
+          conseiller_id?: string | null
+          created_at?: string | null
+          date_decaissement?: string | null
+          devise?: string | null
+          duree_mois?: number | null
+          encours_actuel?: number | null
+          enterprise_id?: string
+          funding_line_id?: string | null
+          id?: string
+          metadata?: Json | null
+          montant_decaisse?: number | null
+          montant_demande?: number | null
+          numero?: string | null
+          organization_id?: string
+          pipeline_status?: string
+          produit_retenu_code?: string | null
+          retard_jours?: number | null
+          type_credit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_dossiers_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_dossiers_funding_line_id_fkey"
+            columns: ["funding_line_id"]
+            isOneToOne: false
+            referencedRelation: "funding_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_dossiers_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -819,6 +937,7 @@ export type Database = {
       }
       enterprises: {
         Row: {
+          banque_metadata: Json | null
           base_year: number | null
           city: string | null
           coach_id: string | null
@@ -847,11 +966,13 @@ export type Database = {
           phase: string | null
           score_ir: number | null
           sector: string | null
+          source_acquisition: string | null
           updated_at: string
           uploaded_files: Json | null
           user_id: string
         }
         Insert: {
+          banque_metadata?: Json | null
           base_year?: number | null
           city?: string | null
           coach_id?: string | null
@@ -880,11 +1001,13 @@ export type Database = {
           phase?: string | null
           score_ir?: number | null
           sector?: string | null
+          source_acquisition?: string | null
           updated_at?: string
           uploaded_files?: Json | null
           user_id: string
         }
         Update: {
+          banque_metadata?: Json | null
           base_year?: number | null
           city?: string | null
           coach_id?: string | null
@@ -913,6 +1036,7 @@ export type Database = {
           phase?: string | null
           score_ir?: number | null
           sector?: string | null
+          source_acquisition?: string | null
           updated_at?: string
           uploaded_files?: Json | null
           user_id?: string
@@ -920,6 +1044,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "enterprises_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funding_lines: {
+        Row: {
+          bailleur: string | null
+          capacite_totale: number | null
+          code: string
+          created_at: string | null
+          criteres_eligibilite: Json | null
+          devise: string | null
+          id: string
+          is_active: boolean | null
+          kpi_a_reporter: string[] | null
+          label: string
+          metadata: Json | null
+          montant_deploye: number | null
+          organization_id: string
+          taux_partage_risque: number | null
+          taux_preferentiel: number | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          bailleur?: string | null
+          capacite_totale?: number | null
+          code: string
+          created_at?: string | null
+          criteres_eligibilite?: Json | null
+          devise?: string | null
+          id?: string
+          is_active?: boolean | null
+          kpi_a_reporter?: string[] | null
+          label: string
+          metadata?: Json | null
+          montant_deploye?: number | null
+          organization_id: string
+          taux_partage_risque?: number | null
+          taux_preferentiel?: number | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          bailleur?: string | null
+          capacite_totale?: number | null
+          code?: string
+          created_at?: string | null
+          criteres_eligibilite?: Json | null
+          devise?: string | null
+          id?: string
+          is_active?: boolean | null
+          kpi_a_reporter?: string[] | null
+          label?: string
+          metadata?: Json | null
+          montant_deploye?: number | null
+          organization_id?: string
+          taux_partage_risque?: number | null
+          taux_preferentiel?: number | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_lines_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1317,6 +1509,75 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          category: string | null
+          chunk_index: number
+          content: string
+          country: string | null
+          created_at: string | null
+          embedding: string | null
+          id: string
+          kb_entry_id: string | null
+          org_entry_id: string | null
+          publication_date: string | null
+          sector: string | null
+          source: string | null
+          source_url: string | null
+          title: string | null
+          token_count: number | null
+        }
+        Insert: {
+          category?: string | null
+          chunk_index: number
+          content: string
+          country?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          kb_entry_id?: string | null
+          org_entry_id?: string | null
+          publication_date?: string | null
+          sector?: string | null
+          source?: string | null
+          source_url?: string | null
+          title?: string | null
+          token_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          chunk_index?: number
+          content?: string
+          country?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          kb_entry_id?: string | null
+          org_entry_id?: string | null
+          publication_date?: string | null
+          sector?: string | null
+          source?: string | null
+          source_url?: string | null
+          title?: string | null
+          token_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_kb_entry_id_fkey"
+            columns: ["kb_entry_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_org_entry_id_fkey"
+            columns: ["org_entry_id"]
+            isOneToOne: false
+            referencedRelation: "organization_knowledge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_country_data: {
         Row: {
           acces_credit_pme_pct: number | null
@@ -1643,6 +1904,7 @@ export type Database = {
           accepted_at: string | null
           created_at: string | null
           email: string
+          enterprise_id: string | null
           expires_at: string
           id: string
           invited_by: string | null
@@ -1656,6 +1918,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string | null
           email: string
+          enterprise_id?: string | null
           expires_at?: string
           id?: string
           invited_by?: string | null
@@ -1669,6 +1932,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string | null
           email?: string
+          enterprise_id?: string | null
           expires_at?: string
           id?: string
           invited_by?: string | null
@@ -1680,7 +1944,73 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "organization_invitations_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "organization_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_knowledge: {
+        Row: {
+          category: string
+          content: string
+          country: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          organization_id: string
+          sector: string | null
+          source: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          content: string
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          organization_id: string
+          sector?: string | null
+          source?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          organization_id?: string
+          sector?: string | null
+          source?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_knowledge_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1719,6 +2049,124 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_presets: {
+        Row: {
+          config_banque: Json | null
+          constats_config: Json | null
+          created_at: string | null
+          criteres_conformite: Json | null
+          devise: string | null
+          fund_segment: string | null
+          horizon_projection: number | null
+          id: string
+          langue: string
+          livrables_actifs: string[] | null
+          matching_config: Json | null
+          modules_desactives: string[] | null
+          onboarding_completed: boolean | null
+          onboarding_data: Json | null
+          organization_id: string
+          scoring_weights: Json | null
+          templates_custom: Json | null
+          updated_at: string | null
+          workflow_overrides: Json | null
+        }
+        Insert: {
+          config_banque?: Json | null
+          constats_config?: Json | null
+          created_at?: string | null
+          criteres_conformite?: Json | null
+          devise?: string | null
+          fund_segment?: string | null
+          horizon_projection?: number | null
+          id?: string
+          langue?: string
+          livrables_actifs?: string[] | null
+          matching_config?: Json | null
+          modules_desactives?: string[] | null
+          onboarding_completed?: boolean | null
+          onboarding_data?: Json | null
+          organization_id: string
+          scoring_weights?: Json | null
+          templates_custom?: Json | null
+          updated_at?: string | null
+          workflow_overrides?: Json | null
+        }
+        Update: {
+          config_banque?: Json | null
+          constats_config?: Json | null
+          created_at?: string | null
+          criteres_conformite?: Json | null
+          devise?: string | null
+          fund_segment?: string | null
+          horizon_projection?: number | null
+          id?: string
+          langue?: string
+          livrables_actifs?: string[] | null
+          matching_config?: Json | null
+          modules_desactives?: string[] | null
+          onboarding_completed?: boolean | null
+          onboarding_data?: Json | null
+          organization_id?: string
+          scoring_weights?: Json | null
+          templates_custom?: Json | null
+          updated_at?: string | null
+          workflow_overrides?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_workflows: {
+        Row: {
+          created_at: string | null
+          etape_id: string
+          id: string
+          is_active: boolean | null
+          label: string
+          ordre: number
+          organization_id: string
+          roles: string[] | null
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          etape_id: string
+          id?: string
+          is_active?: boolean | null
+          label: string
+          ordre: number
+          organization_id: string
+          roles?: string[] | null
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          etape_id?: string
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          ordre?: number
+          organization_id?: string
+          roles?: string[] | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_workflows_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2293,6 +2741,31 @@ export type Database = {
           title: string
         }[]
       }
+      search_knowledge_chunks: {
+        Args: {
+          filter_country?: string
+          filter_organization_id?: string
+          filter_sector?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          chunk_index: number
+          content: string
+          country: string
+          id: string
+          kb_entry_id: string
+          org_entry_id: string
+          publication_date: string
+          sector: string
+          similarity: number
+          source: string
+          source_url: string
+          title: string
+        }[]
+      }
     }
     Enums: {
       app_role:
@@ -2303,6 +2776,11 @@ export type Database = {
         | "analyste"
         | "investment_manager"
         | "managing_director"
+        | "conseiller_pme"
+        | "analyste_credit"
+        | "directeur_agence"
+        | "direction_pme"
+        | "partner"
       deliverable_type:
         | "bmc_analysis"
         | "bmc_html"
@@ -2328,6 +2806,10 @@ export type Database = {
         | "investment_memo"
         | "plan_ovo_excel"
         | "plan_financier"
+        | "diagnostic_bancabilite"
+        | "credit_readiness_pack"
+        | "note_credit"
+        | "teaser_anonymise"
       module_code:
         | "bmc"
         | "sic"
@@ -2342,6 +2824,10 @@ export type Database = {
         | "pitch_deck"
         | "investment_memo"
         | "plan_financier"
+        | "diagnostic_bancabilite"
+        | "credit_readiness_pack"
+        | "note_credit"
+        | "teaser_anonymise"
       module_status: "not_started" | "in_progress" | "completed"
       operating_mode: "reconstruction" | "due_diligence"
     }
@@ -2469,6 +2955,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [
@@ -2479,6 +2968,11 @@ export const Constants = {
         "analyste",
         "investment_manager",
         "managing_director",
+        "conseiller_pme",
+        "analyste_credit",
+        "directeur_agence",
+        "direction_pme",
+        "partner",
       ],
       deliverable_type: [
         "bmc_analysis",
@@ -2505,6 +2999,10 @@ export const Constants = {
         "investment_memo",
         "plan_ovo_excel",
         "plan_financier",
+        "diagnostic_bancabilite",
+        "credit_readiness_pack",
+        "note_credit",
+        "teaser_anonymise",
       ],
       module_code: [
         "bmc",
@@ -2520,11 +3018,16 @@ export const Constants = {
         "pitch_deck",
         "investment_memo",
         "plan_financier",
+        "diagnostic_bancabilite",
+        "credit_readiness_pack",
+        "note_credit",
+        "teaser_anonymise",
       ],
       module_status: ["not_started", "in_progress", "completed"],
       operating_mode: ["reconstruction", "due_diligence"],
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+
+A new version of Supabase CLI is available: v2.95.4 (currently installed v2.75.0)
 We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
