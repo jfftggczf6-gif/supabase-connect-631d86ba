@@ -40,8 +40,8 @@ export default function ProgrammeListPage() {
     setLoading(false);
   };
 
-  // Reload on every mount (navigation back)
-  useEffect(() => { fetchProgrammes(); }, []);
+  // Reload on mount + à chaque changement d'organisation (switcher super_admin)
+  useEffect(() => { fetchProgrammes(); }, [currentOrg?.id]);
 
   const filtered = statusFilter === 'all'
     ? programmes
