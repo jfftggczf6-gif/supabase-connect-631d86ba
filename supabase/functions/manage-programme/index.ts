@@ -197,8 +197,13 @@ serve(async (req) => {
     if (action === "list") {
       let query = supabase.from("programmes").select("*").order("created_at", { ascending: false });
 
-      // Filter by organization if user belongs to one (non-admin)
-      if (!isAdmin && userOrgId) {
+      // Filtre par organisation :
+      // - Si le body fournit organization_id explicitement (switcher d'org côté UI),
+      //   on filtre TOUJOURS dessus, même pour le super_admin (sinon le switcher ne sert à rien).
+      // - Sinon : non-admin filtré par sa propre org ; super_admin sans org ciblée → tout.
+      if (body.organization_id) {
+        query = query.eq("organization_id", body.organization_id);
+      } else if (!isAdmin && userOrgId) {
         query = query.eq("organization_id", userOrgId);
       }
 
