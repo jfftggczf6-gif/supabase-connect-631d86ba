@@ -96,6 +96,42 @@ serve(async (req: Request) => {
       }
     }
 
+    // Matérialisation des pré-assignations coach → enterprise_coaches.
+    // Si le manager a pré-assigné ce coach (via enterprise_coach_invitations) avant qu'il
+    // n'accepte, on crée maintenant les rows enterprise_coaches correspondantes et on
+    // nettoie la table de pré-assignation.
+    if (invitation.role === 'coach') {
+      const { data: pending, error: pendingErr } = await adminClient
+        .from("enterprise_coach_invitations")
+        .select("id, enterprise_id, role, assigned_by")
+        .eq("invitation_id", invitation.id);
+      if (pendingErr) {
+        console.warn("[accept-invitation] pending coach lookup failed:", pendingErr.message);
+      } else if (pending && pending.length > 0) {
+        const rows = pending.map((p: any) => ({
+          enterprise_id: p.enterprise_id,
+          coach_id: user.id,
+          organization_id: invitation.organization_id,
+          role: p.role || 'principal',
+          assigned_by: p.assigned_by ?? invitation.invited_by ?? null,
+          is_active: true,
+        }));
+        const { error: ecErr } = await adminClient
+          .from("enterprise_coaches")
+          .upsert(rows, { onConflict: "enterprise_id,coach_id" });
+        if (ecErr) {
+          console.warn("[accept-invitation] coach pre-assign materialize failed:", ecErr.message);
+        } else {
+          // Nettoyage des pré-assignations matérialisées
+          await adminClient
+            .from("enterprise_coach_invitations")
+            .delete()
+            .eq("invitation_id", invitation.id);
+          console.log(`[accept-invitation] materialized ${rows.length} pre-assigned enterprise(s) for coach ${user.id}`);
+        }
+      }
+    }
+
     // Marquer l'invitation comme acceptée
     await adminClient
       .from("organization_invitations")

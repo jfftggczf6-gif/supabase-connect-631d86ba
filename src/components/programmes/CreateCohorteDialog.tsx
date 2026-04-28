@@ -47,10 +47,17 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
   const [newEntCountry, setNewEntCountry] = useState('');
   const [newEntContactEmail, setNewEntContactEmail] = useState('');
   const [newEntCoaches, setNewEntCoaches] = useState<Set<string>>(new Set());
+  // Coaches invités mais pas encore inscrits (pré-assignation matérialisée à l'acceptation)
+  const [newEntCoachInvitations, setNewEntCoachInvitations] = useState<Set<string>>(new Set());
   const [creatingEnt, setCreatingEnt] = useState(false);
 
   // Coaches disponibles dans l'org courante (pour assignation à la création)
-  const [availableCoaches, setAvailableCoaches] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
+  // - kind 'member' : coach déjà inscrit (utilise user_id)
+  // - kind 'pending' : invitation envoyée mais pas encore acceptée (utilise invitation_id)
+  type CoachOption =
+    | { kind: 'member';  user_id: string;  full_name: string | null; email: string | null }
+    | { kind: 'pending'; invitation_id: string; full_name: null;     email: string };
+  const [availableCoaches, setAvailableCoaches] = useState<CoachOption[]>([]);
 
   const fetchEnterprises = async () => {
     setLoading(true);
@@ -96,9 +103,10 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
     setLoading(false);
   };
 
-  // Charge les coaches actifs de l'org pour le multi-select de création d'entreprise
+  // Charge les coaches actifs de l'org + les invitations coach pending (pas encore acceptées)
   const fetchAvailableCoaches = async () => {
     if (!currentOrg?.id) { setAvailableCoaches([]); return; }
+    // 1) Coaches déjà inscrits
     const { data: members } = await supabase
       .from('organization_members')
       .select('user_id')
@@ -106,16 +114,36 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
       .eq('is_active', true)
       .eq('role', 'coach');
     const userIds = (members || []).map((m: any) => m.user_id);
-    if (!userIds.length) { setAvailableCoaches([]); return; }
-    const { data: profs } = await supabase
-      .from('profiles')
-      .select('user_id, full_name, email')
-      .in('user_id', userIds);
-    setAvailableCoaches((profs || []).map((p: any) => ({
-      user_id: p.user_id,
-      full_name: p.full_name,
-      email: p.email,
-    })));
+    let memberOptions: CoachOption[] = [];
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
+      memberOptions = (profs || []).map((p: any) => ({
+        kind: 'member' as const,
+        user_id: p.user_id,
+        full_name: p.full_name,
+        email: p.email,
+      }));
+    }
+    // 2) Invitations coach pending (pas acceptées, pas révoquées, pas expirées)
+    const nowIso = new Date().toISOString();
+    const { data: invites } = await supabase
+      .from('organization_invitations')
+      .select('id, email')
+      .eq('organization_id', currentOrg.id)
+      .eq('role', 'coach')
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .gt('expires_at', nowIso);
+    const pendingOptions: CoachOption[] = (invites || []).map((i: any) => ({
+      kind: 'pending' as const,
+      invitation_id: i.id,
+      full_name: null,
+      email: i.email,
+    }));
+    setAvailableCoaches([...memberOptions, ...pendingOptions]);
   };
 
   useEffect(() => {
@@ -129,6 +157,13 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
     setNewEntCoaches(prev => {
       const next = new Set(prev);
       if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
+  const toggleNewEntCoachInvitation = (invitationId: string) => {
+    setNewEntCoachInvitations(prev => {
+      const next = new Set(prev);
+      if (next.has(invitationId)) next.delete(invitationId); else next.add(invitationId);
       return next;
     });
   };
@@ -163,7 +198,7 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
       if (error) throw error;
       const inserted = ent as any;
 
-      // Assignation des coaches sélectionnés (si applicable) — N-à-N enterprise_coaches
+      // 1) Assignation des coaches déjà inscrits → enterprise_coaches (N-à-N immédiat)
       if (newEntCoaches.size > 0) {
         const rows = Array.from(newEntCoaches).map(coachId => ({
           enterprise_id: inserted.id,
@@ -177,12 +212,36 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
           .from('enterprise_coaches' as any)
           .insert(rows);
         if (ecError) {
-          // L'entreprise est créée mais l'assignation a échoué → toast warning, pas blocking
           console.warn('[create-enterprise] coach assignment failed:', ecError);
           toast.warning(`Entreprise créée mais ${newEntCoaches.size} coach(es) non assignés : ${ecError.message}`);
-        } else {
-          toast.success(`Entreprise "${inserted.name}" créée avec ${newEntCoaches.size} coach(es) assigné(s)`);
         }
+      }
+
+      // 2) Pré-assignation des coaches invités mais pas encore inscrits →
+      // enterprise_coach_invitations. Sera matérialisé en enterprise_coaches
+      // par accept-invitation à l'inscription du coach.
+      if (newEntCoachInvitations.size > 0) {
+        const rows = Array.from(newEntCoachInvitations).map(invId => ({
+          enterprise_id: inserted.id,
+          invitation_id: invId,
+          organization_id: currentOrg.id,
+          role: 'principal',
+          assigned_by: user?.id || null,
+        }));
+        const { error: eciError } = await supabase
+          .from('enterprise_coach_invitations' as any)
+          .insert(rows);
+        if (eciError) {
+          console.warn('[create-enterprise] pending coach pre-assign failed:', eciError);
+          toast.warning(`Entreprise créée mais ${newEntCoachInvitations.size} pré-assignation(s) en attente non enregistrées : ${eciError.message}`);
+        }
+      }
+
+      const nbAcceptes = newEntCoaches.size;
+      const nbPending  = newEntCoachInvitations.size;
+      const total = nbAcceptes + nbPending;
+      if (total > 0) {
+        toast.success(`Entreprise "${inserted.name}" créée avec ${total} coach(es) assigné(s)${nbPending > 0 ? ` · dont ${nbPending} pré-assigné(s) en attente d'acceptation` : ''}`);
       } else {
         toast.success(`Entreprise "${inserted.name}" créée`);
       }
@@ -193,6 +252,7 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
       // Reset form
       setNewEntName(''); setNewEntSector(''); setNewEntCountry(''); setNewEntContactEmail('');
       setNewEntCoaches(new Set());
+      setNewEntCoachInvitations(new Set());
       setShowNewEnt(false);
     } catch (err: any) {
       toast.error(err.message || 'Erreur création entreprise');
@@ -309,26 +369,47 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
                     </p>
                   ) : (
                     <div className="max-h-32 overflow-y-auto rounded-md border border-input bg-background p-2 space-y-1">
-                      {availableCoaches.map(c => (
-                        <label
-                          key={c.user_id}
-                          className="flex items-center gap-2 text-sm rounded px-1.5 py-1 hover:bg-muted/50 cursor-pointer"
-                        >
-                          <Checkbox
-                            checked={newEntCoaches.has(c.user_id)}
-                            onCheckedChange={() => toggleNewEntCoach(c.user_id)}
-                          />
-                          <span className="flex-1 truncate">
-                            <span className="font-medium">{c.full_name || 'Sans nom'}</span>
-                            {c.email && <span className="text-muted-foreground text-xs ml-1.5">{c.email}</span>}
-                          </span>
-                        </label>
-                      ))}
+                      {availableCoaches.map(c => {
+                        const isMember = c.kind === 'member';
+                        const id = isMember ? c.user_id : c.invitation_id;
+                        const checked = isMember
+                          ? newEntCoaches.has(c.user_id)
+                          : newEntCoachInvitations.has(c.invitation_id);
+                        const onToggle = () => isMember
+                          ? toggleNewEntCoach(c.user_id)
+                          : toggleNewEntCoachInvitation(c.invitation_id);
+                        return (
+                          <label
+                            key={`${c.kind}-${id}`}
+                            className="flex items-center gap-2 text-sm rounded px-1.5 py-1 hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox checked={checked} onCheckedChange={onToggle} />
+                            <span className="flex-1 truncate flex items-center gap-1.5">
+                              <span className="truncate">
+                                {c.full_name && <span className="font-medium">{c.full_name}</span>}
+                                {c.email && (
+                                  <span className={c.full_name ? 'text-muted-foreground text-xs ml-1.5' : 'font-medium'}>
+                                    {c.email}
+                                  </span>
+                                )}
+                              </span>
+                              {!isMember && (
+                                <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-800 border-amber-200 flex-shrink-0">
+                                  En attente
+                                </Badge>
+                              )}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
-                  {newEntCoaches.size > 0 && (
+                  {(newEntCoaches.size > 0 || newEntCoachInvitations.size > 0) && (
                     <p className="text-[11px] text-muted-foreground px-1">
-                      {newEntCoaches.size} coach(es) assigné(s) à la création (rôle « principal »)
+                      {newEntCoaches.size + newEntCoachInvitations.size} coach(es) assigné(s) à la création (rôle « principal »)
+                      {newEntCoachInvitations.size > 0 && (
+                        <span className="italic"> · dont {newEntCoachInvitations.size} pré-assigné(s) — l'assignation sera effective dès leur acceptation</span>
+                      )}
                     </p>
                   )}
                 </div>
