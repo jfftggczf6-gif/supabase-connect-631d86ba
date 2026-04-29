@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, ChevronRight, Building2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Loader2, Plus, ChevronRight, Building2, MoreVertical, Pencil, UserCog, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -58,6 +59,22 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   const [newEntCoachUserIds, setNewEntCoachUserIds] = useState<Set<string>>(new Set());
   const [newEntCoachInvitationIds, setNewEntCoachInvitationIds] = useState<Set<string>>(new Set());
 
+  // Dialog d'édition des infos entreprise
+  const [editInfoOpen, setEditInfoOpen] = useState(false);
+  const [editingEnt, setEditingEnt] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ name: '', sector: '', country: '', contact_email: '' });
+  const [savingInfo, setSavingInfo] = useState(false);
+
+  // Dialog d'édition des coachs assignés
+  const [editCoachesOpen, setEditCoachesOpen] = useState(false);
+  const [editCoachesEntId, setEditCoachesEntId] = useState<string | null>(null);
+  const [editCoachUserIds, setEditCoachUserIds] = useState<Set<string>>(new Set());
+  const [editCoachInvitationIds, setEditCoachInvitationIds] = useState<Set<string>>(new Set());
+  const [initialCoachUserIds, setInitialCoachUserIds] = useState<Set<string>>(new Set());
+  const [initialCoachInvitationIds, setInitialCoachInvitationIds] = useState<Set<string>>(new Set());
+  const [savingCoaches, setSavingCoaches] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+
   const fetchEnterprises = async () => {
     setLoading(true);
     const { data: cands } = await supabase
@@ -74,18 +91,33 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       supabase.from('deliverables').select('enterprise_id').in('enterprise_id', entIds),
     ]);
 
-    // N-to-N: fetch enterprise_coaches for these enterprises
+    // N-to-N: fetch enterprise_coaches (multi-coachs par entreprise)
     const { data: ecLinks } = await supabase
       .from('enterprise_coaches')
       .select('enterprise_id, coach_id')
       .in('enterprise_id', entIds)
       .eq('is_active', true);
-    const ecMap: Record<string, string> = {};
-    (ecLinks || []).forEach(ec => { ecMap[ec.enterprise_id] = ec.coach_id; });
+    const ecMap: Record<string, string[]> = {};
+    (ecLinks || []).forEach(ec => {
+      if (!ecMap[ec.enterprise_id]) ecMap[ec.enterprise_id] = [];
+      ecMap[ec.enterprise_id].push(ec.coach_id);
+    });
 
-    // Merge: prefer enterprise_coaches, fallback to legacy coach_id
+    // Pré-assignations en attente (invitations pas encore acceptées)
+    const { data: eciLinks } = await supabase
+      .from('enterprise_coach_invitations' as any)
+      .select('enterprise_id, invitation_id')
+      .in('enterprise_id', entIds);
+    const eciMap: Record<string, string[]> = {};
+    ((eciLinks || []) as any[]).forEach((ec: any) => {
+      if (!eciMap[ec.enterprise_id]) eciMap[ec.enterprise_id] = [];
+      eciMap[ec.enterprise_id].push(ec.invitation_id);
+    });
+
+    // Récupère noms : coachs acceptés (profiles) + emails des invitations pending
     const allCoachIds = [...new Set([
-      ...(ents || []).map(e => ecMap[e.id] || e.coach_id).filter(Boolean),
+      ...Object.values(ecMap).flat(),
+      ...(ents || []).filter(e => !ecMap[e.id]).map(e => e.coach_id).filter(Boolean),
     ])];
     let coachMap: Record<string, string> = {};
     if (allCoachIds.length) {
@@ -93,14 +125,36 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       (profiles || []).forEach(p => { coachMap[p.user_id] = p.full_name || ''; });
     }
 
+    const allInvIds = [...new Set(Object.values(eciMap).flat())];
+    let invMap: Record<string, string> = {};
+    if (allInvIds.length) {
+      const { data: invs } = await supabase
+        .from('organization_invitations')
+        .select('id, email, accepted_at, revoked_at')
+        .in('id', allInvIds);
+      (invs || []).forEach((i: any) => {
+        // N'affiche que si toujours pending
+        if (!i.accepted_at && !i.revoked_at) invMap[i.id] = i.email;
+      });
+    }
+
     const delivCount: Record<string, number> = {};
     (delivs || []).forEach((d: any) => { delivCount[d.enterprise_id] = (delivCount[d.enterprise_id] || 0) + 1; });
 
-    setEnterprises((ents || []).map(e => ({
-      ...e,
-      coach_name: coachMap[ecMap[e.id] || e.coach_id] || '—',
-      deliverables_count: delivCount[e.id] || 0,
-    })).sort((a, b) => (b.score_ir || 0) - (a.score_ir || 0)));
+    setEnterprises((ents || []).map(e => {
+      const coachIds = ecMap[e.id] || (e.coach_id ? [e.coach_id] : []);
+      const coachNames = coachIds.map(id => coachMap[id]).filter(Boolean);
+      const pendingInvIds = (eciMap[e.id] || []).filter(id => invMap[id]);
+      const pendingEmails = pendingInvIds.map(id => invMap[id]);
+      return {
+        ...e,
+        coach_ids: coachIds,
+        coach_names: coachNames,
+        pending_invitation_ids: pendingInvIds,
+        pending_emails: pendingEmails,
+        deliverables_count: delivCount[e.id] || 0,
+      };
+    }).sort((a, b) => (b.score_ir || 0) - (a.score_ir || 0)));
     setLoading(false);
   };
 
@@ -163,6 +217,153 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       if (next.has(invitationId)) next.delete(invitationId); else next.add(invitationId);
       return next;
     });
+  };
+
+  const handleRemove = async (enterpriseId: string, name: string) => {
+    if (!confirm(t('cohorte.remove_confirm', { name }))) return;
+    setRemoving(enterpriseId);
+    const { data, error } = await supabase.functions.invoke('manage-programme', {
+      body: { action: 'remove_enterprise', programme_id: programmeId, enterprise_id: enterpriseId }
+    });
+    setRemoving(null);
+    if (error || data?.error) { toast.error(data?.error || error?.message || t('common.error')); return; }
+    toast.success(t('cohorte.removed', { name }));
+    fetchEnterprises();
+  };
+
+  const openEditInfo = (ent: any) => {
+    setEditingEnt(ent);
+    setEditForm({
+      name: ent.name || '',
+      sector: ent.sector || '',
+      country: ent.country || '',
+      contact_email: ent.contact_email || '',
+    });
+    setEditInfoOpen(true);
+  };
+
+  const handleSaveInfo = async () => {
+    if (!editingEnt || !editForm.name.trim()) {
+      toast.error('Nom requis');
+      return;
+    }
+    setSavingInfo(true);
+    const { error } = await supabase
+      .from('enterprises' as any)
+      .update({
+        name: editForm.name.trim(),
+        sector: editForm.sector.trim() || null,
+        country: editForm.country || null,
+        contact_email: editForm.contact_email.trim() || null,
+      })
+      .eq('id', editingEnt.id);
+    setSavingInfo(false);
+    if (error) { toast.error(`Échec : ${error.message}`); return; }
+    toast.success(`Infos de "${editForm.name.trim()}" mises à jour`);
+    setEditInfoOpen(false);
+    fetchEnterprises();
+  };
+
+  const openEditCoaches = async (ent: any) => {
+    setEditCoachesEntId(ent.id);
+    fetchAvailableCoaches();
+    // Charge les assignations existantes
+    const [{ data: ecRows }, { data: eciRows }] = await Promise.all([
+      supabase
+        .from('enterprise_coaches')
+        .select('coach_id')
+        .eq('enterprise_id', ent.id)
+        .eq('is_active', true),
+      supabase
+        .from('enterprise_coach_invitations' as any)
+        .select('invitation_id')
+        .eq('enterprise_id', ent.id),
+    ]);
+    const userIds = new Set((ecRows || []).map((r: any) => r.coach_id as string));
+    const invIds = new Set(((eciRows || []) as any[]).map((r: any) => r.invitation_id as string));
+    setEditCoachUserIds(new Set(userIds));
+    setEditCoachInvitationIds(new Set(invIds));
+    setInitialCoachUserIds(new Set(userIds));
+    setInitialCoachInvitationIds(new Set(invIds));
+    setEditCoachesOpen(true);
+  };
+
+  const toggleEditCoachUser = (userId: string) => {
+    setEditCoachUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
+  const toggleEditCoachInvitation = (invitationId: string) => {
+    setEditCoachInvitationIds(prev => {
+      const next = new Set(prev);
+      if (next.has(invitationId)) next.delete(invitationId); else next.add(invitationId);
+      return next;
+    });
+  };
+
+  const handleSaveCoaches = async () => {
+    if (!editCoachesEntId || !currentOrg?.id) return;
+    setSavingCoaches(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Diff membres acceptés
+      const toAddUsers = [...editCoachUserIds].filter(id => !initialCoachUserIds.has(id));
+      const toRemoveUsers = [...initialCoachUserIds].filter(id => !editCoachUserIds.has(id));
+      // Diff pending
+      const toAddInvs = [...editCoachInvitationIds].filter(id => !initialCoachInvitationIds.has(id));
+      const toRemoveInvs = [...initialCoachInvitationIds].filter(id => !editCoachInvitationIds.has(id));
+
+      if (toAddUsers.length) {
+        const rows = toAddUsers.map(coachId => ({
+          enterprise_id: editCoachesEntId,
+          coach_id: coachId,
+          organization_id: currentOrg.id,
+          role: 'principal',
+          assigned_by: user?.id || null,
+          is_active: true,
+        }));
+        const { error } = await supabase.from('enterprise_coaches' as any).insert(rows);
+        if (error) throw error;
+      }
+      if (toRemoveUsers.length) {
+        const { error } = await supabase
+          .from('enterprise_coaches' as any)
+          .update({ is_active: false })
+          .eq('enterprise_id', editCoachesEntId)
+          .in('coach_id', toRemoveUsers);
+        if (error) throw error;
+      }
+      if (toAddInvs.length) {
+        const rows = toAddInvs.map(invId => ({
+          enterprise_id: editCoachesEntId,
+          invitation_id: invId,
+          organization_id: currentOrg.id,
+          role: 'principal',
+          assigned_by: user?.id || null,
+        }));
+        const { error } = await supabase.from('enterprise_coach_invitations' as any).insert(rows);
+        if (error) throw error;
+      }
+      if (toRemoveInvs.length) {
+        const { error } = await supabase
+          .from('enterprise_coach_invitations' as any)
+          .delete()
+          .eq('enterprise_id', editCoachesEntId)
+          .in('invitation_id', toRemoveInvs);
+        if (error) throw error;
+      }
+
+      toast.success('Coachs mis à jour');
+      setEditCoachesOpen(false);
+      fetchEnterprises();
+    } catch (err: any) {
+      toast.error(`Échec : ${err.message || 'erreur'}`);
+    } finally {
+      setSavingCoaches(false);
+    }
   };
 
   const openAddDialog = async () => {
@@ -320,7 +521,9 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
             <TableHead></TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {enterprises.map(e => (
+            {enterprises.map(e => {
+              const totalCoaches = (e.coach_names?.length || 0) + (e.pending_emails?.length || 0);
+              return (
               <TableRow key={e.id} className="group cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/programmes/${programmeId}/enterprise/${e.id}`)}>
                 <TableCell className="font-medium">{e.name}</TableCell>
                 <TableCell>
@@ -328,14 +531,65 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
                     <Badge variant="outline" className={e.score_ir >= 70 ? 'border-emerald-300 text-emerald-700' : e.score_ir >= 40 ? 'border-amber-300 text-amber-700' : 'border-red-300 text-red-700'}>{e.score_ir}</Badge>
                   ) : '—'}
                 </TableCell>
-                <TableCell className="text-sm">{e.coach_name}</TableCell>
+                <TableCell className="text-sm">
+                  {totalCoaches === 0 ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {(e.coach_names || []).map((name: string, i: number) => (
+                        <Badge key={`c-${i}`} variant="secondary" className="text-[11px] font-normal">{name}</Badge>
+                      ))}
+                      {(e.pending_emails || []).map((email: string, i: number) => (
+                        <Badge
+                          key={`p-${i}`}
+                          variant="outline"
+                          className="text-[11px] font-normal bg-amber-50 text-amber-800 border-amber-200"
+                          title="Coach pré-assigné, en attente d'acceptation de l'invitation"
+                        >
+                          {email}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm">{e.deliverables_count}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{e.last_activity ? new Date(e.last_activity).toLocaleDateString('fr-FR') : '—'}</TableCell>
-                <TableCell>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <TableCell onClick={(ev) => ev.stopPropagation()}>
+                  <div className="flex items-center gap-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={removing === e.id}
+                          title="Actions"
+                        >
+                          {removing === e.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem onClick={() => openEditInfo(e)} className="gap-2">
+                          <Pencil className="h-3.5 w-3.5" /> Modifier les infos
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEditCoaches(e)} className="gap-2">
+                          <UserCog className="h-3.5 w-3.5" /> Modifier les coachs
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleRemove(e.id, e.name)}
+                          className="gap-2 text-red-600 focus:text-red-700 focus:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Retirer de la cohorte
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             {enterprises.length === 0 && (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t('cohorte.no_enterprises')}</TableCell></TableRow>
             )}
@@ -506,6 +760,133 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
             <Button onClick={handleAddEnterprises} disabled={adding || selectedToAdd.size === 0}>
               {adding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {t('common.add')} ({selectedToAdd.size})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog : modifier les infos de l'entreprise */}
+      <Dialog open={editInfoOpen} onOpenChange={setEditInfoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Modifier l'entreprise
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nom *</Label>
+              <Input
+                value={editForm.name}
+                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Pays</Label>
+              <select
+                value={editForm.country}
+                onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Non défini —</option>
+                {SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Secteur</Label>
+              <Input
+                value={editForm.sector}
+                onChange={e => setEditForm(f => ({ ...f, sector: e.target.value }))}
+                placeholder="Agro-industrie, BTP..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email contact entrepreneur</Label>
+              <Input
+                type="email"
+                value={editForm.contact_email}
+                onChange={e => setEditForm(f => ({ ...f, contact_email: e.target.value }))}
+                placeholder="contact@pme.ci"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditInfoOpen(false)} disabled={savingInfo}>Annuler</Button>
+            <Button onClick={handleSaveInfo} disabled={savingInfo || !editForm.name.trim()}>
+              {savingInfo && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog : modifier les coachs assignés à l'entreprise */}
+      <Dialog open={editCoachesOpen} onOpenChange={(open) => {
+        setEditCoachesOpen(open);
+        if (!open) {
+          setEditCoachesEntId(null);
+          setEditCoachUserIds(new Set());
+          setEditCoachInvitationIds(new Set());
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCog className="h-4 w-4" /> Modifier les coachs assignés
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {availableCoaches.length === 0 ? (
+              <div className="text-xs text-muted-foreground italic px-2 py-3 rounded bg-muted/40 border">
+                Aucun coach disponible dans cette organisation. Invite un coach depuis la page Membres pour pouvoir l'assigner.
+              </div>
+            ) : (
+              <div className="rounded-md border bg-background max-h-72 overflow-y-auto divide-y">
+                {availableCoaches.map((c) => {
+                  const isMember = c.kind === 'member';
+                  const id = isMember ? c.user_id! : c.invitation_id!;
+                  const checked = isMember
+                    ? editCoachUserIds.has(id)
+                    : editCoachInvitationIds.has(id);
+                  const onToggle = () => isMember
+                    ? toggleEditCoachUser(id)
+                    : toggleEditCoachInvitation(id);
+                  return (
+                    <label
+                      key={`${c.kind}-${id}`}
+                      className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30"
+                    >
+                      <Checkbox checked={checked} onCheckedChange={onToggle} />
+                      <span className="flex-1 text-sm flex items-center gap-1.5 min-w-0">
+                        <span className="truncate">
+                          {c.full_name && <span className="font-medium">{c.full_name}</span>}
+                          {c.email && (
+                            <span className={c.full_name ? 'text-muted-foreground ml-1' : 'font-medium'}>
+                              {c.email}
+                            </span>
+                          )}
+                        </span>
+                        {!isMember && (
+                          <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-800 border-amber-200 flex-shrink-0">
+                            En attente
+                          </Badge>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            <div className="text-[11px] text-muted-foreground">
+              {editCoachUserIds.size + editCoachInvitationIds.size} coach(es) sélectionné(s)
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCoachesOpen(false)} disabled={savingCoaches}>Annuler</Button>
+            <Button onClick={handleSaveCoaches} disabled={savingCoaches}>
+              {savingCoaches && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Enregistrer
             </Button>
           </DialogFooter>
         </DialogContent>
