@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ProgrammeStatusBadge from '@/components/programmes/ProgrammeStatusBadge';
@@ -21,7 +23,7 @@ import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceT
 import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -42,6 +44,10 @@ export default function ProgrammeDetailPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newOrganization, setNewOrganization] = useState('');
+  const [renaming, setRenaming] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchProgramme = useCallback(async () => {
@@ -115,6 +121,33 @@ export default function ProgrammeDetailPage() {
     if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     else { toast({ title: '✅ Programme démarré — les onglets de suivi sont maintenant disponibles' }); fetchProgramme(); }
     setStarting(false);
+  };
+
+  const openRename = () => {
+    setNewName(programme?.name || '');
+    setNewOrganization(programme?.organization || '');
+    setRenameOpen(true);
+  };
+
+  const handleRename = async () => {
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      toast({ title: 'Nom requis', description: 'Le nom du programme ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
+    setRenaming(true);
+    const { error } = await supabase
+      .from('programmes')
+      .update({ name: trimmedName, organization: newOrganization.trim() || null })
+      .eq('id', id!);
+    setRenaming(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: '✅ Programme renommé' });
+    setRenameOpen(false);
+    fetchProgramme();
   };
 
   const handleScreen = async () => {
@@ -210,6 +243,10 @@ export default function ProgrammeDetailPage() {
           Retour aux programmes
         </Button>
         <ProgrammeStatusBadge status={status} />
+        <Button variant="outline" onClick={openRename} className="gap-2">
+          <Pencil className="h-4 w-4" />
+          Renommer
+        </Button>
         {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.publish')}</Button>}
         {status === 'open' && <Button variant="outline" onClick={handleClose}>{t('programme.close_candidatures')}</Button>}
         {(status === 'open' || status === 'closed') && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.start_programme')}</Button>}
@@ -472,6 +509,42 @@ export default function ProgrammeDetailPage() {
         candidatureIds={candidatures.map(c => c.id)}
         onNavigate={(cId) => setSelectedCandidature(cId)}
       />
+
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renommer le programme</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="programme-name">Nom du programme</Label>
+              <Input
+                id="programme-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ex : Kolwezi"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="programme-organization">Organisation</Label>
+              <Input
+                id="programme-organization"
+                value={newOrganization}
+                onChange={(e) => setNewOrganization(e.target.value)}
+                placeholder="Ex : OVO"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameOpen(false)} disabled={renaming}>Annuler</Button>
+            <Button onClick={handleRename} disabled={renaming}>
+              {renaming && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
