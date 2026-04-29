@@ -63,7 +63,7 @@ export default function MembersPage() {
     const [membersRes, invitationsRes] = await Promise.all([
       supabase
         .from('organization_members')
-        .select('id, user_id, role, joined_at, is_active, profiles:user_id(full_name, email)')
+        .select('id, user_id, role, joined_at, is_active')
         .eq('organization_id', currentOrg.id)
         .eq('is_active', true)
         .order('joined_at'),
@@ -76,7 +76,25 @@ export default function MembersPage() {
         .order('created_at', { ascending: false }),
     ]);
 
-    setMembers(membersRes.data || []);
+    // Pas de FK entre organization_members.user_id et profiles.user_id, donc l'embed
+    // PostgREST échoue silencieusement → on récupère les profils séparément.
+    const memberRows = membersRes.data || [];
+    const userIds = memberRows.map((m: any) => m.user_id).filter(Boolean);
+    let profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
+      (profs || []).forEach((p: any) => {
+        profileMap[p.user_id] = { full_name: p.full_name, email: p.email };
+      });
+    }
+
+    setMembers(memberRows.map((m: any) => ({
+      ...m,
+      profiles: profileMap[m.user_id] || { full_name: null, email: null },
+    })));
     setInvitations(invitationsRes.data || []);
     setLoading(false);
   };
