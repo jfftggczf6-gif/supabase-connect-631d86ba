@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, X, ChevronRight, Building2 } from 'lucide-react';
+import { Loader2, Plus, ChevronRight, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -37,7 +37,6 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   const [availableEnts, setAvailableEnts] = useState<any[]>([]);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
-  const [removing, setRemoving] = useState<string | null>(null);
 
   // Sous-formulaire "Nouvelle entreprise" intégré au modal d'ajout
   const [showNewEnt, setShowNewEnt] = useState(false);
@@ -164,17 +163,6 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       if (next.has(invitationId)) next.delete(invitationId); else next.add(invitationId);
       return next;
     });
-  };
-
-  const handleRemove = async (enterpriseId: string, name: string) => {
-    if (!confirm(t('cohorte.remove_confirm', { name }))) return;
-    setRemoving(enterpriseId);
-    const { data, error } = await supabase.functions.invoke('manage-programme', {
-      body: { action: 'remove_enterprise', programme_id: programmeId, enterprise_id: enterpriseId }
-    });
-    if (error || data?.error) toast.error(data?.error || error?.message || t('common.error'));
-    else { toast.success(t('cohorte.removed', { name })); fetchEnterprises(); }
-    setRemoving(null);
   };
 
   const openAddDialog = async () => {
@@ -344,14 +332,7 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
                 <TableCell className="text-sm">{e.deliverables_count}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{e.last_activity ? new Date(e.last_activity).toLocaleDateString('fr-FR') : '—'}</TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1">
-                    <button onClick={(ev) => { ev.stopPropagation(); handleRemove(e.id, e.name); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 text-red-500 transition-opacity"
-                      disabled={removing === e.id}>
-                      {removing === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-                    </button>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ))}
