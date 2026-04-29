@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ProgrammeStatusBadge from '@/components/programmes/ProgrammeStatusBadge';
@@ -23,7 +24,7 @@ import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceT
 import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Pencil } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Pencil, Plus, Trash2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -49,6 +50,36 @@ export default function ProgrammeDetailPage() {
   const [newOrganization, setNewOrganization] = useState('');
   const [renaming, setRenaming] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Form Paramètres : programme
+  type ProgrammeForm = {
+    name: string;
+    organization: string;
+    description: string;
+    budget: string;
+    currency: string;
+    nb_places: string;
+    countries: string;
+    sectors: string;
+    start_date: string;
+    end_date: string;
+    programme_start: string;
+    programme_end: string;
+  };
+  const [progForm, setProgForm] = useState<ProgrammeForm>({
+    name: '', organization: '', description: '',
+    budget: '', currency: '', nb_places: '',
+    countries: '', sectors: '',
+    start_date: '', end_date: '',
+    programme_start: '', programme_end: '',
+  });
+  const [savingProg, setSavingProg] = useState(false);
+
+  // Form Paramètres : critères (3 listes de strings)
+  const [critEligibility, setCritEligibility] = useState<string[]>([]);
+  const [critSelection, setCritSelection] = useState<string[]>([]);
+  const [critConditions, setCritConditions] = useState<string[]>([]);
+  const [savingCrit, setSavingCrit] = useState(false);
 
   const fetchProgramme = useCallback(async () => {
     if (!id) return;
@@ -147,6 +178,83 @@ export default function ProgrammeDetailPage() {
     }
     toast({ title: '✅ Programme renommé' });
     setRenameOpen(false);
+    fetchProgramme();
+  };
+
+  // Initialise les forms Paramètres dès que programme/criteria sont chargés
+  useEffect(() => {
+    if (!programme) return;
+    setProgForm({
+      name: programme.name || '',
+      organization: programme.organization || '',
+      description: programme.description || '',
+      budget: programme.budget != null ? String(programme.budget) : '',
+      currency: programme.currency || '',
+      nb_places: programme.nb_places != null ? String(programme.nb_places) : '',
+      countries: (programme.country_filter || []).join(', '),
+      sectors: (programme.sector_filter || []).join(', '),
+      start_date: programme.start_date ? programme.start_date.slice(0, 10) : '',
+      end_date: programme.end_date ? programme.end_date.slice(0, 10) : '',
+      programme_start: programme.programme_start ? programme.programme_start.slice(0, 10) : '',
+      programme_end: programme.programme_end ? programme.programme_end.slice(0, 10) : '',
+    });
+  }, [programme]);
+
+  useEffect(() => {
+    const cc = criteria?.custom_criteria || {};
+    setCritEligibility(Array.isArray(cc.criteres_eligibilite) ? cc.criteres_eligibilite : []);
+    setCritSelection(Array.isArray(cc.criteres_selection) ? cc.criteres_selection : []);
+    setCritConditions(Array.isArray(cc.conditions_specifiques) ? cc.conditions_specifiques : []);
+  }, [criteria]);
+
+  const splitList = (s: string) => s.split(',').map(x => x.trim()).filter(Boolean);
+
+  const handleSaveProgramme = async () => {
+    if (!progForm.name.trim()) {
+      toast({ title: 'Nom requis', variant: 'destructive' });
+      return;
+    }
+    setSavingProg(true);
+    const payload = {
+      name: progForm.name.trim(),
+      organization: progForm.organization.trim() || null,
+      description: progForm.description.trim() || null,
+      budget: progForm.budget ? Number(progForm.budget) : null,
+      currency: progForm.currency.trim() || null,
+      nb_places: progForm.nb_places ? Number(progForm.nb_places) : null,
+      country_filter: splitList(progForm.countries),
+      sector_filter: splitList(progForm.sectors),
+      start_date: progForm.start_date || null,
+      end_date: progForm.end_date || null,
+      programme_start: progForm.programme_start || null,
+      programme_end: progForm.programme_end || null,
+    };
+    const { error } = await supabase.from('programmes').update(payload).eq('id', id!);
+    setSavingProg(false);
+    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: '✅ Paramètres enregistrés' });
+    fetchProgramme();
+  };
+
+  const handleSaveCriteria = async () => {
+    if (!programme?.criteria_id) {
+      toast({ title: 'Aucun critères lié à ce programme', variant: 'destructive' });
+      return;
+    }
+    setSavingCrit(true);
+    const newCustom = {
+      ...(criteria?.custom_criteria || {}),
+      criteres_eligibilite: critEligibility,
+      criteres_selection: critSelection,
+      conditions_specifiques: critConditions,
+    };
+    const { error } = await supabase
+      .from('programme_criteria')
+      .update({ custom_criteria: newCustom })
+      .eq('id', programme.criteria_id);
+    setSavingCrit(false);
+    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: '✅ Critères enregistrés' });
     fetchProgramme();
   };
 
@@ -475,28 +583,185 @@ export default function ProgrammeDetailPage() {
 
         {/* Paramètres */}
         <TabsContent value="parametres">
-          <Card><CardContent className="p-5 space-y-3">
-            <h3 className="font-semibold">{t('programme.settings_title')}</h3>
-            <p className="text-sm text-muted-foreground">{t('programme.settings_coming_soon')}</p>
-            {['in_progress', 'closed'].includes(status) && (
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-red-900">{t('programme.close_programme')}</p>
-                    <p className="text-xs text-muted-foreground">{t('programme.close_warning')}</p>
+          <div className="space-y-6">
+            {/* Section 1 : Informations du programme */}
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <h3 className="font-semibold">Informations du programme</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Nom *</Label>
+                    <Input value={progForm.name} onChange={e => setProgForm(f => ({ ...f, name: e.target.value }))} />
                   </div>
-                  <Button variant="destructive" onClick={async () => {
-                    if (!confirm(t('programme.close_confirm', { name: programme.name }))) return;
-                    const { error } = await supabase.functions.invoke('manage-programme', {
-                      body: { action: 'complete', id: id! }
-                    });
-                    if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
-                    else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
-                  }}>{t('programme.close_button')}</Button>
+                  <div className="space-y-1.5">
+                    <Label>Organisation</Label>
+                    <Input value={progForm.organization} onChange={e => setProgForm(f => ({ ...f, organization: e.target.value }))} placeholder="OVO, ESONO..." />
+                  </div>
                 </div>
-              </div>
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <Textarea rows={3} value={progForm.description} onChange={e => setProgForm(f => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Budget</Label>
+                    <Input type="number" value={progForm.budget} onChange={e => setProgForm(f => ({ ...f, budget: e.target.value }))} placeholder="250000000" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Devise</Label>
+                    <Input value={progForm.currency} onChange={e => setProgForm(f => ({ ...f, currency: e.target.value }))} placeholder="FCFA / EUR / USD" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Nombre de places</Label>
+                    <Input type="number" value={progForm.nb_places} onChange={e => setProgForm(f => ({ ...f, nb_places: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Pays ciblés</Label>
+                    <Input value={progForm.countries} onChange={e => setProgForm(f => ({ ...f, countries: e.target.value }))} placeholder="Côte d'Ivoire, Sénégal, RDC" />
+                    <p className="text-[11px] text-muted-foreground">Séparer les valeurs par des virgules</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Secteurs ciblés</Label>
+                    <Input value={progForm.sectors} onChange={e => setProgForm(f => ({ ...f, sectors: e.target.value }))} placeholder="Agro-industrie, BTP, Services" />
+                    <p className="text-[11px] text-muted-foreground">Séparer les valeurs par des virgules</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-2 rounded-md border p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Période de candidatures</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Début</Label>
+                        <Input type="date" value={progForm.start_date} onChange={e => setProgForm(f => ({ ...f, start_date: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Fin</Label>
+                        <Input type="date" value={progForm.end_date} onChange={e => setProgForm(f => ({ ...f, end_date: e.target.value }))} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 rounded-md border p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Période du programme</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Début</Label>
+                        <Input type="date" value={progForm.programme_start} onChange={e => setProgForm(f => ({ ...f, programme_start: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Fin</Label>
+                        <Input type="date" value={progForm.programme_end} onChange={e => setProgForm(f => ({ ...f, programme_end: e.target.value }))} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-2">
+                  <Button onClick={handleSaveProgramme} disabled={savingProg || !progForm.name.trim()} className="gap-2">
+                    {savingProg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Enregistrer
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Section 2 : Critères */}
+            {programme?.criteria_id ? (
+              <Card>
+                <CardContent className="p-5 space-y-5">
+                  <div>
+                    <h3 className="font-semibold">Critères d'évaluation</h3>
+                    <p className="text-xs text-muted-foreground">Affichés sur la page de candidature et utilisés par le screening IA.</p>
+                  </div>
+
+                  {([
+                    { label: "Critères d'éligibilité", icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />, items: critEligibility, setItems: setCritEligibility, placeholder: 'Ex : entreprise enregistrée, CA < 500M FCFA' },
+                    { label: 'Critères de sélection', icon: <ShieldCheck className="h-4 w-4 text-violet-600" />, items: critSelection, setItems: setCritSelection, placeholder: 'Ex : impact social, scalabilité' },
+                    { label: 'Conditions spécifiques', icon: <AlertTriangle className="h-4 w-4 text-amber-500" />, items: critConditions, setItems: setCritConditions, placeholder: 'Ex : engagement de 12 mois minimum' },
+                  ] as const).map(({ label, icon, items, setItems, placeholder }) => (
+                    <div key={label} className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {icon} {label}
+                      </div>
+                      <div className="space-y-2">
+                        {items.map((value, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <Input
+                              value={value}
+                              onChange={e => {
+                                const next = [...items];
+                                next[idx] = e.target.value;
+                                setItems(next);
+                              }}
+                              placeholder={placeholder}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => setItems([...items, ''])}
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Ajouter un critère
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex justify-end pt-2 border-t">
+                    <Button onClick={handleSaveCriteria} disabled={savingCrit} className="gap-2">
+                      {savingCrit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Enregistrer les critères
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-5">
+                  <p className="text-sm text-muted-foreground">Aucun jeu de critères associé à ce programme.</p>
+                </CardContent>
+              </Card>
             )}
-          </CardContent></Card>
+
+            {/* Section 3 : Zone dangereuse */}
+            <Card className="border-red-200">
+              <CardContent className="p-5 space-y-3">
+                <h3 className="font-semibold text-red-900">Zone dangereuse</h3>
+                {['in_progress', 'closed'].includes(status) ? (
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-sm">{t('programme.close_programme')}</p>
+                      <p className="text-xs text-muted-foreground">{t('programme.close_warning')}</p>
+                    </div>
+                    <Button variant="destructive" onClick={async () => {
+                      if (!confirm(t('programme.close_confirm', { name: programme.name }))) return;
+                      const { error } = await supabase.functions.invoke('manage-programme', {
+                        body: { action: 'complete', id: id! }
+                      });
+                      if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+                      else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
+                    }}>{t('programme.close_button')}</Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    Les actions destructives (clôture définitive) seront disponibles une fois le programme démarré.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
