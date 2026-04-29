@@ -47,6 +47,18 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   const [newEntContactEmail, setNewEntContactEmail] = useState('');
   const [creatingEnt, setCreatingEnt] = useState(false);
 
+  // Coaches sélectionnables : déjà inscrits (user_id) + invités en attente (invitation_id)
+  type CoachOption = {
+    kind: 'member' | 'pending';
+    user_id?: string;
+    invitation_id?: string;
+    full_name: string | null;
+    email: string | null;
+  };
+  const [availableCoaches, setAvailableCoaches] = useState<CoachOption[]>([]);
+  const [newEntCoachUserIds, setNewEntCoachUserIds] = useState<Set<string>>(new Set());
+  const [newEntCoachInvitationIds, setNewEntCoachInvitationIds] = useState<Set<string>>(new Set());
+
   const fetchEnterprises = async () => {
     setLoading(true);
     const { data: cands } = await supabase
@@ -95,6 +107,65 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
 
   useEffect(() => { fetchEnterprises(); }, [programmeId]);
 
+  // Charge les coaches disponibles (membres acceptés + invitations pending) pour la pré-assignation
+  const fetchAvailableCoaches = async () => {
+    if (!currentOrg?.id) { setAvailableCoaches([]); return; }
+    const { data: members } = await supabase
+      .from('organization_members')
+      .select('user_id')
+      .eq('organization_id', currentOrg.id)
+      .eq('is_active', true)
+      .eq('role', 'coach');
+    const memberIds = (members || []).map((m: any) => m.user_id);
+    let memberProfiles: Array<{ user_id: string; full_name: string | null; email: string | null }> = [];
+    if (memberIds.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', memberIds);
+      memberProfiles = (profs || []) as any;
+    }
+    const nowIso = new Date().toISOString();
+    const { data: invites } = await supabase
+      .from('organization_invitations')
+      .select('id, email')
+      .eq('organization_id', currentOrg.id)
+      .eq('role', 'coach')
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .gt('expires_at', nowIso);
+    const options: CoachOption[] = [
+      ...memberProfiles.map(p => ({
+        kind: 'member' as const,
+        user_id: p.user_id,
+        full_name: p.full_name,
+        email: p.email,
+      })),
+      ...(invites || []).map((i: any) => ({
+        kind: 'pending' as const,
+        invitation_id: i.id,
+        full_name: null,
+        email: i.email,
+      })),
+    ];
+    setAvailableCoaches(options);
+  };
+
+  const toggleCoachUser = (userId: string) => {
+    setNewEntCoachUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
+  const toggleCoachInvitation = (invitationId: string) => {
+    setNewEntCoachInvitationIds(prev => {
+      const next = new Set(prev);
+      if (next.has(invitationId)) next.delete(invitationId); else next.add(invitationId);
+      return next;
+    });
+  };
+
   const handleRemove = async (enterpriseId: string, name: string) => {
     if (!confirm(t('cohorte.remove_confirm', { name }))) return;
     setRemoving(enterpriseId);
@@ -109,6 +180,7 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   const openAddDialog = async () => {
     setShowAdd(true);
     setSelectedToAdd(new Set());
+    fetchAvailableCoaches();
     const existingIds = new Set(enterprises.map(e => e.id));
     let addEntQ = supabase
       .from('enterprises')
@@ -162,18 +234,59 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       if (error) throw error;
       const inserted = ent as any;
 
+      // 1) Coaches déjà acceptés → enterprise_coaches
+      if (newEntCoachUserIds.size > 0) {
+        const rows = Array.from(newEntCoachUserIds).map(coachId => ({
+          enterprise_id: inserted.id,
+          coach_id: coachId,
+          organization_id: currentOrg.id,
+          role: 'principal',
+          assigned_by: user?.id || null,
+          is_active: true,
+        }));
+        const { error: ecError } = await supabase
+          .from('enterprise_coaches' as any)
+          .insert(rows);
+        if (ecError) {
+          console.warn('[create-enterprise] coach assignment failed:', ecError);
+          toast.warning(`Entreprise créée mais ${newEntCoachUserIds.size} coach(es) non assignés : ${ecError.message}`);
+        }
+      }
+
+      // 2) Coaches en attente d'acceptation → enterprise_coach_invitations
+      if (newEntCoachInvitationIds.size > 0) {
+        const rows = Array.from(newEntCoachInvitationIds).map(invId => ({
+          enterprise_id: inserted.id,
+          invitation_id: invId,
+          organization_id: currentOrg.id,
+          role: 'principal',
+          assigned_by: user?.id || null,
+        }));
+        const { error: eciError } = await supabase
+          .from('enterprise_coach_invitations' as any)
+          .insert(rows);
+        if (eciError) {
+          console.warn('[create-enterprise] pending coach pre-assign failed:', eciError);
+          toast.warning(`Entreprise créée mais ${newEntCoachInvitationIds.size} pré-assignation(s) en attente non enregistrées : ${eciError.message}`);
+        }
+      }
+
       // Intègre immédiatement la nouvelle entreprise au programme courant
       const { data, error: addErr } = await supabase.functions.invoke('manage-programme', {
         body: { action: 'add_enterprise', programme_id: programmeId, enterprise_id: inserted.id }
       });
+      const totalAssigned = newEntCoachUserIds.size + newEntCoachInvitationIds.size;
+      const coachSuffix = totalAssigned > 0 ? ` · ${totalAssigned} coach(es) assigné(s)${newEntCoachInvitationIds.size > 0 ? ' (dont pré-assignés en attente)' : ''}` : '';
       if (addErr || data?.error) {
-        toast.warning(`Entreprise "${inserted.name}" créée mais non ajoutée à la cohorte : ${data?.error || addErr?.message}`);
+        toast.warning(`Entreprise "${inserted.name}" créée${coachSuffix} mais non ajoutée à la cohorte : ${data?.error || addErr?.message}`);
       } else {
-        toast.success(`Entreprise "${inserted.name}" créée et ajoutée à la cohorte`);
+        toast.success(`Entreprise "${inserted.name}" créée et ajoutée à la cohorte${coachSuffix}`);
       }
 
       // Reset + refresh
       setNewEntName(''); setNewEntSector(''); setNewEntCountry(''); setNewEntContactEmail('');
+      setNewEntCoachUserIds(new Set());
+      setNewEntCoachInvitationIds(new Set());
       setShowNewEnt(false);
       await fetchEnterprises();
       await openAddDialog(); // recharge la liste des candidats (la nouvelle entreprise sera désormais dans la cohorte)
@@ -250,7 +363,14 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
       </CardContent></Card>
 
       {/* Add dialog */}
-      <Dialog open={showAdd} onOpenChange={(open) => { setShowAdd(open); if (!open) setShowNewEnt(false); }}>
+      <Dialog open={showAdd} onOpenChange={(open) => {
+        setShowAdd(open);
+        if (!open) {
+          setShowNewEnt(false);
+          setNewEntCoachUserIds(new Set());
+          setNewEntCoachInvitationIds(new Set());
+        }
+      }}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t('cohorte.add_enterprises')}</DialogTitle></DialogHeader>
 
@@ -304,8 +424,66 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
                   <Input type="email" value={newEntContactEmail} onChange={e => setNewEntContactEmail(e.target.value)} placeholder="contact@pme.ci" />
                 </div>
               </div>
+              <div className="space-y-2 pt-1">
+                <Label className="text-xs">Coaches assignés (optionnel)</Label>
+                {availableCoaches.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground italic px-2 py-1.5 rounded bg-background border">
+                    Aucun coach disponible dans cette organisation. Tu peux créer l'entreprise sans coach et l'assigner plus tard.
+                  </div>
+                ) : (
+                  <div className="rounded-md border bg-background max-h-44 overflow-y-auto divide-y">
+                    {availableCoaches.map((c) => {
+                      const isMember = c.kind === 'member';
+                      const id = isMember ? c.user_id! : c.invitation_id!;
+                      const checked = isMember
+                        ? newEntCoachUserIds.has(id)
+                        : newEntCoachInvitationIds.has(id);
+                      const onToggle = () => isMember
+                        ? toggleCoachUser(id)
+                        : toggleCoachInvitation(id);
+                      return (
+                        <label
+                          key={`${c.kind}-${id}`}
+                          className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-muted/30"
+                        >
+                          <Checkbox checked={checked} onCheckedChange={onToggle} />
+                          <span className="flex-1 text-xs flex items-center gap-1.5 min-w-0">
+                            <span className="truncate">
+                              {c.full_name && (
+                                <span className="font-medium">{c.full_name}</span>
+                              )}
+                              {c.email && (
+                                <span className={c.full_name ? 'text-muted-foreground ml-1' : 'font-medium'}>
+                                  {c.email}
+                                </span>
+                              )}
+                            </span>
+                            {!isMember && (
+                              <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-800 border-amber-200 flex-shrink-0">
+                                En attente
+                              </Badge>
+                            )}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {(newEntCoachUserIds.size > 0 || newEntCoachInvitationIds.size > 0) && (
+                  <div className="text-[11px] text-muted-foreground">
+                    {newEntCoachUserIds.size + newEntCoachInvitationIds.size} coach(es) assigné(s)
+                    {newEntCoachInvitationIds.size > 0 && (
+                      <span className="italic"> · dont {newEntCoachInvitationIds.size} pré-assigné(s) — l'assignation sera effective dès leur acceptation</span>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewEnt(false)}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => {
+                  setShowNewEnt(false);
+                  setNewEntCoachUserIds(new Set());
+                  setNewEntCoachInvitationIds(new Set());
+                }}>
                   Annuler
                 </Button>
                 <Button
