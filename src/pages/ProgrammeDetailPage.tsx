@@ -71,11 +71,28 @@ export default function ProgrammeDetailPage() {
   });
   const [savingProg, setSavingProg] = useState(false);
 
-  // Form Paramètres : critères (3 listes de strings)
+  // Form Paramètres : critères (utilisés par le pré-screening IA)
   const [critEligibility, setCritEligibility] = useState<string[]>([]);
   const [critSelection, setCritSelection] = useState<string[]>([]);
   const [critConditions, setCritConditions] = useState<string[]>([]);
+  type CriteriaForm = {
+    min_score_ir: string;
+    max_score_ir: string;
+    min_revenue: string;
+    max_debt_ratio: string;
+    min_margin: string;
+    required_deliverables: string;
+    source_document_url: string;
+    raw_criteria_text: string;
+  };
+  const [critForm, setCritForm] = useState<CriteriaForm>({
+    min_score_ir: '', max_score_ir: '',
+    min_revenue: '', max_debt_ratio: '', min_margin: '',
+    required_deliverables: '',
+    source_document_url: '', raw_criteria_text: '',
+  });
   const [savingCrit, setSavingCrit] = useState(false);
+  const [creatingCrit, setCreatingCrit] = useState(false);
 
   const fetchProgramme = useCallback(async () => {
     if (!id) return;
@@ -174,6 +191,16 @@ export default function ProgrammeDetailPage() {
     setCritEligibility(Array.isArray(cc.criteres_eligibilite) ? cc.criteres_eligibilite : []);
     setCritSelection(Array.isArray(cc.criteres_selection) ? cc.criteres_selection : []);
     setCritConditions(Array.isArray(cc.conditions_specifiques) ? cc.conditions_specifiques : []);
+    setCritForm({
+      min_score_ir: criteria?.min_score_ir != null ? String(criteria.min_score_ir) : '',
+      max_score_ir: criteria?.max_score_ir != null ? String(criteria.max_score_ir) : '',
+      min_revenue: criteria?.min_revenue != null ? String(criteria.min_revenue) : '',
+      max_debt_ratio: criteria?.max_debt_ratio != null ? String(criteria.max_debt_ratio) : '',
+      min_margin: criteria?.min_margin != null ? String(criteria.min_margin) : '',
+      required_deliverables: (criteria?.required_deliverables || []).join(', '),
+      source_document_url: criteria?.source_document_url || '',
+      raw_criteria_text: criteria?.raw_criteria_text || '',
+    });
   }, [criteria]);
 
   const splitList = (s: string) => s.split(',').map(x => x.trim()).filter(Boolean);
@@ -217,14 +244,63 @@ export default function ProgrammeDetailPage() {
       criteres_selection: critSelection,
       conditions_specifiques: critConditions,
     };
+    const numOrNull = (s: string) => s.trim() === '' ? null : Number(s);
+    const payload: any = {
+      custom_criteria: newCustom,
+      min_score_ir: numOrNull(critForm.min_score_ir),
+      max_score_ir: numOrNull(critForm.max_score_ir),
+      min_revenue: numOrNull(critForm.min_revenue),
+      max_debt_ratio: numOrNull(critForm.max_debt_ratio),
+      min_margin: numOrNull(critForm.min_margin),
+      required_deliverables: splitList(critForm.required_deliverables),
+      source_document_url: critForm.source_document_url.trim() || null,
+      raw_criteria_text: critForm.raw_criteria_text.trim() || null,
+    };
     const { error } = await supabase
       .from('programme_criteria')
-      .update({ custom_criteria: newCustom })
+      .update(payload)
       .eq('id', programme.criteria_id);
     setSavingCrit(false);
     if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
     toast({ title: '✅ Critères enregistrés' });
     fetchProgramme();
+  };
+
+  const handleCreateCriteria = async () => {
+    if (!programme) return;
+    if (!programme.organization_id) {
+      toast({ title: 'Erreur', description: 'Programme sans organisation, impossible de créer le jeu de critères.', variant: 'destructive' });
+      return;
+    }
+    setCreatingCrit(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: pc, error: pcErr } = await supabase
+        .from('programme_criteria')
+        .insert({
+          name: programme.name,
+          organization_id: programme.organization_id,
+          created_by: user?.id || null,
+          is_active: true,
+          country_filter: programme.country_filter || [],
+          sector_filter: programme.sector_filter || [],
+          custom_criteria: {},
+        } as any)
+        .select('id')
+        .single();
+      if (pcErr) throw pcErr;
+      const { error: linkErr } = await supabase
+        .from('programmes')
+        .update({ criteria_id: (pc as any).id })
+        .eq('id', programme.id);
+      if (linkErr) throw linkErr;
+      toast({ title: '✅ Jeu de critères créé', description: 'Tu peux maintenant remplir les seuils, livrables, document source.' });
+      fetchProgramme();
+    } catch (err: any) {
+      toast({ title: 'Erreur', description: err.message || 'Impossible de créer le jeu de critères', variant: 'destructive' });
+    } finally {
+      setCreatingCrit(false);
+    }
   };
 
   const handleScreen = async () => {
@@ -630,59 +706,125 @@ export default function ProgrammeDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Section 2 : Critères */}
+            {/* Section 2 : Critères du programme (utilisés par le pré-screening IA) */}
             {programme?.criteria_id ? (
               <Card>
-                <CardContent className="p-5 space-y-5">
+                <CardContent className="p-5 space-y-6">
                   <div>
-                    <h3 className="font-semibold">Critères d'évaluation</h3>
-                    <p className="text-xs text-muted-foreground">Affichés sur la page de candidature et utilisés par le screening IA.</p>
+                    <h3 className="font-semibold">Critères du programme</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Ces critères sont injectés dans le prompt IA du pré-screening pour évaluer la candidature
+                      et remplir <code className="text-[11px]">programme_match</code>.
+                    </p>
                   </div>
 
-                  {([
-                    { label: "Critères d'éligibilité", icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />, items: critEligibility, setItems: setCritEligibility, placeholder: 'Ex : entreprise enregistrée, CA < 500M FCFA' },
-                    { label: 'Critères de sélection', icon: <ShieldCheck className="h-4 w-4 text-violet-600" />, items: critSelection, setItems: setCritSelection, placeholder: 'Ex : impact social, scalabilité' },
-                    { label: 'Conditions spécifiques', icon: <AlertTriangle className="h-4 w-4 text-amber-500" />, items: critConditions, setItems: setCritConditions, placeholder: 'Ex : engagement de 12 mois minimum' },
-                  ] as const).map(({ label, icon, items, setItems, placeholder }) => (
-                    <div key={label} className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        {icon} {label}
+                  {/* Seuils financiers */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Seuils financiers</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Score IR min</Label>
+                        <Input type="number" value={critForm.min_score_ir} onChange={e => setCritForm(f => ({ ...f, min_score_ir: e.target.value }))} placeholder="0" />
                       </div>
-                      <div className="space-y-2">
-                        {items.map((value, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <Input
-                              value={value}
-                              onChange={e => {
-                                const next = [...items];
-                                next[idx] = e.target.value;
-                                setItems(next);
-                              }}
-                              placeholder={placeholder}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => setItems([...items, ''])}
-                        >
-                          <Plus className="h-3.5 w-3.5" /> Ajouter un critère
-                        </Button>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Score IR max</Label>
+                        <Input type="number" value={critForm.max_score_ir} onChange={e => setCritForm(f => ({ ...f, max_score_ir: e.target.value }))} placeholder="100" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">CA minimum</Label>
+                        <Input type="number" value={critForm.min_revenue} onChange={e => setCritForm(f => ({ ...f, min_revenue: e.target.value }))} placeholder="50000000" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Marge min (%)</Label>
+                        <Input type="number" value={critForm.min_margin} onChange={e => setCritForm(f => ({ ...f, min_margin: e.target.value }))} placeholder="0" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Ratio dette max (%)</Label>
+                        <Input type="number" value={critForm.max_debt_ratio} onChange={e => setCritForm(f => ({ ...f, max_debt_ratio: e.target.value }))} placeholder="100" />
                       </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Livrables requis */}
+                  <div className="space-y-1.5">
+                    <Label>Livrables requis</Label>
+                    <Input value={critForm.required_deliverables} onChange={e => setCritForm(f => ({ ...f, required_deliverables: e.target.value }))} placeholder="business_plan, plan_financier, valuation" />
+                    <p className="text-[11px] text-muted-foreground">Codes des deliverables obligatoires, séparés par des virgules</p>
+                  </div>
+
+                  {/* Document source du programme */}
+                  <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+                    <h4 className="text-sm font-medium">Document source du programme</h4>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">URL document source (optionnel)</Label>
+                      <Input value={critForm.source_document_url} onChange={e => setCritForm(f => ({ ...f, source_document_url: e.target.value }))} placeholder="https://..." />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Texte intégral du programme (utilisé tel quel par le pré-screening)</Label>
+                      <Textarea
+                        rows={8}
+                        value={critForm.raw_criteria_text}
+                        onChange={e => setCritForm(f => ({ ...f, raw_criteria_text: e.target.value }))}
+                        placeholder="Colle ici le contenu du document de programme (objectifs, critères détaillés, conditions...). 15 000 caractères max sont injectés dans le prompt IA."
+                        className="font-mono text-xs"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        {critForm.raw_criteria_text.length.toLocaleString('fr-FR')} caractères
+                        {critForm.raw_criteria_text.length > 15000 && (
+                          <span className="text-amber-600"> · au-delà de 15 000, seul le début sera utilisé</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Listes qualitatives */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Critères qualitatifs</h4>
+                    {([
+                      { label: "Critères d'éligibilité", icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />, items: critEligibility, setItems: setCritEligibility, placeholder: 'Ex : entreprise enregistrée, CA < 500M FCFA' },
+                      { label: 'Critères de sélection', icon: <ShieldCheck className="h-4 w-4 text-violet-600" />, items: critSelection, setItems: setCritSelection, placeholder: 'Ex : impact social, scalabilité' },
+                      { label: 'Conditions spécifiques', icon: <AlertTriangle className="h-4 w-4 text-amber-500" />, items: critConditions, setItems: setCritConditions, placeholder: 'Ex : engagement de 12 mois minimum' },
+                    ] as const).map(({ label, icon, items, setItems, placeholder }) => (
+                      <div key={label} className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          {icon} {label}
+                        </div>
+                        <div className="space-y-2">
+                          {items.map((value, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                value={value}
+                                onChange={e => {
+                                  const next = [...items];
+                                  next[idx] = e.target.value;
+                                  setItems(next);
+                                }}
+                                placeholder={placeholder}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => setItems([...items, ''])}
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Ajouter un critère
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
                   <div className="flex justify-end pt-2 border-t">
                     <Button onClick={handleSaveCriteria} disabled={savingCrit} className="gap-2">
@@ -693,9 +835,20 @@ export default function ProgrammeDetailPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="p-5">
-                  <p className="text-sm text-muted-foreground">Aucun jeu de critères associé à ce programme.</p>
+              <Card className="border-dashed">
+                <CardContent className="p-5 space-y-3">
+                  <h3 className="font-semibold">Critères du programme</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Ce programme n'a pas encore de jeu de critères. Sans critères configurés,
+                    le pré-screening IA ne peut pas évaluer la conformité des candidatures (
+                    <code className="text-[11px]">programme_match</code> = null).
+                  </p>
+                  <div>
+                    <Button onClick={handleCreateCriteria} disabled={creatingCrit} className="gap-2">
+                      {creatingCrit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      Créer le jeu de critères
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
