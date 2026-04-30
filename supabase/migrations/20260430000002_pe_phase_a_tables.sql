@@ -87,7 +87,8 @@ CREATE TRIGGER pe_deals_generate_ref
 -- 6. Trigger : enterprise_id requis dès stage > sourcing, lost_reason requis si stage=lost
 CREATE OR REPLACE FUNCTION enforce_pe_deal_invariants() RETURNS TRIGGER AS $$
 BEGIN
-  IF NEW.stage <> 'sourcing' AND NEW.enterprise_id IS NULL THEN
+  -- enterprise_id requis sauf au sourcing ou si on marque le deal lost
+  IF NEW.stage NOT IN ('sourcing', 'lost') AND NEW.enterprise_id IS NULL THEN
     RAISE EXCEPTION 'enterprise_id requis dès le stage pre_screening (deal %)', NEW.deal_ref USING ERRCODE = '23514';
   END IF;
   IF NEW.stage = 'lost' AND (NEW.lost_reason IS NULL OR trim(NEW.lost_reason) = '') THEN
@@ -107,10 +108,10 @@ CREATE TRIGGER pe_deals_enforce_invariants
 CREATE OR REPLACE FUNCTION track_pe_deal_stage_change() RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    INSERT INTO pe_deal_history (deal_id, from_stage, to_stage, changed_by, reason)
+    INSERT INTO public.pe_deal_history (deal_id, from_stage, to_stage, changed_by, reason)
     VALUES (NEW.id, NULL, NEW.stage, NEW.created_by, NULL);
   ELSIF TG_OP = 'UPDATE' AND OLD.stage IS DISTINCT FROM NEW.stage THEN
-    INSERT INTO pe_deal_history (deal_id, from_stage, to_stage, changed_by, reason)
+    INSERT INTO public.pe_deal_history (deal_id, from_stage, to_stage, changed_by, reason)
     VALUES (NEW.id, OLD.stage, NEW.stage,
             (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb->>'sub')::uuid,
             CASE WHEN NEW.stage = 'lost' THEN NEW.lost_reason ELSE NULL END);
