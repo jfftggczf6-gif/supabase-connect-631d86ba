@@ -264,6 +264,24 @@ BEGIN
 
   RAISE NOTICE 'admin@esono.local ajouté comme owner de toutes les orgs';
 
+  -- ════════════════════════════════════════════════════════════════════════
+  -- 8) FIX GoTrue local : les tokens auth NE DOIVENT PAS être NULL
+  --    Sinon : "Database error querying schema" au login (le service auth
+  --    scan ces colonnes en string, pas en *string).
+  -- ════════════════════════════════════════════════════════════════════════
+  UPDATE auth.users
+  SET
+    confirmation_token = COALESCE(confirmation_token, ''),
+    email_change = COALESCE(email_change, ''),
+    email_change_token_new = COALESCE(email_change_token_new, ''),
+    email_change_token_current = COALESCE(email_change_token_current, ''),
+    recovery_token = COALESCE(recovery_token, ''),
+    reauthentication_token = COALESCE(reauthentication_token, ''),
+    phone_change = COALESCE(phone_change, ''),
+    phone_change_token = COALESCE(phone_change_token, '');
+
+  RAISE NOTICE 'Tokens auth fixés (NULL → empty string) pour le login GoTrue local';
+
 END $$;
 
 -- Récap final
