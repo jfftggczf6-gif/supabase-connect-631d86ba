@@ -114,6 +114,7 @@ BEGIN
   INSERT INTO organization_members (organization_id, user_id, role, is_active)
   VALUES (v_pe_org, v_md_id, 'managing_director', true)
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'managing_director', is_active = true;
+  INSERT INTO user_roles (user_id, role) VALUES (v_md_id, 'managing_director') ON CONFLICT DO NOTHING;
 
   -- 3.2) Investment Manager 1 (A. Diallo)
   INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at,
@@ -133,6 +134,7 @@ BEGIN
   INSERT INTO organization_members (organization_id, user_id, role, is_active)
   VALUES (v_pe_org, v_im_id, 'investment_manager', true)
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'investment_manager', is_active = true;
+  INSERT INTO user_roles (user_id, role) VALUES (v_im_id, 'investment_manager') ON CONFLICT DO NOTHING;
 
   -- 3.3) Investment Manager 2 (B. Senghor)
   INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at,
@@ -152,6 +154,7 @@ BEGIN
   INSERT INTO organization_members (organization_id, user_id, role, is_active)
   VALUES (v_pe_org, v_im2_id, 'investment_manager', true)
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'investment_manager', is_active = true;
+  INSERT INTO user_roles (user_id, role) VALUES (v_im2_id, 'investment_manager') ON CONFLICT DO NOTHING;
 
   -- 3.4) Analyst 1 (S. Koné — sous A. Diallo)
   INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at,
@@ -171,6 +174,8 @@ BEGIN
   INSERT INTO organization_members (organization_id, user_id, role, is_active)
   VALUES (v_pe_org, v_analyst1_id, 'analyst', true)
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'analyst', is_active = true;
+  -- Note : enum app_role utilise 'analyste' (FR) en local, 'analyst' (EN) en prod
+  INSERT INTO user_roles (user_id, role) VALUES (v_analyst1_id, 'analyste') ON CONFLICT DO NOTHING;
 
   -- 3.5) Analyst 2 (A. Touré — sous A. Diallo)
   INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at,
@@ -190,6 +195,7 @@ BEGIN
   INSERT INTO organization_members (organization_id, user_id, role, is_active)
   VALUES (v_pe_org, v_analyst2_id, 'analyst', true)
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'analyst', is_active = true;
+  INSERT INTO user_roles (user_id, role) VALUES (v_analyst2_id, 'analyste') ON CONFLICT DO NOTHING;
 
   -- 3.6) Analyst 3 (M. Diop — sous B. Senghor)
   INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at,
@@ -209,6 +215,7 @@ BEGIN
   INSERT INTO organization_members (organization_id, user_id, role, is_active)
   VALUES (v_pe_org, v_analyst3_id, 'analyst', true)
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'analyst', is_active = true;
+  INSERT INTO user_roles (user_id, role) VALUES (v_analyst3_id, 'analyste') ON CONFLICT DO NOTHING;
 
   RAISE NOTICE 'Org PE Adiwale Test + 6 users créés (md@/im1@/im2@/analyst1@/analyst2@/analyst3@adiwale.local)';
 
