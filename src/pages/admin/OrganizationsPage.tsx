@@ -92,7 +92,7 @@ export default function OrganizationsPage() {
   const [wizStep, setWizStep] = useState(1);
   const [wizLoading, setWizLoading] = useState(false);
   const [form, setForm] = useState({
-    name: '', slug: '', type: 'programme' as string, country: '',
+    name: '', slug: '', type: 'programme' as string, country: '', code: '',
     owner_email: '', owner_name: '', send_invitation: true,
   });
 
@@ -115,7 +115,7 @@ export default function OrganizationsPage() {
       setShowWizard(false);
       await refreshOrganizations(); // Mettre à jour le sélecteur d'org
       setWizStep(1);
-      setForm({ name: '', slug: '', type: 'programme', country: '', owner_email: '', owner_name: '', send_invitation: true });
+      setForm({ name: '', slug: '', type: 'programme', country: '', code: '', owner_email: '', owner_name: '', send_invitation: true });
       fetchOrgs();
     } catch (err: any) {
       toast.error(err.message);
@@ -287,7 +287,22 @@ export default function OrganizationsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full" onClick={() => setWizStep(2)} disabled={!form.name || !form.slug}>
+              {form.type === 'pe' && (
+                <div>
+                  <Label>Code (préfixe deal_ref) *</Label>
+                  <Input
+                    value={form.code}
+                    onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) }))}
+                    placeholder="ADW"
+                    maxLength={6}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    2-6 caractères alphanumériques. Sera utilisé pour générer les références de deal (ex : ADW-2026-017).
+                  </p>
+                </div>
+              )}
+              <Button className="w-full" onClick={() => setWizStep(2)}
+                disabled={!form.name || !form.slug || (form.type === 'pe' && form.code.length < 2)}>
                 Suivant
               </Button>
             </div>

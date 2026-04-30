@@ -37,12 +37,20 @@ serve(async (req: Request) => {
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const { name, slug, type, country, owner_email, owner_name, send_invitation } = body;
+    const { name, slug, type, country, code, owner_email, owner_name, send_invitation } = body;
 
     if (!name || !slug || !type) {
       return new Response(JSON.stringify({ error: "name, slug, type required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    // Validation : code requis pour les orgs PE (préfixe deal_ref)
+    if (type === 'pe') {
+      if (!code || !/^[A-Z0-9]{2,6}$/.test(code)) {
+        return new Response(JSON.stringify({ error: "code (2-6 chars alphanumeric uppercase) required for PE org" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Vérifier que le slug est disponible
@@ -66,6 +74,7 @@ serve(async (req: Request) => {
         slug,
         type,
         country: country || null,
+        code: code || null,
         created_by: user.id,
       })
       .select()
