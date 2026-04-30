@@ -48,10 +48,21 @@ type DetailTab = 'mirror' | 'coaching' | 'knowledge';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function CoachDashboard() {
+interface CoachDashboardProps {
+  /** Si fourni, le dashboard montre les entreprises de CE coach plutôt que celles
+   *  de l'utilisateur connecté. Réservé au super_admin (godmode). */
+  viewAsCoachId?: string;
+  /** Couplé à viewAsCoachId : empêche les mutations (création/suppression d'enterprise,
+   *  réassignation, etc.) — l'admin observe uniquement. */
+  readOnly?: boolean;
+}
+
+export default function CoachDashboard({ viewAsCoachId, readOnly = false }: CoachDashboardProps = {}) {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
   const { currentOrg } = useOrganization();
+  // ID effectif du coach observé (godmode admin ou self)
+  const effectiveCoachId = viewAsCoachId || user?.id;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const entIdFromUrl = searchParams.get('ent');
@@ -88,14 +99,14 @@ export default function CoachDashboard() {
   // ─── Data loading ─────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
-    if (!user?.id) return;
+    if (!effectiveCoachId) return;
     setLoading(true);
     try {
       // N-to-N: get enterprise IDs from enterprise_coaches, then fetch enterprises
       const { data: coachLinks } = await supabase
         .from('enterprise_coaches')
         .select('enterprise_id')
-        .eq('coach_id', user.id)
+        .eq('coach_id', effectiveCoachId)
         .eq('is_active', true);
 
       const linkedIds = (coachLinks || []).map(l => l.enterprise_id);
@@ -104,7 +115,7 @@ export default function CoachDashboard() {
       const { data: legacyEnts } = await supabase
         .from('enterprises')
         .select('id')
-        .eq('coach_id', user.id);
+        .eq('coach_id', effectiveCoachId);
 
       const allIds = [...new Set([...linkedIds, ...(legacyEnts || []).map(e => e.id)])];
 
@@ -133,7 +144,7 @@ export default function CoachDashboard() {
         const [modsRes, delivsRes, uploadsRes] = await Promise.all([
           supabase.from('enterprise_modules').select('*').in('enterprise_id', ids),
           supabase.from('deliverables').select('*').in('enterprise_id', ids),
-          supabase.from('coach_uploads').select('*').eq('coach_id', user.id).in('enterprise_id', ids),
+          supabase.from('coach_uploads').select('*').eq('coach_id', effectiveCoachId).in('enterprise_id', ids),
         ]);
 
         const modMap: Record<string, EnterpriseModule[]> = {};
@@ -160,7 +171,7 @@ export default function CoachDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [effectiveCoachId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -575,7 +586,7 @@ export default function CoachDashboard() {
         </div>
         <ProgrammeCriteriaEditor />
         <div className="mt-6">
-          <ScreeningDashboard coachId={user?.id} />
+          <ScreeningDashboard coachId={effectiveCoachId} />
         </div>
       </DashboardLayout>
     );
@@ -591,14 +602,16 @@ export default function CoachDashboard() {
       {/* Liste des entreprises */}
 
       {/* Actions rapides */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <Button onClick={() => setShowAddModal(true)} className="gap-2">
-          <UserPlus className="h-4 w-4" /> {t('dashboard_coach.add_enterprise')}
-        </Button>
-        <Button variant="outline" asChild className="gap-2">
-          <a href="/templates"><Download className="h-4 w-4" /> {t('dashboard_coach.blank_templates')}</a>
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex flex-wrap gap-3 mb-6">
+          <Button onClick={() => setShowAddModal(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" /> {t('dashboard_coach.add_enterprise')}
+          </Button>
+          <Button variant="outline" asChild className="gap-2">
+            <a href="/templates"><Download className="h-4 w-4" /> {t('dashboard_coach.blank_templates')}</a>
+          </Button>
+        </div>
+      )}
 
       {/* Barre de recherche + filtres */}
       <div className="flex flex-wrap gap-3 mb-4">

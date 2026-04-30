@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Search, ChevronDown, ChevronRight, Building2, FileText, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, ChevronDown, ChevronRight, Building2, FileText, Upload, Eye } from 'lucide-react';
 
 interface Profile {
   user_id: string;
@@ -54,6 +55,9 @@ interface CoachesTabProps {
   coachUploads: CoachUpload[];
   enterpriseMap: Record<string, Enterprise>;
   coachEnterprisesMap?: Record<string, string[]>;
+  /** Callback godmode admin : si fourni, un bouton "Voir son tableau" apparaît
+   *  sur chaque ligne et appelle ce handler avec le profil du coach. */
+  onViewCoach?: (coach: Profile) => void;
 }
 
 interface CoachStat {
@@ -73,7 +77,7 @@ const formatDate = (d: string) =>
 const deliverableLabel = (type: string) =>
   type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-export default function CoachesTab({ coaches, enterprises, deliverables, coachUploads, enterpriseMap, coachEnterprisesMap }: CoachesTabProps) {
+export default function CoachesTab({ coaches, enterprises, deliverables, coachUploads, enterpriseMap, coachEnterprisesMap, onViewCoach }: CoachesTabProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
@@ -142,6 +146,7 @@ export default function CoachesTab({ coaches, enterprises, deliverables, coachUp
               <TableHead className="text-center">Livrables</TableHead>
               <TableHead className="text-center">Uploads</TableHead>
               <TableHead>Dernière activité</TableHead>
+              {onViewCoach && <TableHead className="w-[60px] text-right">Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -169,11 +174,24 @@ export default function CoachesTab({ coaches, enterprises, deliverables, coachUp
                         <TableCell className="text-sm text-muted-foreground">
                           {c.lastActivity ? formatDate(c.lastActivity) : '—'}
                         </TableCell>
+                        {onViewCoach && (
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => onViewCoach(c.profile)}
+                              title="Voir son tableau de bord (vue admin)"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     </CollapsibleTrigger>
                     <CollapsibleContent asChild>
                       <TableRow>
-                        <TableCell colSpan={7} className="bg-muted/30 p-0">
+                        <TableCell colSpan={onViewCoach ? 8 : 7} className="bg-muted/30 p-0">
                           <div className="p-4 space-y-4">
                             {/* Enterprises */}
                             <div>

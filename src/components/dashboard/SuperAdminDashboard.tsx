@@ -28,6 +28,7 @@ import CostTrackingTab from './CostTrackingTab';
 import { useTranslation } from 'react-i18next';
 import { PIPELINE } from '@/lib/dashboard-config';
 import EntrepreneurDashboard from './EntrepreneurDashboard';
+import CoachDashboard from './CoachDashboard';
 import { ArrowLeft, Eye } from 'lucide-react';
 
 interface Profile {
@@ -92,6 +93,7 @@ export default function SuperAdminDashboard() {
   const [parserVersion, setParserVersion] = useState('');
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
   const [viewingEnterprise, setViewingEnterprise] = useState<Enterprise | null>(null);
+  const [viewingCoach, setViewingCoach] = useState<Profile | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[] });
   const [creatingUser, setCreatingUser] = useState(false);
@@ -311,6 +313,24 @@ export default function SuperAdminDashboard() {
     if (role === 'coach') return 'secondary';
     return 'outline';
   };
+
+  // --- Drill-down: full coach view (godmode admin) ---
+  if (viewingCoach) {
+    return (
+      <DashboardLayout title={t('admin.title')} subtitle={viewingCoach.full_name || viewingCoach.email || 'Coach'}>
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setViewingCoach(null)}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Retour admin
+          </Button>
+          <Badge variant="secondary" className="text-xs">
+            Vue admin · {viewingCoach.full_name || viewingCoach.email || '—'}
+          </Badge>
+          <Badge variant="outline" className="text-xs">{viewingCoach.email}</Badge>
+        </div>
+        <CoachDashboard viewAsCoachId={viewingCoach.user_id} readOnly={true} />
+      </DashboardLayout>
+    );
+  }
 
   // --- Drill-down: full enterprise view ---
   if (viewingEnterprise) {
@@ -580,6 +600,7 @@ export default function SuperAdminDashboard() {
             coachUploads={coachUploads}
             enterpriseMap={enterpriseMap}
             coachEnterprisesMap={coachEnterprisesMap}
+            onViewCoach={setViewingCoach}
           />
         </TabsContent>
 
