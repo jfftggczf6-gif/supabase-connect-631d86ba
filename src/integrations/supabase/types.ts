@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -1499,6 +1500,35 @@ export type Database = {
           },
         ]
       }
+      investment_memos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deal_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deal_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_memos_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_base: {
         Row: {
           auto_refresh: boolean | null
@@ -2051,6 +2081,116 @@ export type Database = {
         }
         Relationships: []
       }
+      memo_sections: {
+        Row: {
+          content_json: Json | null
+          content_md: string | null
+          created_at: string
+          id: string
+          position: number
+          section_code: Database["public"]["Enums"]["memo_section_code"]
+          source_doc_ids: string[] | null
+          title: string | null
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          content_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          position: number
+          section_code: Database["public"]["Enums"]["memo_section_code"]
+          source_doc_ids?: string[] | null
+          title?: string | null
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          content_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          section_code?: Database["public"]["Enums"]["memo_section_code"]
+          source_doc_ids?: string[] | null
+          title?: string | null
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_sections_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "memo_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memo_versions: {
+        Row: {
+          classification: string | null
+          created_at: string
+          error_message: string | null
+          generated_at: string | null
+          generated_by_agent: string | null
+          generated_by_user_id: string | null
+          id: string
+          label: string
+          memo_id: string
+          overall_score: number | null
+          parent_version_id: string | null
+          stage: Database["public"]["Enums"]["pe_deal_stage"]
+          status: Database["public"]["Enums"]["memo_version_status"]
+        }
+        Insert: {
+          classification?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          label: string
+          memo_id: string
+          overall_score?: number | null
+          parent_version_id?: string | null
+          stage: Database["public"]["Enums"]["pe_deal_stage"]
+          status?: Database["public"]["Enums"]["memo_version_status"]
+        }
+        Update: {
+          classification?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          label?: string
+          memo_id?: string
+          overall_score?: number | null
+          parent_version_id?: string | null
+          stage?: Database["public"]["Enums"]["pe_deal_stage"]
+          status?: Database["public"]["Enums"]["memo_version_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_versions_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "investment_memos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "memo_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_invitations: {
         Row: {
           accepted_at: string | null
@@ -2376,6 +2516,60 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      pe_deal_documents: {
+        Row: {
+          category: string | null
+          created_at: string
+          deal_id: string
+          filename: string
+          id: string
+          mime_type: string | null
+          organization_id: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          deal_id: string
+          filename: string
+          id?: string
+          mime_type?: string | null
+          organization_id: string
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          deal_id?: string
+          filename?: string
+          id?: string
+          mime_type?: string | null
+          organization_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_deal_documents_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_deal_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pe_deal_history: {
         Row: {
@@ -3133,6 +3327,20 @@ export type Database = {
         | "credit_readiness_organigramme"
         | "credit_readiness_analyse_commerciale"
         | "matching_produits"
+      memo_section_code:
+        | "executive_summary"
+        | "shareholding_governance"
+        | "top_management"
+        | "services"
+        | "competition_market"
+        | "unit_economics"
+        | "financials_pnl"
+        | "financials_balance"
+        | "investment_thesis"
+        | "support_requested"
+        | "esg_risks"
+        | "annexes"
+      memo_version_status: "generating" | "ready" | "validated" | "rejected"
       module_code:
         | "bmc"
         | "sic"
@@ -3165,9 +3373,9 @@ export type Database = {
         | "sourcing"
         | "pre_screening"
         | "analyse"
-        | "ic1"
+        | "note_ic1"
         | "dd"
-        | "ic_finale"
+        | "note_ic_finale"
         | "closing"
         | "portfolio"
         | "lost"
@@ -3352,6 +3560,21 @@ export const Constants = {
         "credit_readiness_analyse_commerciale",
         "matching_produits",
       ],
+      memo_section_code: [
+        "executive_summary",
+        "shareholding_governance",
+        "top_management",
+        "services",
+        "competition_market",
+        "unit_economics",
+        "financials_pnl",
+        "financials_balance",
+        "investment_thesis",
+        "support_requested",
+        "esg_risks",
+        "annexes",
+      ],
+      memo_version_status: ["generating", "ready", "validated", "rejected"],
       module_code: [
         "bmc",
         "sic",
@@ -3386,9 +3609,9 @@ export const Constants = {
         "sourcing",
         "pre_screening",
         "analyse",
-        "ic1",
+        "note_ic1",
         "dd",
-        "ic_finale",
+        "note_ic_finale",
         "closing",
         "portfolio",
         "lost",
@@ -3397,3 +3620,5 @@ export const Constants = {
   },
 } as const
 
+A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
