@@ -8,9 +8,10 @@ import { normalizeOdd } from "../_shared/normalizers.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { buildOvoImpactPromptContext } from "../_shared/ovo-knowledge.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const SYSTEM_PROMPT = `Tu es un expert en Objectifs de Développement Durable (ODD) pour PME en Afrique de l'Ouest (UEMOA).
-Tu évalues l'alignement des projets avec les 17 ODD de l'ONU à partir du Business Model Canvas (BMC) et du Social Impact Canvas (SIC).
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const SYSTEM_PROMPT = `Tu évalues l'alignement des projets avec les 17 Objectifs de Développement Durable (ODD) de l'ONU à partir du Business Model Canvas (BMC) et du Social Impact Canvas (SIC).
 RÈGLE ABSOLUE : L'évaluation se base UNIQUEMENT sur BMC + SIC. PAS sur les données financières.
 IMPORTANT: Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.`;
 
@@ -191,7 +192,9 @@ serve(async (req) => {
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     console.log("[generate-odd] Calling Claude API via callAI (max_tokens: 16384)...");
     const ovoImpactContext = buildOvoImpactPromptContext();
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), userPrompt + coachingContext + "\n" + ovoImpactContext, 16384, "claude-sonnet-4-20250514", undefined, { functionName: "generate-odd", enterpriseId: ctx.enterprise_id });
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${SYSTEM_PROMPT}`;
+    const rawData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), userPrompt + coachingContext + "\n" + ovoImpactContext, 16384, "claude-sonnet-4-20250514", undefined, { functionName: "generate-odd", enterpriseId: ctx.enterprise_id });
     const data = normalizeOdd(rawData);
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "odd_analysis", data, "odd");

@@ -10,6 +10,7 @@ import { getValidationRulesPrompt, getSectorKnowledgePrompt, getContextualBenchm
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { detectRisks, buildRiskBlock } from "../_shared/risk-detector.ts";
 import { buildOvoRedFlagsPromptContext, buildOvoCompliancePromptContext } from "../_shared/ovo-knowledge.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
 // ── Helpers locaux ──────────────────────────────────────────────────────────
 
@@ -59,7 +60,8 @@ function summarize(data: any): any {
 
 // ── Prompts ─────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Tu es un consultant senior en stratégie et finance d'entreprise, spécialisé dans l'accompagnement de PME africaines vers l'investment readiness. 15 ans d'expérience en Afrique de l'Ouest (UEMOA).
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const SYSTEM_PROMPT = `Tu accompagnes des entreprises vers l'investment readiness via un diagnostic de stratégie et de finance.
 
 Tu as analysé tous les livrables du pipeline. Le coach connaît déjà l'entreprise. Tu produis un BILAN DE PROGRESSION qui répond à : "Si on présente ce dossier demain à un bailleur, qu'est-ce qui va coincer ?"
 
@@ -287,8 +289,10 @@ Indique lesquels sont levés et lesquels persistent.
 
     const agentDocs = getDocumentContentForAgent(ent, "diagnostic", 80_000);
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${SYSTEM_PROMPT}`;
     const rawData = await callAI(
-      injectGuardrails(SYSTEM_PROMPT, pays),
+      injectGuardrails(finalSystemPrompt, pays),
       buildUserPrompt(ent.name, secteur, pays, agentDocs, livrables, truthBlock, progressionBlock) + coachingContext
         + riskBlock
         + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`

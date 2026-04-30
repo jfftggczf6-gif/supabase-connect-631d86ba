@@ -10,8 +10,13 @@ import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { detectRisks, buildRiskBlock } from "../_shared/risk-detector.ts";
 import { buildOvoRedFlagsPromptContext, buildOvoCompliancePromptContext } from "../_shared/ovo-knowledge.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const SYSTEM_PROMPT = `Tu es un consultant senior en accompagnement PME en Afrique subsaharienne (15 ans, UEMOA/CEMAC). Tu travailles pour un programme d'accélération et tu prépares le DIAGNOSTIC INITIAL d'une entreprise — le premier bilan que le coach lira avant de rencontrer l'entrepreneur.
+// SYSTEM_PROMPT — uniquement les INSTRUCTIONS DE TÂCHE.
+// L'IDENTITÉ du persona (consultant senior / analyste PE / conseiller banque) est désormais
+// composée dynamiquement par buildToneForAgent selon le segment de l'organisation et les presets,
+// puis prépendée à ce prompt à l'exécution. Voir _shared/segment-config.ts pour les tons.
+const SYSTEM_PROMPT = `Tu prépares le DIAGNOSTIC INITIAL d'une entreprise — le premier bilan que le coach lira avant de rencontrer l'entrepreneur.
 
 ═══ OBJECTIF ═══
 Ce diagnostic répond à 3 questions :
@@ -442,7 +447,13 @@ ${PRE_SCREENING_SCHEMA}`;
     } catch (e) { console.warn("[pre-screening] risk detection non-blocking:", e); }
     // OVO intelligence: inject red flags + compliance checklist context
     const ovoContext = buildOvoRedFlagsPromptContext() + "\n" + buildOvoCompliancePromptContext();
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext + kbContext + riskBlock + ovoContext, 24576, undefined, 0.2, { functionName: "generate-pre-screening", enterpriseId: ctx.enterprise_id });
+
+    // Multi-segment : compose le tone_block d'identité (segment + presets) à prépendre au SYSTEM_PROMPT.
+    // Pour les orgs Programme sans preset, le tone reproduit l'identité historique ("consultant senior UEMOA/CEMAC").
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${SYSTEM_PROMPT}`;
+
+    const rawData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), prompt + coachingContext + kbContext + riskBlock + ovoContext, 24576, undefined, 0.2, { functionName: "generate-pre-screening", enterpriseId: ctx.enterprise_id });
     const normalizedData = normalizePreScreening(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 

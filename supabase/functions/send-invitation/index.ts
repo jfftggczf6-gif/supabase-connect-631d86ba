@@ -6,12 +6,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Matrice des droits d'invitation
+// Matrice des droits d'invitation. Inclut les rôles segment Banque
+// (NSIA-style) en plus des rôles Programme et PE classiques.
 const INVITE_PERMISSIONS: Record<string, string[]> = {
-  owner: ['admin', 'manager', 'analyst', 'coach', 'entrepreneur'],
-  admin: ['admin', 'manager', 'analyst', 'coach', 'entrepreneur'],
-  manager: ['analyst', 'coach', 'entrepreneur'],
+  owner: [
+    'admin', 'manager',
+    'analyst', 'coach', 'entrepreneur',
+    'directeur_pme', 'direction_pme', 'directeur_agence',
+    'analyste_credit', 'conseiller_pme', 'partner',
+  ],
+  admin: [
+    'admin', 'manager',
+    'analyst', 'coach', 'entrepreneur',
+    'directeur_pme', 'direction_pme', 'directeur_agence',
+    'analyste_credit', 'conseiller_pme', 'partner',
+  ],
+  manager: [
+    'analyst', 'coach', 'entrepreneur',
+    'directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner',
+  ],
   coach: ['entrepreneur'],
+  // Banque hierarchy
+  directeur_pme:    ['directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'],
+  direction_pme:    ['directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'],
+  directeur_agence: ['analyste_credit', 'conseiller_pme'],
+  analyste_credit:  ['conseiller_pme'],
 };
 
 serve(async (req: Request) => {
@@ -163,6 +182,12 @@ serve(async (req: Request) => {
     const roleLabels: Record<string, string> = {
       owner: 'Propriétaire', admin: 'Administrateur', manager: 'Responsable',
       analyst: 'Analyste', coach: 'Coach', entrepreneur: 'Entrepreneur',
+      directeur_pme: 'Directeur PME',
+      direction_pme: 'Direction PME',
+      directeur_agence: "Directeur d'agence",
+      analyste_credit: 'Analyste crédit',
+      conseiller_pme: 'Conseiller PME',
+      partner: 'Partenaire',
     };
 
     // Envoi email — on capture l'erreur explicitement pour que l'UI puisse alerter

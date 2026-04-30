@@ -37,6 +37,8 @@ import PeRequireType from "./components/pe/PeRequireType";
 import PePipelinePage from "./pages/pe/PePipelinePage";
 import PeDealDetailPage from "./pages/pe/PeDealDetailPage";
 import PeTeamPage from "./pages/pe/PeTeamPage";
+import DossierWorkspacePage from "./pages/banque/DossierWorkspacePage";
+import BanquePipelinePage from "./pages/banque/BanquePipelinePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -101,9 +103,30 @@ const App = () => (
             <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
-            <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><MembersPage /></RequireRole></ProtectedRoute>} />
+            <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'directeur_pme', 'direction_pme', 'directeur_agence', 'analyste_credit']}><MembersPage /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
+            <Route path="/banque/pipeline" element={
+              <ProtectedRoute>
+                <RequireRole roles={['owner','admin','manager','conseiller_pme','analyste_credit','directeur_pme','direction_pme','directeur_agence']}>
+                  <BanquePipelinePage />
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/banque/dossiers/:id" element={
+              <ProtectedRoute>
+                <RequireRole roles={['owner','admin','manager','conseiller_pme','analyste_credit','directeur_pme','direction_pme','directeur_agence']}>
+                  <DossierWorkspacePage />
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/banque/dossiers/:id/diagnostic" element={
+              <ProtectedRoute>
+                <RequireRole roles={['owner','admin','manager','conseiller_pme','analyste_credit','directeur_pme','direction_pme','directeur_agence']}>
+                  <DossierWorkspacePage />
+                </RequireRole>
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </OrganizationProvider>

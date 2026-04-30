@@ -21,6 +21,16 @@ interface SidebarProps {
   generationProgress?: { current: number; total: number; name: string } | null;
   globalScore: number;
   hideActions?: boolean;
+  /**
+   * Override les PHASES par défaut (programme). Permet aux segments banque/PE
+   * de fournir leur propre découpage modules sans modifier ce composant.
+   */
+  phases?: PhaseConfig[];
+  /**
+   * Override le mapping module_code → deliverable_type pour le statut "completed".
+   * Le défaut est DELIV_TYPE_MAP (programme).
+   */
+  deliverableTypeMap?: Record<string, string>;
 }
 
 const DELIV_TYPE_MAP: Record<string, string> = {
@@ -35,13 +45,15 @@ export default function DashboardSidebar({
   enterprise, deliverables, modules, selectedModule, onSelectModule,
   onGenerateAll, onStopGeneration, generating, generationProgress, globalScore: _globalScore,
   hideActions = false,
+  phases: phasesProp,
+  deliverableTypeMap: deliverableTypeMapProp,
 }: SidebarProps) {
   const collapsed = false;
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-
-
+  const phasesToUse = phasesProp ?? PHASES;
+  const delivMap = deliverableTypeMapProp ?? DELIV_TYPE_MAP;
 
   const getModuleStatus = (code: string): 'completed' | 'in_progress' | 'not_started' => {
     // Special modules
@@ -49,7 +61,7 @@ export default function DashboardSidebar({
       // Consider done if there are uploaded files (heuristic via deliverables)
       return deliverables.length > 0 ? 'completed' : 'not_started';
     }
-    const delivType = DELIV_TYPE_MAP[code];
+    const delivType = delivMap[code];
     if (delivType) {
       const hasDeliv = deliverables.some(d => d.type === delivType);
       if (hasDeliv) return 'completed';
@@ -65,7 +77,7 @@ export default function DashboardSidebar({
   };
 
   const totalProgress = useMemo(() => {
-    const allModules = PHASES.flatMap(p => p.modules);
+    const allModules = phasesToUse.flatMap(p => p.modules);
     const done = allModules.filter(m => getModuleStatus(m.code) === 'completed').length;
     return Math.round((done / allModules.length) * 100);
   }, [deliverables, modules]);
@@ -118,7 +130,7 @@ export default function DashboardSidebar({
 
       {/* Phases */}
       <div className="flex-1 overflow-y-auto min-h-0 py-1">
-        {PHASES.map((phase) => {
+        {phasesToUse.map((phase) => {
           const { done, total } = getPhaseProgress(phase);
           
           const colorClass = phaseColorMap[phase.color] || '';

@@ -1,1 +1,0 @@
-ALTER TABLE public.enterprises ADD COLUMN IF NOT EXISTS document_parsing_report JSONB;

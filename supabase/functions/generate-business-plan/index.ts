@@ -7,11 +7,13 @@ import { injectGuardrails } from "../_shared/guardrails.ts";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "npm:docx@8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
 const BP_MODEL = "claude-sonnet-4-6";
 
+// Identité du persona composée par buildToneForAgent (multi-segment).
 // ── SYSTEM PROMPT ──────────────────────────────────────────────────────
-const BP_SYSTEM_PROMPT = `Tu es un consultant senior en business plan avec 20+ ans d'expérience auprès de PME africaines. Tu rédiges des business plans professionnels pour OVO.
+const BP_SYSTEM_PROMPT = `Tu rédiges des business plans professionnels.
 Tu connais les normes SYSCOHADA, la fiscalité UEMOA/CEMAC, et les critères des bailleurs de fonds (Enabel, GIZ, BAD, AFD, IFC, OVO).
 Tu génères UNIQUEMENT du JSON structuré. Pas de markdown, pas de texte autour. Rédige en français. Sois précis, factuel, stratégique. JAMAIS de contenu générique.
 
@@ -860,7 +862,10 @@ serve(async (req) => {
     );
     const knowledgeBlock = `\n\n══════ BASE DE CONNAISSANCES FINANCIÈRE ══════\n${knowledgeBase}`;
     const kbContext = await getKnowledgeForAgent(ctx.supabase, ent.country || "", ent.sector || "", "business_plan", undefined, ctx.organization_id);
-    const guardedPrompt = injectGuardrails(BP_SYSTEM_PROMPT, ent.country);
+    // Multi-segment : prepend tone d'identité (segment + presets) au SYSTEM_PROMPT
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${BP_SYSTEM_PROMPT}`;
+    const guardedPrompt = injectGuardrails(finalSystemPrompt, ent.country);
 
     // PRE-STEP: Web search for market analysis
     let webMarketContext = "";

@@ -47,7 +47,7 @@ export default function MembersPage() {
   const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'coach', message: '' });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: '', message: '' });
   const [inviting, setInviting] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -134,7 +134,7 @@ export default function MembersPage() {
       }
 
       setShowInvite(false);
-      setInviteForm({ email: '', role: 'coach', message: '' });
+      setInviteForm({ email: '', role: INVITABLE_ROLES[0]?.value || '', message: '' });
       fetchData();
     } catch (err: any) {
       toast.error(err.message);

@@ -1,0 +1,303 @@
+{
+  "_meta": {
+    "tenant": "NSIA Banque CI",
+    "segment": "banque",
+    "description": "Preset complet pour NSIA Banque Côte d'Ivoire — Direction PME. Sert d'exemple de référence pour le segment Banque. Valeurs issues de la maquette Banque_experience_complete.html.",
+    "version": "1.0.0",
+    "last_updated": "2026-04-27"
+  },
+
+  "devise": "FCFA",
+  "langue": "fr",
+  "horizon_projection": 5,
+
+  "criteres_conformite": [
+    { "code": "dscr",            "label": "DSCR (capacité de remboursement)",       "ratio": "dscr",            "operateur": "gte", "seuil": 1.2,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "endettement",     "label": "Taux d'endettement",                     "ratio": "endettement",     "operateur": "lte", "seuil": 0.5,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "liquidite",       "label": "Ratio de liquidité",                     "ratio": "liquidite",       "operateur": "gte", "seuil": 1.0,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "couv_garanties",  "label": "Couverture des garanties",               "ratio": "couv_garanties",  "operateur": "gte", "seuil": 1.0,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "liasses",         "label": "Liasses certifiées (2 derniers exercices)", "ratio": "liasses_n",     "operateur": "gte", "seuil": 2,    "obligatoire": true,  "categorie": "documentaire" },
+    { "code": "rccm",            "label": "RCCM valide",                            "ratio": "rccm_valide",     "operateur": "eq",  "seuil": true, "obligatoire": true,  "categorie": "documentaire" },
+    { "code": "incidents",       "label": "Incidents de paiement (12 mois)",        "ratio": "incidents_12m",   "operateur": "eq",  "seuil": 0,    "obligatoire": true,  "categorie": "historique" }
+  ],
+
+  "constats_config": [
+    {
+      "code": "fiabilite_comptable",
+      "label": "Fiabilité comptable",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["liasses_certifiees_2_ans", "comptes_separes", "charges_nettoyees", "liasses_n_fournies"],
+      "impact_template": "Le comité ne peut pas se fier aux ratios calculés. Le DSCR est potentiellement surévalué si les charges personnelles sont retraitées.",
+      "remediation_template": "Séparation des comptes perso/pro et certification des liasses {{annee_n}}."
+    },
+    {
+      "code": "gouvernance",
+      "label": "Gouvernance",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["dg_distinct_daf", "ca_formalise", "pv_ag_a_jour", "structure_actionnariale", "signataires_multiples", "politique_remuneration"],
+      "impact_template": "Le comité considérera le risque homme-clé. Demande probable de caution personnelle renforcée et/ou garanties supplémentaires.",
+      "remediation_template": "Formalisation de la gouvernance (PV AG, organigramme, délégation de signature)."
+    },
+    {
+      "code": "solidite_commerciale",
+      "label": "Solidité commerciale",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["concentration_clients", "diversification_geo", "contrats_pluriannuels", "saisonnalite"],
+      "impact_template": "En cas de choc sur le secteur ou les principaux clients, le DSCR peut chuter sous le seuil. Sensibilité à analyser.",
+      "remediation_template": "Plan de diversification clients et analyse de sensibilité aux principaux risques sectoriels."
+    },
+    {
+      "code": "conformite_juridique",
+      "label": "Conformité juridique",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["rccm_a_jour", "statuts_conformes", "quittances_fiscales", "cnps_a_jour", "litiges", "bic_inscription"],
+      "impact_template": "Aucun blocage juridique pour le décaissement.",
+      "remediation_template": "Régularisation des éléments juridiques manquants."
+    }
+  ],
+
+  "matching_config": {
+    "scoring_method": "criteres_match_pourcentage",
+    "seuil_match_recommande": 70,
+    "seuil_match_eligible": 50
+  },
+
+  "templates_custom": {
+    "note_credit": {
+      "sections": [
+        { "code": "identite",          "label": "1. Identité et activité",                                  "ordre": 1 },
+        { "code": "objet",             "label": "2. Objet de la demande",                                   "ordre": 2 },
+        { "code": "relation_bancaire", "label": "3. Relation bancaire",                                     "ordre": 3 },
+        { "code": "analyse_financiere","label": "4. Analyse financière (données retraitées)",               "ordre": 4 },
+        { "code": "grille",            "label": "5. Grille de conformité",                                  "ordre": 5 },
+        { "code": "constats",          "label": "6. Constats (cercle 2) — après structuration",            "ordre": 6 },
+        { "code": "produit_montage",   "label": "7. Produit et montage recommandé",                         "ordre": 7 },
+        { "code": "recommandation",    "label": "8. Recommandation analyste",                               "ordre": 8 }
+      ]
+    }
+  },
+
+  "config_banque": {
+    "produits": [
+      {
+        "code": "GUDE_PME",
+        "label": "Ligne GUDE-PME",
+        "type": "garantie_dfi",
+        "description": "Quota femmes/jeunes . Taux préférentiel",
+        "ticket_min": 10000000,
+        "ticket_max": 200000000,
+        "taux_indicatif": 0.075,
+        "criteres_eligibilite": [
+          { "code": "pme_ohada",         "label": "PME OHADA",                "type": "boolean",   "valeur_attendue": true },
+          { "code": "secteur_eligible",  "label": "Secteur",                  "type": "in_list",   "valeurs_eligibles": ["agro", "industrie", "services", "commerce", "btp"] },
+          { "code": "ca_seuil",          "label": "CA seuil",                 "type": "lte",       "seuil": 2000000000 },
+          { "code": "jeune_dirigeant",   "label": "Dirigeant <35 ou femme",   "type": "or",        "conditions": [{"field":"age_dirigeant","op":"lt","val":35},{"field":"genre_dirigeant","op":"eq","val":"F"}] }
+        ]
+      },
+      {
+        "code": "TRESORERIE",
+        "label": "Crédit de trésorerie / FdR",
+        "type": "fonds_propres",
+        "description": "Court terme . Cycle d'exploitation",
+        "duree_mois_max": 12,
+        "criteres_eligibilite": [
+          { "code": "historique_12m",    "label": "Historique 12m",           "type": "boolean",   "valeur_attendue": true },
+          { "code": "pas_incidents",     "label": "Pas d'incidents",          "type": "eq",        "field": "incidents_12m", "seuil": 0 },
+          { "code": "ca_stable",         "label": "CA stable",                "type": "boolean",   "valeur_attendue": true }
+        ]
+      },
+      {
+        "code": "INVEST_CLASSIQUE",
+        "label": "Crédit investissement classique",
+        "type": "fonds_propres",
+        "description": "MLT . Fonds propres",
+        "duree_mois_max": 84,
+        "criteres_eligibilite": [
+          { "code": "dscr_seuil",        "label": "DSCR",                     "type": "gte",       "field": "dscr", "seuil": 1.2 },
+          { "code": "endettement_seuil", "label": "Endettement",              "type": "lte",       "field": "endettement", "seuil": 0.5 },
+          { "code": "rccm_valide",       "label": "RCCM",                     "type": "eq",        "field": "rccm_valide", "seuil": true },
+          { "code": "couv_garanties",    "label": "Couv. garanties",          "type": "gte",       "field": "couv_garanties", "seuil": 1.0 },
+          { "code": "liasses_2_ans",     "label": "Liasses 2 ans certifiées", "type": "gte",       "field": "liasses_n", "seuil": 2 }
+        ]
+      },
+      {
+        "code": "IFC_50",
+        "label": "Ligne IFC — partage risque 50%",
+        "type": "garantie_dfi",
+        "description": "Garantie partage de risque 50%",
+        "taux_partage_risque": 0.5,
+        "criteres_eligibilite": [
+          { "code": "pme",               "label": "PME",                      "type": "boolean",   "valeur_attendue": true },
+          { "code": "secteur",           "label": "Secteur éligible",         "type": "in_list",   "valeurs_eligibles": ["agro", "industrie", "services", "btp"] },
+          { "code": "pas_incidents",     "label": "Pas d'incidents",          "type": "eq",        "field": "incidents_12m", "seuil": 0 }
+        ]
+      },
+      {
+        "code": "PITCH_PME",
+        "label": "Programme Pitch PME",
+        "type": "programme",
+        "description": "Cohorte annuelle . Sélection compétitive",
+        "criteres_eligibilite": [
+          { "code": "profil",            "label": "Profil",                   "type": "boolean",   "valeur_attendue": true },
+          { "code": "calendrier",        "label": "Calendrier ouvert",        "type": "date_range", "field": "today", "between": ["2026-09-01","2026-10-31"] }
+        ]
+      },
+      {
+        "code": "PROPARCO_MLT",
+        "label": "Ligne Proparco — MLT",
+        "type": "dfi",
+        "description": "MLT . Tickets larges",
+        "ticket_min": 200000000,
+        "criteres_eligibilite": [
+          { "code": "secteur",           "label": "Secteur",                  "type": "in_list",   "valeurs_eligibles": ["industrie", "agro", "btp"] },
+          { "code": "ticket_min",        "label": "Ticket min 200M",          "type": "gte",       "field": "montant_demande", "seuil": 200000000 }
+        ]
+      },
+      {
+        "code": "BAD_FEMININ",
+        "label": "Ligne BAD — entreprises féminines",
+        "type": "dfi",
+        "description": "Entreprises dirigées par des femmes",
+        "criteres_eligibilite": [
+          { "code": "secteur",           "label": "Secteur",                  "type": "in_list",   "valeurs_eligibles": ["agro", "industrie", "services", "commerce", "btp"] },
+          { "code": "dirigeant_femme",   "label": "Dirigeant femme",          "type": "eq",        "field": "genre_dirigeant", "seuil": "F" },
+          { "code": "critere_genre",     "label": "Critère genre validé",     "type": "boolean",   "valeur_attendue": true }
+        ]
+      },
+      {
+        "code": "RESPONSABILITY_VERTE",
+        "label": "Ligne responsAbility — verte",
+        "type": "dfi",
+        "description": "Impact environnemental requis",
+        "criteres_eligibilite": [
+          { "code": "impact_env",        "label": "Impact env.",              "type": "boolean",   "valeur_attendue": true },
+          { "code": "esg",               "label": "ESG",                      "type": "boolean",   "valeur_attendue": true }
+        ]
+      }
+    ],
+
+    "canaux_acquisition": [
+      { "code": "agence_walk_in",   "label": "Agence walk-in",      "description": "Client se présente directement en agence" },
+      { "code": "oec_ci",           "label": "OEC-CI convention",   "description": "Convention avec l'Ordre des Experts-Comptables" },
+      { "code": "gude_pme",         "label": "GUDE-PME",            "description": "Guichet Unique de Développement Entrepreneurial PME" },
+      { "code": "pitch_pme",        "label": "Pitch PME",           "description": "Cohorte annuelle de sélection compétitive" },
+      { "code": "formulaire_ligne", "label": "Formulaire en ligne", "description": "Demande déposée via le site web ou l'app" }
+    ],
+
+    "classifications": {
+      "diagnostic": [
+        { "code": "structurable",    "label": "Structurable",     "color": "amber", "description": "Bons ratios mais bloquants corrigeables" },
+        { "code": "non_financable",  "label": "Non finançable",   "color": "red",   "description": "Ratios hors normes, blocages non corrigeables à court terme" },
+        { "code": "compromis",       "label": "Compromis",        "color": "red",   "description": "Risque trop élevé, dossier à classer" },
+        { "code": "finançable",      "label": "Finançable",       "color": "green", "description": "Tous critères conformes, pas de bloquant" }
+      ],
+      "monitoring": [
+        { "code": "sain",            "label": "Sain",             "color": "green", "seuil_jours_retard_max": 0 },
+        { "code": "alerte",          "label": "Alerte",           "color": "amber", "seuil_jours_retard_max": 30 },
+        { "code": "pre_douteux",     "label": "Pré-douteux",      "color": "red",   "seuil_jours_retard_max": 60 },
+        { "code": "douteux",         "label": "Douteux",          "color": "red",   "seuil_jours_retard_max": 90 },
+        { "code": "compromis",       "label": "Compromis",        "color": "red",   "seuil_jours_retard_max": 180 }
+      ]
+    },
+
+    "livrables_credit_readiness": [
+      { "code": "modele_financier",   "label": "Modèle financier",     "ordre": 1, "requis": true,  "source": "auto_plan_financier" },
+      { "code": "projections",        "label": "Projections",          "ordre": 2, "requis": true,  "source": "auto_plan_financier" },
+      { "code": "bp_credit",          "label": "BP crédit",            "ordre": 3, "requis": true,  "source": "ai_genere" },
+      { "code": "plan_financement",   "label": "Plan financement",     "ordre": 4, "requis": true,  "source": "ai_genere" },
+      { "code": "organigramme",       "label": "Organigramme",         "ordre": 5, "requis": true,  "source": "ai_genere" },
+      { "code": "analyse_commerciale","label": "Analyse commerciale",  "ordre": 6, "requis": false, "source": "ai_genere" }
+    ],
+
+    "pipeline_statuts": [
+      { "code": "accueil",       "label": "Accueil",        "ordre": 1, "color": "indigo" },
+      { "code": "diagnostic",    "label": "Diagnostic",     "ordre": 2, "color": "indigo" },
+      { "code": "structuration", "label": "Structuration",  "ordre": 3, "color": "amber" },
+      { "code": "matching",      "label": "Matching",       "ordre": 4, "color": "purple" },
+      { "code": "note_credit",   "label": "Instruction",    "ordre": 5, "color": "teal" },
+      { "code": "decaisse",      "label": "Décaissé",       "ordre": 6, "color": "green" },
+      { "code": "monitoring",    "label": "Monitoring",     "ordre": 7, "color": "neutral" }
+    ],
+
+    "pipeline_views_per_role": {
+      "conseiller_pme": [
+        { "label": "Accueil + Diag.", "statuts": ["accueil", "diagnostic"], "color": "indigo" },
+        { "label": "Structuration",   "statuts": ["structuration"],          "color": "amber" },
+        { "label": "Matching",        "statuts": ["matching"],               "color": "purple" },
+        { "label": "Instruction",     "statuts": ["note_credit"],            "color": "teal" },
+        { "label": "Décaissés",       "statuts": ["decaisse"],               "color": "green" }
+      ],
+      "analyste_credit": [
+        { "label": "Diagnostic",      "statuts": ["accueil", "diagnostic"],  "color": "indigo" },
+        { "label": "Structuration",   "statuts": ["structuration"],          "color": "amber" },
+        { "label": "Matching",        "statuts": ["matching"],               "color": "purple" },
+        { "label": "Note crédit",     "statuts": ["note_credit"],            "color": "teal" },
+        { "label": "Décaissés",       "statuts": ["decaisse"],               "color": "green" },
+        { "label": "Monitoring",      "statuts": ["monitoring"],             "color": "neutral" }
+      ],
+      "directeur_pme": [
+        { "label": "Accueil",         "statuts": ["accueil"],                "color": "indigo" },
+        { "label": "Diagnostic",      "statuts": ["diagnostic"],             "color": "indigo" },
+        { "label": "Structuration",   "statuts": ["structuration"],          "color": "amber" },
+        { "label": "Livrables OK",    "statuts": ["structuration_complete"], "color": "amber" },
+        { "label": "Matching",        "statuts": ["matching"],               "color": "purple" },
+        { "label": "Instruction",     "statuts": ["note_credit"],            "color": "teal" },
+        { "label": "Décaissé",        "statuts": ["decaisse"],               "color": "green" },
+        { "label": "Monitoring",      "statuts": ["monitoring"],             "color": "neutral" }
+      ]
+    },
+
+    "monitoring_seuils": {
+      "retard_alerte_jours": 15,
+      "retard_pre_douteux_jours": 45,
+      "retard_douteux_jours": 60,
+      "retard_compromis_jours": 90,
+      "dscr_alerte_seuil": 1.05,
+      "dscr_pre_douteux_seuil": 0.85
+    },
+
+    "montee_en_gamme_rules": [
+      { "from_produit": "GUDE_PME",         "to_produit": "PROPARCO_MLT",        "conditions": [{"field":"dscr","op":"gte","val":1.5},{"field":"croissance_ca","op":"gte","val":0.30},{"field":"montant_actuel","op":"gte","val":150000000}] },
+      { "from_produit": "BAD_FEMININ",      "to_produit": "IFC_50",              "conditions": [{"field":"gouvernance_formalisee","op":"eq","val":true},{"field":"croissance_ca","op":"gte","val":0.20}] },
+      { "from_produit": "INVEST_CLASSIQUE", "to_produit": "RESPONSABILITY_VERTE","conditions": [{"field":"impact_environnemental","op":"eq","val":true},{"field":"dscr","op":"gte","val":1.5}] }
+    ],
+
+    "roles_labels": {
+      "conseiller_pme":   "Conseiller PME",
+      "analyste_credit":  "Analyste Crédit",
+      "directeur_pme":    "Directeur PME",
+      "directeur_agence": "Directeur d'agence"
+    },
+
+    "flow_nav_per_role": {
+      "conseiller_pme":  ["pipeline", "diagnostic", "credit_readiness", "matching"],
+      "analyste_credit": ["pipeline", "diagnostic", "credit_readiness", "matching", "note_credit", "monitoring"],
+      "directeur_pme":   ["pipeline", "diagnostic", "credit_readiness", "matching", "note_credit", "monitoring", "reporting_dfi"]
+    },
+
+    "flow_nav_screens": [
+      { "code": "pipeline",          "label": "Pipeline",        "path": "/banque/pipeline" },
+      { "code": "diagnostic",        "label": "Diagnostic",      "path": "/banque/dossiers/:id/diagnostic" },
+      { "code": "credit_readiness",  "label": "Credit readiness","path": "/banque/dossiers/:id/credit-readiness", "available": false },
+      { "code": "matching",          "label": "Matching NSIA",   "path": "/banque/dossiers/:id/matching",         "available": false },
+      { "code": "note_credit",       "label": "Note de crédit",  "path": "/banque/dossiers/:id/note-credit",      "available": false },
+      { "code": "monitoring",        "label": "Monitoring",      "path": "/banque/monitoring",                    "available": false },
+      { "code": "reporting_dfi",     "label": "Reporting DFI",   "path": "/banque/reporting-dfi",                 "available": false }
+    ],
+
+    "branding": {
+      "matching_label":    "Matching produits {{org.short_name}}",
+      "diagnostic_label":  "Diagnostic de bancabilité",
+      "credit_readiness_label": "Credit readiness"
+    }
+  },
+
+  "funding_lines_seed": [
+    { "code": "BAD_FEMININ",          "label": "Ligne BAD — entreprises féminines",   "type": "dfi",      "bailleur": "BAD",            "devise": "EUR",  "capacite_totale": 50000000, "kpi_a_reporter": ["femmes_dirigeantes","emplois_crees","defaut"], "taux_partage_risque": null },
+    { "code": "IFC_50",               "label": "Ligne IFC — partage risque 50%",      "type": "garantie", "bailleur": "IFC",            "devise": "EUR",  "capacite_totale": 20000000, "kpi_a_reporter": ["pme_eligibles","sinistralite","defaut"],     "taux_partage_risque": 0.50 },
+    { "code": "GUDE_PME",             "label": "Ligne GUDE-PME — quota femmes/jeunes","type": "dfi",      "bailleur": "GUDE",           "devise": "FCFA", "capacite_totale": 5000000000, "kpi_a_reporter": ["femmes_jeunes","emplois_crees","defaut"], "taux_partage_risque": null, "taux_preferentiel": 0.075 },
+    { "code": "PROPARCO_MLT",         "label": "Ligne Proparco — MLT",                "type": "dfi",      "bailleur": "Proparco",       "devise": "EUR",  "capacite_totale": 25000000, "kpi_a_reporter": ["secteurs","ticket_moyen","defaut"],          "taux_partage_risque": null },
+    { "code": "RESPONSABILITY_VERTE", "label": "Ligne responsAbility — verte",        "type": "dfi",      "bailleur": "responsAbility", "devise": "EUR",  "capacite_totale": 10000000, "kpi_a_reporter": ["impact_co2","type_projets","defaut"],       "taux_partage_risque": null },
+    { "code": "FMO_EMPLOI",           "label": "Ligne FMO — emploi et inclusion",     "type": "dfi",      "bailleur": "FMO",            "devise": "EUR",  "capacite_totale": 15000000, "kpi_a_reporter": ["emplois","zones_rurales","defaut"],         "taux_partage_risque": null }
+  ]
+}

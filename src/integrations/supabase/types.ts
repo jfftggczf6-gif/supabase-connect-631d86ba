@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -174,6 +194,86 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_team_members: {
+        Row: {
+          joined_at: string | null
+          role_in_team: string | null
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          joined_at?: string | null
+          role_in_team?: string | null
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          joined_at?: string | null
+          role_in_team?: string | null
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "bank_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_teams: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          lead_user_id: string
+          name: string
+          organization_id: string
+          parent_team_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          lead_user_id: string
+          name: string
+          organization_id: string
+          parent_team_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          lead_user_id?: string
+          name?: string
+          organization_id?: string
+          parent_team_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_teams_parent_team_id_fkey"
+            columns: ["parent_team_id"]
+            isOneToOne: false
+            referencedRelation: "bank_teams"
             referencedColumns: ["id"]
           },
         ]
@@ -749,10 +849,17 @@ export type Database = {
           html_content: string | null
           id: string
           organization_id: string
+          review_comment: string | null
+          review_history: Json | null
           score: number | null
           shared_at: string | null
+          submitted_at: string | null
+          submitted_by: string | null
           type: Database["public"]["Enums"]["deliverable_type"]
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string | null
           version: number
           visibility: string | null
         }
@@ -767,10 +874,17 @@ export type Database = {
           html_content?: string | null
           id?: string
           organization_id: string
+          review_comment?: string | null
+          review_history?: Json | null
           score?: number | null
           shared_at?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
           type: Database["public"]["Enums"]["deliverable_type"]
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
           version?: number
           visibility?: string | null
         }
@@ -785,10 +899,17 @@ export type Database = {
           html_content?: string | null
           id?: string
           organization_id?: string
+          review_comment?: string | null
+          review_history?: Json | null
           score?: number | null
           shared_at?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
           type?: Database["public"]["Enums"]["deliverable_type"]
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
           version?: number
           visibility?: string | null
         }
@@ -2089,7 +2210,6 @@ export type Database = {
       }
       organization_presets: {
         Row: {
-          branding: Json | null
           config_banque: Json | null
           constats_config: Json | null
           created_at: string | null
@@ -2111,7 +2231,6 @@ export type Database = {
           workflow_overrides: Json | null
         }
         Insert: {
-          branding?: Json | null
           config_banque?: Json | null
           constats_config?: Json | null
           created_at?: string | null
@@ -2133,7 +2252,6 @@ export type Database = {
           workflow_overrides?: Json | null
         }
         Update: {
-          branding?: Json | null
           config_banque?: Json | null
           constats_config?: Json | null
           created_at?: string | null
@@ -2978,7 +3096,6 @@ export type Database = {
         | "analyste_credit"
         | "directeur_agence"
         | "direction_pme"
-        | "directeur_pme"
         | "partner"
       deliverable_type:
         | "bmc_analysis"
@@ -3009,6 +3126,13 @@ export type Database = {
         | "credit_readiness_pack"
         | "note_credit"
         | "teaser_anonymise"
+        | "credit_readiness_modele_financier"
+        | "credit_readiness_projections"
+        | "credit_readiness_bp_credit"
+        | "credit_readiness_plan_financement"
+        | "credit_readiness_organigramme"
+        | "credit_readiness_analyse_commerciale"
+        | "matching_produits"
       module_code:
         | "bmc"
         | "sic"
@@ -3172,6 +3296,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [
@@ -3186,7 +3313,6 @@ export const Constants = {
         "analyste_credit",
         "directeur_agence",
         "direction_pme",
-        "directeur_pme",
         "partner",
       ],
       deliverable_type: [
@@ -3218,6 +3344,13 @@ export const Constants = {
         "credit_readiness_pack",
         "note_credit",
         "teaser_anonymise",
+        "credit_readiness_modele_financier",
+        "credit_readiness_projections",
+        "credit_readiness_bp_credit",
+        "credit_readiness_plan_financement",
+        "credit_readiness_organigramme",
+        "credit_readiness_analyse_commerciale",
+        "matching_produits",
       ],
       module_code: [
         "bmc",
@@ -3263,3 +3396,4 @@ export const Constants = {
     },
   },
 } as const
+

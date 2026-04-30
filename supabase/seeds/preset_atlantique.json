@@ -1,0 +1,235 @@
+{
+  "_meta": {
+    "tenant": "Banque Atlantique CI",
+    "segment": "banque",
+    "description": "Preset alternatif (Banque Atlantique CI). DIFFÉRENT volontairement de NSIA sur tous les axes — sert de validation générique : si une valeur NSIA apparaît à l'écran sur Atlantique, c'est qu'elle est hardcodée et donc à corriger.",
+    "version": "1.0.0",
+    "last_updated": "2026-04-27"
+  },
+
+  "devise": "FCFA",
+  "langue": "fr",
+  "horizon_projection": 7,
+
+  "criteres_conformite": [
+    { "code": "dscr",            "label": "Capacité de remboursement (DSCR)",          "ratio": "dscr",           "operateur": "gte", "seuil": 1.3,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "endettement",     "label": "Endettement global",                        "ratio": "endettement",    "operateur": "lte", "seuil": 0.6,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "fonds_propres",   "label": "Fonds propres / Total bilan",               "ratio": "fp_ratio",       "operateur": "gte", "seuil": 0.25, "obligatoire": true,  "categorie": "financier" },
+    { "code": "couv_garanties",  "label": "Couverture garanties (hors aval)",          "ratio": "couv_garanties", "operateur": "gte", "seuil": 1.2,  "obligatoire": true,  "categorie": "financier" },
+    { "code": "liasses",         "label": "Liasses certifiées (3 derniers exercices)", "ratio": "liasses_n",      "operateur": "gte", "seuil": 3,    "obligatoire": true,  "categorie": "documentaire" },
+    { "code": "anciennete",      "label": "Ancienneté entreprise (années)",            "ratio": "anciennete",     "operateur": "gte", "seuil": 3,    "obligatoire": true,  "categorie": "documentaire" }
+  ],
+
+  "constats_config": [
+    {
+      "code": "qualite_management",
+      "label": "Qualité du management",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["experience_dirigeant", "comite_direction", "delegations_signature", "reporting_interne"],
+      "impact_template": "Le risque homme-clé est élevé. Demande de garanties personnelles renforcées probable.",
+      "remediation_template": "Formaliser le comité de direction et les délégations."
+    },
+    {
+      "code": "exposition_marche",
+      "label": "Exposition marché et concentration",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["top_5_clients", "top_3_fournisseurs", "exposition_change", "couverture_assurance"],
+      "impact_template": "Une concentration excessive expose la PME à un choc client/fournisseur. Sensibilité à analyser.",
+      "remediation_template": "Diversifier les contreparties et souscrire les couvertures appropriées."
+    },
+    {
+      "code": "transparence_financiere",
+      "label": "Transparence financière",
+      "tags_possibles": ["bloquant", "a_corriger", "a_surveiller", "ok"],
+      "items_check": ["liasses_certifiees", "audit_externe", "comptes_consolides", "tva_a_jour"],
+      "impact_template": "Sans données fiables, aucune décision de comité possible.",
+      "remediation_template": "Audit externe et certification des liasses."
+    }
+  ],
+
+  "matching_config": {
+    "scoring_method": "criteres_match_pourcentage",
+    "seuil_match_recommande": 75,
+    "seuil_match_eligible": 60
+  },
+
+  "templates_custom": {
+    "note_credit": {
+      "sections": [
+        { "code": "synthese",         "label": "I. Synthèse exécutive",                  "ordre": 1 },
+        { "code": "presentation",     "label": "II. Présentation de l'emprunteur",       "ordre": 2 },
+        { "code": "demande",          "label": "III. Caractéristiques de la demande",    "ordre": 3 },
+        { "code": "analyse",          "label": "IV. Analyse économique et financière",   "ordre": 4 },
+        { "code": "garanties",        "label": "V. Garanties et risques",                "ordre": 5 },
+        { "code": "recommandation",   "label": "VI. Recommandation",                     "ordre": 6 }
+      ]
+    }
+  },
+
+  "config_banque": {
+    "produits": [
+      {
+        "code": "ATL_INVEST",
+        "label": "Crédit investissement Atlantique",
+        "type": "fonds_propres",
+        "description": "MLT . Investissement productif",
+        "ticket_min": 25000000,
+        "ticket_max": 1500000000,
+        "taux_indicatif": 0.085,
+        "criteres_eligibilite": [
+          { "code": "dscr",        "label": "DSCR ≥ 1.3", "type": "gte", "field": "dscr", "seuil": 1.3 },
+          { "code": "anciennete",  "label": "≥ 3 ans",    "type": "gte", "field": "anciennete", "seuil": 3 }
+        ]
+      },
+      {
+        "code": "ATL_BFR",
+        "label": "Ligne BFR Atlantique",
+        "type": "fonds_propres",
+        "description": "Court terme . Renouvelable annuellement",
+        "duree_mois_max": 12,
+        "criteres_eligibilite": [
+          { "code": "ca_seuil", "label": "CA ≥ 100M", "type": "gte", "field": "ca", "seuil": 100000000 }
+        ]
+      },
+      {
+        "code": "BIDC_AGRO",
+        "label": "Ligne BIDC — Agro-industrie",
+        "type": "dfi",
+        "description": "Banque d'Investissement et Développement CEDEAO",
+        "criteres_eligibilite": [
+          { "code": "secteur",  "label": "Secteur agro", "type": "in_list", "valeurs_eligibles": ["agro", "agri"] },
+          { "code": "impact",   "label": "Impact local", "type": "boolean", "valeur_attendue": true }
+        ]
+      },
+      {
+        "code": "FAGACE_GAR",
+        "label": "Garantie FAGACE",
+        "type": "garantie_dfi",
+        "description": "Fonds Africain de Garantie et Coopération Économique",
+        "taux_partage_risque": 0.4,
+        "criteres_eligibilite": [
+          { "code": "pme_uemoa", "label": "PME UEMOA", "type": "boolean", "valeur_attendue": true }
+        ]
+      },
+      {
+        "code": "ECOWAS_BANK",
+        "label": "Ligne ECOWAS Bank",
+        "type": "dfi",
+        "description": "MLT . Tickets larges régionaux",
+        "ticket_min": 500000000,
+        "criteres_eligibilite": [
+          { "code": "ticket",   "label": "Ticket ≥ 500M",  "type": "gte", "field": "montant_demande", "seuil": 500000000 },
+          { "code": "regional", "label": "Activité régionale", "type": "boolean", "valeur_attendue": true }
+        ]
+      }
+    ],
+
+    "canaux_acquisition": [
+      { "code": "agence_partenaire",  "label": "Agence partenaire",   "description": "Réseau d'agences franchisées Atlantique" },
+      { "code": "ccia_ci",            "label": "CCIA-CI convention",  "description": "Chambre de Commerce et d'Industrie de Côte d'Ivoire" },
+      { "code": "site_web",           "label": "Site web",            "description": "Demande déposée en ligne" },
+      { "code": "recommandation",     "label": "Recommandation",      "description": "Recommandé par un client existant" }
+    ],
+
+    "classifications": {
+      "diagnostic": [
+        { "code": "investigable",      "label": "Investigable",      "color": "amber", "description": "Bancable sous conditions, structuration nécessaire" },
+        { "code": "non_finançable",    "label": "Non finançable",    "color": "red",   "description": "Hors critères Atlantique" },
+        { "code": "finançable",        "label": "Finançable",        "color": "green", "description": "Tous critères conformes" }
+      ],
+      "monitoring": [
+        { "code": "performant",        "label": "Performant",        "color": "green", "seuil_jours_retard_max": 0 },
+        { "code": "vigilant",          "label": "Vigilant",          "color": "amber", "seuil_jours_retard_max": 30 },
+        { "code": "non_performant",    "label": "Non performant",    "color": "red",   "seuil_jours_retard_max": 90 },
+        { "code": "compromis",         "label": "Compromis",         "color": "red",   "seuil_jours_retard_max": 180 }
+      ]
+    },
+
+    "livrables_credit_readiness": [
+      { "code": "memo_synthese",      "label": "Mémo synthèse",        "ordre": 1, "requis": true,  "source": "ai_genere" },
+      { "code": "modele_financier",   "label": "Modèle financier",     "ordre": 2, "requis": true,  "source": "auto_plan_financier" },
+      { "code": "garanties_dossier",  "label": "Dossier garanties",    "ordre": 3, "requis": true,  "source": "ai_genere" },
+      { "code": "analyse_risques",    "label": "Analyse des risques",  "ordre": 4, "requis": true,  "source": "ai_genere" }
+    ],
+
+    "pipeline_statuts": [
+      { "code": "reception",     "label": "Réception",        "ordre": 1, "color": "indigo" },
+      { "code": "pre_instruction","label": "Pré-instruction", "ordre": 2, "color": "indigo" },
+      { "code": "structuration", "label": "Structuration",    "ordre": 3, "color": "amber" },
+      { "code": "comite",        "label": "Comité",           "ordre": 4, "color": "purple" },
+      { "code": "decaisse",      "label": "Décaissé",         "ordre": 5, "color": "green" },
+      { "code": "suivi",         "label": "Suivi",            "ordre": 6, "color": "neutral" }
+    ],
+
+    "pipeline_views_per_role": {
+      "charge_affaires": [
+        { "label": "Réception",       "statuts": ["reception"],       "color": "indigo" },
+        { "label": "Pré-instruction", "statuts": ["pre_instruction"], "color": "indigo" },
+        { "label": "Structuration",   "statuts": ["structuration"],   "color": "amber" },
+        { "label": "Soumis comité",   "statuts": ["comite"],          "color": "purple" }
+      ],
+      "risk_manager": [
+        { "label": "Pré-instruction", "statuts": ["pre_instruction"], "color": "indigo" },
+        { "label": "Structuration",   "statuts": ["structuration"],   "color": "amber" },
+        { "label": "Comité",          "statuts": ["comite"],          "color": "purple" },
+        { "label": "Décaissés",       "statuts": ["decaisse"],        "color": "green" },
+        { "label": "Suivi",           "statuts": ["suivi"],           "color": "neutral" }
+      ],
+      "direction_credit": [
+        { "label": "Réception",       "statuts": ["reception"],       "color": "indigo" },
+        { "label": "Pré-instruction", "statuts": ["pre_instruction"], "color": "indigo" },
+        { "label": "Structuration",   "statuts": ["structuration"],   "color": "amber" },
+        { "label": "Comité",          "statuts": ["comite"],          "color": "purple" },
+        { "label": "Décaissé",        "statuts": ["decaisse"],        "color": "green" },
+        { "label": "Suivi",           "statuts": ["suivi"],           "color": "neutral" }
+      ]
+    },
+
+    "monitoring_seuils": {
+      "retard_alerte_jours": 30,
+      "retard_pre_douteux_jours": 60,
+      "retard_douteux_jours": 90,
+      "retard_compromis_jours": 180,
+      "dscr_alerte_seuil": 1.10,
+      "dscr_pre_douteux_seuil": 0.90
+    },
+
+    "montee_en_gamme_rules": [
+      { "from_produit": "ATL_BFR",     "to_produit": "ATL_INVEST",   "conditions": [{"field":"dscr","op":"gte","val":1.5},{"field":"anciennete_relation","op":"gte","val":2}] },
+      { "from_produit": "ATL_INVEST",  "to_produit": "ECOWAS_BANK",  "conditions": [{"field":"montant_actuel","op":"gte","val":300000000},{"field":"croissance_ca","op":"gte","val":0.25}] }
+    ],
+
+    "roles_labels": {
+      "charge_affaires":  "Chargé d'affaires PME",
+      "risk_manager":     "Risk Manager",
+      "direction_credit": "Direction Crédit"
+    },
+
+    "flow_nav_per_role": {
+      "charge_affaires":  ["pipeline", "diagnostic", "credit_readiness", "matching"],
+      "risk_manager":     ["pipeline", "diagnostic", "credit_readiness", "matching", "note_credit", "monitoring"],
+      "direction_credit": ["pipeline", "diagnostic", "credit_readiness", "matching", "note_credit", "monitoring"]
+    },
+
+    "flow_nav_screens": [
+      { "code": "pipeline",          "label": "Pipeline",            "path": "/banque/pipeline" },
+      { "code": "diagnostic",        "label": "Pré-instruction",     "path": "/banque/dossiers/:id/diagnostic" },
+      { "code": "credit_readiness",  "label": "Préparation comité",  "path": "/banque/dossiers/:id/credit-readiness", "available": false },
+      { "code": "matching",          "label": "Produits Atlantique", "path": "/banque/dossiers/:id/matching",         "available": false },
+      { "code": "note_credit",       "label": "Note crédit",         "path": "/banque/dossiers/:id/note-credit",      "available": false },
+      { "code": "monitoring",        "label": "Suivi",               "path": "/banque/monitoring",                    "available": false }
+    ],
+
+    "branding": {
+      "matching_label":            "Produits {{org.short_name}}",
+      "diagnostic_label":          "Pré-instruction crédit",
+      "credit_readiness_label":    "Préparation au comité"
+    }
+  },
+
+  "funding_lines_seed": [
+    { "code": "BIDC_AGRO",   "label": "Ligne BIDC — Agro",       "type": "dfi",      "bailleur": "BIDC",   "devise": "EUR",  "capacite_totale": 30000000,  "kpi_a_reporter": ["secteur_agro","emplois","defaut"],          "taux_partage_risque": null },
+    { "code": "FAGACE_GAR",  "label": "Garantie FAGACE",         "type": "garantie", "bailleur": "FAGACE", "devise": "EUR",  "capacite_totale": 15000000,  "kpi_a_reporter": ["pme_uemoa","sinistralite"],                  "taux_partage_risque": 0.40 },
+    { "code": "ECOWAS_BANK", "label": "Ligne ECOWAS Bank",       "type": "dfi",      "bailleur": "ECOWAS", "devise": "EUR",  "capacite_totale": 50000000,  "kpi_a_reporter": ["regional","ticket_moyen","defaut"],          "taux_partage_risque": null }
+  ]
+}

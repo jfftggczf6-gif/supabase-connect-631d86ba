@@ -11,7 +11,9 @@ import CreateCohorteDialog from '@/components/programmes/CreateCohorteDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
+import { useSegment } from '@/hooks/useSegment';
 import { toast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export default function ProgrammeListPage() {
   const { t } = useTranslation();
@@ -48,9 +50,31 @@ export default function ProgrammeListPage() {
     : programmes.filter(p => p.status === statusFilter);
 
   const isSuperAdmin = isSuperAdminOrg || role === 'super_admin';
+  const segment = useSegment();
+
+  // Adapte le titre selon le segment de l'org courante
+  // Programme → "Programmes"
+  // PE        → "Deals"
+  // BA        → "Mandats"
+  // Banque    → "Dossiers"
+  const segmentTitle = segment.isProgramme
+    ? t('programme.title')
+    : segment.vocab.pipeline_term_plural.charAt(0).toUpperCase() + segment.vocab.pipeline_term_plural.slice(1);
+  const segmentSubtitle = segment.isProgramme
+    ? t('programme.subtitle')
+    : `Gérez vos ${segment.vocab.pipeline_term_plural} ${segment.label}`;
 
   return (
-    <DashboardLayout title={t('programme.title')} subtitle={t('programme.subtitle')}>
+    <DashboardLayout title={segmentTitle} subtitle={segmentSubtitle}>
+      {/* Badge segment courant */}
+      <div className="flex items-center gap-2 mb-3">
+        <Badge variant="outline" className="text-xs">
+          Segment : <span className="font-semibold ml-1">{segment.label}</span>
+        </Badge>
+        <Badge variant="outline" className="text-xs text-muted-foreground">
+          Vocabulaire : {segment.vocab.entity_plural} · {segment.vocab.entity_owner} · {segment.vocab.analyst}
+        </Badge>
+      </div>
       {/* Action bar */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">

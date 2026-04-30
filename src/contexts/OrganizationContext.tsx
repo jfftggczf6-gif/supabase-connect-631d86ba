@@ -6,7 +6,7 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
-  type: 'programme' | 'pe' | 'mixed';
+  type: 'programme' | 'pe' | 'mixed' | 'banque_affaires' | 'banque';
   country: string | null;
   logo_url: string | null;
   primary_color: string | null;

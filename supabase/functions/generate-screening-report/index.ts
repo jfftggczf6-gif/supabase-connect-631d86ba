@@ -9,8 +9,10 @@ import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { getSectorKnowledgePrompt, getDonorCriteriaPrompt, getValidationRulesPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { detectRisks, buildRiskBlock } from "../_shared/risk-detector.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 
-const SYSTEM_PROMPT = `Tu es un chargé de programme senior dans une ONG/DFI avec 15 ans d'expérience en Afrique de l'Ouest. Tu évalues si une entreprise est éligible à un programme d'accompagnement et/ou de financement.
+// Identité du persona composée par buildToneForAgent (multi-segment).
+const SYSTEM_PROMPT = `Tu évalues si une entreprise est éligible à un programme d'accompagnement et/ou de financement.
 
 Tu as accès à TOUS les livrables du pipeline (BMC, SIC, Framework, Plan OVO, Business Plan, ODD, Valorisation, Diagnostic). Tu produis une DÉCISION PROGRAMME structurée.
 
@@ -269,7 +271,9 @@ ${DECISION_SCHEMA}`;
     } catch (e) { console.warn("[screening-report] risk detection non-blocking:", e); }
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
-    const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext + kbContext + riskBlock, 32768, undefined, undefined, { functionName: "generate-screening-report", enterpriseId: ctx.enterprise_id });
+    const toneBlock = await buildToneForAgent(ctx.supabase, ctx.organization_id);
+    const finalSystemPrompt = `${toneBlock}\n\n${SYSTEM_PROMPT}`;
+    const rawData = await callAI(injectGuardrails(finalSystemPrompt, ent.country), prompt + coachingContext + kbContext + riskBlock, 32768, undefined, undefined, { functionName: "generate-screening-report", enterpriseId: ctx.enterprise_id });
     const normalizedData = normalizeScreeningReport(rawData);
     const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
 
