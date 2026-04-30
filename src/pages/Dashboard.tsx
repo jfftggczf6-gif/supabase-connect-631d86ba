@@ -57,6 +57,15 @@ export default function Dashboard() {
     return <NoOrganizationScreen />;
   }
 
+  // Org PE → tout le monde (sauf entrepreneur) atterrit sur le pipeline PE
+  const peRoles = [
+    'owner', 'admin', 'manager',
+    'managing_director', 'investment_manager', 'analyst', 'partner',
+  ];
+  if (currentOrg.type === 'pe' && orgRole && peRoles.includes(orgRole)) {
+    return <Navigate to="/pe/pipeline" replace />;
+  }
+
   // Dispatch par rôle dans l'org
   // manager = chef de programme / MD → redirige vers programmes
   if (orgRole === 'manager') {

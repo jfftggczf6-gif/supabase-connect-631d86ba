@@ -33,6 +33,10 @@ import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import Settings from "./pages/Settings";
 import KnowledgePage from "./pages/KnowledgePage";
 import KnowledgeReviewPage from "./pages/admin/KnowledgeReviewPage";
+import PeRequireType from "./components/pe/PeRequireType";
+import PePipelinePage from "./pages/pe/PePipelinePage";
+import PeDealDetailPage from "./pages/pe/PeDealDetailPage";
+import PeTeamPage from "./pages/pe/PeTeamPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +72,15 @@ const App = () => (
             } />
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
+            } />
+            <Route path="/pe/pipeline" element={
+              <ProtectedRoute><PeRequireType><PePipelinePage /></PeRequireType></ProtectedRoute>
+            } />
+            <Route path="/pe/deals/:dealId" element={
+              <ProtectedRoute><PeRequireType><PeDealDetailPage /></PeRequireType></ProtectedRoute>
+            } />
+            <Route path="/pe/team" element={
+              <ProtectedRoute><PeRequireType><PeTeamPage /></PeRequireType></ProtectedRoute>
             } />
             <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
             <Route path="/livrables" element={
