@@ -13,6 +13,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
+import DealDocumentsList from '@/components/pe/DealDocumentsList';
+import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -135,10 +138,11 @@ export default function PeDealDetailPage() {
       <Tabs defaultValue="details">
         <TabsList>
           <TabsTrigger value="details">Détails</TabsTrigger>
-          <TabsTrigger value="prescreening" disabled>Pre-screening</TabsTrigger>
-          <TabsTrigger value="memo" disabled>Memo</TabsTrigger>
-          <TabsTrigger value="valuation" disabled>Valuation</TabsTrigger>
+          <TabsTrigger value="prescreening">Pré-screening</TabsTrigger>
+          <TabsTrigger value="memo_ic1">Memo IC1</TabsTrigger>
+          <TabsTrigger value="memo_ic_finale" disabled>Memo IC final</TabsTrigger>
           <TabsTrigger value="dd" disabled>DD</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           {deal.stage === 'portfolio' && <TabsTrigger value="monitoring" disabled>Monitoring</TabsTrigger>}
           <TabsTrigger value="history">Historique</TabsTrigger>
         </TabsList>
@@ -209,32 +213,52 @@ export default function PeDealDetailPage() {
           </CardContent></Card>
         </TabsContent>
 
-        <TabsContent value="history">
-          <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b">
-                <th className="text-left p-3">Date</th>
-                <th className="text-left p-3">Transition</th>
-                <th className="text-left p-3">Raison</th>
-              </tr></thead>
-              <tbody>
-                {history.map(h => (
-                  <tr key={h.id} className="border-b">
-                    <td className="p-3 text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString('fr-FR')}</td>
-                    <td className="p-3">{h.from_stage || '—'} → <span className="font-medium">{h.to_stage}</span></td>
-                    <td className="p-3 text-xs">{h.reason || '—'}</td>
-                  </tr>
-                ))}
-                {!history.length && <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Aucune transition enregistrée.</td></tr>}
-              </tbody>
-            </table>
-          </CardContent></Card>
+        <TabsContent value="prescreening">
+          <MemoSectionsViewer dealId={deal.id} versionStage="pre_screening" />
         </TabsContent>
 
-        <TabsContent value="prescreening"><Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase B (pre-screening 360°).</p></CardContent></Card></TabsContent>
-        <TabsContent value="memo"><Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase C (Investment Memo 12 sections).</p></CardContent></Card></TabsContent>
-        <TabsContent value="valuation"><Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase D (Valuation DCF + multiples).</p></CardContent></Card></TabsContent>
-        <TabsContent value="dd"><Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase E (Due Diligence + findings IA).</p></CardContent></Card></TabsContent>
+        <TabsContent value="memo_ic1">
+          <MemoSectionsViewer dealId={deal.id} versionStage="note_ic1" />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          {currentOrg && <DealDocumentsList dealId={deal.id} organizationId={currentOrg.id} />}
+        </TabsContent>
+
+        <TabsContent value="memo_ic_finale">
+          <Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase E (IC finale).</p></CardContent></Card>
+        </TabsContent>
+        <TabsContent value="dd">
+          <Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase D (Due Diligence + findings IA).</p></CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <div className="space-y-3">
+            <DealHistoryTimeline dealId={deal.id} />
+            <Card>
+              <CardContent className="p-0">
+                <div className="p-3 border-b text-sm font-medium">Transitions de stage</div>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b">
+                    <th className="text-left p-3">Date</th>
+                    <th className="text-left p-3">Transition</th>
+                    <th className="text-left p-3">Raison</th>
+                  </tr></thead>
+                  <tbody>
+                    {history.map(h => (
+                      <tr key={h.id} className="border-b">
+                        <td className="p-3 text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString('fr-FR')}</td>
+                        <td className="p-3">{h.from_stage || '—'} → <span className="font-medium">{h.to_stage}</span></td>
+                        <td className="p-3 text-xs">{h.reason || '—'}</td>
+                      </tr>
+                    ))}
+                    {!history.length && <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Aucune transition enregistrée.</td></tr>}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
     </DashboardLayout>
   );

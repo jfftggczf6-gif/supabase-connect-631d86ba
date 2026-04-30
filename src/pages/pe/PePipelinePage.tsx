@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -10,23 +10,13 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { toast } from 'sonner';
 import PeDealCard from '@/components/pe/PeDealCard';
 import CreateDealDialog from '@/components/pe/CreateDealDialog';
 import StageTransitionDialog from '@/components/pe/StageTransitionDialog';
-
-const COLUMNS: { stage: string; label: string }[] = [
-  { stage: 'sourcing', label: 'Sourcing' },
-  { stage: 'pre_screening', label: 'Pre-screening' },
-  { stage: 'analyse', label: 'Analyse' },
-  { stage: 'ic1', label: 'IC1' },
-  { stage: 'dd', label: 'DD' },
-  { stage: 'ic_finale', label: 'IC finale' },
-  { stage: 'closing', label: 'Closing' },
-  { stage: 'portfolio', label: 'Portfolio' },
-];
-
-const SENSITIVE_TRANSITIONS = new Set(['ic1', 'dd', 'ic_finale', 'closing', 'lost']);
+import { getStagesForRole, SENSITIVE_TRANSITIONS, type PeStage } from '@/lib/pe-stage-config';
+import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 interface Deal {
   id: string;
@@ -61,6 +51,8 @@ export default function PePipelinePage() {
   const navigate = useNavigate();
   const { currentOrg } = useOrganization();
   const { user } = useAuth();
+  const { role } = useCurrentRole();
+  const COLUMNS = useMemo(() => getStagesForRole(role).map(s => ({ stage: s.code, label: s.label })), [role]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -104,6 +96,7 @@ export default function PePipelinePage() {
   useEffect(() => { load(); }, [load]);
 
   const performTransition = async (deal: Deal, toStage: string, lostReason?: string) => {
+    const fromStage = deal.stage;
     const { error, data } = await supabase.functions.invoke('update-pe-deal-stage', {
       body: { deal_id: deal.id, new_stage: toStage, lost_reason: lostReason },
     });
@@ -113,6 +106,27 @@ export default function PePipelinePage() {
       return;
     }
     toast.success(`Deal passé en ${toStage}`);
+
+    // Si transition pre_screening → note_ic1, déclencher le clone du memo
+    if (toStage === 'note_ic1' && fromStage === 'pre_screening') {
+      try {
+        const token = await getValidAccessToken(null);
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ic1-memo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ deal_id: deal.id }),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+          toast.success(result.already_exists ? 'Note IC1 existait déjà' : 'Note IC1 initialisée (12 sections clonées)');
+        } else {
+          toast.warning(`Note IC1 non générée : ${result.error}`);
+        }
+      } catch (e: any) {
+        toast.warning(`Note IC1 non générée : ${e.message}`);
+      }
+    }
+
     load();
   };
 
@@ -126,7 +140,7 @@ export default function PePipelinePage() {
     const deal = deals.find(d => d.id === dealId);
     if (!deal || deal.stage === toStage) return;
 
-    if (SENSITIVE_TRANSITIONS.has(toStage)) {
+    if (SENSITIVE_TRANSITIONS.has(toStage as PeStage)) {
       setPendingTransition({ deal, toStage });
     } else {
       performTransition(deal, toStage);
@@ -157,12 +171,18 @@ export default function PePipelinePage() {
           {COLUMNS.map(c => (
             <Column key={c.stage} stage={c.stage} label={c.label} count={dealsByStage(c.stage).length}>
               {dealsByStage(c.stage).map(d => (
-                <PeDealCard key={d.id} deal={d} onClick={() => navigate(`/pe/deals/${d.id}`)} />
+                <PeDealCard
+                  key={d.id}
+                  deal={d}
+                  organizationId={currentOrg?.id}
+                  onClick={() => navigate(`/pe/deals/${d.id}`)}
+                  onRefresh={load}
+                />
               ))}
             </Column>
           ))}
         </div>
-        <DragOverlay>{activeDeal && <PeDealCard deal={activeDeal} onClick={() => {}} />}</DragOverlay>
+        <DragOverlay>{activeDeal && <PeDealCard deal={activeDeal} organizationId={currentOrg?.id} onClick={() => {}} />}</DragOverlay>
       </DndContext>
 
       {currentOrg && user && (
