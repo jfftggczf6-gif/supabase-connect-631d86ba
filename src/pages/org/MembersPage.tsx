@@ -178,17 +178,33 @@ export default function MembersPage() {
       if (updErr) throw updErr;
 
       // 2) Renvoyer l'email d'invitation
-      const appUrl = window.location.origin;
+      // URL toujours en prod : un email envoyé depuis un preview Vercel ne doit
+      // jamais lier vers vercel.app (filtres anti-spam stricts + lien cassé pour
+      // le destinataire).
+      const appUrl = import.meta.env.VITE_PUBLIC_APP_URL || 'https://esono.tech';
       const invitationUrl = `${appUrl}/invitation/${inv.token}`;
+      const roleLabel = humanizeRole(inv.role, currentOrg.type);
+      const textVersion = [
+        `Invitation renouvelée — ${currentOrg.name}`,
+        ``,
+        `Bonjour,`,
+        `Votre invitation à rejoindre ${currentOrg.name} en tant que ${roleLabel} a été renouvelée.`,
+        inv.personal_message ? `\n"${inv.personal_message}"\n` : '',
+        `Acceptez l'invitation : ${invitationUrl}`,
+        ``,
+        `Ce lien expire dans 7 jours.`,
+        `— L'équipe ESONO`,
+      ].filter(Boolean).join('\n');
       const { error: emailErr } = await supabase.functions.invoke('send-email', {
         body: {
           to: inv.email,
           subject: `Rappel : invitation à rejoindre ${currentOrg.name} sur ESONO`,
+          text: textVersion,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>Invitation renouvelée</h2>
               <p>Bonjour,</p>
-              <p>Votre invitation à rejoindre <strong>${currentOrg.name}</strong> en tant que <strong>${humanizeRole(inv.role, currentOrg.type)}</strong> a été renouvelée.</p>
+              <p>Votre invitation à rejoindre <strong>${currentOrg.name}</strong> en tant que <strong>${roleLabel}</strong> a été renouvelée.</p>
               ${inv.personal_message ? `<p><em>"${inv.personal_message}"</em></p>` : ''}
               <p style="margin: 24px 0;">
                 <a href="${invitationUrl}" style="background: #1a2744; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
