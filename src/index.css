@@ -97,6 +97,24 @@
     --warning-foreground: 0 0% 100%;
     --info: 210 80% 52%;
     --info-foreground: 0 0% 100%;
+
+    /* === Palette mockup PE (Phase B') === */
+    /* Texte */
+    --pe-text-primary: #1a1a2e;
+    --pe-text-secondary: #555;
+    --pe-text-tertiary: #999;
+    /* Statut */
+    --pe-ok: #27ae60;
+    --pe-warning: #e67e22;
+    --pe-danger: #c0392b;
+    --pe-info: #2e75b6;
+    --pe-purple: #7F77DD;
+    /* Backgrounds statut */
+    --pe-bg-ok: #eafaf1;
+    --pe-bg-warning: #fef9e7;
+    --pe-bg-danger: #fdedec;
+    --pe-bg-info: #ebf5fb;
+    --pe-bg-purple: #EEEDFE;
   }
 }
 
