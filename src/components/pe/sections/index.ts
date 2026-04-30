@@ -1,0 +1,12 @@
+export { default as ExecutiveSummarySection } from './ExecutiveSummarySection';
+export { default as ShareholdingGovernanceSection } from './ShareholdingGovernanceSection';
+export { default as TopManagementSection } from './TopManagementSection';
+export { default as ServicesSection } from './ServicesSection';
+export { default as CompetitionMarketSection } from './CompetitionMarketSection';
+export { default as UnitEconomicsSection } from './UnitEconomicsSection';
+export { default as FinancialsPnlSection } from './FinancialsPnlSection';
+export { default as FinancialsBalanceSection } from './FinancialsBalanceSection';
+export { default as InvestmentThesisSection } from './InvestmentThesisSection';
+export { default as SupportRequestedSection } from './SupportRequestedSection';
+export { default as EsgRisksSection } from './EsgRisksSection';
+export { default as AnnexesSection } from './AnnexesSection';
