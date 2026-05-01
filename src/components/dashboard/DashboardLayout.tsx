@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen } from 'lucide-react';
+import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen, Database } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -157,6 +157,15 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 {t('nav.dashboard')}
               </Button>
             )}
+            {/* Base de connaissances — universal asset (toutes orgas + tous segments) */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn('gap-1.5 text-xs', location.pathname.startsWith('/knowledge') && 'bg-muted')}
+              onClick={() => navigate('/knowledge')}
+            >
+              <Database className="h-4 w-4" /> Base de connaissances
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
