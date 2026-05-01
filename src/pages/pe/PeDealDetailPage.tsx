@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import PeDealSidebar from '@/components/pe/PeDealSidebar';
+import PeOverviewHub from '@/components/pe/PeOverviewHub';
+import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import DealDocumentsList from '@/components/pe/DealDocumentsList';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
@@ -30,28 +32,25 @@ export default function PeDealDetailPage() {
   const [analysts, setAnalysts] = useState<AnalystOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<string>('overview');
   const [form, setForm] = useState({
     ticket_demande: '', currency: 'EUR', source: 'autre', source_detail: '', lead_analyst_id: '',
   });
 
+  const isAnalyst = orgRole === 'analyste' || orgRole === 'analyst';
   const isMd = orgRole === 'owner' || orgRole === 'admin' || orgRole === 'managing_director' || isSuperAdmin;
 
   const load = useCallback(async () => {
     if (!dealId) return;
     setLoading(true);
-    const { data: d } = await supabase.from('pe_deals').select('*').eq('id', dealId).maybeSingle();
+    const { data: d } = await supabase.from('pe_deals').select('*, enterprises(name, sector, country)').eq('id', dealId).maybeSingle();
     if (!d) { setDeal(null); setLoading(false); return; }
-    let entName: string | null = null;
-    if (d.enterprise_id) {
-      const { data: e } = await supabase.from('enterprises').select('name').eq('id', d.enterprise_id).maybeSingle();
-      entName = e?.name || null;
-    }
     let leadName: string | null = null;
     if (d.lead_analyst_id) {
       const { data: p } = await supabase.from('profiles').select('full_name, email').eq('user_id', d.lead_analyst_id).maybeSingle();
       leadName = p?.full_name || p?.email || null;
     }
-    setDeal({ ...d, enterprise_name: entName, lead_analyst_name: leadName });
+    setDeal({ ...d, enterprise_name: (d.enterprises as any)?.name ?? null, lead_analyst_name: leadName });
     setForm({
       ticket_demande: d.ticket_demande != null ? String(d.ticket_demande / 1_000_000) : '',
       currency: d.currency || 'EUR',
@@ -73,7 +72,7 @@ export default function PeDealDetailPage() {
         .select('user_id, role')
         .eq('organization_id', currentOrg.id)
         .eq('is_active', true)
-        .in('role', ['analyst', 'investment_manager', 'managing_director', 'owner', 'admin']);
+        .in('role', ['analyst', 'analyste', 'investment_manager', 'managing_director', 'owner', 'admin']);
       const ids = (members || []).map((m: any) => m.user_id);
       if (ids.length) {
         const { data: profs } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', ids);
@@ -85,7 +84,6 @@ export default function PeDealDetailPage() {
         })));
       }
     }
-
     setLoading(false);
   }, [dealId, currentOrg]);
 
@@ -124,31 +122,19 @@ export default function PeDealDetailPage() {
   if (loading) return <DashboardLayout title="Deal"><div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div></DashboardLayout>;
   if (!deal) return <DashboardLayout title="Deal"><p>Deal introuvable</p></DashboardLayout>;
 
-  return (
-    <DashboardLayout title={deal.deal_ref} subtitle={deal.enterprise_name || '—'}>
-      <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/pe/pipeline')}>
-        <ArrowLeft className="h-4 w-4" /> Retour au pipeline
-      </Button>
-
-      <div className="flex items-center gap-3 mb-4">
-        <Badge variant="outline">{deal.stage}</Badge>
-        {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}
-      </div>
-
-      <Tabs defaultValue="details">
-        <TabsList>
-          <TabsTrigger value="details">Détails</TabsTrigger>
-          <TabsTrigger value="prescreening">Pré-screening</TabsTrigger>
-          <TabsTrigger value="memo_ic1">Memo IC1</TabsTrigger>
-          <TabsTrigger value="memo_ic_finale" disabled>Memo IC final</TabsTrigger>
-          <TabsTrigger value="dd" disabled>DD</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          {deal.stage === 'portfolio' && <TabsTrigger value="monitoring" disabled>Monitoring</TabsTrigger>}
-          <TabsTrigger value="history">Historique</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details">
-          <Card><CardContent className="p-5 space-y-4">
+  // Décompose selectedItem : 'overview' | 'settings' | 'documents' | 'history' | 'pre_screening' | 'pre_screening:executive_summary' | etc.
+  const renderRightPanel = () => {
+    if (selectedItem === 'overview') {
+      return <PeOverviewHub dealId={deal.id} deal={deal} onSelectItem={setSelectedItem} />;
+    }
+    if (selectedItem === 'settings') {
+      return (
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold mb-1">Paramètres du deal</h2>
+              <p className="text-xs text-muted-foreground">Métadonnées et lead analyst.</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Ticket (M)</Label>
@@ -188,17 +174,19 @@ export default function PeDealDetailPage() {
                 <Input value={form.source_detail} onChange={e => setForm(f => ({ ...f, source_detail: e.target.value }))} />
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label>Lead analyst</Label>
-              <Select value={form.lead_analyst_id} onValueChange={v => setForm(f => ({ ...f, lead_analyst_id: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {analysts.map((a) => (
-                    <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isAnalyst && (
+              <div className="space-y-1.5">
+                <Label>Lead analyst</Label>
+                <Select value={form.lead_analyst_id} onValueChange={v => setForm(f => ({ ...f, lead_analyst_id: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {analysts.map((a) => (
+                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex justify-between pt-2">
               <Button onClick={handleSave} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -210,56 +198,78 @@ export default function PeDealDetailPage() {
                 </Button>
               )}
             </div>
-          </CardContent></Card>
-        </TabsContent>
+          </CardContent>
+        </Card>
+      );
+    }
+    if (selectedItem === 'documents') {
+      return currentOrg ? <DealDocumentsList dealId={deal.id} organizationId={currentOrg.id} /> : null;
+    }
+    if (selectedItem === 'history') {
+      return (
+        <div className="space-y-3">
+          <DealHistoryTimeline dealId={deal.id} />
+          <Card>
+            <CardContent className="p-0">
+              <div className="p-3 border-b text-sm font-medium">Transitions de stage</div>
+              <table className="w-full text-sm">
+                <thead><tr className="border-b">
+                  <th className="text-left p-3">Date</th>
+                  <th className="text-left p-3">Transition</th>
+                  <th className="text-left p-3">Raison</th>
+                </tr></thead>
+                <tbody>
+                  {history.map(h => (
+                    <tr key={h.id} className="border-b">
+                      <td className="p-3 text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString('fr-FR')}</td>
+                      <td className="p-3">{h.from_stage || '—'} → <span className="font-medium">{h.to_stage}</span></td>
+                      <td className="p-3 text-xs">{h.reason || '—'}</td>
+                    </tr>
+                  ))}
+                  {!history.length && <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Aucune transition enregistrée.</td></tr>}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    // Section unique : <stage>:<section_code>
+    if (selectedItem.includes(':')) {
+      const [stage, code] = selectedItem.split(':');
+      if (['pre_screening', 'note_ic1', 'note_ic_finale'].includes(stage)) {
+        return <PeSingleSectionView dealId={deal.id} stage={stage as any} sectionCode={code} />;
+      }
+    }
+    // Phase entière (stage seul) : <stage>
+    if (['pre_screening', 'note_ic1', 'note_ic_finale'].includes(selectedItem)) {
+      return <MemoSectionsViewer dealId={deal.id} versionStage={selectedItem as any} />;
+    }
+    return <div className="text-muted-foreground">Sélectionne un item dans le menu.</div>;
+  };
 
-        <TabsContent value="prescreening">
-          <MemoSectionsViewer dealId={deal.id} versionStage="pre_screening" />
-        </TabsContent>
+  return (
+    <DashboardLayout title={deal.deal_ref} subtitle={deal.enterprise_name || '—'}>
+      <Button variant="ghost" size="sm" className="mb-3 gap-1.5" onClick={() => navigate('/pe/pipeline')}>
+        <ArrowLeft className="h-4 w-4" /> Retour au pipeline
+      </Button>
 
-        <TabsContent value="memo_ic1">
-          <MemoSectionsViewer dealId={deal.id} versionStage="note_ic1" />
-        </TabsContent>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <Badge variant="outline">{deal.stage}</Badge>
+        {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}
+      </div>
 
-        <TabsContent value="documents">
-          {currentOrg && <DealDocumentsList dealId={deal.id} organizationId={currentOrg.id} />}
-        </TabsContent>
-
-        <TabsContent value="memo_ic_finale">
-          <Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase E (IC finale).</p></CardContent></Card>
-        </TabsContent>
-        <TabsContent value="dd">
-          <Card><CardContent className="p-8 text-center text-muted-foreground"><p>Disponible en Phase D (Due Diligence + findings IA).</p></CardContent></Card>
-        </TabsContent>
-
-        <TabsContent value="history">
-          <div className="space-y-3">
-            <DealHistoryTimeline dealId={deal.id} />
-            <Card>
-              <CardContent className="p-0">
-                <div className="p-3 border-b text-sm font-medium">Transitions de stage</div>
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b">
-                    <th className="text-left p-3">Date</th>
-                    <th className="text-left p-3">Transition</th>
-                    <th className="text-left p-3">Raison</th>
-                  </tr></thead>
-                  <tbody>
-                    {history.map(h => (
-                      <tr key={h.id} className="border-b">
-                        <td className="p-3 text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString('fr-FR')}</td>
-                        <td className="p-3">{h.from_stage || '—'} → <span className="font-medium">{h.to_stage}</span></td>
-                        <td className="p-3 text-xs">{h.reason || '—'}</td>
-                      </tr>
-                    ))}
-                    {!history.length && <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Aucune transition enregistrée.</td></tr>}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Workspace 2 colonnes (pattern programme/banque) */}
+      <div className="flex border rounded-lg overflow-hidden bg-card min-h-[600px]">
+        <PeDealSidebar
+          dealId={deal.id}
+          selectedItem={selectedItem}
+          onSelectItem={setSelectedItem}
+        />
+        <div className="flex-1 min-w-0 p-6 overflow-y-auto">
+          {renderRightPanel()}
+        </div>
+      </div>
     </DashboardLayout>
   );
 }
