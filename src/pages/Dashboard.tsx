@@ -47,32 +47,43 @@ export default function Dashboard() {
     console.log('[Dashboard] Routing decision:', { authRole, orgRole, currentOrg: currentOrg?.name, isSuperAdmin });
   }
 
-  // Super admin → god mode (SuperAdminDashboard)
-  if (isSuperAdmin && authRole === 'super_admin') {
-    return <SuperAdminDashboard />;
-  }
-
-  // Pas d'org → écran NoOrganization
+  // Pas d'org sélectionnée
   if (!currentOrg) {
+    // Super admin sans org → god mode (listing global)
+    if (isSuperAdmin) return <SuperAdminDashboard />;
     return <NoOrganizationScreen />;
   }
 
-  // Org PE → tout le monde (sauf entrepreneur) atterrit sur le pipeline PE
-  const peRoles = [
-    'owner', 'admin', 'manager',
-    'managing_director', 'investment_manager', 'analyst', 'partner',
-  ];
-  if (currentOrg.type === 'pe' && orgRole && peRoles.includes(orgRole)) {
+  // ─── Dispatch par TYPE d'org (le dashboard s'adapte à la cible) ──────────
+  // L'idée : super_admin/admin/owner voient le dashboard du "top role" du segment
+  // (MD pour PE, Directeur pour banque, Manager pour programme).
+  // Les rôles plus restrictifs sont gérés à l'intérieur de chaque page.
+
+  // Org PE → pipeline kanban (sauf entrepreneur)
+  if (currentOrg.type === 'pe') {
+    if (orgRole === 'entrepreneur') return <EntrepreneurDashboard />;
     return <Navigate to="/pe/pipeline" replace />;
   }
 
-  // Dispatch par rôle dans l'org
-  // manager = chef de programme / MD → redirige vers programmes
+  // Org Banque / Banque d'affaires → pipeline crédit
+  if (currentOrg.type === 'banque' || currentOrg.type === 'banque_affaires') {
+    if (orgRole === 'entrepreneur') return <EntrepreneurDashboard />;
+    return <Navigate to="/banque/pipeline" replace />;
+  }
+
+  // ─── Org Programme (par défaut) — dispatch par rôle ───────────────────────
+
+  // Super admin sur org programme → vue programmes globale
+  if (isSuperAdmin) {
+    return <SuperAdminDashboard />;
+  }
+
+  // manager = chef de programme → redirige vers programmes
   if (orgRole === 'manager') {
     return <Navigate to="/programmes" replace />;
   }
 
-  // coach = coach programme / analyste PE
+  // coach = coach programme
   if (orgRole === 'coach' || orgRole === 'analyst') {
     return <CoachDashboard />;
   }

@@ -22,7 +22,17 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
-  const showProgrammes = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
+  // Le bouton "primary" du topbar dépend du segment de l'org courante :
+  //   - PE         → "Pipeline PE" (/pe/pipeline)
+  //   - Banque(s)  → "Pipeline crédit" (/banque/pipeline)
+  //   - Programme  → "Programmes" (/programmes)
+  const segment = currentOrg?.type;
+  const isPeAccess = isSuperAdmin || ['owner', 'admin', 'managing_director', 'investment_manager', 'analyste', 'analyst', 'partner'].includes(orgRole || '');
+  const isBanqueAccess = isSuperAdmin || ['owner', 'admin', 'directeur_pme', 'direction_pme', 'directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'].includes(orgRole || '');
+  const isProgrammeAccess = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
+  const showPipelinePe = segment === 'pe' && isPeAccess;
+  const showPipelineBanque = (segment === 'banque' || segment === 'banque_affaires') && isBanqueAccess;
+  const showProgrammes = (!segment || segment === 'programme') && isProgrammeAccess;
   const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;
   const canManageMembers = ['owner', 'admin', 'manager'].includes(orgRole || '') || isSuperAdmin;
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
@@ -107,6 +117,26 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            {showPipelinePe && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/pe/') || location.pathname === '/dashboard') && 'bg-muted')}
+                onClick={() => navigate('/pe/pipeline')}
+              >
+                <ClipboardList className="h-4 w-4" /> Pipeline PE
+              </Button>
+            )}
+            {showPipelineBanque && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/banque/') || location.pathname === '/dashboard') && 'bg-muted')}
+                onClick={() => navigate('/banque/pipeline')}
+              >
+                <ClipboardList className="h-4 w-4" /> Pipeline crédit
+              </Button>
+            )}
             {showProgrammes && (
               <Button
                 variant="ghost"
@@ -117,7 +147,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                 <ClipboardList className="h-4 w-4" /> {t('nav.programmes')}
               </Button>
             )}
-            {!showProgrammes && location.pathname !== '/dashboard' && (
+            {!showPipelinePe && !showPipelineBanque && !showProgrammes && location.pathname !== '/dashboard' && (
               <Button
                 variant="ghost"
                 size="sm"
