@@ -47,17 +47,19 @@ export default function Dashboard() {
     console.log('[Dashboard] Routing decision:', { authRole, orgRole, currentOrg: currentOrg?.name, isSuperAdmin });
   }
 
-  // Pas d'org sélectionnée
+  // ─── Super admin : TOUJOURS le godmode dashboard global ──────────────────
+  // Les pipelines segment-specific (PE/banque/programme) restent accessibles
+  // via les boutons du topbar (Pipeline PE, Pipeline crédit, Programmes).
+  if (isSuperAdmin) {
+    return <SuperAdminDashboard />;
+  }
+
+  // Pas d'org sélectionnée (non-super-admin)
   if (!currentOrg) {
-    // Super admin sans org → god mode (listing global)
-    if (isSuperAdmin) return <SuperAdminDashboard />;
     return <NoOrganizationScreen />;
   }
 
-  // ─── Dispatch par TYPE d'org (le dashboard s'adapte à la cible) ──────────
-  // L'idée : super_admin/admin/owner voient le dashboard du "top role" du segment
-  // (MD pour PE, Directeur pour banque, Manager pour programme).
-  // Les rôles plus restrictifs sont gérés à l'intérieur de chaque page.
+  // ─── Dispatch par TYPE d'org pour les rôles standard ─────────────────────
 
   // Org PE → pipeline kanban (sauf entrepreneur)
   if (currentOrg.type === 'pe') {
@@ -72,11 +74,6 @@ export default function Dashboard() {
   }
 
   // ─── Org Programme (par défaut) — dispatch par rôle ───────────────────────
-
-  // Super admin sur org programme → vue programmes globale
-  if (isSuperAdmin) {
-    return <SuperAdminDashboard />;
-  }
 
   // manager = chef de programme → redirige vers programmes
   if (orgRole === 'manager') {
