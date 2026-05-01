@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, FileCheck, Search, BookMarked,
-  Send, AlertCircle,
+  Send, AlertCircle, Calculator,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -257,7 +257,17 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           );
         })}
 
-        {/* DD : entre Memo IC1 et Memo IC finale */}
+        {/* Valuation : entre Memo IC1 et DD */}
+        <ItemRow
+          active={selectedItem === 'valuation'}
+          onClick={() => onSelectItem('valuation')}
+          icon={Calculator}
+          label="Valuation"
+          badge="à venir"
+          disabled
+        />
+
+        {/* DD : entre Valuation et Memo IC finale */}
         <ItemRow
           active={selectedItem === 'dd'}
           onClick={() => onSelectItem('dd')}
