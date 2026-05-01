@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import PeDealCard from '@/components/pe/PeDealCard';
 import CreateDealDialog from '@/components/pe/CreateDealDialog';
 import StageTransitionDialog from '@/components/pe/StageTransitionDialog';
-import { getStagesForRole, SENSITIVE_TRANSITIONS, type PeStage } from '@/lib/pe-stage-config';
+import { getStagesForRole, SENSITIVE_TRANSITIONS, canTransition, type PeStage } from '@/lib/pe-stage-config';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 interface Deal {
@@ -140,6 +140,13 @@ export default function PePipelinePage() {
     const deal = deals.find(d => d.id === dealId);
     if (!deal || deal.stage === toStage) return;
 
+    // Restrictions par rôle (analyst bloqué pour transitions au-delà pre_screening)
+    const check = canTransition(role, deal.stage, toStage);
+    if (!check.allowed) {
+      toast.warning(check.reason ?? 'Transition non autorisée pour ton rôle');
+      return;
+    }
+
     if (SENSITIVE_TRANSITIONS.has(toStage as PeStage)) {
       setPendingTransition({ deal, toStage });
     } else {
@@ -159,7 +166,9 @@ export default function PePipelinePage() {
           <span className="font-medium text-foreground">{deals.length}</span> deal{deals.length > 1 ? 's' : ''} actif{deals.length > 1 ? 's' : ''}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/pe/team')}>Équipe</Button>
+          {role !== 'analyste' && role !== 'analyst' && (
+            <Button variant="outline" onClick={() => navigate('/pe/team')}>Équipe</Button>
+          )}
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="h-4 w-4" /> Nouveau deal
           </Button>

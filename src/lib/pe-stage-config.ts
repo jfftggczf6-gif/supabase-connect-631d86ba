@@ -25,18 +25,33 @@ const ALL_STAGES: StageDef[] = [
   { code: 'portfolio',      label: 'Portfolio' },
 ];
 
-/** Retourne les stages affichés selon le rôle PE. */
-export function getStagesForRole(role: string | null | undefined): StageDef[] {
-  if (role === 'analyste' || role === 'analyst') {
-    // Analyste : focus sur ses deals en travail (pas de sourcing initial, pas de portfolio)
-    return ALL_STAGES.filter(s => !['sourcing', 'closing', 'portfolio'].includes(s.code));
-  }
-  if (role === 'investment_manager') {
-    // IM : voit tout sauf sourcing initial et portfolio
-    return ALL_STAGES.filter(s => !['sourcing', 'portfolio'].includes(s.code));
-  }
-  // MD, admin, owner, super_admin : pipeline complet
+/** Retourne les stages affichés selon le rôle PE.
+ *  Tous les rôles PE peuvent faire du sourcing → tous voient l'ensemble du pipeline.
+ *  Les restrictions par rôle se font sur les TRANSITIONS (cf. canTransition). */
+export function getStagesForRole(_role: string | null | undefined): StageDef[] {
   return ALL_STAGES;
+}
+
+/** Vérifie qu'un rôle a le droit de pousser un deal vers `toStage` depuis `fromStage`.
+ *  L'analyste peut sourcing → pre_screening, mais doit demander validation IM/MD
+ *  pour passer en note_ic1+ (DD, IC finale, closing). */
+export function canTransition(
+  role: string | null | undefined,
+  fromStage: string,
+  toStage: string,
+): { allowed: boolean; reason?: string } {
+  const isAnalyst = role === 'analyste' || role === 'analyst';
+  if (!isAnalyst) return { allowed: true };
+
+  // Analyste : ne peut pas pousser un deal au-delà de pre_screening sans validation
+  const restrictedTargets = ['note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio'];
+  if (restrictedTargets.includes(toStage)) {
+    return {
+      allowed: false,
+      reason: 'Demande la validation à ton IM ou MD avant de pousser ce deal plus loin.',
+    };
+  }
+  return { allowed: true };
 }
 
 /** Stages "sensibles" qui demandent confirmation user avant transition (passage IC). */
