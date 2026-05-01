@@ -2087,6 +2087,8 @@ export type Database = {
           content_md: string | null
           created_at: string
           id: string
+          last_edited_at: string | null
+          last_edited_by: string | null
           position: number
           section_code: Database["public"]["Enums"]["memo_section_code"]
           source_doc_ids: string[] | null
@@ -2099,6 +2101,8 @@ export type Database = {
           content_md?: string | null
           created_at?: string
           id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           position: number
           section_code: Database["public"]["Enums"]["memo_section_code"]
           source_doc_ids?: string[] | null
@@ -2111,6 +2115,8 @@ export type Database = {
           content_md?: string | null
           created_at?: string
           id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           position?: number
           section_code?: Database["public"]["Enums"]["memo_section_code"]
           source_doc_ids?: string[] | null
@@ -3620,5 +3626,5 @@ export const Constants = {
   },
 } as const
 
-A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+A new version of Supabase CLI is available: v2.95.4 (currently installed v2.75.0)
 We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
