@@ -24,13 +24,14 @@ const SECTIONS = [
 
 type SectionCode = typeof SECTIONS[number]['code'];
 
-const PHASES: Array<{
-  stage: 'pre_screening' | 'note_ic1' | 'note_ic_finale';
+// Pre-screening = 1 document unique (TOC interne) → pas d'expansion sidebar
+// Memo IC1 / IC finale = sections dépliables (édition par section, comme livrables programme)
+const COLLAPSIBLE_PHASES: Array<{
+  stage: 'note_ic1' | 'note_ic_finale';
   label: string;
   icon: any;
   sections: typeof SECTIONS;
 }> = [
-  { stage: 'pre_screening',  label: 'Pré-screening',   icon: FileEdit,    sections: SECTIONS },
   { stage: 'note_ic1',       label: 'Memo IC1',        icon: ShieldCheck, sections: SECTIONS },
   { stage: 'note_ic_finale', label: 'Memo IC finale',  icon: FileCheck,   sections: SECTIONS },
 ];
@@ -53,7 +54,6 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
   const [docCount, setDocCount] = useState(0);
   const [versionCount, setVersionCount] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    pre_screening: true,
     note_ic1: false,
     note_ic_finale: false,
   });
@@ -153,7 +153,32 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           label="Paramètres"
         />
 
-        {PHASES.map((phase) => {
+        {/* Section header DONNÉES */}
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Données</div>
+
+        {/* Documents */}
+        <ItemRow
+          active={selectedItem === 'documents'}
+          onClick={() => onSelectItem('documents')}
+          icon={FolderOpen}
+          label="Documents"
+          badge={docCount || null}
+        />
+
+        {/* Section header LIVRABLES */}
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Livrables</div>
+
+        {/* Pré-screening : item unique (TOC interne) */}
+        <ItemRow
+          active={selectedItem === 'pre_screening'}
+          onClick={() => onSelectItem('pre_screening')}
+          icon={FileEdit}
+          label="Pré-screening 360°"
+          badge={phaseProgress('pre_screening')}
+        />
+
+        {/* Memo IC1 / IC finale : header dépliable + sous-sections */}
+        {COLLAPSIBLE_PHASES.map((phase) => {
           const isOpen = expanded[phase.stage];
           const v = versions[phase.stage];
           const isPlaceholder = phase.stage === 'note_ic_finale' && !v;
@@ -214,14 +239,8 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           badge="à venir"
         />
 
-        {/* Documents */}
-        <ItemRow
-          active={selectedItem === 'documents'}
-          onClick={() => onSelectItem('documents')}
-          icon={FolderOpen}
-          label="Documents"
-          badge={docCount || null}
-        />
+        {/* Section header SUIVI */}
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Suivi</div>
 
         {/* Historique */}
         <ItemRow

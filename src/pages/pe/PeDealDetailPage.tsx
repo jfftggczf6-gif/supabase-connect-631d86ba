@@ -241,8 +241,12 @@ export default function PeDealDetailPage() {
         return <PeSingleSectionView dealId={deal.id} stage={stage as any} sectionCode={code} />;
       }
     }
-    // Phase entière (stage seul) : <stage>
-    if (['pre_screening', 'note_ic1', 'note_ic_finale'].includes(selectedItem)) {
+    // Pré-screening : 1 document avec TOC interne (pattern programme)
+    if (selectedItem === 'pre_screening') {
+      return <MemoSectionsViewer dealId={deal.id} versionStage="pre_screening" withToc title="Pré-screening 360°" />;
+    }
+    // Memo IC1 / IC finale : phase entière (long scroll)
+    if (['note_ic1', 'note_ic_finale'].includes(selectedItem)) {
       return <MemoSectionsViewer dealId={deal.id} versionStage={selectedItem as any} />;
     }
     return <div className="text-muted-foreground">Sélectionne un item dans le menu.</div>;
