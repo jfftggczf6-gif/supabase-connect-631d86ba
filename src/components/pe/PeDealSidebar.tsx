@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, FileCheck, Search, BookMarked,
+  Send, AlertCircle,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -31,11 +32,14 @@ const COLLAPSIBLE_PHASES: Array<{
   { stage: 'note_ic_finale', label: 'Memo IC finale', icon: FileCheck,   sections: SECTIONS },
 ];
 
+type SectionWorkflowStatus = 'draft' | 'pending_validation' | 'validated' | 'needs_revision';
+
 interface VersionWithSections {
   id: string;
   stage: string;
   status: 'generating' | 'ready' | 'validated' | 'rejected';
   filledSections: Set<string>;
+  sectionStatusMap: Record<string, SectionWorkflowStatus>;
 }
 
 interface Props {
@@ -63,7 +67,7 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
     if (memo) {
       const { data: vers } = await supabase
         .from('memo_versions')
-        .select('id, stage, status, memo_sections(section_code, content_md, content_json)')
+        .select('id, stage, status, memo_sections(section_code, content_md, content_json, status)')
         .eq('memo_id', memo.id)
         .order('created_at', { ascending: false });
 
@@ -71,12 +75,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
       (vers ?? []).forEach((v: any) => {
         if (map[v.stage]) return;
         const filled = new Set<string>();
+        const statusMap: Record<string, SectionWorkflowStatus> = {};
         (v.memo_sections ?? []).forEach((s: any) => {
           if (s.content_md || (s.content_json && Object.keys(s.content_json).length > 0)) {
             filled.add(s.section_code);
           }
+          statusMap[s.section_code] = (s.status as SectionWorkflowStatus) ?? 'draft';
         });
-        map[v.stage] = { id: v.id, stage: v.stage, status: v.status, filledSections: filled };
+        map[v.stage] = { id: v.id, stage: v.stage, status: v.status, filledSections: filled, sectionStatusMap: statusMap };
       });
       setVersions(map);
       setVersionCount(vers?.length ?? 0);
@@ -99,8 +105,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
     if (!v) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
     if (v.status === 'generating') return <Loader2 className="h-3 w-3 animate-spin text-info" />;
     if (v.status === 'rejected') return <Circle className="h-3 w-3 text-destructive" />;
-    if (v.filledSections.has(code)) return <CheckCircle2 className="h-3 w-3" style={{ color: 'var(--pe-ok)' }} />;
-    return <Circle className="h-3 w-3 text-muted-foreground/40" />;
+    if (!v.filledSections.has(code)) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
+
+    // Section remplie : on affiche son statut workflow
+    const ws = v.sectionStatusMap[code] ?? 'draft';
+    if (ws === 'validated') return <CheckCircle2 className="h-3 w-3" style={{ color: 'var(--pe-ok)' }} />;
+    if (ws === 'pending_validation') return <Send className="h-3 w-3" style={{ color: 'var(--pe-info)' }} />;
+    if (ws === 'needs_revision') return <AlertCircle className="h-3 w-3" style={{ color: 'var(--pe-warning)' }} />;
+    return <CheckCircle2 className="h-3 w-3 text-muted-foreground" />;
   };
 
   const phaseProgress = (stage: string) => {
@@ -111,9 +123,16 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
     return `${done}/${total}`;
   };
 
+  /** Compte les sections en attente de validation (pending) sur un stage donné. */
+  const pendingCount = (stage: string): number => {
+    const v = versions[stage];
+    if (!v) return 0;
+    return Object.values(v.sectionStatusMap).filter(s => s === 'pending_validation').length;
+  };
+
   const ItemRow = ({
-    active, onClick, icon: Icon, label, badge, disabled,
-  }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string | number | null; disabled?: boolean }) => (
+    active, onClick, icon: Icon, label, badge, disabled, rightExtra,
+  }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string | number | null; disabled?: boolean; rightExtra?: React.ReactNode }) => (
     <button
       onClick={onClick}
       disabled={disabled}
@@ -127,9 +146,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="truncate">{label}</span>
       </div>
-      {badge != null && badge !== '' && (
-        <span className="text-[10px] text-muted-foreground shrink-0">{badge}</span>
-      )}
+      <div className="flex items-center gap-1 shrink-0">
+        {badge != null && badge !== '' && (
+          <span className="text-[10px] text-muted-foreground">{badge}</span>
+        )}
+        {rightExtra}
+      </div>
     </button>
   );
 
@@ -177,12 +199,18 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           icon={FileEdit}
           label="Pré-screening 360°"
           badge={phaseProgress('pre_screening')}
+          rightExtra={pendingCount('pre_screening') > 0 ? (
+            <span className="text-[10px] px-1 rounded font-medium" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>
+              {pendingCount('pre_screening')} ⏳
+            </span>
+          ) : null}
         />
 
         {/* Memo IC1 : dépliable */}
         {COLLAPSIBLE_PHASES.slice(0, 1).map((phase) => {
           const isOpen = expanded[phase.stage];
           const v = versions[phase.stage];
+          const pending = pendingCount(phase.stage);
           return (
             <div key={phase.stage}>
               <button
@@ -198,6 +226,9 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
                 {isOpen ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
                 <phase.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{phase.label}</span>
+                {pending > 0 && (
+                  <span className="text-[10px] px-1 rounded font-medium" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>{pending} ⏳</span>
+                )}
                 {phaseProgress(phase.stage) && (
                   <span className="text-[10px] text-muted-foreground">{phaseProgress(phase.stage)}</span>
                 )}

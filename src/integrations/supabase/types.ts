@@ -2081,6 +2081,54 @@ export type Database = {
         }
         Relationships: []
       }
+      memo_section_validations: {
+        Row: {
+          action: string
+          actor_id: string
+          actor_role: string | null
+          comment: string | null
+          created_at: string
+          from_status: Database["public"]["Enums"]["memo_section_status"] | null
+          id: string
+          section_id: string
+          to_status: Database["public"]["Enums"]["memo_section_status"]
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["memo_section_status"]
+            | null
+          id?: string
+          section_id: string
+          to_status: Database["public"]["Enums"]["memo_section_status"]
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["memo_section_status"]
+            | null
+          id?: string
+          section_id?: string
+          to_status?: Database["public"]["Enums"]["memo_section_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_section_validations_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "memo_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memo_sections: {
         Row: {
           content_json: Json | null
@@ -2092,6 +2140,7 @@ export type Database = {
           position: number
           section_code: Database["public"]["Enums"]["memo_section_code"]
           source_doc_ids: string[] | null
+          status: Database["public"]["Enums"]["memo_section_status"]
           title: string | null
           updated_at: string
           version_id: string
@@ -2106,6 +2155,7 @@ export type Database = {
           position: number
           section_code: Database["public"]["Enums"]["memo_section_code"]
           source_doc_ids?: string[] | null
+          status?: Database["public"]["Enums"]["memo_section_status"]
           title?: string | null
           updated_at?: string
           version_id: string
@@ -2120,6 +2170,7 @@ export type Database = {
           position?: number
           section_code?: Database["public"]["Enums"]["memo_section_code"]
           source_doc_ids?: string[] | null
+          status?: Database["public"]["Enums"]["memo_section_status"]
           title?: string | null
           updated_at?: string
           version_id?: string
@@ -3346,6 +3397,11 @@ export type Database = {
         | "support_requested"
         | "esg_risks"
         | "annexes"
+      memo_section_status:
+        | "draft"
+        | "pending_validation"
+        | "validated"
+        | "needs_revision"
       memo_version_status: "generating" | "ready" | "validated" | "rejected"
       module_code:
         | "bmc"
@@ -3579,6 +3635,12 @@ export const Constants = {
         "support_requested",
         "esg_risks",
         "annexes",
+      ],
+      memo_section_status: [
+        "draft",
+        "pending_validation",
+        "validated",
+        "needs_revision",
       ],
       memo_version_status: ["generating", "ready", "validated", "rejected"],
       module_code: [
