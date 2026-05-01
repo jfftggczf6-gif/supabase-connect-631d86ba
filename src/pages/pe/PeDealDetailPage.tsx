@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Trash2, Settings as SettingsIcon } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -18,6 +19,7 @@ import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import DealDocumentsList from '@/components/pe/DealDocumentsList';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
+import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -33,6 +35,7 @@ export default function PeDealDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string>('overview');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [form, setForm] = useState({
     ticket_demande: '', currency: 'EUR', source: 'autre', source_detail: '', lead_analyst_id: '',
   });
@@ -127,80 +130,8 @@ export default function PeDealDetailPage() {
     if (selectedItem === 'overview') {
       return <PeOverviewHub dealId={deal.id} deal={deal} onSelectItem={setSelectedItem} />;
     }
-    if (selectedItem === 'settings') {
-      return (
-        <Card>
-          <CardContent className="p-5 space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold mb-1">Paramètres du deal</h2>
-              <p className="text-xs text-muted-foreground">Métadonnées et lead analyst.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Ticket (M)</Label>
-                <Input type="number" step="0.1" value={form.ticket_demande}
-                  onChange={e => setForm(f => ({ ...f, ticket_demande: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Devise</Label>
-                <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="FCFA">FCFA</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Source</Label>
-              <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="reseau_pe">Réseau PE</SelectItem>
-                  <SelectItem value="inbound">Inbound</SelectItem>
-                  <SelectItem value="dfi">DFI</SelectItem>
-                  <SelectItem value="banque">Banque</SelectItem>
-                  <SelectItem value="mandat_ba">Mandat BA</SelectItem>
-                  <SelectItem value="conference">Conférence</SelectItem>
-                  <SelectItem value="autre">Autre</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {form.source === 'autre' && (
-              <div className="space-y-1.5">
-                <Label>Précision</Label>
-                <Input value={form.source_detail} onChange={e => setForm(f => ({ ...f, source_detail: e.target.value }))} />
-              </div>
-            )}
-            {!isAnalyst && (
-              <div className="space-y-1.5">
-                <Label>Lead analyst</Label>
-                <Select value={form.lead_analyst_id} onValueChange={v => setForm(f => ({ ...f, lead_analyst_id: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {analysts.map((a) => (
-                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="flex justify-between pt-2">
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Enregistrer
-              </Button>
-              {isMd && deal.stage !== 'lost' && (
-                <Button variant="destructive" onClick={handleMarkLost} className="gap-2">
-                  <Trash2 className="h-4 w-4" /> Marquer comme perdu
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      );
+    if (selectedItem === 'benchmark') {
+      return <PeBenchmarkSourcesView dealId={deal.id} />;
     }
     if (selectedItem === 'documents') {
       return currentOrg ? <DealDocumentsList dealId={deal.id} organizationId={currentOrg.id} /> : null;
@@ -254,9 +185,14 @@ export default function PeDealDetailPage() {
 
   return (
     <DashboardLayout title={deal.deal_ref} subtitle={deal.enterprise_name || '—'}>
-      <Button variant="ghost" size="sm" className="mb-3 gap-1.5" onClick={() => navigate('/pe/pipeline')}>
-        <ArrowLeft className="h-4 w-4" /> Retour au pipeline
-      </Button>
+      <div className="flex items-center justify-between mb-3">
+        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe/pipeline')}>
+          <ArrowLeft className="h-4 w-4" /> Retour au pipeline
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSettingsOpen(true)}>
+          <SettingsIcon className="h-4 w-4" /> Paramètres
+        </Button>
+      </div>
 
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <Badge variant="outline">{deal.stage}</Badge>
@@ -274,6 +210,81 @@ export default function PeDealDetailPage() {
           {renderRightPanel()}
         </div>
       </div>
+
+      {/* Slide-over Paramètres (sortie de la sidebar) */}
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Paramètres du deal</SheetTitle>
+            <SheetDescription>Métadonnées et lead analyst.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Ticket (M)</Label>
+                <Input type="number" step="0.1" value={form.ticket_demande}
+                  onChange={e => setForm(f => ({ ...f, ticket_demande: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Devise</Label>
+                <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="FCFA">FCFA</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Source</Label>
+              <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reseau_pe">Réseau PE</SelectItem>
+                  <SelectItem value="inbound">Inbound</SelectItem>
+                  <SelectItem value="dfi">DFI</SelectItem>
+                  <SelectItem value="banque">Banque</SelectItem>
+                  <SelectItem value="mandat_ba">Mandat BA</SelectItem>
+                  <SelectItem value="conference">Conférence</SelectItem>
+                  <SelectItem value="autre">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.source === 'autre' && (
+              <div className="space-y-1.5">
+                <Label>Précision</Label>
+                <Input value={form.source_detail} onChange={e => setForm(f => ({ ...f, source_detail: e.target.value }))} />
+              </div>
+            )}
+            {!isAnalyst && (
+              <div className="space-y-1.5">
+                <Label>Lead analyst</Label>
+                <Select value={form.lead_analyst_id} onValueChange={v => setForm(f => ({ ...f, lead_analyst_id: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {analysts.map((a) => (
+                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex justify-between pt-2">
+              <Button onClick={async () => { await handleSave(); setSettingsOpen(false); }} disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Enregistrer
+              </Button>
+              {isMd && deal.stage !== 'lost' && (
+                <Button variant="destructive" onClick={handleMarkLost} className="gap-2">
+                  <Trash2 className="h-4 w-4" /> Marquer comme perdu
+                </Button>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </DashboardLayout>
   );
 }

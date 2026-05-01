@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
-  ChevronDown, ChevronRight, Home, FileText, FolderOpen, History,
-  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, FileCheck, Settings,
+  ChevronDown, ChevronRight, Home, FolderOpen, History,
+  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, FileCheck, Search, BookMarked,
 } from 'lucide-react';
 
-// Les 12 sections fixes (synchronisé avec memo-helpers.ts SECTION_ORDER)
 const SECTIONS = [
   { code: 'executive_summary',       label: 'Résumé exécutif' },
   { code: 'shareholding_governance', label: 'Actionnariat & gouvernance' },
@@ -22,18 +21,14 @@ const SECTIONS = [
   { code: 'annexes',                 label: 'Annexes' },
 ] as const;
 
-type SectionCode = typeof SECTIONS[number]['code'];
-
-// Pre-screening = 1 document unique (TOC interne) → pas d'expansion sidebar
-// Memo IC1 / IC finale = sections dépliables (édition par section, comme livrables programme)
 const COLLAPSIBLE_PHASES: Array<{
   stage: 'note_ic1' | 'note_ic_finale';
   label: string;
   icon: any;
   sections: typeof SECTIONS;
 }> = [
-  { stage: 'note_ic1',       label: 'Memo IC1',        icon: ShieldCheck, sections: SECTIONS },
-  { stage: 'note_ic_finale', label: 'Memo IC finale',  icon: FileCheck,   sections: SECTIONS },
+  { stage: 'note_ic1',       label: 'Memo IC1',       icon: ShieldCheck, sections: SECTIONS },
+  { stage: 'note_ic_finale', label: 'Memo IC finale', icon: FileCheck,   sections: SECTIONS },
 ];
 
 interface VersionWithSections {
@@ -74,7 +69,6 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
 
       const map: Record<string, VersionWithSections> = {};
       (vers ?? []).forEach((v: any) => {
-        // pour chaque stage, on garde la dernière (plus récente) version ready/generating
         if (map[v.stage]) return;
         const filled = new Set<string>();
         (v.memo_sections ?? []).forEach((s: any) => {
@@ -118,13 +112,15 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
   };
 
   const ItemRow = ({
-    active, onClick, icon: Icon, label, badge,
-  }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string | number | null }) => (
+    active, onClick, icon: Icon, label, badge, disabled,
+  }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string | number | null; disabled?: boolean }) => (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         'w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
         active ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+        disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent',
       )}
     >
       <div className="flex items-center gap-2 min-w-0">
@@ -140,23 +136,16 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
   return (
     <div className="w-64 shrink-0 border-r bg-card overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
       <nav className="p-2 space-y-0.5">
+        {/* Vue d'ensemble — toujours en haut */}
         <ItemRow
           active={selectedItem === 'overview'}
           onClick={() => onSelectItem('overview')}
           icon={Home}
           label="Vue d'ensemble"
         />
-        <ItemRow
-          active={selectedItem === 'settings'}
-          onClick={() => onSelectItem('settings')}
-          icon={Settings}
-          label="Paramètres"
-        />
 
-        {/* Section header DONNÉES */}
+        {/* ── DONNÉES ── */}
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Données</div>
-
-        {/* Documents */}
         <ItemRow
           active={selectedItem === 'documents'}
           onClick={() => onSelectItem('documents')}
@@ -164,11 +153,18 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           label="Documents"
           badge={docCount || null}
         />
+        <ItemRow
+          active={selectedItem === 'history'}
+          onClick={() => onSelectItem('history')}
+          icon={History}
+          label="Historique"
+          badge={versionCount || null}
+        />
 
-        {/* Section header LIVRABLES */}
+        {/* ── LIVRABLES ── */}
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Livrables</div>
 
-        {/* Pré-screening : item unique (TOC interne) */}
+        {/* Pré-screening : item unique avec TOC interne */}
         <ItemRow
           active={selectedItem === 'pre_screening'}
           onClick={() => onSelectItem('pre_screening')}
@@ -177,23 +173,20 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           badge={phaseProgress('pre_screening')}
         />
 
-        {/* Memo IC1 / IC finale : header dépliable + sous-sections */}
-        {COLLAPSIBLE_PHASES.map((phase) => {
+        {/* Memo IC1 : dépliable */}
+        {COLLAPSIBLE_PHASES.slice(0, 1).map((phase) => {
           const isOpen = expanded[phase.stage];
           const v = versions[phase.stage];
-          const isPlaceholder = phase.stage === 'note_ic_finale' && !v;
           return (
             <div key={phase.stage}>
               <button
                 onClick={() => {
                   setExpanded(e => ({ ...e, [phase.stage]: !e[phase.stage] }));
-                  // Cliquer sur le header sélectionne aussi le mode "tout voir"
-                  if (!isPlaceholder) onSelectItem(phase.stage);
+                  onSelectItem(phase.stage);
                 }}
                 className={cn(
                   'w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
                   selectedItem === phase.stage ? 'bg-muted font-medium' : 'hover:bg-muted/50',
-                  isPlaceholder && 'opacity-50',
                 )}
               >
                 {isOpen ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
@@ -202,6 +195,66 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
                 {phaseProgress(phase.stage) && (
                   <span className="text-[10px] text-muted-foreground">{phaseProgress(phase.stage)}</span>
                 )}
+              </button>
+              {isOpen && (
+                <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
+                  {phase.sections.map((s) => {
+                    const itemKey = `${phase.stage}:${s.code}`;
+                    return (
+                      <button
+                        key={s.code}
+                        onClick={() => onSelectItem(itemKey)}
+                        className={cn(
+                          'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
+                          selectedItem === itemKey ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                        )}
+                      >
+                        <span className="truncate">{s.label}</span>
+                        {sectionStatusIcon(phase.stage, s.code)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* DD : entre Memo IC1 et Memo IC finale */}
+        <ItemRow
+          active={selectedItem === 'dd'}
+          onClick={() => onSelectItem('dd')}
+          icon={Search}
+          label="Due Diligence"
+          badge="à venir"
+          disabled
+        />
+
+        {/* Memo IC finale : dépliable */}
+        {COLLAPSIBLE_PHASES.slice(1).map((phase) => {
+          const isOpen = expanded[phase.stage];
+          const v = versions[phase.stage];
+          const isPlaceholder = !v;
+          return (
+            <div key={phase.stage}>
+              <button
+                onClick={() => {
+                  setExpanded(e => ({ ...e, [phase.stage]: !e[phase.stage] }));
+                  if (!isPlaceholder) onSelectItem(phase.stage);
+                }}
+                disabled={isPlaceholder}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
+                  selectedItem === phase.stage ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                  isPlaceholder && 'opacity-50 cursor-not-allowed hover:bg-transparent',
+                )}
+              >
+                {isOpen ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+                <phase.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">{phase.label}</span>
+                {phaseProgress(phase.stage)
+                  ? <span className="text-[10px] text-muted-foreground">{phaseProgress(phase.stage)}</span>
+                  : <span className="text-[10px] text-muted-foreground">à venir</span>}
               </button>
               {isOpen && !isPlaceholder && (
                 <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
@@ -223,36 +276,18 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
                   })}
                 </div>
               )}
-              {isOpen && isPlaceholder && (
-                <p className="ml-8 text-[10px] text-muted-foreground py-1">À venir (Phase D'/E')</p>
-              )}
             </div>
           );
         })}
 
-        {/* DD placeholder */}
+        {/* Benchmark & étude de marché */}
         <ItemRow
-          active={false}
-          onClick={() => {/* disabled */}}
-          icon={FileText}
-          label="Due Diligence"
-          badge="à venir"
-        />
-
-        {/* Section header SUIVI */}
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Suivi</div>
-
-        {/* Historique */}
-        <ItemRow
-          active={selectedItem === 'history'}
-          onClick={() => onSelectItem('history')}
-          icon={History}
-          label="Historique"
-          badge={versionCount || null}
+          active={selectedItem === 'benchmark'}
+          onClick={() => onSelectItem('benchmark')}
+          icon={BookMarked}
+          label="Benchmark & sources"
         />
       </nav>
     </div>
   );
 }
-
-export type PeWorkspaceItem = string;
