@@ -154,6 +154,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           badge={docCount || null}
         />
         <ItemRow
+          active={selectedItem === 'benchmark'}
+          onClick={() => onSelectItem('benchmark')}
+          icon={BookMarked}
+          label="Benchmark & sources"
+        />
+        <ItemRow
           active={selectedItem === 'history'}
           onClick={() => onSelectItem('history')}
           icon={History}
@@ -280,13 +286,6 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           );
         })}
 
-        {/* Benchmark & étude de marché */}
-        <ItemRow
-          active={selectedItem === 'benchmark'}
-          onClick={() => onSelectItem('benchmark')}
-          icon={BookMarked}
-          label="Benchmark & sources"
-        />
       </nav>
     </div>
   );
