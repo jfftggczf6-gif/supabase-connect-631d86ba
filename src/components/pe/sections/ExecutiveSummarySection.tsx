@@ -113,7 +113,7 @@ export default function ExecutiveSummarySection({ section }: Props) {
         {/* Présentation de la cible */}
         {presentation?.paragraphs?.length > 0 && (
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3">{presentation.heading ?? 'Présentation de la cible'}</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5">{presentation.heading ?? 'Présentation de la cible'}</h4>
             <div className="space-y-2 text-sm leading-relaxed">
               {presentation.paragraphs.map((p: string, i: number) => (
                 <p key={i}>{p}</p>
@@ -125,7 +125,7 @@ export default function ExecutiveSummarySection({ section }: Props) {
         {/* Thèse en 5 points */}
         {thesis?.items?.length > 0 && (
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3">{thesis.heading ?? "Thèse d'investissement en 5 points"}</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5">{thesis.heading ?? "Thèse d'investissement en 5 points"}</h4>
             <div className="space-y-2 text-sm leading-relaxed">
               {thesis.items.map((t: any, i: number) => (
                 <p key={i}>
@@ -139,7 +139,7 @@ export default function ExecutiveSummarySection({ section }: Props) {
         {/* Recommandation formelle (verdict box) */}
         {reco && (
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3">{reco.heading ?? 'Recommandation formelle'}</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5">{reco.heading ?? 'Recommandation formelle'}</h4>
             <div
               className="rounded p-4 space-y-2"
               style={{

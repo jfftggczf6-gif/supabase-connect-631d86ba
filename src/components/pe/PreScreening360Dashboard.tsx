@@ -12,7 +12,7 @@ interface Props {
 }
 
 const SubHeading = ({ children, color }: { children: React.ReactNode; color?: string }) => (
-  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2" style={color ? { color } : undefined}>
+  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5" style={color ? { color } : undefined}>
     {children}
   </h4>
 );

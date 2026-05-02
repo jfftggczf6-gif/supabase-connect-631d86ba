@@ -10,7 +10,7 @@ interface Props {
 }
 
 const SubHeading = ({ children }: { children: React.ReactNode }) => (
-  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3">{children}</h4>
+  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5">{children}</h4>
 );
 
 const sevToRedFlag: Record<string, 'high' | 'medium' | 'low'> = {

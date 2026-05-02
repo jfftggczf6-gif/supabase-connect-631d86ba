@@ -18,7 +18,7 @@ const VERDICT_STYLE: Record<string, { bg: string; border: string; color: string 
 };
 
 const SubHeading = ({ children, color }: { children: React.ReactNode; color?: string }) => (
-  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3" style={color ? { color } : undefined}>
+  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5" style={color ? { color } : undefined}>
     {children}
   </h4>
 );
