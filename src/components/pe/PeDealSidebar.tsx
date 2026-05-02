@@ -275,14 +275,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           );
         })()}
 
-        {/* DD : zone à part (Module E à venir) */}
+        {/* DD : zone à part (Module E) */}
         <ItemRow
           active={selectedItem === 'dd'}
           onClick={() => onSelectItem('dd')}
           icon={Search}
           label="Due Diligence"
-          badge="à venir"
-          disabled
         />
 
       </nav>

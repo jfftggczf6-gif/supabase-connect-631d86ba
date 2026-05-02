@@ -21,6 +21,7 @@ import PeDealDocumentsUploader from '@/components/pe/PeDealDocumentsUploader';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
+import DueDiligenceSection from '@/components/pe/DueDiligenceSection';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -199,6 +200,10 @@ export default function PeDealDetailPage() {
     // Memo d'investissement : phase entière (long scroll des 12 sections de la version active)
     if (selectedItem === 'memo' || ['note_ic1', 'note_ic_finale'].includes(selectedItem)) {
       return <MemoSectionsViewer dealId={deal.id} />;
+    }
+    // Due Diligence
+    if (selectedItem === 'dd') {
+      return currentOrg ? <DueDiligenceSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
     }
     return <div className="text-muted-foreground">Sélectionne un item dans le menu.</div>;
   };
