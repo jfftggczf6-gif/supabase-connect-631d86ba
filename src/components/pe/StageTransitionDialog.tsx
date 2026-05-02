@@ -15,9 +15,11 @@ interface Props {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  sourcing: 'Sourcing', pre_screening: 'Pre-screening', analyse: 'Analyse',
-  ic1: 'IC1', dd: 'Due Diligence', ic_finale: 'IC finale',
+  sourcing: 'Sourcing', pre_screening: 'Pre-screening',
+  note_ic1: 'Note IC1', dd: 'Due Diligence', note_ic_finale: 'Note IC finale',
   closing: 'Closing', portfolio: 'Portfolio', lost: 'Perdu',
+  // legacy (avant rename Phase B', conservé pour rétrocompat)
+  analyse: 'Analyse', ic1: 'Note IC1', ic_finale: 'Note IC finale',
 };
 
 export default function StageTransitionDialog({ open, onOpenChange, fromStage, toStage, dealRef, onConfirm }: Props) {

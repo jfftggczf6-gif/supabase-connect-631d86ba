@@ -118,7 +118,7 @@ export default function PePipelinePage() {
         });
         const result = await resp.json();
         if (resp.ok) {
-          toast.success(result.already_exists ? 'Note IC1 existait déjà' : 'Note IC1 initialisée (12 sections clonées)');
+          toast.success(result.already_exists ? 'Note IC1 existait déjà' : 'Note IC1 enrichie (12 sections approfondies depuis pre-screening)');
         } else {
           toast.warning(`Note IC1 non générée : ${result.error}`);
         }
