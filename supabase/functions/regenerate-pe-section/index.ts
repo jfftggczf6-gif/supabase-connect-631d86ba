@@ -26,11 +26,81 @@ const SECTION_LABELS: Record<MemoSectionCode, string> = {
 // JSON schema spécifique par section (le subset du gros JSON pre-screening qui correspond à cette section)
 const SECTION_JSON_SCHEMA: Record<MemoSectionCode, string> = {
   executive_summary: `{
-  "kpis_bandeau": [{ "label": "...", "value": "...", "hint": "...", "hint_color": "ok|warning|danger" }, ... 5 max],
-  "ai_synthesis": {
-    "paragraph": "<string narratif synthèse>",
-    "strengths_tags": ["..."],
-    "weaknesses_tags": ["..."]
+  "meta": {
+    "redige_par": "<rôle nom>",
+    "data_par": "<analyste nom>",
+    "review_par": "<IM nom> | null",
+    "version_label": "IC1 (draft)",
+    "version_note": "<courte note version>",
+    "auto_gen_note": "Ce résumé est auto-généré à partir des 11 autres sections. Régénéré à chaque validation de section.",
+    "last_generated_at": "<date>",
+    "validations_im": 0,
+    "validations_md": 0,
+    "score_memo": 0
+  },
+  "kpis_bandeau": [
+    { "label": "CA 2025",              "value": "...", "hint": "CAGR ...",        "hint_color": "ok|warning|danger" },
+    { "label": "EBITDA retraité",      "value": "...", "hint": "Marge ...",        "hint_color": "ok|warning|danger", "value_color": "ok|warning|danger" },
+    { "label": "Marge brute",          "value": "...", "hint": "...",              "hint_color": "ok|warning|danger" },
+    { "label": "Dette nette / EBITDA", "value": "...", "hint": "...",              "hint_color": "ok|warning|danger", "value_color": "ok|warning|danger" },
+    { "label": "Ticket",               "value": "...", "hint": "Equity pure" },
+    { "label": "Pre-money",            "value": "...", "hint": "..." },
+    { "label": "MOIC base",            "value": "...", "hint": "IRR ...",          "value_color": "ok",                "hint_color": "info" }
+  ],
+  "presentation": {
+    "heading": "Présentation de la cible",
+    "paragraphs": [
+      "<paragraphe 1 — qui est l'entreprise, ce qu'elle fait, citations [Source: ...]>",
+      "<paragraphe 2 — le marché, mégatrends, citations>"
+    ]
+  },
+  "thesis_5_points": {
+    "heading": "Thèse d'investissement en 5 points",
+    "items": [
+      { "n": 1, "lead": "<lead synthétique>", "body": "<argumentation détaillée + citations>" },
+      { "n": 2, "lead": "...", "body": "..." },
+      { "n": 3, "lead": "...", "body": "..." },
+      { "n": 4, "lead": "...", "body": "..." },
+      { "n": 5, "lead": "...", "body": "..." }
+    ]
+  },
+  "recommendation": {
+    "heading": "Recommandation formelle",
+    "verdict": "go_conditionnel|hold|reject|go_direct",
+    "verdict_label": "<ex: GO CONDITIONNEL — conviction modérée>",
+    "color": "green|orange|red",
+    "summary": "<paragraphe résumant le verdict + score d'adéquation thèse>",
+    "score_section": "<phrase score>",
+    "score_esono": <number>,
+    "score_threshold": <number>,
+    "score_brut": <number>,
+    "conditions_intro": "Trois conditions préalables au passage en IC1 :",
+    "conditions": [
+      { "n": 1, "text": "..." },
+      { "n": 2, "text": "..." },
+      { "n": 3, "text": "..." }
+    ]
+  },
+  "red_flags_synthesis": [
+    { "title": "...", "severity": "Critical|High|Medium|Low", "penalty_pts": <number négatif>, "penalty_dimension": "Gouvernance|Finance|Croissance|Thèse|ESG|Données", "body": "<détail + atténuation possible>" }
+  ],
+  "monitoring_points": [
+    "<point 1>",
+    "<point 2>"
+  ],
+  "deal_breakers": {
+    "intro": "Deal breakers identifiés :",
+    "items": ["<deal breaker 1>", "<deal breaker 2>"],
+    "conclusion": "Si l'un des deux se matérialise → la recommandation passe de Go conditionnel à Hold et le deal ne va pas en comité IC1."
+  },
+  "footer": {
+    "auto_gen_summary": "Ce résumé est auto-généré à partir des 11 autres sections.",
+    "last_generated_at": "<date>",
+    "sections_redigees": 12,
+    "sections_total": 12,
+    "validations_im": <number>,
+    "validations_md": <number>,
+    "score_memo": <number>
   }
 }`,
   shareholding_governance: `{
