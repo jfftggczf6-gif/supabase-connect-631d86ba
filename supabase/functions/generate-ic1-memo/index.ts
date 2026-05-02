@@ -1,17 +1,171 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
+import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
+import { buildToneForAgent } from "../_shared/agent-tone.ts";
 import {
   createMemoVersion,
   updateMemoVersion,
   insertMemoSections,
   fetchSections,
+  fetchDealDocuments,
   getLatestVersion,
   type MemoSectionCode,
 } from "../_shared/memo-helpers.ts";
+import {
+  SECTION_LABELS,
+  SECTION_NUMBERS,
+  SECTION_SCHEMAS,
+  SECTION_DESCRIPTIONS,
+} from "../_shared/memo-section-schemas.ts";
 
 interface RequestBody {
   deal_id: string;
+}
+
+interface SectionContent {
+  content_md: string | null;
+  content_json: any;
+}
+
+interface DealContext {
+  name: string;
+  ref: string;
+  sector: string;
+  country: string;
+  ticket: string;
+  currency: string;
+}
+
+/** Génère/enrichit une section IC1 à partir d'une version pre_screening précédente. */
+async function enrichSectionForIC1(
+  args: {
+    sectionCode: MemoSectionCode;
+    deal: DealContext;
+    docContents: string;
+    previousSection: SectionContent;
+    otherSectionsContext?: string;
+    toneBlock: string;
+    enterpriseId: string;
+  },
+): Promise<SectionContent> {
+  const { sectionCode, deal, docContents, previousSection, otherSectionsContext, toneBlock, enterpriseId } = args;
+  const sectionLabel = SECTION_LABELS[sectionCode];
+  const sectionNumber = SECTION_NUMBERS[sectionCode];
+  const sectionDescription = SECTION_DESCRIPTIONS[sectionCode];
+  const jsonSchema = SECTION_SCHEMAS[sectionCode];
+
+  const previousBlock = previousSection.content_json
+    ? `\n\n═══ VERSION PRE-SCREENING DE CETTE SECTION (à approfondir, ne pas régresser) ═══\nContent MD :\n${previousSection.content_md ?? '(vide)'}\n\nContent JSON :\n${JSON.stringify(previousSection.content_json, null, 2).slice(0, 10000)}\n`
+    : '';
+
+  const otherSectionsBlock = otherSectionsContext
+    ? `\n\n═══ CONTEXTE — AUTRES SECTIONS IC1 DÉJÀ ENRICHIES ═══\n${otherSectionsContext.slice(0, 30000)}\n`
+    : '';
+
+  const systemPrompt = `${toneBlock}
+
+Tu enrichis la section ${sectionNumber} — "${sectionLabel}" pour passer de la version PRE-SCREENING à la version NOTE IC1 du dossier d'investissement PE pour le deal "${deal.name}" (deal_ref: ${deal.ref}, secteur: ${deal.sector}, pays: ${deal.country}).
+
+═══ DIFFÉRENCE PRE-SCREENING → IC1 ═══
+- Pre-screening : analyse rapide initiale, données déclaratives.
+- IC1 : approfondissement avant comité d'investissement. Tu RÉVISES le contenu pre-screening en :
+  1. Intégrant les nouveaux documents fournis (docs additionnels depuis le pre-screening)
+  2. Affinant les chiffres avec retraitements détaillés
+  3. Renforçant l'analyse (citations, sources, benchmarks ajoutés)
+  4. Si pertinent, ajustant le verdict / score / conditions
+  5. NE PAS supprimer du contenu pertinent — enrichir, pas régresser
+  6. meta.version_label = "IC1" (sans "(draft)")
+  7. meta.version_note doit refléter l'évolution depuis pre-screening
+
+═══ RÔLE DE LA SECTION ═══
+${sectionDescription}
+
+═══ SCHÉMA JSON STRICT ATTENDU pour content_json ═══
+${jsonSchema}
+
+═══ CHAMPS À PRODUIRE ═══
+{
+  "content_md": "<string markdown ~150-300 mots — texte narratif COMPLÉMENTAIRE au content_json structuré>",
+  "content_json": <objet conforme exactement au schéma ci-dessus, enrichi vs pre-screening>
+}
+
+═══ CONTEXTE — DOCUMENTS DEAL ═══
+${docContents.slice(0, 60000) || '(aucun document parsable)'}
+${previousBlock}${otherSectionsBlock}
+═══ RÈGLES ═══
+1. Chiffres EXACTS issus des documents. Pas d'invention.
+2. Si une donnée manque : utilise "n/d" ou null, JAMAIS d'invention.
+3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
+4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
+5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".`;
+
+  const userPrompt = `Enrichis maintenant la section "${sectionLabel}" version IC1 en JSON strict.`;
+
+  const claudeResponse = await callAI(systemPrompt, userPrompt, 8192, undefined, 0.2, {
+    functionName: `generate-ic1-memo:${sectionCode}`,
+    enterpriseId,
+  });
+
+  let parsed: any;
+  try {
+    parsed = typeof claudeResponse === "string" ? JSON.parse(claudeResponse) : claudeResponse;
+  } catch (e: any) {
+    throw new Error(`Section ${sectionCode}: invalid JSON from Claude: ${e.message}`);
+  }
+
+  if (typeof parsed.content_md !== 'string' && parsed.content_md !== null) {
+    throw new Error(`Section ${sectionCode}: missing content_md`);
+  }
+
+  return {
+    content_md: parsed.content_md ?? null,
+    content_json: parsed.content_json ?? {},
+  };
+}
+
+function extractScoreAndClassification(executiveSummary: SectionContent): {
+  overall_score: number | null;
+  classification: string | null;
+} {
+  const cj = executiveSummary.content_json ?? {};
+  const reco = cj.recommendation ?? {};
+  const score = typeof reco.score_esono === 'number' ? reco.score_esono
+              : typeof cj.score_memo === 'number' ? cj.score_memo
+              : null;
+  const verdict = typeof reco.verdict === 'string' ? reco.verdict : null;
+  return { overall_score: score, classification: verdict };
+}
+
+function summarizeSectionForContext(code: MemoSectionCode, content: SectionContent): string {
+  const label = SECTION_LABELS[code];
+  const num = SECTION_NUMBERS[code];
+  const md = content.content_md?.slice(0, 1500) ?? '';
+  const cj = content.content_json ?? {};
+  const keyPoints: string[] = [];
+  if (cj.red_flags?.length) keyPoints.push(`Red flags : ${cj.red_flags.map((rf: any) => rf.title).join(' / ')}`);
+  if (cj.recommendation?.verdict) keyPoints.push(`Verdict : ${cj.recommendation.verdict}`);
+  if (cj.synthesis) keyPoints.push(`Synthèse : ${String(cj.synthesis).slice(0, 400)}`);
+  return `## ${num}. ${label}\n${md}${keyPoints.length ? '\n' + keyPoints.join('\n') : ''}`;
+}
+
+async function callRailwayParser(
+  buffer: ArrayBuffer,
+  filename: string,
+  mimeType: string,
+): Promise<string> {
+  const railwayUrl = Deno.env.get("RAILWAY_URL");
+  const parserKey = Deno.env.get("PARSER_API_KEY");
+  if (!railwayUrl || !parserKey) return "";
+  const formData = new FormData();
+  formData.append("file", new Blob([buffer], { type: mimeType }), filename);
+  const resp = await fetch(`${railwayUrl}/parse`, {
+    method: "POST",
+    headers: { "x-api-key": parserKey },
+    body: formData,
+  });
+  if (!resp.ok) return "";
+  const data = await resp.json();
+  return data.text ?? data.content ?? "";
 }
 
 serve(async (req: Request) => {
@@ -37,18 +191,32 @@ serve(async (req: Request) => {
     const body: RequestBody = await req.json();
     if (!body.deal_id) return errorResponse("deal_id required", 400);
 
-    // Vérifier que le user voit le deal (RLS)
-    const { data: deal, error: dealErr } = await userClient
-      .from("pe_deals").select("id").eq("id", body.deal_id).maybeSingle();
-    if (dealErr || !deal) return errorResponse("Deal not found or not accessible", 404);
+    // 1) Récupérer deal + verif RLS
+    const { data: deal } = await userClient
+      .from("pe_deals")
+      .select(`
+        id, organization_id, deal_ref, stage,
+        ticket_demande, currency,
+        enterprises!inner(name, sector, country)
+      `)
+      .eq("id", body.deal_id)
+      .maybeSingle();
+    if (!deal) return errorResponse("Deal not found or not accessible", 404);
 
-    // Trouver la dernière version pre_screening ready
+    const dealCtx: DealContext = {
+      name:    (deal.enterprises as any)?.name ?? "Sans nom",
+      ref:     deal.deal_ref ?? "n/d",
+      sector:  (deal.enterprises as any)?.sector ?? "n/d",
+      country: (deal.enterprises as any)?.country ?? "n/d",
+      ticket:  String(deal.ticket_demande ?? "n/d"),
+      currency: deal.currency ?? "EUR",
+    };
+
+    // 2) Trouver la dernière version pre_screening ready
     const lastPreScreening = await getLatestVersion(adminClient, body.deal_id, "pre_screening", "ready");
-    if (!lastPreScreening) {
-      return errorResponse("No ready pre_screening version to clone from", 400);
-    }
+    if (!lastPreScreening) return errorResponse("No ready pre_screening version to enrich from", 400);
 
-    // Vérifier qu'il n'y a pas déjà une note_ic1 pour ce memo
+    // 3) Vérifier qu'il n'y a pas déjà une note_ic1 pour ce memo
     const existingIc1 = await getLatestVersion(adminClient, body.deal_id, "note_ic1");
     if (existingIc1) {
       return jsonResponse({
@@ -58,45 +226,155 @@ serve(async (req: Request) => {
       });
     }
 
-    // Créer la nouvelle version note_ic1_v1 (clone)
+    // 4) Charger les sections pre-screening (input pour enrichissement)
+    const previousSections = await fetchSections(adminClient, lastPreScreening.id);
+    const previousMap: Partial<Record<MemoSectionCode, SectionContent>> = {};
+    for (const sec of previousSections) {
+      previousMap[sec.section_code] = {
+        content_md: sec.content_md,
+        content_json: sec.content_json,
+      };
+    }
+
+    // 5) Charger docs (peuvent inclure de nouveaux docs ajoutés depuis pre-screening)
+    const docs = await fetchDealDocuments(adminClient, body.deal_id);
+    const sectionDocIds = docs.map(d => d.id);
+
+    // 6) Créer la nouvelle version note_ic1_v1 status='generating'
     const newVersionId = await createMemoVersion(adminClient, {
       memo_id: lastPreScreening.memo_id,
       label: "note_ic1_v1",
       parent_version_id: lastPreScreening.id,
       stage: "note_ic1",
       status: "generating",
-      overall_score: lastPreScreening.overall_score,
-      classification: lastPreScreening.classification,
-      generated_by_agent: "clone_from_pre_screening",
+      generated_by_agent: "generate-ic1-memo",
       generated_by_user_id: user.id,
     });
 
-    // Cloner les 12 sections du parent
-    const parentSections = await fetchSections(adminClient, lastPreScreening.id);
-    const sectionsMap: Partial<Record<MemoSectionCode, any>> = {};
-    for (const sec of parentSections) {
-      sectionsMap[sec.section_code] = {
-        title: sec.title,
-        content_md: sec.content_md,
-        content_json: sec.content_json,
-        source_doc_ids: sec.source_doc_ids,
-      };
+    try {
+      // 7) Parse docs
+      let docContents = "";
+      for (const doc of docs) {
+        const { data: file, error: dlErr } = await adminClient
+          .storage.from("pe_deal_docs").download(doc.storage_path);
+        if (dlErr || !file) {
+          console.warn(`[generate-ic1-memo] download failed for ${doc.filename}`);
+          continue;
+        }
+        const buffer = await file.arrayBuffer();
+        const text = await callRailwayParser(buffer, doc.filename, doc.mime_type ?? "application/octet-stream");
+        if (text) docContents += `\n\n=== ${doc.filename} ===\n${text}`;
+      }
+
+      const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
+
+      // 8) Phase 1 — enrichissement parallèle des 11 sections
+      const phase1Codes: MemoSectionCode[] = [
+        'shareholding_governance',
+        'top_management',
+        'services',
+        'competition_market',
+        'unit_economics',
+        'financials_pnl',
+        'financials_balance',
+        'investment_thesis',
+        'support_requested',
+        'esg_risks',
+        'annexes',
+      ];
+
+      console.log(`[generate-ic1-memo] Phase 1 — enriching ${phase1Codes.length} sections in parallel for deal ${deal.id}`);
+      const phase1Results = await Promise.allSettled(
+        phase1Codes.map(code =>
+          enrichSectionForIC1({
+            sectionCode: code,
+            deal: dealCtx,
+            docContents,
+            previousSection: previousMap[code] ?? { content_md: null, content_json: {} },
+            toneBlock,
+            enterpriseId: deal.id,
+          }).then(content => ({ code, content })),
+        ),
+      );
+
+      const sectionsContent: Partial<Record<MemoSectionCode, SectionContent>> = {};
+      const failures: { code: MemoSectionCode; reason: string }[] = [];
+      for (let i = 0; i < phase1Results.length; i++) {
+        const result = phase1Results[i];
+        const code = phase1Codes[i];
+        if (result.status === 'fulfilled') {
+          sectionsContent[code] = result.value.content;
+        } else {
+          failures.push({ code, reason: String(result.reason).slice(0, 300) });
+          // Fallback : on garde la version pre-screening si l'enrichissement échoue
+          sectionsContent[code] = previousMap[code] ?? { content_md: null, content_json: {} };
+        }
+      }
+      if (failures.length > 0) {
+        console.warn(`[generate-ic1-memo] Phase 1 partial failure: ${failures.map(f => `${f.code}=${f.reason}`).join(' | ')}`);
+      }
+
+      // 9) Phase 2 — résumé exécutif IC1 avec contexte des 11 sections enrichies
+      console.log(`[generate-ic1-memo] Phase 2 — enriching executive_summary`);
+      const otherSectionsContext = phase1Codes
+        .map(code => summarizeSectionForContext(code, sectionsContent[code]!))
+        .join('\n\n');
+
+      const execContent = await enrichSectionForIC1({
+        sectionCode: 'executive_summary',
+        deal: dealCtx,
+        docContents,
+        previousSection: previousMap.executive_summary ?? { content_md: null, content_json: {} },
+        otherSectionsContext,
+        toneBlock,
+        enterpriseId: deal.id,
+      });
+      sectionsContent.executive_summary = execContent;
+
+      // 10) Insertion 12 sections en batch
+      const sectionsMap: Partial<Record<MemoSectionCode, any>> = {};
+      for (const code of Object.keys(sectionsContent) as MemoSectionCode[]) {
+        sectionsMap[code] = {
+          content_md: sectionsContent[code]!.content_md,
+          content_json: sectionsContent[code]!.content_json,
+          source_doc_ids: sectionDocIds,
+        };
+      }
+      await insertMemoSections(adminClient, newVersionId, sectionsMap);
+
+      // 11) Score + classification depuis le résumé exécutif IC1
+      const { overall_score, classification } = extractScoreAndClassification(execContent);
+
+      await updateMemoVersion(adminClient, newVersionId, {
+        status: "ready",
+        overall_score,
+        classification,
+        generated_at: new Date().toISOString(),
+        error_message: failures.length > 0
+          ? `Partial: ${failures.length} sections échouées (${failures.map(f => f.code).join(', ')})`
+          : null,
+      });
+
+      return jsonResponse({
+        success: true,
+        version_id: newVersionId,
+        parent_version_id: lastPreScreening.id,
+        overall_score,
+        classification,
+        sections_enriched: Object.keys(sectionsContent).length,
+        sections_failed: failures.length,
+        failures: failures.length > 0 ? failures : undefined,
+      });
+    } catch (genErr: any) {
+      console.error(`[generate-ic1-memo] enrichment failed: ${genErr.message}`);
+      await updateMemoVersion(adminClient, newVersionId, {
+        status: "rejected",
+        error_message: genErr.message?.slice(0, 500) ?? "Unknown error",
+      });
+      return errorResponse(`IC1 enrichment failed: ${genErr.message}`, 500);
     }
-    await insertMemoSections(adminClient, newVersionId, sectionsMap);
-
-    // Finalize
-    await updateMemoVersion(adminClient, newVersionId, {
-      status: "ready",
-      generated_at: new Date().toISOString(),
-    });
-
-    return jsonResponse({
-      success: true,
-      version_id: newVersionId,
-      cloned_from: lastPreScreening.id,
-    });
   } catch (err: any) {
-    console.error(`[generate-ic1-memo] error: ${err.message}`);
+    console.error(`[generate-ic1-memo] outer error: ${err.message}`);
     return errorResponse(err.message ?? "Internal error", 500);
   }
 });

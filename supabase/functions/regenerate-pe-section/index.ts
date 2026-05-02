@@ -7,157 +7,11 @@ import {
   fetchDealDocuments,
   type MemoSectionCode,
 } from "../_shared/memo-helpers.ts";
-
-const SECTION_LABELS: Record<MemoSectionCode, string> = {
-  executive_summary:        'Résumé exécutif',
-  shareholding_governance:  'Actionnariat et gouvernance',
-  top_management:           'Top management',
-  services:                 'Services',
-  competition_market:       'Concurrence et marché',
-  unit_economics:           'Units economics',
-  financials_pnl:           "États financiers PnL",
-  financials_balance:       'États financiers Bilan',
-  investment_thesis:        "Thèse d'investissement",
-  support_requested:        'Accompagnement demandé',
-  esg_risks:                'ESG / Risques',
-  annexes:                  'Annexes',
-};
-
-// JSON schema spécifique par section (le subset du gros JSON pre-screening qui correspond à cette section)
-const SECTION_JSON_SCHEMA: Record<MemoSectionCode, string> = {
-  executive_summary: `{
-  "meta": {
-    "redige_par": "<rôle nom>",
-    "data_par": "<analyste nom>",
-    "review_par": "<IM nom> | null",
-    "version_label": "IC1 (draft)",
-    "version_note": "<courte note version>",
-    "auto_gen_note": "Ce résumé est auto-généré à partir des 11 autres sections. Régénéré à chaque validation de section.",
-    "last_generated_at": "<date>",
-    "validations_im": 0,
-    "validations_md": 0,
-    "score_memo": 0
-  },
-  "kpis_bandeau": [
-    { "label": "CA 2025",              "value": "...", "hint": "CAGR ...",        "hint_color": "ok|warning|danger" },
-    { "label": "EBITDA retraité",      "value": "...", "hint": "Marge ...",        "hint_color": "ok|warning|danger", "value_color": "ok|warning|danger" },
-    { "label": "Marge brute",          "value": "...", "hint": "...",              "hint_color": "ok|warning|danger" },
-    { "label": "Dette nette / EBITDA", "value": "...", "hint": "...",              "hint_color": "ok|warning|danger", "value_color": "ok|warning|danger" },
-    { "label": "Ticket",               "value": "...", "hint": "Equity pure" },
-    { "label": "Pre-money",            "value": "...", "hint": "..." },
-    { "label": "MOIC base",            "value": "...", "hint": "IRR ...",          "value_color": "ok",                "hint_color": "info" }
-  ],
-  "presentation": {
-    "heading": "Présentation de la cible",
-    "paragraphs": [
-      "<paragraphe 1 — qui est l'entreprise, ce qu'elle fait, citations [Source: ...]>",
-      "<paragraphe 2 — le marché, mégatrends, citations>"
-    ]
-  },
-  "thesis_5_points": {
-    "heading": "Thèse d'investissement en 5 points",
-    "items": [
-      { "n": 1, "lead": "<lead synthétique>", "body": "<argumentation détaillée + citations>" },
-      { "n": 2, "lead": "...", "body": "..." },
-      { "n": 3, "lead": "...", "body": "..." },
-      { "n": 4, "lead": "...", "body": "..." },
-      { "n": 5, "lead": "...", "body": "..." }
-    ]
-  },
-  "recommendation": {
-    "heading": "Recommandation formelle",
-    "verdict": "go_conditionnel|hold|reject|go_direct",
-    "verdict_label": "<ex: GO CONDITIONNEL — conviction modérée>",
-    "color": "green|orange|red",
-    "summary": "<paragraphe résumant le verdict + score d'adéquation thèse>",
-    "score_section": "<phrase score>",
-    "score_esono": <number>,
-    "score_threshold": <number>,
-    "score_brut": <number>,
-    "conditions_intro": "Trois conditions préalables au passage en IC1 :",
-    "conditions": [
-      { "n": 1, "text": "..." },
-      { "n": 2, "text": "..." },
-      { "n": 3, "text": "..." }
-    ]
-  },
-  "red_flags_synthesis": [
-    { "title": "...", "severity": "Critical|High|Medium|Low", "penalty_pts": <number négatif>, "penalty_dimension": "Gouvernance|Finance|Croissance|Thèse|ESG|Données", "body": "<détail + atténuation possible>" }
-  ],
-  "monitoring_points": [
-    "<point 1>",
-    "<point 2>"
-  ],
-  "deal_breakers": {
-    "intro": "Deal breakers identifiés :",
-    "items": ["<deal breaker 1>", "<deal breaker 2>"],
-    "conclusion": "Si l'un des deux se matérialise → la recommandation passe de Go conditionnel à Hold et le deal ne va pas en comité IC1."
-  },
-  "footer": {
-    "auto_gen_summary": "Ce résumé est auto-généré à partir des 11 autres sections.",
-    "last_generated_at": "<date>",
-    "sections_redigees": 12,
-    "sections_total": 12,
-    "validations_im": <number>,
-    "validations_md": <number>,
-    "score_memo": <number>
-  }
-}`,
-  shareholding_governance: `{
-  "actionnariat": { "items": [{ "label": "Nom", "percent": 72, "subtitle": "rôle" }, ...] }
-}`,
-  top_management: `{
-  "management": { "items": [{ "name": "...", "role": "...", "tag": "ok|warning|danger", "note": "..." }, ...] }
-}`,
-  services: `{
-  "activite": "<paragraphe descriptif>"
-}`,
-  competition_market: `{
-  "benchmark": {
-    "headers": ["Cible", "Médiane", "Quartile"],
-    "rows": [{ "ratio": "...", "company": "...", "median": "...", "quartile": "..." }, ...],
-    "source": "..."
-  }
-}`,
-  unit_economics: `{}`,
-  financials_pnl: `{
-  "snapshot_3y": {
-    "headers": ["2023","2024","2025"],
-    "rows": [{ "label": "...", "values": [...], "highlight": "ok|warning|danger" }, ...],
-    "footnote": "..."
-  }
-}`,
-  financials_balance: `{}`,
-  investment_thesis: `{
-  "thesis_match": { "criteria": [{ "label": "...", "status": "match|partial|no" }, ...], "match_count": 5, "total": 6, "score_percent": 83 },
-  "scenarios_returns": {
-    "bear": { "moic": "...", "irr": "...", "description": "..." },
-    "base": { "moic": "...", "irr": "...", "description": "..." },
-    "bull": { "moic": "...", "irr": "...", "description": "..." },
-    "pre_money_indicatif": "..."
-  },
-  "recommendation": {
-    "verdict": "go_conditionnel|hold|reject|go_direct",
-    "summary": "...",
-    "conditions": [{ "n": 1, "text": "..." }],
-    "deal_breakers": ["..."],
-    "conviction": "fort|modéré|faible"
-  }
-}`,
-  support_requested: `{
-  "use_of_proceeds": [{ "label": "...", "percent": 60 }, ...]
-}`,
-  esg_risks: `{
-  "red_flags": [{ "title": "...", "severity": "high|medium|low", "detail": "..." }, ... max 5]
-}`,
-  annexes: `{
-  "doc_quality": {
-    "categories": [{ "name": "Financier", "level": "N0|N1|N2", "checklist": [{ "label": "...", "status": "ok|partial|missing" }, ...] }, ...],
-    "global_level": "N1.5",
-    "summary": "..."
-  }
-}`,
-};
+import {
+  SECTION_LABELS,
+  SECTION_SCHEMAS,
+  SECTION_DESCRIPTIONS,
+} from "../_shared/memo-section-schemas.ts";
 
 interface RequestBody {
   deal_id: string;
@@ -247,21 +101,23 @@ serve(async (req: Request) => {
     // 4) Compose prompt focalisé sur LA section
     const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
     const sectionLabel = SECTION_LABELS[body.section_code];
-    const jsonSchema = SECTION_JSON_SCHEMA[body.section_code];
+    const sectionDescription = SECTION_DESCRIPTIONS[body.section_code];
+    const jsonSchema = SECTION_SCHEMAS[body.section_code];
 
     const systemPrompt = `${toneBlock}
 
 Tu RÉGÉNÈRES UNIQUEMENT la section "${sectionLabel}" du dossier d'investissement PE pour le deal "${dealName}" (${deal.deal_ref}, secteur ${sector}, pays ${country}).
 
-═══ TÂCHE ═══
-Tu dois produire un OBJET JSON STRICT respectant ce schéma précis pour cette section :
+═══ RÔLE DE LA SECTION ═══
+${sectionDescription}
 
+═══ SCHÉMA JSON STRICT ATTENDU pour content_json ═══
 ${jsonSchema}
 
 ═══ CHAMPS À PRODUIRE ═══
 {
-  "content_md": "<string markdown ~150-300 mots — le texte narratif de la section>",
-  "content_json": <objet conforme au schéma ci-dessus, ou {} si la section est purement narrative>
+  "content_md": "<string markdown ~150-300 mots — le texte narratif de la section, complémentaire au content_json structuré>",
+  "content_json": <objet conforme exactement au schéma ci-dessus>
 }
 
 ═══ CONTEXTE — DOCUMENTS DEAL ═══
@@ -272,9 +128,10 @@ ${otherSectionsSummary.slice(0, 30000)}
 
 ═══ RÈGLES ═══
 1. Chiffres EXACTS issus des documents. Pas d'invention.
-2. Si une donnée manque : "n/d" ou null.
-3. Cite les sources [Source: pitch.pdf p.3] dans content_md.
-4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après.`;
+2. Si une donnée manque : utilise "n/d" ou null, JAMAIS d'invention.
+3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
+4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
+5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing".`;
 
     // 5) Appel Claude
     const claudeJSON = await callAI(systemPrompt, `Régénère la section "${sectionLabel}" maintenant.`, 8192, undefined, 0.2, {
