@@ -14,9 +14,16 @@ interface DashboardLayoutProps {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  /**
+   * Si true, le layout occupe exactement la viewport (h-screen) avec un topbar
+   * sticky et un main en flex-1 qui ne scrolle pas — c'est aux enfants de gérer
+   * leurs zones scrollables (typiquement workspace sidebar+content).
+   * Si false (défaut), comportement classique : page peut grandir et scroller.
+   */
+  fullscreen?: boolean;
 }
 
-export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, title, subtitle, fullscreen = false }: DashboardLayoutProps) {
   const { profile, role, signOut } = useAuth();
   const { currentOrg, currentRole: orgRole, memberships, isSuperAdmin, switchOrganization } = useOrganization();
   const navigate = useNavigate();
@@ -47,9 +54,11 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={fullscreen ? 'h-screen bg-background flex flex-col overflow-hidden' : 'min-h-screen bg-background'}>
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-sm">
+      <header className={fullscreen
+        ? 'flex-none border-b bg-card/80 backdrop-blur-sm z-50'
+        : 'sticky top-0 z-50 border-b bg-card/80 backdrop-blur-sm'}>
         <div className="w-full px-6 flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
@@ -208,13 +217,25 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
       </header>
 
       {/* Page content */}
-      <main className="w-full px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">{title}</h1>
-          {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
-        </div>
-        {children}
-      </main>
+      {fullscreen ? (
+        <main className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+          <div className="flex-none px-6 pt-4 pb-3 border-b bg-background">
+            <h1 className="text-xl md:text-2xl font-display font-bold text-foreground leading-tight">{title}</h1>
+            {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {children}
+          </div>
+        </main>
+      ) : (
+        <main className="w-full px-6 py-8">
+          <div className="mb-8">
+            <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">{title}</h1>
+            {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
+          </div>
+          {children}
+        </main>
+      )}
     </div>
   );
 }

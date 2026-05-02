@@ -201,30 +201,36 @@ export default function PeDealDetailPage() {
   };
 
   return (
-    <DashboardLayout title={deal.deal_ref} subtitle={deal.enterprise_name || '—'}>
-      <div className="flex items-center justify-between mb-3">
-        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe/pipeline')}>
-          <ArrowLeft className="h-4 w-4" /> Retour au pipeline
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSettingsOpen(true)}>
-          <SettingsIcon className="h-4 w-4" /> Paramètres
-        </Button>
-      </div>
+    <DashboardLayout title={deal.deal_ref} subtitle={deal.enterprise_name || '—'} fullscreen>
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Action bar : back + stage + settings (fixe au-dessus du workspace) */}
+        <div className="flex-none px-6 py-2 border-b bg-card/30 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe/pipeline')}>
+              <ArrowLeft className="h-4 w-4" /> Retour au pipeline
+            </Button>
+            <Badge variant="outline">{deal.stage}</Badge>
+            {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSettingsOpen(true)}>
+            <SettingsIcon className="h-4 w-4" /> Paramètres
+          </Button>
+        </div>
 
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <Badge variant="outline">{deal.stage}</Badge>
-        {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}
-      </div>
-
-      {/* Workspace 2 colonnes (pattern programme/banque) */}
-      <div className="flex border rounded-lg overflow-hidden bg-card min-h-[600px]">
-        <PeDealSidebar
-          dealId={deal.id}
-          selectedItem={selectedItem}
-          onSelectItem={setSelectedItem}
-        />
-        <div className="flex-1 min-w-0 p-6 overflow-y-auto">
-          {renderRightPanel()}
+        {/* Workspace 2 colonnes — sidebar fixe + contenu scrollable */}
+        <div className="flex-1 min-h-0 flex bg-card overflow-hidden">
+          <div className="shrink-0 overflow-y-auto border-r bg-card">
+            <PeDealSidebar
+              dealId={deal.id}
+              selectedItem={selectedItem}
+              onSelectItem={setSelectedItem}
+            />
+          </div>
+          <div className="flex-1 min-w-0 overflow-y-auto">
+            <div className="p-6">
+              {renderRightPanel()}
+            </div>
+          </div>
         </div>
       </div>
 
