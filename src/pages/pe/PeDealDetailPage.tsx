@@ -169,6 +169,24 @@ export default function PeDealDetailPage() {
     if (selectedItem.includes(':')) {
       const [stage, code] = selectedItem.split(':');
       if (['pre_screening', 'note_ic1', 'note_ic_finale'].includes(stage)) {
+        // Sous-item spécial "Détails Valuation" (Phase E')
+        if (code === '_valuation_details') {
+          return (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground space-y-3">
+                <h2 className="text-lg font-semibold text-foreground">Détails Valuation</h2>
+                <p className="text-sm">
+                  Vue zoomée sur la thèse d'investissement : DCF complet (7 ans),
+                  matrice de sensibilité WACC/g, multiples de comparables, scénarios de sortie détaillés.
+                </p>
+                <p className="text-xs">
+                  La valuation light (MOIC bear/base/bull, IRR, pre-money) reste accessible dans la section
+                  <strong> Thèse d'investissement</strong> du memo. Cette vue détaillée sera disponible en <strong>Phase E'</strong>.
+                </p>
+              </CardContent>
+            </Card>
+          );
+        }
         return <PeSingleSectionView dealId={deal.id} stage={stage as any} sectionCode={code} />;
       }
     }

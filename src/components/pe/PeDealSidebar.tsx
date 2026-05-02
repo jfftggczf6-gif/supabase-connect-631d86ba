@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, FileCheck, Search, BookMarked,
-  Send, AlertCircle, Calculator,
+  Send, AlertCircle, Calculator, ZoomIn,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -251,23 +251,27 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
                       </button>
                     );
                   })}
+                  {/* Sous-item "Détails Valuation" (zoom sur la thèse, Phase E') */}
+                  <button
+                    onClick={() => onSelectItem(`${phase.stage}:_valuation_details`)}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
+                      selectedItem === `${phase.stage}:_valuation_details` ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <ZoomIn className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      Détails Valuation
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">à venir</span>
+                  </button>
                 </div>
               )}
             </div>
           );
         })}
 
-        {/* Valuation : entre Memo IC1 et DD */}
-        <ItemRow
-          active={selectedItem === 'valuation'}
-          onClick={() => onSelectItem('valuation')}
-          icon={Calculator}
-          label="Valuation"
-          badge="à venir"
-          disabled
-        />
-
-        {/* DD : entre Valuation et Memo IC finale */}
+        {/* DD : entre Memo IC1 et Memo IC finale */}
         <ItemRow
           active={selectedItem === 'dd'}
           onClick={() => onSelectItem('dd')}
@@ -321,6 +325,20 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
                       </button>
                     );
                   })}
+                  {/* Sous-item "Détails Valuation finale" */}
+                  <button
+                    onClick={() => onSelectItem(`${phase.stage}:_valuation_details`)}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
+                      selectedItem === `${phase.stage}:_valuation_details` ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <ZoomIn className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      Détails Valuation finale
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">à venir</span>
+                  </button>
                 </div>
               )}
             </div>
