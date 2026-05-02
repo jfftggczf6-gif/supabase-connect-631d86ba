@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ScoreCircle from '@/components/dashboard/viewers/atoms/pe/ScoreCircle';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
+import PeExportButton from './PeExportButton';
 import * as Sections from './sections';
 
 type SectionCode =
@@ -173,6 +174,7 @@ export default function MemoSectionsViewer({ dealId, withToc = false, title }: P
             </div>
           )}
           {version.overall_score != null && <ScoreCircle score={Number(version.overall_score)} />}
+          {deal?.id && <PeExportButton dealId={deal.id} kind="memo_ic1" label="Exporter le memo" />}
         </div>
       </CardContent>
     </Card>

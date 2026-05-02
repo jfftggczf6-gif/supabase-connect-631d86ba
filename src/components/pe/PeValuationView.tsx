@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Loader2, Wand2, TrendingUp, BarChart3, Layers, Scale, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
+import PeExportButton from './PeExportButton';
 
 interface Props {
   dealId: string;
@@ -168,10 +169,13 @@ export default function PeValuationView({ dealId }: Props) {
               <span className="text-[11px] text-muted-foreground">Générée le {new Date(data.generated_at).toLocaleString('fr-FR')}</span>
             )}
           </div>
-          <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline" className="gap-1.5">
-            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-            Régénérer
-          </Button>
+          <div className="flex items-center gap-2">
+            <PeExportButton dealId={dealId} kind="valuation" label="Exporter" />
+            <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline" className="gap-1.5">
+              {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              Régénérer
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
