@@ -22,6 +22,7 @@ import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
 import DueDiligenceSection from '@/components/pe/DueDiligenceSection';
+import PeValuationView from '@/components/pe/PeValuationView';
 import MemoVersionsView from '@/components/pe/MemoVersionsView';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
@@ -203,6 +204,9 @@ export default function PeDealDetailPage() {
       return <MemoSectionsViewer dealId={deal.id} />;
     }
     // Due Diligence
+    if (selectedItem === 'valuation') {
+      return <PeValuationView dealId={deal.id} />;
+    }
     if (selectedItem === 'dd') {
       return currentOrg ? <DueDiligenceSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
     }

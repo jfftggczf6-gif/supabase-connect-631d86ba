@@ -2997,6 +2997,96 @@ export type Database = {
           },
         ]
       }
+      pe_valuation: {
+        Row: {
+          ai_justification: string | null
+          ancc_assets: Json
+          ancc_liabilities: Json
+          ancc_outputs: Json
+          created_at: string
+          currency: string | null
+          dcf_inputs: Json
+          dcf_outputs: Json
+          dcf_projections: Json
+          dcf_terminal: Json
+          deal_id: string
+          error_message: string | null
+          generated_at: string | null
+          generated_by_agent: string | null
+          generated_by_user_id: string | null
+          id: string
+          multiples_comparables: Json
+          multiples_outputs: Json
+          organization_id: string
+          status: string
+          synthesis: Json
+          updated_at: string
+        }
+        Insert: {
+          ai_justification?: string | null
+          ancc_assets?: Json
+          ancc_liabilities?: Json
+          ancc_outputs?: Json
+          created_at?: string
+          currency?: string | null
+          dcf_inputs?: Json
+          dcf_outputs?: Json
+          dcf_projections?: Json
+          dcf_terminal?: Json
+          deal_id: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          multiples_comparables?: Json
+          multiples_outputs?: Json
+          organization_id: string
+          status?: string
+          synthesis?: Json
+          updated_at?: string
+        }
+        Update: {
+          ai_justification?: string | null
+          ancc_assets?: Json
+          ancc_liabilities?: Json
+          ancc_outputs?: Json
+          created_at?: string
+          currency?: string | null
+          dcf_inputs?: Json
+          dcf_outputs?: Json
+          dcf_projections?: Json
+          dcf_terminal?: Json
+          deal_id?: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          multiples_comparables?: Json
+          multiples_outputs?: Json
+          organization_id?: string
+          status?: string
+          synthesis?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_valuation_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_valuation_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

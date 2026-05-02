@@ -289,6 +289,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           label="Due Diligence"
         />
 
+        {/* Valuation : section dédiée (Module E.10) */}
+        <ItemRow
+          active={selectedItem === 'valuation'}
+          onClick={() => onSelectItem('valuation')}
+          icon={Calculator}
+          label="Valuation"
+        />
+
       </nav>
     </div>
   );
