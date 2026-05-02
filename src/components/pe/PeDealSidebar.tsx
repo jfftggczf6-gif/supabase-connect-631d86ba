@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
-  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked,
+  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
   Send, AlertCircle, Calculator, ZoomIn,
 } from 'lucide-react';
 
@@ -191,6 +191,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           icon={History}
           label="Historique"
           badge={versionCount || null}
+        />
+        <ItemRow
+          active={selectedItem === 'memo_versions'}
+          onClick={() => onSelectItem('memo_versions')}
+          icon={GitCompareArrows}
+          label="Versions du memo"
         />
 
         {/* ── LIVRABLES ── */}
