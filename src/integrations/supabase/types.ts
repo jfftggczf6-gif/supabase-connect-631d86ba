@@ -1,4 +1,3 @@
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -2194,10 +2193,15 @@ export type Database = {
           generated_by_agent: string | null
           generated_by_user_id: string | null
           id: string
+          is_snapshot: boolean
           label: string
           memo_id: string
           overall_score: number | null
           parent_version_id: string | null
+          snapshot_label: string | null
+          snapshot_of_version_id: string | null
+          snapshot_taken_at: string | null
+          snapshot_taken_by: string | null
           stage: Database["public"]["Enums"]["pe_deal_stage"]
           status: Database["public"]["Enums"]["memo_version_status"]
         }
@@ -2209,10 +2213,15 @@ export type Database = {
           generated_by_agent?: string | null
           generated_by_user_id?: string | null
           id?: string
+          is_snapshot?: boolean
           label: string
           memo_id: string
           overall_score?: number | null
           parent_version_id?: string | null
+          snapshot_label?: string | null
+          snapshot_of_version_id?: string | null
+          snapshot_taken_at?: string | null
+          snapshot_taken_by?: string | null
           stage: Database["public"]["Enums"]["pe_deal_stage"]
           status?: Database["public"]["Enums"]["memo_version_status"]
         }
@@ -2224,10 +2233,15 @@ export type Database = {
           generated_by_agent?: string | null
           generated_by_user_id?: string | null
           id?: string
+          is_snapshot?: boolean
           label?: string
           memo_id?: string
           overall_score?: number | null
           parent_version_id?: string | null
+          snapshot_label?: string | null
+          snapshot_of_version_id?: string | null
+          snapshot_taken_at?: string | null
+          snapshot_taken_by?: string | null
           stage?: Database["public"]["Enums"]["pe_deal_stage"]
           status?: Database["public"]["Enums"]["memo_version_status"]
         }
@@ -2242,6 +2256,13 @@ export type Database = {
           {
             foreignKeyName: "memo_versions_parent_version_id_fkey"
             columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "memo_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_versions_snapshot_of_version_id_fkey"
+            columns: ["snapshot_of_version_id"]
             isOneToOne: false
             referencedRelation: "memo_versions"
             referencedColumns: ["id"]
@@ -2574,13 +2595,204 @@ export type Database = {
         }
         Relationships: []
       }
+      pe_dd_checklist: {
+        Row: {
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at: string
+          deal_id: string
+          due_date: string | null
+          evidence_doc_ids: string[]
+          id: string
+          item_description: string | null
+          item_label: string
+          organization_id: string
+          position: number
+          responsable_user_id: string | null
+          status: Database["public"]["Enums"]["pe_dd_checklist_status"]
+          updated_at: string
+          verification_note: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          deal_id: string
+          due_date?: string | null
+          evidence_doc_ids?: string[]
+          id?: string
+          item_description?: string | null
+          item_label: string
+          organization_id: string
+          position?: number
+          responsable_user_id?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_checklist_status"]
+          updated_at?: string
+          verification_note?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          deal_id?: string
+          due_date?: string | null
+          evidence_doc_ids?: string[]
+          id?: string
+          item_description?: string | null
+          item_label?: string
+          organization_id?: string
+          position?: number
+          responsable_user_id?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_checklist_status"]
+          updated_at?: string
+          verification_note?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_dd_checklist_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_checklist_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_dd_findings: {
+        Row: {
+          applied_to_memo_at: string | null
+          applied_to_memo_by: string | null
+          body: string
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at: string
+          created_by: string
+          deal_id: string
+          evidence_doc_ids: string[]
+          finding_type: Database["public"]["Enums"]["pe_dd_finding_type"]
+          id: string
+          impacts_section_codes: string[]
+          organization_id: string
+          recommendation: string | null
+          related_checklist_id: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["pe_dd_severity"]
+          source: string
+          source_doc_id: string | null
+          source_page: number | null
+          source_paragraph: string | null
+          status: Database["public"]["Enums"]["pe_dd_finding_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          applied_to_memo_at?: string | null
+          applied_to_memo_by?: string | null
+          body: string
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          created_by: string
+          deal_id: string
+          evidence_doc_ids?: string[]
+          finding_type?: Database["public"]["Enums"]["pe_dd_finding_type"]
+          id?: string
+          impacts_section_codes?: string[]
+          organization_id: string
+          recommendation?: string | null
+          related_checklist_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: Database["public"]["Enums"]["pe_dd_severity"]
+          source?: string
+          source_doc_id?: string | null
+          source_page?: number | null
+          source_paragraph?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_finding_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          applied_to_memo_at?: string | null
+          applied_to_memo_by?: string | null
+          body?: string
+          category?: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          created_by?: string
+          deal_id?: string
+          evidence_doc_ids?: string[]
+          finding_type?: Database["public"]["Enums"]["pe_dd_finding_type"]
+          id?: string
+          impacts_section_codes?: string[]
+          organization_id?: string
+          recommendation?: string | null
+          related_checklist_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["pe_dd_severity"]
+          source?: string
+          source_doc_id?: string | null
+          source_page?: number | null
+          source_paragraph?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_finding_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_dd_findings_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_findings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_findings_related_checklist_id_fkey"
+            columns: ["related_checklist_id"]
+            isOneToOne: false
+            referencedRelation: "pe_dd_checklist"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_findings_source_doc_id_fkey"
+            columns: ["source_doc_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deal_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pe_deal_documents: {
         Row: {
           category: string | null
           created_at: string
+          dd_report_cabinet: string | null
+          dd_report_pages: number | null
+          dd_report_type:
+            | Database["public"]["Enums"]["pe_dd_report_type"]
+            | null
           deal_id: string
           filename: string
           id: string
+          is_dd_report: boolean
           mime_type: string | null
           organization_id: string
           size_bytes: number | null
@@ -2590,9 +2802,15 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          dd_report_cabinet?: string | null
+          dd_report_pages?: number | null
+          dd_report_type?:
+            | Database["public"]["Enums"]["pe_dd_report_type"]
+            | null
           deal_id: string
           filename: string
           id?: string
+          is_dd_report?: boolean
           mime_type?: string | null
           organization_id: string
           size_bytes?: number | null
@@ -2602,9 +2820,15 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          dd_report_cabinet?: string | null
+          dd_report_pages?: number | null
+          dd_report_type?:
+            | Database["public"]["Enums"]["pe_dd_report_type"]
+            | null
           deal_id?: string
           filename?: string
           id?: string
+          is_dd_report?: boolean
           mime_type?: string | null
           organization_id?: string
           size_bytes?: number | null
@@ -3288,6 +3512,10 @@ export type Database = {
           type: string
         }[]
       }
+      pe_create_memo_snapshot: {
+        Args: { p_label: string; p_user_id: string; p_version_id: string }
+        Returns: string
+      }
       search_knowledge: {
         Args: {
           filter_categories?: string[]
@@ -3423,6 +3651,31 @@ export type Database = {
         | "teaser_anonymise"
       module_status: "not_started" | "in_progress" | "completed"
       operating_mode: "reconstruction" | "due_diligence"
+      pe_dd_category:
+        | "financier"
+        | "juridique"
+        | "commercial"
+        | "operationnel"
+        | "rh"
+        | "esg"
+        | "fiscal"
+        | "it"
+      pe_dd_checklist_status: "pending" | "verified" | "red_flag" | "na"
+      pe_dd_finding_status: "open" | "mitigated" | "accepted" | "rejected"
+      pe_dd_finding_type:
+        | "confirmation"
+        | "adjustment"
+        | "red_flag"
+        | "informative"
+      pe_dd_report_type:
+        | "financiere"
+        | "juridique"
+        | "esg"
+        | "fiscale"
+        | "operationnelle"
+        | "commerciale"
+        | "autre"
+      pe_dd_severity: "Critical" | "High" | "Medium" | "Low"
       pe_deal_source:
         | "reseau_pe"
         | "inbound"
@@ -3664,6 +3917,34 @@ export const Constants = {
       ],
       module_status: ["not_started", "in_progress", "completed"],
       operating_mode: ["reconstruction", "due_diligence"],
+      pe_dd_category: [
+        "financier",
+        "juridique",
+        "commercial",
+        "operationnel",
+        "rh",
+        "esg",
+        "fiscal",
+        "it",
+      ],
+      pe_dd_checklist_status: ["pending", "verified", "red_flag", "na"],
+      pe_dd_finding_status: ["open", "mitigated", "accepted", "rejected"],
+      pe_dd_finding_type: [
+        "confirmation",
+        "adjustment",
+        "red_flag",
+        "informative",
+      ],
+      pe_dd_report_type: [
+        "financiere",
+        "juridique",
+        "esg",
+        "fiscale",
+        "operationnelle",
+        "commerciale",
+        "autre",
+      ],
+      pe_dd_severity: ["Critical", "High", "Medium", "Low"],
       pe_deal_source: [
         "reseau_pe",
         "inbound",
@@ -3688,5 +3969,3 @@ export const Constants = {
   },
 } as const
 
-A new version of Supabase CLI is available: v2.95.4 (currently installed v2.75.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

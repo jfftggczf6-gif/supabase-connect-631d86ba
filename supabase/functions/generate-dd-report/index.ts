@@ -24,6 +24,7 @@ interface RequestBody {
 
 type DDCategory = 'financier' | 'juridique' | 'commercial' | 'operationnel' | 'rh' | 'esg' | 'fiscal' | 'it';
 type DDSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
+type DDFindingType = 'confirmation' | 'adjustment' | 'red_flag' | 'informative';
 
 interface ChecklistItem {
   category: DDCategory;
@@ -34,10 +35,14 @@ interface ChecklistItem {
 
 interface Finding {
   category: DDCategory;
+  finding_type: DDFindingType;
   severity: DDSeverity;
   title: string;
   body: string;
   recommendation?: string;
+  source_paragraph?: string;       // ex: "§4.3.2"
+  source_page?: number;             // ex: 28
+  source_filename?: string;         // ex: "DD_KPMG.pdf" (pour mapper source_doc_id côté serveur)
   impacts_section_codes: MemoSectionCode[];
 }
 
@@ -58,10 +63,14 @@ const DD_REPORT_SCHEMA = `{
   "findings": [
     {
       "category": "<une des 8 catégories ci-dessus>",
+      "finding_type": "confirmation|adjustment|red_flag|informative",
       "severity": "Critical|High|Medium|Low",
       "title": "<titre du finding (court)>",
-      "body": "<description détaillée + chiffres + citations source>",
+      "body": "<description détaillée + chiffres>",
       "recommendation": "<action recommandée pour mitiger / clarifier>",
+      "source_paragraph": "<référence paragraphe, ex: '§4.3.2' ou '4.3.2' ou 'Section 4.3'>",
+      "source_page": <number page (ex: 28) ou null si non précis>,
+      "source_filename": "<nom exact du rapport DD source, ex: 'DD_KPMG_PharmaCi.pdf' — doit matcher un des fichiers fournis>",
       "impacts_section_codes": ["<codes parmi: executive_summary, shareholding_governance, top_management, services, competition_market, unit_economics, financials_pnl, financials_balance, investment_thesis, support_requested, esg_risks, annexes>"]
     }
   ]
@@ -174,20 +183,29 @@ Tu LIS le rapport DD externe et tu identifies :
    Chaque finding pointe vers les sections du memo qu'il impacte (champ impacts_section_codes).
 2. Une CHECKLIST d'items résiduels que la DD n'a pas couverts ou qui méritent vérification additionnelle (par exemple : visite site complémentaire, analyse environnementale spécifique).
 
-═══ TYPES DE FINDINGS À CHERCHER ═══
-- Écart chiffres : "Le rapport DD a retraité l'EBITDA à 280M FCFA vs 300M dans le memo IC1 → écart -20M"
-- Nouveau red flag : "Le rapport DD a découvert une convention bail dirigeant non documentée dans le memo IC1"
-- Confirmation : "Le rapport DD confirme la concentration client 62% top 3 mentionnée en memo IC1"
-- Infirmation : "Le rapport DD invalide l'allégation BPF UEMOA — certification expirée en 2024"
-- Ajustement nécessaire : "Le rapport DD note des stocks API surévalués 18% → ajustement bilan -45M FCFA"
+═══ 4 TYPES DE FINDINGS (finding_type) ═══
+- "confirmation" (vert) : la DD CONFIRME une affirmation du memo IC1, renforce
+  Ex : "Le rapport DD confirme la concentration client 62% top 3 mentionnée en memo IC1"
+- "adjustment" (orange) : la DD AJUSTE un chiffre / fait du memo IC1
+  Ex : "EBITDA retraité revu de 520M à 475M (-8.7%) — KPMG identifie 45M de charges perso supplémentaires"
+- "red_flag" (rouge) : la DD identifie un NOUVEAU red flag non détecté en IC1
+  Ex : "Litige fournisseur Pentair 180M FCFA non provisionné, découvert par KPMG"
+- "informative" (gris) : observation contextuelle, ni confirmation ni ajustement
+  Ex : "Le cabinet recommande un audit complémentaire sur la chaîne d'approvisionnement"
 
-═══ CRITÈRES POUR LES FINDINGS ═══
-- Sévérité Critical : deal breaker (le rapport DD remet en cause un fondamental)
-- Severity High : retraitement matériel chiffres ou nouveau red flag majeur
-- Severity Medium : ajustement nécessaire mais non bloquant
-- Severity Low : observation, point d'attention
+═══ CRITÈRES SÉVÉRITÉ (severity, indépendant du finding_type) ═══
+- "Critical" : deal breaker (red flag bloquant ou retraitement matériel >15%)
+- "High" : retraitement matériel chiffres 5-15% ou red flag impact fort
+- "Medium" : ajustement nécessaire mais non bloquant (<5%)
+- "Low" : observation mineure
 - impacts_section_codes : 1-3 codes max parmi les 12 sections du memo
-- Cite TOUJOURS la source dans body : [Source: rapport_dd_cabinet_X.pdf p.42]
+
+═══ SOURCE PRÉCISE OBLIGATOIRE ═══
+Chaque finding DOIT avoir :
+- source_filename : nom exact du rapport DD source (depuis les rapports listés ci-dessous)
+- source_paragraph : référence paragraphe exact (ex: "§4.3.2") — vu dans le rapport
+- source_page : numéro de page (integer, ex: 28) — vu dans le rapport
+Si tu ne peux pas localiser précisément, utilise null pour page mais essaie toujours de trouver le paragraphe.
 
 ═══ DIFFÉRENCE FINDING vs CHECKLIST RÉSIDUELLE ═══
 - Finding : conclusion DÉJÀ posée par le rapport DD que tu transcris
@@ -246,20 +264,38 @@ ${ddReportContents.slice(0, 80000)}
       if (cErr) console.error(`[generate-dd-report] checklist insert failed: ${cErr.message}`);
     }
 
-    // 7) INSERT findings en batch
-    const findingRows = parsed.findings.map(f => ({
-      deal_id: body.deal_id,
-      organization_id: deal.organization_id,
-      category: f.category,
-      severity: f.severity,
-      title: f.title,
-      body: f.body,
-      recommendation: f.recommendation ?? null,
-      impacts_section_codes: Array.isArray(f.impacts_section_codes) ? f.impacts_section_codes : [],
-      created_by: user.id,
-      source: 'ai',
-      status: 'open',
-    }));
+    // 7) INSERT findings en batch — résoudre source_doc_id depuis source_filename
+    const docByFilename: Record<string, string> = {};
+    ddDocs.forEach(d => { docByFilename[d.filename] = d.id; });
+    const findingRows = parsed.findings.map(f => {
+      // Best-effort match du source_filename → source_doc_id
+      let source_doc_id: string | null = null;
+      if (f.source_filename) {
+        source_doc_id = docByFilename[f.source_filename] ?? null;
+        if (!source_doc_id) {
+          // Fuzzy : on cherche un fichier dont le nom contient/est contenu dans source_filename
+          const match = ddDocs.find(d => d.filename.includes(f.source_filename!) || f.source_filename!.includes(d.filename));
+          if (match) source_doc_id = match.id;
+        }
+      }
+      return {
+        deal_id: body.deal_id,
+        organization_id: deal.organization_id,
+        category: f.category,
+        finding_type: f.finding_type ?? 'informative',
+        severity: f.severity,
+        title: f.title,
+        body: f.body,
+        recommendation: f.recommendation ?? null,
+        source_paragraph: f.source_paragraph ?? null,
+        source_page: typeof f.source_page === 'number' ? f.source_page : null,
+        source_doc_id,
+        impacts_section_codes: Array.isArray(f.impacts_section_codes) ? f.impacts_section_codes : [],
+        created_by: user.id,
+        source: 'ai',
+        status: 'open',
+      };
+    });
     if (findingRows.length > 0) {
       const { error: fErr } = await adminClient.from('pe_dd_findings').insert(findingRows);
       if (fErr) console.error(`[generate-dd-report] findings insert failed: ${fErr.message}`);

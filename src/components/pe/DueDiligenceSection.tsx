@@ -4,15 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import {
   CheckCircle2, XCircle, AlertCircle, Circle, Loader2,
-  Plus, Wand2, FileSearch, ChevronRight, Upload, FileText, Trash2, Send,
+  Wand2, FileSearch, Upload, FileText, Trash2, Send,
+  CheckCircle, ArrowRightLeft, AlertTriangle, Info, Quote, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRef } from 'react';
 
 type DDCategory = 'financier' | 'juridique' | 'commercial' | 'operationnel' | 'rh' | 'esg' | 'fiscal' | 'it';
 type DDSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
+type DDFindingType = 'confirmation' | 'adjustment' | 'red_flag' | 'informative';
+type DDReportType = 'financiere' | 'juridique' | 'esg' | 'fiscale' | 'operationnelle' | 'commerciale' | 'autre';
 type ChecklistStatus = 'pending' | 'verified' | 'red_flag' | 'na';
 type FindingStatus = 'open' | 'mitigated' | 'accepted' | 'rejected';
 
@@ -30,10 +36,14 @@ interface ChecklistItem {
 interface Finding {
   id: string;
   category: DDCategory;
+  finding_type: DDFindingType;
   severity: DDSeverity;
   title: string;
   body: string;
   recommendation: string | null;
+  source_paragraph: string | null;
+  source_page: number | null;
+  source_doc_id: string | null;
   impacts_section_codes: string[];
   status: FindingStatus;
   source: 'ai' | 'manual';
@@ -47,6 +57,8 @@ interface DDReportDoc {
   storage_path: string;
   size_bytes: number | null;
   created_at: string;
+  dd_report_type: DDReportType | null;
+  dd_report_cabinet: string | null;
 }
 
 interface Props {
@@ -84,6 +96,23 @@ const SEVERITY_COLOR: Record<DDSeverity, { bg: string; color: string; border: st
 };
 
 const SEVERITY_ORDER: DDSeverity[] = ['Critical', 'High', 'Medium', 'Low'];
+
+const FINDING_TYPE_META: Record<DDFindingType, { label: string; bg: string; color: string; border: string; Icon: typeof CheckCircle }> = {
+  confirmation: { label: 'Confirmation', bg: 'var(--pe-bg-success)', color: 'var(--pe-ok)',      border: 'var(--pe-ok)',      Icon: CheckCircle },
+  adjustment:   { label: 'Ajustement',   bg: 'var(--pe-bg-warning)', color: 'var(--pe-warning)', border: 'var(--pe-warning)', Icon: ArrowRightLeft },
+  red_flag:     { label: 'Red flag',     bg: 'var(--pe-bg-danger)',  color: 'var(--pe-danger)',  border: 'var(--pe-danger)',  Icon: AlertTriangle },
+  informative:  { label: 'Info',         bg: 'var(--muted)',         color: 'var(--muted-foreground)', border: 'var(--border)', Icon: Info },
+};
+
+const REPORT_TYPE_LABELS: Record<DDReportType, string> = {
+  financiere:     'DD financière',
+  juridique:      'DD juridique',
+  esg:            'DD ESG',
+  fiscale:        'DD fiscale',
+  operationnelle: 'DD opérationnelle',
+  commerciale:    'DD commerciale',
+  autre:          'Autre',
+};
 
 const SECTION_CODE_LABELS: Record<string, string> = {
   executive_summary:        '§1 Résumé',
@@ -140,14 +169,14 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
         .order('created_at', { ascending: false }),
       supabase
         .from('pe_deal_documents')
-        .select('id, filename, storage_path, size_bytes, created_at')
+        .select('id, filename, storage_path, size_bytes, created_at, dd_report_type, dd_report_cabinet')
         .eq('deal_id', dealId)
         .eq('is_dd_report', true)
         .order('created_at', { ascending: false }),
     ]);
-    setChecklist((cl ?? []) as ChecklistItem[]);
-    setFindings((fd ?? []) as Finding[]);
-    setDdReports((dd ?? []) as DDReportDoc[]);
+    setChecklist((cl ?? []) as unknown as ChecklistItem[]);
+    setFindings((fd ?? []) as unknown as Finding[]);
+    setDdReports((dd ?? []) as unknown as DDReportDoc[]);
     setLoading(false);
   }, [dealId]);
 
@@ -221,6 +250,21 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
     if (error) { toast.error(error.message); return; }
     toast.success('Rapport DD supprimé');
     reload();
+  };
+
+  const handleUpdateReportMeta = async (id: string, patch: { dd_report_type?: DDReportType; dd_report_cabinet?: string }) => {
+    setDdReports(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+    const { error } = await supabase.from('pe_deal_documents').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); reload(); return; }
+  };
+
+  const handleOpenSourceDoc = async (docId: string, page: number | null) => {
+    const doc = ddReports.find(d => d.id === docId);
+    if (!doc) { toast.error('Rapport DD introuvable'); return; }
+    const { data, error } = await supabase.storage.from('pe_deal_docs').createSignedUrl(doc.storage_path, 600);
+    if (error || !data?.signedUrl) { toast.error(error?.message ?? 'Lien indisponible'); return; }
+    const url = page && /\.pdf(\?|$)/i.test(doc.storage_path) ? `${data.signedUrl}#page=${page}` : data.signedUrl;
+    window.open(url, '_blank', 'noopener');
   };
 
   const handleApplyFindings = async () => {
@@ -303,20 +347,41 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
         </p>
 
         {ddReports.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {ddReports.map(d => (
-              <div key={d.id} className="flex items-center gap-2 text-sm bg-muted/30 rounded-md px-3 py-1.5">
+              <div key={d.id} className="flex items-center gap-2 text-sm bg-muted/30 rounded-md px-3 py-1.5 flex-wrap">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate flex-1">{d.filename}</span>
+                <span className="truncate flex-1 min-w-[120px]">{d.filename}</span>
+                <Select
+                  value={d.dd_report_type ?? ''}
+                  onValueChange={(v) => handleUpdateReportMeta(d.id, { dd_report_type: v as DDReportType })}
+                >
+                  <SelectTrigger className="h-7 w-[150px] text-xs">
+                    <SelectValue placeholder="Type DD…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(REPORT_TYPE_LABELS) as DDReportType[]).map(k => (
+                      <SelectItem key={k} value={k} className="text-xs">{REPORT_TYPE_LABELS[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  defaultValue={d.dd_report_cabinet ?? ''}
+                  placeholder="Cabinet (ex: KPMG)"
+                  className="h-7 w-[160px] text-xs"
+                  onBlur={(e) => {
+                    const val = e.target.value.trim();
+                    if (val !== (d.dd_report_cabinet ?? '')) {
+                      handleUpdateReportMeta(d.id, { dd_report_cabinet: val || undefined });
+                    }
+                  }}
+                />
                 {d.size_bytes != null && (
                   <span className="text-xs text-muted-foreground shrink-0">
                     {d.size_bytes < 1024 * 1024 ? `${(d.size_bytes / 1024).toFixed(0)} Ko` : `${(d.size_bytes / (1024 * 1024)).toFixed(1)} Mo`}
                   </span>
                 )}
-                <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">
-                  {new Date(d.created_at).toLocaleDateString('fr-FR')}
-                </span>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteDdReport(d)} title="Supprimer">
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => handleDeleteDdReport(d)} title="Supprimer">
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -404,38 +469,51 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
 
       {/* Header stats */}
       <Card>
-        <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-wrap text-sm">
-            <span className="font-semibold">Due Diligence</span>
-            <Badge variant="outline">{stats.total} items checklist</Badge>
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-              {stats.verified} vérifiés
-            </Badge>
-            {stats.pending > 0 && (
-              <Badge variant="outline" className="bg-muted">{stats.pending} à vérifier</Badge>
-            )}
-            {stats.redFlags > 0 && (
-              <Badge variant="outline" style={{ background: 'var(--pe-bg-danger)', color: 'var(--pe-danger)', borderColor: 'var(--pe-danger)' }}>
-                {stats.redFlags} red flag{stats.redFlags > 1 ? 's' : ''}
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 flex-wrap text-sm">
+              <span className="font-semibold">Due Diligence</span>
+              <Badge variant="outline">{stats.total} items checklist</Badge>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                {stats.verified} vérifiés
               </Badge>
-            )}
-            <span className="text-muted-foreground">·</span>
-            <Badge variant="outline">{stats.findingsTotal} findings</Badge>
-            {stats.findingsCritical > 0 && (
-              <Badge variant="outline" style={{ background: 'var(--pe-bg-danger)', color: 'var(--pe-danger)', borderColor: 'var(--pe-danger)' }}>
-                {stats.findingsCritical} Critical
-              </Badge>
-            )}
-            {stats.findingsHigh > 0 && (
-              <Badge variant="outline" style={{ background: 'var(--pe-bg-warning)', color: 'var(--pe-warning)', borderColor: 'var(--pe-warning)' }}>
-                {stats.findingsHigh} High
-              </Badge>
-            )}
+              {stats.pending > 0 && (
+                <Badge variant="outline" className="bg-muted">{stats.pending} à vérifier</Badge>
+              )}
+              {stats.redFlags > 0 && (
+                <Badge variant="outline" style={{ background: 'var(--pe-bg-danger)', color: 'var(--pe-danger)', borderColor: 'var(--pe-danger)' }}>
+                  {stats.redFlags} red flag{stats.redFlags > 1 ? 's' : ''}
+                </Badge>
+              )}
+              <span className="text-muted-foreground">·</span>
+              <Badge variant="outline">{stats.findingsTotal} findings</Badge>
+              {stats.findingsCritical > 0 && (
+                <Badge variant="outline" style={{ background: 'var(--pe-bg-danger)', color: 'var(--pe-danger)', borderColor: 'var(--pe-danger)' }}>
+                  {stats.findingsCritical} Critical
+                </Badge>
+              )}
+              {stats.findingsHigh > 0 && (
+                <Badge variant="outline" style={{ background: 'var(--pe-bg-warning)', color: 'var(--pe-warning)', borderColor: 'var(--pe-warning)' }}>
+                  {stats.findingsHigh} High
+                </Badge>
+              )}
+            </div>
+            <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline" className="gap-1.5">
+              {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              Régénérer DD
+            </Button>
           </div>
-          <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline" className="gap-1.5">
-            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-            Régénérer DD
-          </Button>
+          {stats.total > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Avancement checklist</span>
+                <span className="font-mono">
+                  {Math.round((stats.verified / stats.total) * 100)}% · {stats.verified}/{stats.total} vérifiés
+                </span>
+              </div>
+              <Progress value={(stats.verified / stats.total) * 100} className="h-1.5" />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -465,45 +543,76 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {group.items.map(f => (
-                    <div key={f.id} className="border-b border-border/40 pb-3 last:border-0 last:pb-0">
-                      <div className="flex items-start justify-between gap-2 mb-1 flex-wrap">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Badge variant="outline" className={`text-[10px] uppercase ${CATEGORY_COLOR[f.category]}`}>
-                            {CATEGORY_LABELS[f.category]}
+                  {group.items.map(f => {
+                    const ft = FINDING_TYPE_META[f.finding_type ?? 'informative'];
+                    const FtIcon = ft.Icon;
+                    const hasSource = !!(f.source_paragraph || f.source_page || f.source_doc_id);
+                    return (
+                      <div key={f.id} className="border-b border-border/40 pb-3 last:border-0 last:pb-0">
+                        <div className="flex items-start justify-between gap-2 mb-1 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] uppercase gap-1"
+                              style={{ background: ft.bg, color: ft.color, borderColor: ft.border }}
+                            >
+                              <FtIcon className="h-3 w-3" />
+                              {ft.label}
+                            </Badge>
+                            <Badge variant="outline" className={`text-[10px] uppercase ${CATEGORY_COLOR[f.category]}`}>
+                              {CATEGORY_LABELS[f.category]}
+                            </Badge>
+                            <span className="font-medium text-sm">{f.title}</span>
+                            {f.source === 'ai' && (
+                              <span className="text-[10px] text-muted-foreground">·  IA</span>
+                            )}
+                            {f.applied_to_memo_at && (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                ✓ Intégré au memo
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">
+                            {f.status}
                           </Badge>
-                          <span className="font-medium text-sm">{f.title}</span>
-                          {f.source === 'ai' && (
-                            <span className="text-[10px] text-muted-foreground">·  IA</span>
-                          )}
-                          {f.applied_to_memo_at && (
-                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                              ✓ Intégré au memo
-                            </Badge>
-                          )}
                         </div>
-                        <Badge variant="outline" className="text-[10px]">
-                          {f.status}
-                        </Badge>
+                        <p className="text-xs leading-relaxed text-muted-foreground mb-1.5">{f.body}</p>
+                        {f.recommendation && (
+                          <p className="text-xs leading-relaxed mb-1.5">
+                            <strong>Recommandation :</strong> {f.recommendation}
+                          </p>
+                        )}
+                        {hasSource && (
+                          <div className="flex items-center gap-1.5 mb-1 text-[11px] text-muted-foreground">
+                            <Quote className="h-3 w-3" />
+                            <span>Source :</span>
+                            {f.source_paragraph && <span className="font-mono">{f.source_paragraph}</span>}
+                            {f.source_page && <span className="font-mono">p.{f.source_page}</span>}
+                            {f.source_doc_id && (
+                              <button
+                                onClick={() => handleOpenSourceDoc(f.source_doc_id!, f.source_page)}
+                                className="inline-flex items-center gap-0.5 underline-offset-2 hover:underline text-primary"
+                                title="Ouvrir le rapport DD source"
+                              >
+                                {ddReports.find(d => d.id === f.source_doc_id)?.filename ?? 'Ouvrir le rapport'}
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {f.impacts_section_codes.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground">Impacte :</span>
+                            {f.impacts_section_codes.map(code => (
+                              <Badge key={code} variant="outline" className="text-[10px]">
+                                {SECTION_CODE_LABELS[code] ?? code}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-xs leading-relaxed text-muted-foreground mb-1.5">{f.body}</p>
-                      {f.recommendation && (
-                        <p className="text-xs leading-relaxed">
-                          <strong>Recommandation :</strong> {f.recommendation}
-                        </p>
-                      )}
-                      {f.impacts_section_codes.length > 0 && (
-                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                          <span className="text-[10px] text-muted-foreground">Impacte :</span>
-                          {f.impacts_section_codes.map(code => (
-                            <Badge key={code} variant="outline" className="text-[10px]">
-                              {SECTION_CODE_LABELS[code] ?? code}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             ))
