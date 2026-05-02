@@ -61,12 +61,25 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 async function buildMemoIc1Payload(supabase: any, dealId: string) {
-  const { data: deal } = await supabase
+  const { data: deal, error: dealErr } = await supabase
     .from('pe_deals')
-    .select('id, organization_id, deal_ref, stage, currency, ticket_demande, lead_analyst_id, enterprise_id, enterprises(legal_name, country)')
+    .select('id, organization_id, deal_ref, stage, currency, ticket_demande, lead_analyst_id, enterprise_id')
     .eq('id', dealId)
-    .single();
-  if (!deal) throw new Error('Deal introuvable');
+    .maybeSingle();
+  if (dealErr) throw new Error(`Erreur lecture deal : ${dealErr.message}`);
+  if (!deal) throw new Error(`Deal introuvable: ${dealId}`);
+
+  // Enterprise (jointure séparée pour éviter ambiguités PostgREST)
+  let enterprise: any = null;
+  if (deal.enterprise_id) {
+    const { data: ent } = await supabase
+      .from('enterprises')
+      .select('name, country')
+      .eq('id', deal.enterprise_id)
+      .maybeSingle();
+    enterprise = ent;
+  }
+  (deal as any).enterprises = enterprise; // shim pour réutiliser la lecture plus bas
 
   let leadName = '—';
   if (deal.lead_analyst_id) {
@@ -184,7 +197,7 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
         lead_analyst_name: leadName,
       },
       enterprise: {
-        legal_name: (deal as any).enterprises?.legal_name ?? deal.deal_ref,
+        legal_name: (deal as any).enterprises?.name ?? deal.deal_ref,
         country: (deal as any).enterprises?.country ?? '—',
       },
       memo: {
@@ -204,12 +217,20 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
 // ─── Builder : valuation ────────────────────────────────────────────────────
 
 async function buildValuationPayload(supabase: any, dealId: string) {
-  const { data: deal } = await supabase
+  const { data: deal, error: dealErr } = await supabase
     .from('pe_deals')
-    .select('id, organization_id, deal_ref, currency, enterprise_id, enterprises(legal_name)')
+    .select('id, organization_id, deal_ref, currency, enterprise_id')
     .eq('id', dealId)
-    .single();
-  if (!deal) throw new Error('Deal introuvable');
+    .maybeSingle();
+  if (dealErr) throw new Error(`Erreur lecture deal : ${dealErr.message}`);
+  if (!deal) throw new Error(`Deal introuvable: ${dealId}`);
+
+  let enterprise: any = null;
+  if (deal.enterprise_id) {
+    const { data: ent } = await supabase.from('enterprises').select('name').eq('id', deal.enterprise_id).maybeSingle();
+    enterprise = ent;
+  }
+  (deal as any).enterprises = enterprise;
 
   const { data: val } = await supabase
     .from('pe_valuation')
@@ -358,6 +379,7 @@ serve(async (req: Request) => {
       status: 200,
       headers: {
         ...corsHeaders,
+        'Access-Control-Expose-Headers': 'Content-Disposition, Content-Type',
         'Content-Type': renderResp.headers.get('Content-Type') ?? 'application/octet-stream',
         'Content-Disposition': renderResp.headers.get('Content-Disposition') ?? `attachment; filename="${filename}"`,
       },
