@@ -98,7 +98,7 @@ const SEVERITY_COLOR: Record<DDSeverity, { bg: string; color: string; border: st
 const SEVERITY_ORDER: DDSeverity[] = ['Critical', 'High', 'Medium', 'Low'];
 
 const FINDING_TYPE_META: Record<DDFindingType, { label: string; bg: string; color: string; border: string; Icon: typeof CheckCircle }> = {
-  confirmation: { label: 'Confirmation', bg: 'var(--pe-bg-success)', color: 'var(--pe-ok)',      border: 'var(--pe-ok)',      Icon: CheckCircle },
+  confirmation: { label: 'Confirmation', bg: 'var(--pe-bg-ok)',      color: 'var(--pe-ok)',      border: 'var(--pe-ok)',      Icon: CheckCircle },
   adjustment:   { label: 'Ajustement',   bg: 'var(--pe-bg-warning)', color: 'var(--pe-warning)', border: 'var(--pe-warning)', Icon: ArrowRightLeft },
   red_flag:     { label: 'Red flag',     bg: 'var(--pe-bg-danger)',  color: 'var(--pe-danger)',  border: 'var(--pe-danger)',  Icon: AlertTriangle },
   informative:  { label: 'Info',         bg: 'var(--muted)',         color: 'var(--muted-foreground)', border: 'var(--border)', Icon: Info },
