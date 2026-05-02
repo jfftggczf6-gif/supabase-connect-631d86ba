@@ -1,9 +1,11 @@
-// generate-dd-report — Analyse les pièces DD + le memo actuel pour produire :
-//   1. Une checklist DD initiale (items à vérifier par catégorie)
-//   2. Des findings préliminaires (problèmes potentiels détectés depuis les pièces)
+// generate-dd-report — Analyse les RAPPORTS DD EXTERNES uploadés et les compare au memo IC1
+// pour produire des findings (écarts détectés) et une checklist d'items à vérifier.
 //
-// Le user pourra ensuite éditer la checklist + les findings, puis "apply" les findings
-// au memo (Module E suite).
+// La DD est externalisée (cabinet d'expertise produit son propre rapport DD). L'IA ne fait pas
+// la DD elle-même — elle compare le rapport DD externe avec le memo IC1 actuel et identifie
+// les écarts factuels et les nouveaux red flags.
+//
+// Le user pourra ensuite éditer / valider les findings, puis "apply" au memo (apply-dd-findings-to-memo).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -11,7 +13,6 @@ import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/hel
 import { buildToneForAgent } from "../_shared/agent-tone.ts";
 import {
   fetchSections,
-  fetchDealDocuments,
   getLatestVersion,
   type MemoSectionCode,
 } from "../_shared/memo-helpers.ts";
@@ -132,22 +133,32 @@ serve(async (req: Request) => {
       `## ${SECTION_LABELS[s.section_code as MemoSectionCode] ?? s.section_code}\n${s.content_md ?? '(vide)'}`,
     ).join('\n\n').slice(0, 30000);
 
-    // 3) Récupérer les pièces uploadées
-    const docs = await fetchDealDocuments(adminClient, body.deal_id);
-    if (docs.length === 0) return errorResponse("No documents to analyze for DD", 400);
+    // 3) Récupérer SEULEMENT les rapports DD externes (is_dd_report = true)
+    const { data: ddDocs } = await adminClient
+      .from('pe_deal_documents')
+      .select('id, filename, storage_path, mime_type, category')
+      .eq('deal_id', body.deal_id)
+      .eq('is_dd_report', true)
+      .order('created_at', { ascending: false });
+    if (!ddDocs || ddDocs.length === 0) {
+      return errorResponse(
+        "Aucun rapport DD externe uploadé. Upload d'abord le rapport du cabinet de DD via la zone dédiée.",
+        400,
+      );
+    }
 
-    // 4) Parse les pièces via Railway
-    let docContents = "";
-    for (const doc of docs) {
+    // 4) Parse les rapports DD via Railway
+    let ddReportContents = "";
+    for (const doc of ddDocs) {
       const { data: file, error: dlErr } = await adminClient
         .storage.from("pe_deal_docs").download(doc.storage_path);
       if (dlErr || !file) continue;
       const buffer = await file.arrayBuffer();
       const text = await callRailwayParser(buffer, doc.filename, doc.mime_type ?? "application/octet-stream");
-      if (text) docContents += `\n\n=== ${doc.filename} (cat: ${(doc as any).category ?? 'autre'}) ===\n${text}`;
+      if (text) ddReportContents += `\n\n=== RAPPORT DD : ${doc.filename} ===\n${text}`;
     }
-    if (!docContents.trim()) {
-      return errorResponse("Aucune pièce parsable pour la DD", 400);
+    if (!ddReportContents.trim()) {
+      return errorResponse("Rapport DD non parsable (parser Railway down ou docs corrompus)", 400);
     }
 
     // 5) Compose tone PE (DD analyste)
@@ -155,44 +166,52 @@ serve(async (req: Request) => {
 
     const systemPrompt = `${toneBlock}
 
-Tu es un AUDITEUR Due Diligence pour un fonds Private Equity. Le deal "${dealName}" (deal_ref: ${deal.deal_ref}, secteur: ${sector}, pays: ${country}) est entré en phase DD après IC1 (verdict provisoire).
+Tu es un ANALYSTE PE qui compare le RAPPORT DD EXTERNE (produit par un cabinet d'expertise indépendant) avec le MEMO IC1 ACTUEL du deal "${dealName}" (deal_ref: ${deal.deal_ref}, secteur: ${sector}, pays: ${country}).
 
 ═══ MISSION ═══
-Tu dois produire :
-1. Une checklist d'items à vérifier en DD, organisés par catégorie (8 catégories : financier, juridique, commercial, operationnel, rh, esg, fiscal, it). Cible 4-8 items par catégorie pertinente.
-2. Une liste de findings préliminaires : problèmes ou points d'attention détectés en lisant les pièces vs le memo IC1. Chaque finding doit pointer vers les sections du memo qu'il impacte (champ impacts_section_codes).
+Tu LIS le rapport DD externe et tu identifies :
+1. Les FINDINGS = écarts factuels, nouveaux red flags, confirmations ou infirmations vs le memo IC1.
+   Chaque finding pointe vers les sections du memo qu'il impacte (champ impacts_section_codes).
+2. Une CHECKLIST d'items résiduels que la DD n'a pas couverts ou qui méritent vérification additionnelle (par exemple : visite site complémentaire, analyse environnementale spécifique).
 
-═══ DIFFÉRENCE ENTRE CHECKLIST ET FINDINGS ═══
-- Checklist : "à vérifier" — items neutres, pas encore tranchés. Ex : "Auditer liasses fiscales 2024 par cabinet indépendant".
-- Findings : déjà observés en lisant les pièces. Ex : "Convention bail commercial dirigeant à 42M FCFA/an = 15% au-dessus du marché Yopougon (estimation 30-35M)".
+═══ TYPES DE FINDINGS À CHERCHER ═══
+- Écart chiffres : "Le rapport DD a retraité l'EBITDA à 280M FCFA vs 300M dans le memo IC1 → écart -20M"
+- Nouveau red flag : "Le rapport DD a découvert une convention bail dirigeant non documentée dans le memo IC1"
+- Confirmation : "Le rapport DD confirme la concentration client 62% top 3 mentionnée en memo IC1"
+- Infirmation : "Le rapport DD invalide l'allégation BPF UEMOA — certification expirée en 2024"
+- Ajustement nécessaire : "Le rapport DD note des stocks API surévalués 18% → ajustement bilan -45M FCFA"
 
 ═══ CRITÈRES POUR LES FINDINGS ═══
-- Sévérité Critical : deal breaker potentiel
-- Severity High : pénalité significative ou red flag majeur
-- Severity Medium : point d'attention nécessitant clarification
-- Severity Low : observation mineure
-- impacts_section_codes : 1-3 codes max parmi les 12 sections (cible où l'info doit être ajoutée)
-- Cite TOUJOURS la source dans body : [Source: nom_fichier.pdf p.X]
+- Sévérité Critical : deal breaker (le rapport DD remet en cause un fondamental)
+- Severity High : retraitement matériel chiffres ou nouveau red flag majeur
+- Severity Medium : ajustement nécessaire mais non bloquant
+- Severity Low : observation, point d'attention
+- impacts_section_codes : 1-3 codes max parmi les 12 sections du memo
+- Cite TOUJOURS la source dans body : [Source: rapport_dd_cabinet_X.pdf p.42]
+
+═══ DIFFÉRENCE FINDING vs CHECKLIST RÉSIDUELLE ═══
+- Finding : conclusion DÉJÀ posée par le rapport DD que tu transcris
+- Checklist résiduelle : action additionnelle à faire CAR le rapport DD ne l'a pas couvert
 
 ═══ FORMAT DE RÉPONSE ═══
 Tu DOIS répondre avec un OBJET JSON STRICT respectant ce schéma :
 
 ${DD_REPORT_SCHEMA}
 
-═══ MEMO IC1 ACTUEL (contexte) ═══
+═══ MEMO IC1 ACTUEL (état avant DD) ═══
 ${memoSummary}
 
-═══ PIÈCES DEAL (à analyser pour findings) ═══
-${docContents.slice(0, 80000)}
+═══ RAPPORT DD EXTERNE (à analyser pour identifier les findings) ═══
+${ddReportContents.slice(0, 80000)}
 
 ═══ RÈGLES ═══
-1. Chiffres EXACTS issus des documents. Pas d'invention.
-2. Si une donnée manque : utilise null ou n'invente pas.
-3. Cite les sources [Source: pitch.pdf p.3] dans body et item_description.
+1. Tu RAPPORTES ce que le rapport DD a trouvé — tu n'inventes RIEN.
+2. Si le rapport DD ne mentionne pas un sujet → ne crée pas de finding sur ce sujet.
+3. Cite TOUJOURS la source [Source: nom_rapport_dd.pdf p.X] dans body.
 4. Réponse = UN seul JSON {"checklist": [...], "findings": [...]}. Pas de texte avant/après, pas de markdown fences.
 5. Respecte les enums exacts pour category et severity.
 6. impacts_section_codes : codes valides parmi les 12 sections du memo.
-7. Cible : 20-40 items checklist au total, 5-15 findings préliminaires.`;
+7. Cible : 8-25 findings (selon richesse rapport DD), 0-15 items checklist résiduelle.`;
 
     const userPrompt = `Produis maintenant le rapport DD initial (checklist + findings) en JSON strict.`;
 

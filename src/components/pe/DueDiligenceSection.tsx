@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   CheckCircle2, XCircle, AlertCircle, Circle, Loader2,
-  Plus, Wand2, FileSearch, ChevronRight,
+  Plus, Wand2, FileSearch, ChevronRight, Upload, FileText, Trash2, Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRef } from 'react';
 
 type DDCategory = 'financier' | 'juridique' | 'commercial' | 'operationnel' | 'rh' | 'esg' | 'fiscal' | 'it';
 type DDSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
@@ -37,6 +38,14 @@ interface Finding {
   status: FindingStatus;
   source: 'ai' | 'manual';
   applied_to_memo_at: string | null;
+  created_at: string;
+}
+
+interface DDReportDoc {
+  id: string;
+  filename: string;
+  storage_path: string;
+  size_bytes: number | null;
   created_at: string;
 }
 
@@ -108,12 +117,16 @@ function CHECKLIST_STATUS_LABEL(s: ChecklistStatus): string {
 export default function DueDiligenceSection({ dealId, organizationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [ddReports, setDdReports] = useState<DDReportDoc[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const [{ data: cl }, { data: fd }] = await Promise.all([
+    const [{ data: cl }, { data: fd }, { data: dd }] = await Promise.all([
       supabase
         .from('pe_dd_checklist')
         .select('*')
@@ -125,9 +138,16 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
         .select('*')
         .eq('deal_id', dealId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('pe_deal_documents')
+        .select('id, filename, storage_path, size_bytes, created_at')
+        .eq('deal_id', dealId)
+        .eq('is_dd_report', true)
+        .order('created_at', { ascending: false }),
     ]);
     setChecklist((cl ?? []) as ChecklistItem[]);
     setFindings((fd ?? []) as Finding[]);
+    setDdReports((dd ?? []) as DDReportDoc[]);
     setLoading(false);
   }, [dealId]);
 
@@ -148,6 +168,81 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
       return;
     }
     toast.success(`DD générée : ${data.checklist_count} items checklist · ${data.findings_count} findings`);
+    reload();
+  };
+
+  const handleUploadDdReport = async (files: FileList | File[]) => {
+    if (uploading) return;
+    const arr = Array.from(files);
+    if (arr.length === 0) return;
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+      let okCount = 0;
+      for (const file of arr) {
+        if (file.size > 100 * 1024 * 1024) {
+          toast.error(`${file.name} dépasse 100 Mo`);
+          continue;
+        }
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${organizationId}/${dealId}/dd_${Date.now()}_${safe}`;
+        const { error: upErr } = await supabase.storage.from('pe_deal_docs').upload(path, file);
+        if (upErr) { toast.error(`Upload échoué : ${upErr.message}`); continue; }
+        const { error: dbErr } = await supabase.from('pe_deal_documents').insert({
+          deal_id: dealId,
+          organization_id: organizationId,
+          filename: file.name,
+          storage_path: path,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+          category: 'autre',
+          is_dd_report: true,
+          uploaded_by: user.id,
+        });
+        if (dbErr) { toast.error(`Enregistrement échoué : ${dbErr.message}`); continue; }
+        okCount++;
+      }
+      if (okCount > 0) {
+        toast.success(`${okCount} rapport${okCount > 1 ? 's' : ''} DD uploadé${okCount > 1 ? 's' : ''}`, {
+          description: 'Tu peux maintenant analyser le rapport DD vs le memo IC1.',
+        });
+        await reload();
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteDdReport = async (doc: DDReportDoc) => {
+    if (!confirm(`Supprimer le rapport DD ${doc.filename} ?`)) return;
+    await supabase.storage.from('pe_deal_docs').remove([doc.storage_path]);
+    const { error } = await supabase.from('pe_deal_documents').delete().eq('id', doc.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Rapport DD supprimé');
+    reload();
+  };
+
+  const handleApplyFindings = async () => {
+    if (applying) return;
+    const openFindings = findings.filter(f => f.status === 'open' && !f.applied_to_memo_at);
+    if (openFindings.length === 0) {
+      toast.error('Aucun finding ouvert à appliquer');
+      return;
+    }
+    if (!confirm(`Pousser ${openFindings.length} finding${openFindings.length > 1 ? 's' : ''} dans le memo ?\n\nUn snapshot pré-DD sera figé pour audit.\nLe memo passera en stage 'note_ic_finale'.\nLes sections impactées passeront en status='draft' (re-validation requise).`)) return;
+    setApplying(true);
+    const { error, data } = await supabase.functions.invoke('apply-dd-findings-to-memo', {
+      body: { deal_id: dealId },
+    });
+    setApplying(false);
+    if (error || (data as any)?.error) {
+      toast.error((data as any)?.error || error?.message || 'Application findings échouée');
+      return;
+    }
+    toast.success(`Findings appliqués · ${data.sections_updated}/${data.sections_updated + data.sections_failed} sections mises à jour`, {
+      description: `Snapshot "${data.snapshot_label}" créé · Memo passé en ${data.new_stage}`,
+    });
     reload();
   };
 
@@ -189,31 +284,114 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
     return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>;
   }
 
-  // Empty state — pas encore de DD lancée
-  if (checklist.length === 0 && findings.length === 0) {
+  const hasAnalysis = checklist.length > 0 || findings.length > 0;
+  const openFindingsCount = findings.filter(f => f.status === 'open' && !f.applied_to_memo_at).length;
+  const appliedFindingsCount = findings.filter(f => f.applied_to_memo_at).length;
+
+  // Zone upload rapport DD (toujours visible en haut)
+  const uploadZone = (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <FileSearch className="h-4 w-4" />
+          Rapport DD externe ({ddReports.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          La DD est externalisée auprès d'un cabinet d'expertise. Upload son rapport ici pour le comparer au memo IC1 et identifier les écarts.
+        </p>
+
+        {ddReports.length > 0 && (
+          <div className="space-y-1">
+            {ddReports.map(d => (
+              <div key={d.id} className="flex items-center gap-2 text-sm bg-muted/30 rounded-md px-3 py-1.5">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate flex-1">{d.filename}</span>
+                {d.size_bytes != null && (
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {d.size_bytes < 1024 * 1024 ? `${(d.size_bytes / 1024).toFixed(0)} Ko` : `${(d.size_bytes / (1024 * 1024)).toFixed(1)} Mo`}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">
+                  {new Date(d.created_at).toLocaleDateString('fr-FR')}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteDdReport(d)} title="Supprimer">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div
+          className={`rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : 'hover:bg-muted/40'}`}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) handleUploadDdReport(e.dataTransfer.files); }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,.xlsx,.xls"
+            className="hidden"
+            onChange={e => { if (e.target.files) handleUploadDdReport(e.target.files); e.target.value = ''; }}
+          />
+          {uploading ? (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Upload en cours...
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Upload className="h-4 w-4 text-primary/70" />
+              <span className="font-medium">Upload rapport DD</span>
+              <span className="text-xs text-muted-foreground">PDF, Word, Excel · 100 Mo max</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <Button
+            onClick={handleGenerate}
+            disabled={generating || ddReports.length === 0}
+            size="sm"
+            className="gap-1.5"
+            title={ddReports.length === 0 ? "Upload d'abord un rapport DD" : undefined}
+          >
+            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {hasAnalysis ? 'Régénérer findings' : 'Analyser le rapport DD'}
+          </Button>
+          {openFindingsCount > 0 && (
+            <Button
+              onClick={handleApplyFindings}
+              disabled={applying}
+              size="sm"
+              variant="default"
+              className="gap-1.5"
+              style={{ background: 'var(--pe-purple)', color: 'white' }}
+            >
+              {applying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Appliquer {openFindingsCount} finding{openFindingsCount > 1 ? 's' : ''} au memo
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Pas encore d'analyse DD : on affiche juste la zone upload + un placeholder
+  if (!hasAnalysis) {
     return (
       <div className="space-y-4">
+        {uploadZone}
         <Card>
-          <CardContent className="p-8 text-center space-y-3">
-            <FileSearch className="h-10 w-10 mx-auto text-primary/60" />
-            <h2 className="text-lg font-semibold">Démarrer la Due Diligence</h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              L'IA va analyser le memo IC1 + les pièces uploadées et produire :
-              une checklist d'items à vérifier (par catégorie) et des findings
-              préliminaires (problèmes détectés impactant le memo).
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            <FileSearch className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+            <p>
+              Aucune analyse DD pour le moment. Upload le rapport DD du cabinet, puis clique sur <strong>Analyser le rapport DD</strong>.
             </p>
-            <Button
-              onClick={handleGenerate}
-              disabled={generating}
-              size="lg"
-              className="gap-2"
-            >
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              {generating ? 'Génération en cours...' : 'Démarrer la DD'}
-            </Button>
-            <p className="text-[11px] text-muted-foreground/80">
-              30-60 secondes · Le memo IC1 doit avoir été généré au préalable
-            </p>
+            <p className="text-[11px] mt-1">L'IA comparera le rapport avec le memo IC1 et listera les écarts.</p>
           </CardContent>
         </Card>
       </div>
@@ -222,6 +400,8 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
 
   return (
     <div className="space-y-4">
+      {uploadZone}
+
       {/* Header stats */}
       <Card>
         <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
