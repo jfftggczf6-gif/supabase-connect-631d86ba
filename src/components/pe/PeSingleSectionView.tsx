@@ -286,7 +286,7 @@ export default function PeSingleSectionView({ dealId, stage, sectionCode }: Prop
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
         Cette section n'a pas encore été générée.
-        {!versionMeta && <p className="mt-2">Drop des pièces sur la Data Room du deal puis pousse en pré-screening pour générer le dossier.</p>}
+        {!versionMeta && <p className="mt-2">Upload des pièces sur le deal puis pousse en pré-screening pour générer le dossier.</p>}
       </div>
     );
   }
@@ -434,7 +434,7 @@ export default function PeSingleSectionView({ dealId, stage, sectionCode }: Prop
           <DialogHeader>
             <DialogTitle>Régénérer la section ?</DialogTitle>
             <DialogDescription>
-              L'IA va régénérer uniquement <strong>"{SECTION_LABELS[sectionCode]}"</strong> en utilisant les pièces de la Data Room et le contexte des autres sections. Le contenu actuel sera <strong>remplacé</strong>. 15-45s.
+              L'IA va régénérer uniquement <strong>"{SECTION_LABELS[sectionCode]}"</strong> en utilisant les pièces uploadées et le contexte des autres sections. Le contenu actuel sera <strong>remplacé</strong>. 15-45s.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

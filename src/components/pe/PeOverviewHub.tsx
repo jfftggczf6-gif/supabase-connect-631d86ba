@@ -193,7 +193,7 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
           <CardContent className="p-4 flex items-center gap-3">
             <Upload className="h-5 w-5 text-muted-foreground" />
             <div>
-              <div className="text-sm font-medium">Data Room</div>
+              <div className="text-sm font-medium">Upload document</div>
               <div className="text-xs text-muted-foreground">{docCount} {docCount > 1 ? 'pièces' : 'pièce'} · upload + parsing</div>
             </div>
           </CardContent>

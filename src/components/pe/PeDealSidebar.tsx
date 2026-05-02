@@ -172,7 +172,7 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           active={selectedItem === 'documents'}
           onClick={() => onSelectItem('documents')}
           icon={FolderOpen}
-          label="Data Room"
+          label="Upload document"
           badge={docCount || null}
         />
         <ItemRow

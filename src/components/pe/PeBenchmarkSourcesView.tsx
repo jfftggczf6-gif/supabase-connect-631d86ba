@@ -130,12 +130,12 @@ export default function PeBenchmarkSourcesView({ dealId }: Props) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Pièces de la Data Room ({docs.length})
+            <FileText className="h-4 w-4" /> Pièces uploadées ({docs.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune pièce dans la Data Room.</p>
+            <p className="text-sm text-muted-foreground">Aucune pièce uploadée pour ce deal.</p>
           ) : (
             <div className="space-y-1">
               {docs.map(d => (

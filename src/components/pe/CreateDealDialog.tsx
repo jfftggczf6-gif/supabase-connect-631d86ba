@@ -207,9 +207,9 @@ export default function CreateDealDialog({ open, onOpenChange, organizationId, c
             </div>
           )}
 
-          {/* Data Room — drag-drop optionnel à la création */}
+          {/* Pièces initiales — drag-drop optionnel à la création */}
           <div className="space-y-1.5">
-            <Label>Data Room initiale (optionnel)</Label>
+            <Label>Pièces initiales (optionnel)</Label>
             <div
               className={`rounded-lg border-2 border-dashed p-3 text-center text-sm transition cursor-pointer ${dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

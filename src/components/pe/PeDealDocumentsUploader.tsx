@@ -1,5 +1,5 @@
 // PeDealDocumentsUploader — Upload + parsing Railway + catégorisation auto
-// pour les pièces de la Data Room d'un deal PE.
+// pour les pièces du dossier d'un deal PE.
 //
 // Calque sur BanqueDocumentUploader / ReconstructionUploader (pattern programme),
 // adapté pour la table pe_deal_documents (1 row par fichier) :
@@ -174,7 +174,7 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
       setProgress(100);
       setProgressLabel('Terminé');
       const okCount = newParsed.filter(d => d.quality !== 'failed').length;
-      toast.success(`${okCount} ${okCount > 1 ? 'pièces ajoutées' : 'pièce ajoutée'} à la Data Room`, {
+      toast.success(`${okCount} ${okCount > 1 ? 'pièces ajoutées' : 'pièce ajoutée'} au dossier`, {
         description: 'Catégorisation auto effectuée. Tu peux maintenant générer le pré-screening.',
       });
 
@@ -217,13 +217,13 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
 
   return (
     <div className="space-y-4">
-      {/* Stats Data Room */}
+      {/* Stats pièces du dossier */}
       {existing.length > 0 && (
         <Card className="p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="text-sm font-semibold flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              Data Room — {existing.length} {existing.length > 1 ? 'pièces' : 'pièce'}
+              Pièces du dossier — {existing.length} {existing.length > 1 ? 'pièces' : 'pièce'}
             </div>
             <div className="flex gap-2 text-xs flex-wrap">
               <Badge variant="outline" className="bg-muted/40">{formatSize(totalSize)} total</Badge>
@@ -297,7 +297,7 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
           {!uploading && (
             <Button onClick={handleProcess} className="w-full mt-3 gap-2" size="lg">
               <Upload className="h-4 w-4" />
-              Intégrer les {files.length} pièce{files.length > 1 ? 's' : ''} à la Data Room
+              Intégrer les {files.length} pièce{files.length > 1 ? 's' : ''} au dossier
             </Button>
           )}
         </Card>
@@ -388,7 +388,7 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
         <Card className="p-6 text-center">
           <div className="flex flex-col items-center gap-2">
             <FileText className="h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm font-medium">Votre Data Room est vide</p>
+            <p className="text-sm font-medium">Aucune pièce uploadée</p>
             <p className="text-xs text-muted-foreground max-w-sm">
               Ajoutez les pièces essentielles : pitch deck, états financiers 3 ans, statuts, RCCM, contrats clients clés, organigramme.
             </p>

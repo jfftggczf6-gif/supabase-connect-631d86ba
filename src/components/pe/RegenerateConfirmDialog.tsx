@@ -16,7 +16,7 @@ export default function RegenerateConfirmDialog({ open, onOpenChange, newDocsCou
         <DialogHeader>
           <DialogTitle>Régénérer le pré-screening ?</DialogTitle>
           <DialogDescription>
-            {newDocsCount} nouvelle{newDocsCount > 1 ? 's' : ''} pièce{newDocsCount > 1 ? 's' : ''} ajoutée{newDocsCount > 1 ? 's' : ''} à la Data Room.
+            {newDocsCount} nouvelle{newDocsCount > 1 ? 's' : ''} pièce{newDocsCount > 1 ? 's' : ''} ajoutée{newDocsCount > 1 ? 's' : ''} au dossier.
             Veux-tu régénérer le pré-screening en intégrant ce contenu ? Une nouvelle version sera créée et l'actuelle restera accessible dans l'onglet Historique.
           </DialogDescription>
         </DialogHeader>
