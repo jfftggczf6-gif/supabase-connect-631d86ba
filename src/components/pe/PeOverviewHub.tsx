@@ -13,73 +13,73 @@ interface Props {
   onSelectItem: (item: string) => void;
 }
 
-interface PhaseStat {
-  stage: string;
-  label: string;
+interface MemoSnapshot {
   versionLabel: string | null;
+  stage: string | null;
   status: string | null;
   filledCount: number;
+  validatedCount: number;
+  pendingValidationCount: number;
   totalCount: number;
   score: number | null;
   classification: string | null;
 }
 
-const PHASES = [
-  { stage: 'pre_screening',  label: 'Pré-screening' },
-  { stage: 'note_ic1',       label: 'Memo IC1' },
-  { stage: 'note_ic_finale', label: 'Memo IC finale' },
-];
+const STAGE_BADGE_LABELS: Record<string, string> = {
+  pre_screening: 'Pré-screening',
+  note_ic1: 'IC1',
+  note_ic_finale: 'IC finale',
+  dd: 'DD',
+  closing: 'Closing',
+  portfolio: 'Portfolio',
+};
 
 export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
-  const [stats, setStats] = useState<PhaseStat[]>([]);
+  const [memo, setMemo] = useState<MemoSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [docCount, setDocCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: memo } = await supabase
+      const { data: investmentMemo } = await supabase
         .from('investment_memos')
         .select('id')
         .eq('deal_id', dealId)
         .maybeSingle();
 
-      const phaseStats: PhaseStat[] = PHASES.map(p => ({
-        stage: p.stage,
-        label: p.label,
-        versionLabel: null,
-        status: null,
-        filledCount: 0,
-        totalCount: 12,
-        score: null,
-        classification: null,
-      }));
-
-      if (memo) {
+      if (investmentMemo) {
+        // Living document : on prend la dernière version 'ready' (toute stage confondu)
         const { data: vers } = await supabase
           .from('memo_versions')
-          .select('id, label, stage, status, overall_score, classification, memo_sections(content_md, content_json)')
-          .eq('memo_id', memo.id)
-          .order('created_at', { ascending: false });
+          .select('id, label, stage, status, overall_score, classification, memo_sections(content_md, content_json, status)')
+          .eq('memo_id', investmentMemo.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const latest = vers?.[0];
 
-        const seen = new Set<string>();
-        (vers ?? []).forEach((v: any) => {
-          if (seen.has(v.stage)) return;
-          seen.add(v.stage);
-          const idx = phaseStats.findIndex(p => p.stage === v.stage);
-          if (idx === -1) return;
-          const filled = (v.memo_sections ?? []).filter(
-            (s: any) => s.content_md || (s.content_json && Object.keys(s.content_json).length > 0)
+        if (latest) {
+          const sections = (latest.memo_sections ?? []) as any[];
+          const filled = sections.filter(
+            s => s.content_md || (s.content_json && Object.keys(s.content_json).length > 0)
           ).length;
-          phaseStats[idx] = {
-            ...phaseStats[idx],
-            versionLabel: v.label,
-            status: v.status,
-            filledCount: filled,
-            score: v.overall_score,
-            classification: v.classification,
-          };
-        });
+          const validated = sections.filter(s => s.status === 'validated').length;
+          const pending = sections.filter(s => s.status === 'pending_validation').length;
+
+          if (!cancelled) {
+            setMemo({
+              versionLabel: latest.label,
+              stage: latest.stage,
+              status: latest.status,
+              filledCount: filled,
+              validatedCount: validated,
+              pendingValidationCount: pending,
+              totalCount: 12,
+              score: latest.overall_score,
+              classification: latest.classification,
+            });
+          }
+        }
       }
 
       const { count } = await supabase
@@ -88,7 +88,6 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
         .eq('deal_id', dealId);
 
       if (cancelled) return;
-      setStats(phaseStats);
       setDocCount(count ?? 0);
       setLoading(false);
     })();
@@ -101,8 +100,9 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
   const sector = (deal?.enterprises as any)?.sector;
   const country = (deal?.enterprises as any)?.country;
 
-  // Prochaine étape : 1ère phase non complète
-  const nextPhase = stats.find(s => s.filledCount < s.totalCount);
+  const memoStageLabel = memo?.stage ? (STAGE_BADGE_LABELS[memo.stage] ?? memo.stage) : null;
+  const filledPct = memo ? Math.round((memo.filledCount / memo.totalCount) * 100) : 0;
+  const validatedPct = memo ? Math.round((memo.validatedCount / memo.totalCount) * 100) : 0;
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -112,7 +112,7 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-xs uppercase tracking-wider text-muted-foreground">Deal · {deal?.stage}</span>
-              {stats[0]?.classification && <ClassificationTag classification={stats[0].classification} />}
+              {memo?.classification && <ClassificationTag classification={memo.classification} />}
             </div>
             <div className="text-xl font-semibold">{enterpriseName}</div>
             <div className="text-sm text-muted-foreground">
@@ -124,70 +124,86 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
               </div>
             )}
           </div>
-          {stats[0]?.score != null && <ScoreCircle score={Number(stats[0].score)} />}
+          {memo?.score != null && <ScoreCircle score={Number(memo.score)} />}
         </CardContent>
       </Card>
 
-      {/* Progression par phase */}
+      {/* Memo d'investissement — living document avec stage actuel */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Progression du dossier</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {stats.map(s => {
-            const pct = Math.round((s.filledCount / s.totalCount) * 100);
-            const completed = s.filledCount === s.totalCount;
-            return (
-              <button
-                key={s.stage}
-                onClick={() => onSelectItem(s.stage)}
-                className="w-full text-left p-3 rounded-md border hover:bg-muted/50 transition-colors group"
-                disabled={!s.versionLabel && s.stage !== 'pre_screening'}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{s.label}</span>
-                    {s.versionLabel && <Badge variant="outline" className="text-[10px]">{s.versionLabel}</Badge>}
-                    {s.status === 'generating' && <Loader2 className="h-3 w-3 animate-spin text-info" />}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{s.filledCount}/{s.totalCount} sections</span>
-                    {s.score != null && <span style={{ color: 'var(--pe-ok)', fontWeight: 500 }}>· score {s.score}</span>}
-                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            Memo d'investissement
+            {memoStageLabel && (
+              <Badge variant="outline" className="text-[10px]" style={{ background: 'var(--pe-bg-purple)', color: 'var(--pe-purple)', borderColor: 'var(--pe-purple)' }}>
+                {memoStageLabel}
+              </Badge>
+            )}
+            {memo?.status === 'generating' && <Loader2 className="h-3 w-3 animate-spin text-info" />}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!memo ? (
+            <p className="text-sm text-muted-foreground">
+              Pas encore de memo. Upload des pièces puis génère le pré-screening 360° pour initialiser le dossier.
+            </p>
+          ) : (
+            <>
+              {/* Progression : sections remplies + sections validées */}
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-muted-foreground">Sections remplies</span>
+                  <span className="font-medium">{memo.filledCount}/{memo.totalCount}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden mb-2">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${filledPct}%`,
+                      background: filledPct === 100 ? 'var(--pe-info)' : 'var(--pe-info)',
+                      opacity: 0.6,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-muted-foreground">Sections validées (IM/MD)</span>
+                  <span className="font-medium" style={{ color: validatedPct === 100 ? 'var(--pe-ok)' : undefined }}>
+                    {memo.validatedCount}/{memo.totalCount}
+                  </span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
-                      width: `${pct}%`,
-                      background: completed ? 'var(--pe-ok)' : pct > 0 ? 'var(--pe-info)' : 'transparent',
+                      width: `${validatedPct}%`,
+                      background: validatedPct === 100 ? 'var(--pe-ok)' : 'var(--pe-ok)',
+                      opacity: 0.7,
                     }}
                   />
                 </div>
-              </button>
-            );
-          })}
+              </div>
+
+              {memo.pendingValidationCount > 0 && (
+                <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--pe-info)' }}>
+                  <span style={{ background: 'var(--pe-bg-info)' }} className="px-1.5 py-0.5 rounded font-medium">
+                    {memo.pendingValidationCount} ⏳ en attente de validation
+                  </span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={() => onSelectItem('memo')} size="sm" variant="outline" className="gap-1.5">
+                  Ouvrir le memo <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+                <Button onClick={() => onSelectItem('pre_screening')} size="sm" variant="ghost" className="gap-1.5">
+                  Vue 360° compacte
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
-      {/* Prochaine action */}
-      {nextPhase && (
-        <Card style={{ borderColor: 'var(--pe-info)', borderWidth: 1 }}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-muted-foreground mb-0.5">Prochaine étape</div>
-              <div className="font-medium text-sm">
-                Compléter <strong>{nextPhase.label}</strong>
-                {' '}· {nextPhase.totalCount - nextPhase.filledCount} section{nextPhase.totalCount - nextPhase.filledCount > 1 ? 's' : ''} restante{nextPhase.totalCount - nextPhase.filledCount > 1 ? 's' : ''}
-              </div>
-            </div>
-            <Button onClick={() => onSelectItem(nextPhase.stage)} size="sm" className="gap-1.5">
-              Ouvrir <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Quick actions */}
+      {/* Quick actions : Upload + Historique */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => onSelectItem('documents')}>
           <CardContent className="p-4 flex items-center gap-3">

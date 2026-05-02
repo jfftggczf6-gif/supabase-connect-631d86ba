@@ -50,14 +50,15 @@ const SECTION_ORDER: SectionCode[] = [
 
 interface Props {
   dealId: string;
-  versionStage: 'pre_screening' | 'note_ic1' | 'note_ic_finale';
+  /** Living document : on query toujours la latest version active. Le stage est ignoré. */
+  versionStage?: 'pre_screening' | 'note_ic1' | 'note_ic_finale';
   /** Si true, affiche une table des matières interne à gauche du contenu (pattern programme). */
   withToc?: boolean;
-  /** Titre de la page. Par défaut "Pré-screening 360°". */
+  /** Titre de la page. Par défaut "Memo d'investissement". */
   title?: string;
 }
 
-export default function MemoSectionsViewer({ dealId, versionStage, withToc = false, title }: Props) {
+export default function MemoSectionsViewer({ dealId, withToc = false, title }: Props) {
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState<any>(null);
   const [sections, setSections] = useState<Record<string, any>>({});
@@ -84,11 +85,11 @@ export default function MemoSectionsViewer({ dealId, versionStage, withToc = fal
         .maybeSingle();
       if (!memo) { setLoading(false); return; }
 
+      // Living document : on prend toujours la dernière version 'ready' (peu importe le stage)
       const { data: versions } = await supabase
         .from('memo_versions')
         .select('*')
         .eq('memo_id', memo.id)
-        .eq('stage', versionStage)
         .eq('status', 'ready')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -108,7 +109,7 @@ export default function MemoSectionsViewer({ dealId, versionStage, withToc = fal
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [dealId, versionStage]);
+  }, [dealId]);
 
   // IntersectionObserver pour mettre à jour la section active selon le scroll (TOC mode)
   useEffect(() => {
@@ -143,7 +144,7 @@ export default function MemoSectionsViewer({ dealId, versionStage, withToc = fal
     );
   }
   if (!version) {
-    return <div className="p-8 text-muted-foreground">Aucune version {versionStage} disponible.</div>;
+    return <div className="p-8 text-muted-foreground">Aucun memo disponible. Génère le pré-screening pour initialiser le dossier.</div>;
   }
 
   const enterpriseName = (deal?.enterprises as any)?.name ?? deal?.deal_ref ?? '—';
@@ -155,7 +156,7 @@ export default function MemoSectionsViewer({ dealId, versionStage, withToc = fal
       <CardContent className="p-4 flex justify-between items-start">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{title ?? 'Pré-screening 360°'}</span>
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{title ?? `Memo d'investissement · ${version.stage ?? 'pre_screening'}`}</span>
             <ClassificationTag classification={version.classification} />
           </div>
           <div className="text-lg font-medium">{enterpriseName}</div>

@@ -82,11 +82,11 @@ export default function PreScreening360Dashboard({ dealId }: Props) {
         .maybeSingle();
       if (!memo) { setLoading(false); return; }
 
+      // Living document : on prend la dernière version 'ready' (peu importe stage)
       const { data: versions } = await supabase
         .from('memo_versions')
         .select('*')
         .eq('memo_id', memo.id)
-        .eq('stage', 'pre_screening')
         .eq('status', 'ready')
         .order('created_at', { ascending: false })
         .limit(1);

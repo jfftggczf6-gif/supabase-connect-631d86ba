@@ -3,9 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
 import { buildToneForAgent } from "../_shared/agent-tone.ts";
 import {
-  createMemoVersion,
   updateMemoVersion,
-  insertMemoSections,
   fetchSections,
   fetchDealDocuments,
   getLatestVersion,
@@ -212,44 +210,36 @@ serve(async (req: Request) => {
       currency: deal.currency ?? "EUR",
     };
 
-    // 2) Trouver la dernière version pre_screening ready
-    const lastPreScreening = await getLatestVersion(adminClient, body.deal_id, "pre_screening", "ready");
-    if (!lastPreScreening) return errorResponse("No ready pre_screening version to enrich from", 400);
+    // 2) Trouver la version active du deal (la dernière version ready, peu importe le stage)
+    //    Living document : on UPDATE en place au lieu de cloner.
+    const activeVersion = await getLatestVersion(adminClient, body.deal_id, "pre_screening", "ready")
+      ?? await getLatestVersion(adminClient, body.deal_id, "note_ic1", "ready");
+    if (!activeVersion) return errorResponse("No ready pre_screening version to enrich from", 400);
 
-    // 3) Vérifier qu'il n'y a pas déjà une note_ic1 pour ce memo
-    const existingIc1 = await getLatestVersion(adminClient, body.deal_id, "note_ic1");
-    if (existingIc1) {
-      return jsonResponse({
-        success: true,
-        version_id: existingIc1.id,
-        already_exists: true,
-      });
-    }
+    // Si déjà en stage note_ic1 et le user veut re-enrichir : on permet (ré-enrichissement après nouvelle DD ou docs)
+    // Pas de blocage "already_exists" — c'est un living document.
 
-    // 4) Charger les sections pre-screening (input pour enrichissement)
-    const previousSections = await fetchSections(adminClient, lastPreScreening.id);
+    // 3) Charger les sections actuelles (input pour enrichissement)
+    const previousSections = await fetchSections(adminClient, activeVersion.id);
     const previousMap: Partial<Record<MemoSectionCode, SectionContent>> = {};
+    const sectionIdByCode: Partial<Record<MemoSectionCode, string>> = {};
     for (const sec of previousSections) {
       previousMap[sec.section_code] = {
         content_md: sec.content_md,
         content_json: sec.content_json,
       };
+      sectionIdByCode[sec.section_code] = sec.id;
     }
 
-    // 5) Charger docs (peuvent inclure de nouveaux docs ajoutés depuis pre-screening)
+    // 4) Charger docs (peuvent inclure de nouveaux docs ajoutés depuis pre-screening)
     const docs = await fetchDealDocuments(adminClient, body.deal_id);
     const sectionDocIds = docs.map(d => d.id);
 
-    // 6) Créer la nouvelle version note_ic1_v1 status='generating'
-    const newVersionId = await createMemoVersion(adminClient, {
-      memo_id: lastPreScreening.memo_id,
-      label: "note_ic1_v1",
-      parent_version_id: lastPreScreening.id,
-      stage: "note_ic1",
+    // 5) Marquer la version comme 'generating' (on UPDATE l'existante, pas de nouvelle row)
+    await updateMemoVersion(adminClient, activeVersion.id, {
       status: "generating",
-      generated_by_agent: "generate-ic1-memo",
-      generated_by_user_id: user.id,
     });
+    const versionId = activeVersion.id;
 
     try {
       // 7) Parse docs
@@ -331,34 +321,55 @@ serve(async (req: Request) => {
       });
       sectionsContent.executive_summary = execContent;
 
-      // 10) Insertion 12 sections en batch
-      const sectionsMap: Partial<Record<MemoSectionCode, any>> = {};
+      // 10) UPDATE des 12 sections en place (living document : pas de nouvelle row)
+      //     Les sections passent en status='draft' car le contenu a changé — les validations
+      //     précédentes restent en historique (memo_section_validations) mais re-validation requise.
       for (const code of Object.keys(sectionsContent) as MemoSectionCode[]) {
-        sectionsMap[code] = {
-          content_md: sectionsContent[code]!.content_md,
-          content_json: sectionsContent[code]!.content_json,
-          source_doc_ids: sectionDocIds,
-        };
+        const sectionId = sectionIdByCode[code];
+        if (!sectionId) {
+          console.warn(`[generate-ic1-memo] section ${code} not found in active version, skipping`);
+          continue;
+        }
+        const { error: secUpdErr } = await adminClient
+          .from('memo_sections')
+          .update({
+            content_md: sectionsContent[code]!.content_md,
+            content_json: sectionsContent[code]!.content_json,
+            source_doc_ids: sectionDocIds,
+            status: 'draft',
+            last_edited_by: user.id,
+            last_edited_at: new Date().toISOString(),
+          })
+          .eq('id', sectionId);
+        if (secUpdErr) {
+          console.error(`[generate-ic1-memo] section ${code} update failed: ${secUpdErr.message}`);
+        }
       }
-      await insertMemoSections(adminClient, newVersionId, sectionsMap);
 
-      // 11) Score + classification depuis le résumé exécutif IC1
+      // 11) UPDATE la version : stage devient note_ic1, label aussi, score/classif rafraîchis
       const { overall_score, classification } = extractScoreAndClassification(execContent);
 
-      await updateMemoVersion(adminClient, newVersionId, {
-        status: "ready",
-        overall_score,
-        classification,
-        generated_at: new Date().toISOString(),
-        error_message: failures.length > 0
-          ? `Partial: ${failures.length} sections échouées (${failures.map(f => f.code).join(', ')})`
-          : null,
-      });
+      await adminClient
+        .from('memo_versions')
+        .update({
+          stage: 'note_ic1',
+          label: 'note_ic1_v1',
+          status: 'ready',
+          overall_score,
+          classification,
+          generated_by_agent: 'generate-ic1-memo',
+          generated_at: new Date().toISOString(),
+          error_message: failures.length > 0
+            ? `Partial: ${failures.length} sections échouées (${failures.map(f => f.code).join(', ')})`
+            : null,
+        })
+        .eq('id', versionId);
 
       return jsonResponse({
         success: true,
-        version_id: newVersionId,
-        parent_version_id: lastPreScreening.id,
+        version_id: versionId,
+        living_document: true,
+        new_stage: 'note_ic1',
         overall_score,
         classification,
         sections_enriched: Object.keys(sectionsContent).length,
@@ -367,8 +378,8 @@ serve(async (req: Request) => {
       });
     } catch (genErr: any) {
       console.error(`[generate-ic1-memo] enrichment failed: ${genErr.message}`);
-      await updateMemoVersion(adminClient, newVersionId, {
-        status: "rejected",
+      await updateMemoVersion(adminClient, versionId, {
+        status: "ready",  // revert à 'ready' (la version originale est intacte)
         error_message: genErr.message?.slice(0, 500) ?? "Unknown error",
       });
       return errorResponse(`IC1 enrichment failed: ${genErr.message}`, 500);

@@ -46,7 +46,6 @@ export default function PeBenchmarkSourcesView({ dealId }: Props) {
           .from('memo_versions')
           .select('id, status, memo_sections(section_code, content_md, content_json)')
           .eq('memo_id', memo.id)
-          .eq('stage', 'pre_screening')
           .eq('status', 'ready')
           .order('created_at', { ascending: false })
           .limit(1);

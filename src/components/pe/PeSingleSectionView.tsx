@@ -48,7 +48,8 @@ const SECTION_LABELS: Record<string, string> = {
 
 interface Props {
   dealId: string;
-  stage: 'pre_screening' | 'note_ic1' | 'note_ic_finale';
+  /** Living document : on query toujours la latest version active. Le stage est ignoré. */
+  stage?: 'pre_screening' | 'note_ic1' | 'note_ic_finale';
   sectionCode: string;
 }
 
@@ -94,7 +95,7 @@ const ACTION_LABELS: Record<string, string> = {
   reset_to_draft:   '↻ remise en brouillon',
 };
 
-export default function PeSingleSectionView({ dealId, stage, sectionCode }: Props) {
+export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
   const { user } = useAuth();
   const { role, isSuperAdmin } = useCurrentRole();
   const roleCtx = { role, isSuperAdmin };
@@ -126,11 +127,11 @@ export default function PeSingleSectionView({ dealId, stage, sectionCode }: Prop
       .from('investment_memos').select('id').eq('deal_id', dealId).maybeSingle();
     if (!memo) { setLoading(false); return; }
 
+    // Living document : on prend toujours la dernière version 'ready' (peu importe le stage)
     const { data: vers } = await supabase
       .from('memo_versions')
-      .select('id, status, label')
+      .select('id, status, label, stage')
       .eq('memo_id', memo.id)
-      .eq('stage', stage)
       .eq('status', 'ready')
       .order('created_at', { ascending: false })
       .limit(1);
@@ -177,7 +178,7 @@ export default function PeSingleSectionView({ dealId, stage, sectionCode }: Prop
     setLoading(false);
   };
 
-  useEffect(() => { loadSection(); }, [dealId, stage, sectionCode]);
+  useEffect(() => { loadSection(); }, [dealId, sectionCode]);
 
   // ─── Edit mode ───────────────────────────────────────────────────────────
   const handleEdit = () => {

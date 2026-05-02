@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
-  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, FileCheck, Search, BookMarked,
+  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked,
   Send, AlertCircle, Calculator, ZoomIn,
 } from 'lucide-react';
 
@@ -22,19 +22,20 @@ const SECTIONS = [
   { code: 'annexes',                 label: 'Annexes' },
 ] as const;
 
-const COLLAPSIBLE_PHASES: Array<{
-  stage: 'note_ic1' | 'note_ic_finale';
-  label: string;
-  icon: any;
-  sections: typeof SECTIONS;
-}> = [
-  { stage: 'note_ic1',       label: 'Memo IC1',       icon: ShieldCheck, sections: SECTIONS },
-  { stage: 'note_ic_finale', label: 'Memo IC finale', icon: FileCheck,   sections: SECTIONS },
-];
+// Living document : un seul memo qui évolue à travers les stages.
+// La sidebar affiche UN item collapsible "Memo d'investissement" + un badge stage.
+const STAGE_BADGE_LABELS: Record<string, string> = {
+  pre_screening: 'Pré-screening',
+  note_ic1: 'IC1',
+  note_ic_finale: 'IC finale',
+  dd: 'DD',
+  closing: 'Closing',
+  portfolio: 'Portfolio',
+};
 
 type SectionWorkflowStatus = 'draft' | 'pending_validation' | 'validated' | 'needs_revision';
 
-interface VersionWithSections {
+interface ActiveMemoVersion {
   id: string;
   stage: string;
   status: 'generating' | 'ready' | 'validated' | 'rejected';
@@ -49,13 +50,10 @@ interface Props {
 }
 
 export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Props) {
-  const [versions, setVersions] = useState<Record<string, VersionWithSections>>({});
+  const [activeVersion, setActiveVersion] = useState<ActiveMemoVersion | null>(null);
   const [docCount, setDocCount] = useState(0);
   const [versionCount, setVersionCount] = useState(0);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    note_ic1: false,
-    note_ic_finale: false,
-  });
+  const [expanded, setExpanded] = useState<boolean>(true);
 
   const reload = async () => {
     const { data: memo } = await supabase
@@ -65,29 +63,36 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
       .maybeSingle();
 
     if (memo) {
+      // Living document : on prend la dernière version (peu importe le stage)
       const { data: vers } = await supabase
         .from('memo_versions')
         .select('id, stage, status, memo_sections(section_code, content_md, content_json, status)')
         .eq('memo_id', memo.id)
         .order('created_at', { ascending: false });
 
-      const map: Record<string, VersionWithSections> = {};
-      (vers ?? []).forEach((v: any) => {
-        if (map[v.stage]) return;
+      const latest = vers?.[0];
+      if (latest) {
         const filled = new Set<string>();
         const statusMap: Record<string, SectionWorkflowStatus> = {};
-        (v.memo_sections ?? []).forEach((s: any) => {
+        (latest.memo_sections ?? []).forEach((s: any) => {
           if (s.content_md || (s.content_json && Object.keys(s.content_json).length > 0)) {
             filled.add(s.section_code);
           }
           statusMap[s.section_code] = (s.status as SectionWorkflowStatus) ?? 'draft';
         });
-        map[v.stage] = { id: v.id, stage: v.stage, status: v.status, filledSections: filled, sectionStatusMap: statusMap };
-      });
-      setVersions(map);
+        setActiveVersion({
+          id: latest.id,
+          stage: latest.stage,
+          status: latest.status,
+          filledSections: filled,
+          sectionStatusMap: statusMap,
+        });
+      } else {
+        setActiveVersion(null);
+      }
       setVersionCount(vers?.length ?? 0);
     } else {
-      setVersions({});
+      setActiveVersion(null);
       setVersionCount(0);
     }
 
@@ -100,34 +105,33 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
 
   useEffect(() => { reload(); }, [dealId]);
 
-  const sectionStatusIcon = (stage: string, code: string) => {
-    const v = versions[stage];
-    if (!v) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
-    if (v.status === 'generating') return <Loader2 className="h-3 w-3 animate-spin text-info" />;
-    if (v.status === 'rejected') return <Circle className="h-3 w-3 text-destructive" />;
-    if (!v.filledSections.has(code)) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
+  const sectionStatusIcon = (code: string) => {
+    if (!activeVersion) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
+    if (activeVersion.status === 'generating') return <Loader2 className="h-3 w-3 animate-spin text-info" />;
+    if (activeVersion.status === 'rejected') return <Circle className="h-3 w-3 text-destructive" />;
+    if (!activeVersion.filledSections.has(code)) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
 
     // Section remplie : on affiche son statut workflow
-    const ws = v.sectionStatusMap[code] ?? 'draft';
+    const ws = activeVersion.sectionStatusMap[code] ?? 'draft';
     if (ws === 'validated') return <CheckCircle2 className="h-3 w-3" style={{ color: 'var(--pe-ok)' }} />;
     if (ws === 'pending_validation') return <Send className="h-3 w-3" style={{ color: 'var(--pe-info)' }} />;
     if (ws === 'needs_revision') return <AlertCircle className="h-3 w-3" style={{ color: 'var(--pe-warning)' }} />;
     return <CheckCircle2 className="h-3 w-3 text-muted-foreground" />;
   };
 
-  const phaseProgress = (stage: string) => {
-    const v = versions[stage];
-    if (!v) return null;
-    const total = SECTIONS.length;
-    const done = v.filledSections.size;
-    return `${done}/${total}`;
+  const memoProgress = (): string | null => {
+    if (!activeVersion) return null;
+    return `${activeVersion.filledSections.size}/${SECTIONS.length}`;
   };
 
-  /** Compte les sections en attente de validation (pending) sur un stage donné. */
-  const pendingCount = (stage: string): number => {
-    const v = versions[stage];
-    if (!v) return 0;
-    return Object.values(v.sectionStatusMap).filter(s => s === 'pending_validation').length;
+  const memoPendingCount = (): number => {
+    if (!activeVersion) return 0;
+    return Object.values(activeVersion.sectionStatusMap).filter(s => s === 'pending_validation').length;
+  };
+
+  const memoStageBadge = (): string | null => {
+    if (!activeVersion) return null;
+    return STAGE_BADGE_LABELS[activeVersion.stage] ?? activeVersion.stage;
   };
 
   const ItemRow = ({
@@ -192,51 +196,51 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
         {/* ── LIVRABLES ── */}
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Livrables</div>
 
-        {/* Pré-screening : item unique avec TOC interne */}
+        {/* Pré-screening 360° : dashboard visuel compact (toujours sur la version active) */}
         <ItemRow
           active={selectedItem === 'pre_screening'}
           onClick={() => onSelectItem('pre_screening')}
           icon={FileEdit}
           label="Pré-screening 360°"
-          badge={phaseProgress('pre_screening')}
-          rightExtra={pendingCount('pre_screening') > 0 ? (
-            <span className="text-[10px] px-1 rounded font-medium" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>
-              {pendingCount('pre_screening')} ⏳
-            </span>
-          ) : null}
+          badge={memoProgress()}
         />
 
-        {/* Memo IC1 : dépliable */}
-        {COLLAPSIBLE_PHASES.slice(0, 1).map((phase) => {
-          const isOpen = expanded[phase.stage];
-          const v = versions[phase.stage];
-          const pending = pendingCount(phase.stage);
+        {/* Memo d'investissement : UN SEUL document qui évolue (pre_screening → IC1 → IC finale) */}
+        {(() => {
+          const isOpen = expanded;
+          const stageBadge = memoStageBadge();
+          const pending = memoPendingCount();
           return (
-            <div key={phase.stage}>
+            <div>
               <button
                 onClick={() => {
-                  setExpanded(e => ({ ...e, [phase.stage]: !e[phase.stage] }));
-                  onSelectItem(phase.stage);
+                  setExpanded(e => !e);
+                  onSelectItem('memo');
                 }}
                 className={cn(
                   'w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
-                  selectedItem === phase.stage ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                  selectedItem === 'memo' ? 'bg-muted font-medium' : 'hover:bg-muted/50',
                 )}
               >
                 {isOpen ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-                <phase.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{phase.label}</span>
+                <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">Memo d'investissement</span>
+                {stageBadge && (
+                  <span className="text-[10px] px-1.5 rounded font-medium" style={{ background: 'var(--pe-bg-purple)', color: 'var(--pe-purple)' }}>
+                    {stageBadge}
+                  </span>
+                )}
                 {pending > 0 && (
                   <span className="text-[10px] px-1 rounded font-medium" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>{pending} ⏳</span>
                 )}
-                {phaseProgress(phase.stage) && (
-                  <span className="text-[10px] text-muted-foreground">{phaseProgress(phase.stage)}</span>
+                {memoProgress() && (
+                  <span className="text-[10px] text-muted-foreground">{memoProgress()}</span>
                 )}
               </button>
               {isOpen && (
                 <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
-                  {phase.sections.map((s) => {
-                    const itemKey = `${phase.stage}:${s.code}`;
+                  {SECTIONS.map((s) => {
+                    const itemKey = `memo:${s.code}`;
                     return (
                       <button
                         key={s.code}
@@ -247,16 +251,16 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
                         )}
                       >
                         <span className="truncate">{s.label}</span>
-                        {sectionStatusIcon(phase.stage, s.code)}
+                        {sectionStatusIcon(s.code)}
                       </button>
                     );
                   })}
-                  {/* Sous-item "Détails Valuation" (zoom sur la thèse, Phase E') */}
+                  {/* Sous-item "Détails Valuation" (Phase E') */}
                   <button
-                    onClick={() => onSelectItem(`${phase.stage}:_valuation_details`)}
+                    onClick={() => onSelectItem('memo:_valuation_details')}
                     className={cn(
                       'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
-                      selectedItem === `${phase.stage}:_valuation_details` ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                      selectedItem === 'memo:_valuation_details' ? 'bg-muted font-medium' : 'hover:bg-muted/50',
                     )}
                   >
                     <span className="flex items-center gap-1.5 truncate">
@@ -269,9 +273,9 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
               )}
             </div>
           );
-        })}
+        })()}
 
-        {/* DD : entre Memo IC1 et Memo IC finale */}
+        {/* DD : zone à part (Module E à venir) */}
         <ItemRow
           active={selectedItem === 'dd'}
           onClick={() => onSelectItem('dd')}
@@ -280,70 +284,6 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           badge="à venir"
           disabled
         />
-
-        {/* Memo IC finale : dépliable */}
-        {COLLAPSIBLE_PHASES.slice(1).map((phase) => {
-          const isOpen = expanded[phase.stage];
-          const v = versions[phase.stage];
-          const isPlaceholder = !v;
-          return (
-            <div key={phase.stage}>
-              <button
-                onClick={() => {
-                  setExpanded(e => ({ ...e, [phase.stage]: !e[phase.stage] }));
-                  if (!isPlaceholder) onSelectItem(phase.stage);
-                }}
-                disabled={isPlaceholder}
-                className={cn(
-                  'w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
-                  selectedItem === phase.stage ? 'bg-muted font-medium' : 'hover:bg-muted/50',
-                  isPlaceholder && 'opacity-50 cursor-not-allowed hover:bg-transparent',
-                )}
-              >
-                {isOpen ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-                <phase.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{phase.label}</span>
-                {phaseProgress(phase.stage)
-                  ? <span className="text-[10px] text-muted-foreground">{phaseProgress(phase.stage)}</span>
-                  : <span className="text-[10px] text-muted-foreground">à venir</span>}
-              </button>
-              {isOpen && !isPlaceholder && (
-                <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
-                  {phase.sections.map((s) => {
-                    const itemKey = `${phase.stage}:${s.code}`;
-                    return (
-                      <button
-                        key={s.code}
-                        onClick={() => onSelectItem(itemKey)}
-                        className={cn(
-                          'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
-                          selectedItem === itemKey ? 'bg-muted font-medium' : 'hover:bg-muted/50',
-                        )}
-                      >
-                        <span className="truncate">{s.label}</span>
-                        {sectionStatusIcon(phase.stage, s.code)}
-                      </button>
-                    );
-                  })}
-                  {/* Sous-item "Détails Valuation finale" */}
-                  <button
-                    onClick={() => onSelectItem(`${phase.stage}:_valuation_details`)}
-                    className={cn(
-                      'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
-                      selectedItem === `${phase.stage}:_valuation_details` ? 'bg-muted font-medium' : 'hover:bg-muted/50',
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <ZoomIn className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      Détails Valuation finale
-                    </span>
-                    <span className="text-[9px] text-muted-foreground">à venir</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
 
       </nav>
     </div>

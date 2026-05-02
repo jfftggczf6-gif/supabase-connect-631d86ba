@@ -166,11 +166,12 @@ export default function PeDealDetailPage() {
         </div>
       );
     }
-    // Section unique : <stage>:<section_code>
+    // Living document : keys 'memo' (long scroll) et 'memo:<section_code>' (section seule).
+    // Les anciens formats <stage>:<section> restent supportés en fallback (rétrocompat).
     if (selectedItem.includes(':')) {
-      const [stage, code] = selectedItem.split(':');
-      if (['pre_screening', 'note_ic1', 'note_ic_finale'].includes(stage)) {
-        // Sous-item spécial "Détails Valuation" (Phase E')
+      const [scope, code] = selectedItem.split(':');
+      const isMemoScope = scope === 'memo' || ['pre_screening', 'note_ic1', 'note_ic_finale'].includes(scope);
+      if (isMemoScope) {
         if (code === '_valuation_details') {
           return (
             <Card>
@@ -188,16 +189,16 @@ export default function PeDealDetailPage() {
             </Card>
           );
         }
-        return <PeSingleSectionView dealId={deal.id} stage={stage as any} sectionCode={code} />;
+        return <PeSingleSectionView dealId={deal.id} sectionCode={code} />;
       }
     }
     // Pré-screening : dashboard compact 13 blocs (pas le long scroll des 12 sections)
     if (selectedItem === 'pre_screening') {
       return <PreScreening360Dashboard dealId={deal.id} />;
     }
-    // Memo IC1 / IC finale : phase entière (long scroll)
-    if (['note_ic1', 'note_ic_finale'].includes(selectedItem)) {
-      return <MemoSectionsViewer dealId={deal.id} versionStage={selectedItem as any} />;
+    // Memo d'investissement : phase entière (long scroll des 12 sections de la version active)
+    if (selectedItem === 'memo' || ['note_ic1', 'note_ic_finale'].includes(selectedItem)) {
+      return <MemoSectionsViewer dealId={deal.id} />;
     }
     return <div className="text-muted-foreground">Sélectionne un item dans le menu.</div>;
   };
