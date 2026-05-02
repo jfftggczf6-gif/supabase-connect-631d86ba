@@ -17,7 +17,7 @@ import PeDealSidebar from '@/components/pe/PeDealSidebar';
 import PeOverviewHub from '@/components/pe/PeOverviewHub';
 import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
-import DealDocumentsList from '@/components/pe/DealDocumentsList';
+import PeDealDocumentsUploader from '@/components/pe/PeDealDocumentsUploader';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
@@ -135,7 +135,7 @@ export default function PeDealDetailPage() {
       return <PeBenchmarkSourcesView dealId={deal.id} />;
     }
     if (selectedItem === 'documents') {
-      return currentOrg ? <DealDocumentsList dealId={deal.id} organizationId={currentOrg.id} /> : null;
+      return currentOrg ? <PeDealDocumentsUploader dealId={deal.id} organizationId={currentOrg.id} /> : null;
     }
     if (selectedItem === 'history') {
       return (

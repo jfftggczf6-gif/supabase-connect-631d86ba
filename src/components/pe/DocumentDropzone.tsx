@@ -85,7 +85,7 @@ export default function DocumentDropzone({ dealId, organizationId, onUploaded, c
         </div>
       ) : children ? children : (
         <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
-          <Upload className="h-4 w-4" /> Glisser-déposer ou cliquer pour ajouter des documents
+          <Upload className="h-4 w-4" /> Glisser-déposer ou cliquer pour upload document
         </div>
       )}
     </div>

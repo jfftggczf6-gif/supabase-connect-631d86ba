@@ -52,10 +52,10 @@ export default function DealDocumentsList({ dealId, organizationId }: Props) {
       <DocumentDropzone dealId={dealId} organizationId={organizationId} onUploaded={reload} />
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Documents ({docs.length})</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Data Room ({docs.length} {docs.length > 1 ? 'pièces' : 'pièce'})</CardTitle></CardHeader>
         <CardContent>
           {docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun document. Glisse-dépose ci-dessus.</p>
+            <p className="text-sm text-muted-foreground">Votre Data Room est vide. Glisse-dépose les pièces ci-dessus.</p>
           ) : (
             <div className="space-y-1">
               {docs.map(d => (

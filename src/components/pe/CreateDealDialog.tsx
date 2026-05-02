@@ -207,9 +207,9 @@ export default function CreateDealDialog({ open, onOpenChange, organizationId, c
             </div>
           )}
 
-          {/* Documents — drag-drop optionnel à la création */}
+          {/* Data Room — drag-drop optionnel à la création */}
           <div className="space-y-1.5">
-            <Label>Documents (optionnel)</Label>
+            <Label>Data Room initiale (optionnel)</Label>
             <div
               className={`rounded-lg border-2 border-dashed p-3 text-center text-sm transition cursor-pointer ${dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -256,7 +256,7 @@ export default function CreateDealDialog({ open, onOpenChange, organizationId, c
               </div>
             )}
             <p className="text-[10px] text-muted-foreground">
-              Si tu joins des docs, tu pourras pousser le deal en Pré-screening pour générer l'analyse 360°.
+              Si tu joins des pièces, tu pourras pousser le deal en Pré-screening pour générer l'analyse 360°.
             </p>
           </div>
         </div>

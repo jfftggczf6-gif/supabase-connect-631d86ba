@@ -111,7 +111,7 @@ export default function PreScreening360Dashboard({ dealId }: Props) {
     return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="animate-spin h-4 w-4" /> Chargement...</div>;
   }
   if (!version) {
-    return <div className="p-8 text-muted-foreground">Aucune version pre_screening disponible. Drop des documents sur la carte du deal pour générer le pré-screening 360°.</div>;
+    return <div className="p-8 text-muted-foreground">Aucune version pre_screening disponible. Drop des pièces sur la carte du deal pour générer le pré-screening 360°.</div>;
   }
 
   // Extraction des données depuis les sections concernées
