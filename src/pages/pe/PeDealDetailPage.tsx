@@ -20,6 +20,7 @@ import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import DealDocumentsList from '@/components/pe/DealDocumentsList';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
+import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -190,9 +191,9 @@ export default function PeDealDetailPage() {
         return <PeSingleSectionView dealId={deal.id} stage={stage as any} sectionCode={code} />;
       }
     }
-    // Pré-screening : 1 document avec TOC interne (pattern programme)
+    // Pré-screening : dashboard compact 13 blocs (pas le long scroll des 12 sections)
     if (selectedItem === 'pre_screening') {
-      return <MemoSectionsViewer dealId={deal.id} versionStage="pre_screening" withToc title="Pré-screening 360°" />;
+      return <PreScreening360Dashboard dealId={deal.id} />;
     }
     // Memo IC1 / IC finale : phase entière (long scroll)
     if (['note_ic1', 'note_ic_finale'].includes(selectedItem)) {
