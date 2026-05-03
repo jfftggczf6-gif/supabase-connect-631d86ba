@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, X, Loader2, Upload, FileText, CheckCircle2, AlertTriangle, ListChecks, ArrowLeft } from 'lucide-react';
+import { CalendarIcon, Plus, X, Loader2, Upload, FileText, CheckCircle2, AlertTriangle, ListChecks, ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -21,6 +22,66 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 
 const COUNTRIES = ['Bénin', 'Burkina Faso', 'Cameroun', 'Congo', "Côte d'Ivoire", 'Gabon', 'Guinée', 'Kenya', 'Madagascar', 'Mali', 'Niger', 'RDC', 'Rwanda', 'Sénégal', 'Togo'].sort((a, b) => a.localeCompare(b, 'fr'));
 const SECTORS = ['Agriculture', 'Agro-industrie', 'BTP', 'Commerce', 'Éducation', 'Énergie', 'Fintech', 'Santé', 'Technologie', 'Textile', 'Tourisme', 'Transport'].sort((a, b) => a.localeCompare(b, 'fr'));
+
+// Multi-select avec recherche pour pays/secteurs.
+// Affiche un trigger compact, ouvre une liste filtrée au clic, montre les items
+// sélectionnés sous forme de chips amovibles sous le champ.
+function MultiSelectList({
+  options, selected, onToggle, placeholder, searchPlaceholder,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  placeholder: string;
+  searchPlaceholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="space-y-2 mt-1">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+            <span className="truncate text-muted-foreground">
+              {selected.length > 0 ? `${selected.length} sélectionné${selected.length > 1 ? 's' : ''}` : placeholder}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder={searchPlaceholder} />
+            <CommandList>
+              <CommandEmpty>Aucun résultat.</CommandEmpty>
+              <CommandGroup>
+                {options.map(opt => {
+                  const isSelected = selected.includes(opt);
+                  return (
+                    <CommandItem key={opt} onSelect={() => onToggle(opt)} className="cursor-pointer">
+                      <Check className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
+                      {opt}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map(s => (
+            <Badge key={s} variant="default" className="gap-1 text-xs pl-2 pr-1 py-0.5">
+              {s}
+              <button onClick={() => onToggle(s)} className="ml-0.5 hover:bg-primary-foreground/20 rounded-sm p-0.5" type="button">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface FormField {
   id: string;
@@ -305,8 +366,7 @@ export default function ProgrammeCreatePage() {
       <Button variant="ghost" size="sm" onClick={() => nav('/programmes')} className="mb-4 gap-1.5">
         <ArrowLeft className="h-4 w-4" /> Retour aux programmes
       </Button>
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="space-y-6">
           {/* Upload fiche programme */}
           <Card>
             <CardHeader><CardTitle className="text-base">{t('programme.import_file')}</CardTitle></CardHeader>
@@ -371,9 +431,9 @@ export default function ProgrammeCreatePage() {
             </CardContent>
           </Card>
 
-          {/* Paramètres */}
+          {/* Informations (anciennement "Paramètres", inclut maintenant les dates du programme) */}
           <Card>
-            <CardHeader><CardTitle className="text-base">{t('programme.parameters')}</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Informations</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div className={cn(prefilledFields.has('budget') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
@@ -409,38 +469,38 @@ export default function ProgrammeCreatePage() {
               </div>
               <div className={cn(prefilledFields.has('country_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
                 <Label className="text-xs">{t('programme.eligible_countries')} {prefilledFields.has('country_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {COUNTRIES.map(c => (
-                    <Badge key={c} variant={form.country_filter.includes(c) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('country_filter', c)}>{c}</Badge>
-                  ))}
-                </div>
+                <MultiSelectList
+                  options={COUNTRIES}
+                  selected={form.country_filter}
+                  onToggle={(value) => toggleTag('country_filter', value)}
+                  placeholder="Sélectionner des pays…"
+                  searchPlaceholder="Rechercher un pays"
+                />
               </div>
               <div className={cn(prefilledFields.has('sector_filter') && 'ring-2 ring-primary/30 rounded-md p-2 bg-primary/5')}>
                 <Label className="text-xs">{t('programme.eligible_sectors')} {prefilledFields.has('sector_filter') && <Badge variant="outline" className="ml-1 text-[10px] text-primary">IA</Badge>}</Label>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {SECTORS.map(s => (
-                    <Badge key={s} variant={form.sector_filter.includes(s) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTag('sector_filter', s)}>{s}</Badge>
-                  ))}
-                </div>
+                <MultiSelectList
+                  options={SECTORS}
+                  selected={form.sector_filter}
+                  onToggle={(value) => toggleTag('sector_filter', value)}
+                  placeholder="Sélectionner des secteurs…"
+                  searchPlaceholder="Rechercher un secteur"
+                />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Dates */}
-          <Card>
-            <CardHeader><CardTitle className="text-base">{t('programme.dates_title')}</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <DatePicker label={t('programme.start_candidatures')} value={form.start_date} onChange={d => setForm(f => ({ ...f, start_date: d }))} />
-                <div className={cn(prefilledFields.has('end_date') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <DatePicker label={`${t('programme.end_candidatures')} ${prefilledFields.has('end_date') ? '(IA)' : ''}`} value={form.end_date} onChange={d => setForm(f => ({ ...f, end_date: d }))} />
+              {/* Dates du programme intégrées (les dates de candidatures restent dans la page Gérer le formulaire) */}
+              <div className="pt-2 border-t">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Période du programme</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={cn(prefilledFields.has('programme_start') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                    <DatePicker label={`${t('programme.start_programme_date')} ${prefilledFields.has('programme_start') ? '(IA)' : ''}`} value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
+                  </div>
+                  <div className={cn(prefilledFields.has('programme_end') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
+                    <DatePicker label={`${t('programme.end_programme')} ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
+                  </div>
                 </div>
-                <div className={cn(prefilledFields.has('programme_start') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <DatePicker label={`${t('programme.start_programme_date')} ${prefilledFields.has('programme_start') ? '(IA)' : ''}`} value={form.programme_start} onChange={d => setForm(f => ({ ...f, programme_start: d }))} />
-                </div>
-                <div className={cn(prefilledFields.has('programme_end') && 'ring-2 ring-primary/30 rounded-md p-1 bg-primary/5')}>
-                  <DatePicker label={`${t('programme.end_programme')} ${prefilledFields.has('programme_end') ? '(IA)' : ''}`} value={form.programme_end} onChange={d => setForm(f => ({ ...f, programme_end: d }))} />
-                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Les dates de candidatures se configurent dans la page <strong>Gérer le formulaire</strong> après la création.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -519,8 +579,13 @@ export default function ProgrammeCreatePage() {
             </CardContent>
           </Card>
 
-          {/* Formulaire candidature */}
-          <Card>
+          {/* Formulaire candidature — DÉPLACÉ vers la page Gérer le formulaire (/programmes/:id/form)
+              Le form de création reste minimal : Identité / Informations / Critères + bouton Enregistrer.
+              La gestion du formulaire de candidature se fait après la création, depuis le volet Candidature.
+
+              Section ci-dessous masquée pour rétrocompat (si besoin tu peux la réactiver en supprimant le `false`)
+          */}
+          {false && <Card>
             <CardHeader><CardTitle className="text-base">{t('programme.custom_form_title')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {/* Drop zone for form template */}
@@ -657,41 +722,20 @@ export default function ProgrammeCreatePage() {
                 <Button variant="outline" onClick={addField}><Plus className="h-4 w-4" /></Button>
               </div>
             </CardContent>
-          </Card>
-        </div>
+          </Card>}
 
-        {/* Preview sidebar */}
-        <div className="space-y-4">
-          <Card className="sticky top-20 max-h-[calc(100vh-120px)] overflow-y-auto">
-            <CardHeader><CardTitle className="text-base">{t('programme.form_preview')}</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground italic">{t('programme.fixed_fields')}</p>
-              {[t('programme.fixed_company'), t('programme.fixed_contact'), t('programme.fixed_email'), t('programme.fixed_phone')].map(f => (
-                <div key={f} className="space-y-1">
-                  <Label className="text-xs">{f}</Label>
-                  <Input disabled className="h-8" />
-                </div>
-              ))}
-              {formFields.length > 0 && <p className="text-xs text-muted-foreground italic pt-2">{t('programme.custom_fields')}</p>}
-              {formFields.map(f => (
-                <div key={f.id} className="space-y-1">
-                  <Label className="text-xs">{f.label} {f.required ? '*' : ''}</Label>
-                  {f.type === 'textarea' ? <Textarea disabled className="h-16" /> : <Input disabled className="h-8" />}
-                </div>
-              ))}
-
-              <div className="flex flex-col gap-2 pt-4 border-t mt-4">
-                <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="w-full">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.save_draft')}
-                </Button>
-                <Button onClick={() => handleSave(true)} disabled={saving} className="w-full">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('programme.publish_call')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Bouton Enregistrer — un seul CTA, crée le programme en brouillon.
+              La publication de l'appel à candidatures se fait ensuite depuis la page Gérer le formulaire. */}
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => nav('/programmes')} disabled={saving}>
+              Annuler
+            </Button>
+            <Button onClick={() => handleSave(false)} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Enregistrer
+            </Button>
+          </div>
         </div>
-      </div>
     </DashboardLayout>
   );
 }

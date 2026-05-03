@@ -28,6 +28,7 @@ import DataRoomPublic from "./pages/DataRoomPublic";
 import ProgrammeListPage from "./pages/ProgrammeListPage";
 import ProgrammeCreatePage from "./pages/ProgrammeCreatePage";
 import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
+import ProgrammeFormPage from "./pages/ProgrammeFormPage";
 import ProgrammeEnterprisePage from "./pages/ProgrammeEnterprisePage";
 import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import Settings from "./pages/Settings";
@@ -65,6 +66,9 @@ const App = () => (
             } />
             <Route path="/programmes/:id" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
+            } />
+            <Route path="/programmes/:id/form" element={
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeFormPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>

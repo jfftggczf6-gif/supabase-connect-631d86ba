@@ -24,7 +24,7 @@ import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceT
 import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Plus, Trash2, Save, FileText, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -33,7 +33,17 @@ export default function ProgrammeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'apercu';
+  // Rétrocompat : redirige les anciens noms d'onglets (apercu/suivi/selection/reporting/impact)
+  // vers les nouveaux ids unifiés.
+  const TAB_ALIASES: Record<string, string> = {
+    apercu: 'synthese',
+    suivi: 'synthese',
+    selection: 'candidature',
+    reporting: 'reporting_impact',
+    impact: 'reporting_impact',
+  };
+  const rawTab = searchParams.get('tab') || 'synthese';
+  const activeTab = TAB_ALIASES[rawTab] ?? rawTab;
   const [programme, setProgramme] = useState<any>(null);
   const [criteria, setCriteria] = useState<any>(null);
   const [candidatures, setCandidatures] = useState<any[]>([]);
@@ -330,19 +340,12 @@ export default function ProgrammeDetailPage() {
   const status = programme.status;
   const fmt = (d: string | null) => d ? format(new Date(d), 'd MMM yyyy', { locale: fr }) : '—';
 
-  const isCohorte = programme.type === 'cohorte_directe';
-  const tabs: string[] = ['apercu'];
-  if (isCohorte) {
-    tabs.push('enterprises', 'suivi', 'compliance', 'reporting', 'impact');
-  } else {
-    if (['open', 'closed'].includes(status)) {
-      tabs.push('selection');
-    }
-    if (['in_progress', 'completed'].includes(status)) {
-      tabs.push('suivi', 'compliance', 'reporting', 'impact');
-    }
-  }
-  tabs.push('parametres');
+  // Tous les programmes ont les MÊMES onglets, peu importe le type ou le status.
+  // L'utilisateur choisit à tout moment :
+  //   - Volet Entreprises : ajout direct de PME (workflow "cohorte")
+  //   - Volet Candidature : créer un formulaire public (workflow "appel")
+  // Les 2 peuvent cohabiter dans un même programme.
+  const tabs: string[] = ['synthese', 'candidature', 'enterprises', 'reporting_impact', 'compliance', 'parametres'];
 
   // Extract criteria details
   const customCriteria = criteria?.custom_criteria || {};
@@ -350,28 +353,70 @@ export default function ProgrammeDetailPage() {
   const selection: string[] = customCriteria.criteres_selection || [];
   const conditions: string[] = customCriteria.conditions_specifiques || [];
 
+  // Cycle de vie programme — 2 dimensions découplées :
+  //   1. État programme (status)     : draft → in_progress → completed (cycle programme)
+  //   2. État formulaire (form_slug + end_date) : aucun / ouvert / fermé (cycle appel)
+  //   Les 2 sont indépendants. On peut démarrer un programme sans avoir publié
+  //   de formulaire (workflow "cohorte"), ou maintenir le formulaire ouvert
+  //   pendant que le programme tourne (recrutement continu).
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const candidaturesOpen = !!programme.form_slug && !!programme.end_date && programme.end_date >= todayStr;
+  // Anciens status 'open' et 'closed' (legacy) sont traités comme 'draft' pour
+  // l'affichage du bouton Démarrer (le programme n'a pas encore été démarré).
+  const isDraft = status === 'draft' || status === 'open' || status === 'closed';
+
+  const actionBar = (
+    <div className="flex items-center gap-3 flex-wrap">
+      <Button variant="outline" onClick={() => nav('/programmes')} className="shrink-0 gap-2">
+        <ArrowLeft className="h-4 w-4" />
+        Retour aux programmes
+      </Button>
+      <ProgrammeStatusBadge status={status} candidaturesOpen={candidaturesOpen} />
+
+      {isDraft && (
+        <Button onClick={handleStart} disabled={starting}>
+          {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+          {t('programme.start_programme')}
+        </Button>
+      )}
+
+      {status === 'in_progress' && (
+        <Button
+          variant="destructive"
+          onClick={async () => {
+            if (!confirm(t('programme.close_confirm', { name: programme.name }))) return;
+            const { error } = await supabase.functions.invoke('manage-programme', {
+              body: { action: 'complete', id: id! }
+            });
+            if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+            else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
+          }}
+        >
+          {t('programme.close_programme')}
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <DashboardLayout title={programme.name} subtitle={programme.organization || ''}>
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="outline" onClick={() => nav('/programmes')} className="shrink-0 gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Retour aux programmes
-        </Button>
-        <ProgrammeStatusBadge status={status} />
-        {status === 'draft' && <Button onClick={handlePublish} disabled={publishing}>{publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.publish')}</Button>}
-        {status === 'open' && <Button variant="outline" onClick={handleClose}>{t('programme.close_candidatures')}</Button>}
-        {(status === 'open' || status === 'closed') && <Button onClick={handleStart} disabled={starting}>{starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('programme.start_programme')}</Button>}
-      </div>
-
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
         <TabsList className="flex-wrap">
           {tabs.map(tab => <TabsTrigger key={tab} value={tab}>{
-            { apercu: t('programme.overview'), enterprises: t('programme.enterprises'), selection: t('programme.selection'), suivi: t('programme.monitoring'), compliance: 'Compliance & IC', reporting: t('programme.reporting'), impact: t('programme.impact'), parametres: t('programme.settings') }[tab]
+            {
+              synthese: 'Synthèse',
+              candidature: 'Candidature',
+              enterprises: t('programme.enterprises'),
+              reporting_impact: 'Reporting & Impact',
+              compliance: 'Compliance & IC',
+              parametres: t('programme.settings'),
+            }[tab]
           }</TabsTrigger>)}
         </TabsList>
 
-        {/* Aperçu */}
-        <TabsContent value="apercu">
+        {/* Synthèse (ex-Aperçu, intègre maintenant l'ancien Suivi) */}
+        <TabsContent value="synthese">
+          <div className="mb-4">{actionBar}</div>
           <div className="grid md:grid-cols-2 gap-4">
             <Card><CardContent className="p-5 space-y-2">
               <h3 className="font-semibold">{t('programme_tabs.information')}</h3>
@@ -381,26 +426,22 @@ export default function ProgrammeDetailPage() {
               <p className="text-sm"><strong>{t('programme_tabs.countries')} :</strong> {programme.country_filter?.join(', ') || '—'}</p>
               <p className="text-sm"><strong>{t('programme_tabs.sectors')} :</strong> {programme.sector_filter?.join(', ') || '—'}</p>
             </CardContent></Card>
-            <Card><CardContent className="p-5 space-y-2">
-              <h3 className="font-semibold">{t('programme_tabs.dates')}</h3>
-              <p className="text-sm"><strong>{t('programme_tabs.candidatures_dates')} :</strong> {fmt(programme.start_date)} → {fmt(programme.end_date)}</p>
-              <p className="text-sm"><strong>{t('programme_tabs.programme_dates')} :</strong> {fmt(programme.programme_start)} → {fmt(programme.programme_end)}</p>
-              {programme.description && <><h3 className="font-semibold pt-2">{t('programme_tabs.description')}</h3><p className="text-sm text-muted-foreground">{programme.description}</p></>}
+            <Card><CardContent className="p-5 space-y-3">
+              <div className="space-y-2">
+                <h3 className="font-semibold">{t('programme_tabs.dates')}</h3>
+                <p className="text-sm"><strong>{t('programme_tabs.candidatures_dates')} :</strong> {fmt(programme.start_date)} → {fmt(programme.end_date)}</p>
+                <p className="text-sm"><strong>{t('programme_tabs.programme_dates')} :</strong> {fmt(programme.programme_start)} → {fmt(programme.programme_end)}</p>
+              </div>
+              {programme.description && (
+                <div className="space-y-1 pt-2 border-t">
+                  <h3 className="font-semibold">{t('programme_tabs.description')}</h3>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{programme.description}</p>
+                </div>
+              )}
             </CardContent></Card>
           </div>
 
-          {status === 'in_progress' && (
-            <div className="mt-4">
-              <Button variant="destructive" onClick={async () => {
-                if (!confirm(t('programme.close_confirm', { name: programme.name }))) return;
-                const { error } = await supabase.functions.invoke('manage-programme', {
-                  body: { action: 'complete', id: id! }
-                });
-                if (error) toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
-                else { toast({ title: 'Programme clôturé' }); fetchProgramme(); }
-              }}>{t('programme.close_programme')}</Button>
-            </div>
-          )}
+          {/* Bouton "Clôturer le programme" déplacé dans l'action bar (en haut) — voir actionBar */}
 
           {/* Critères d'éligibilité, sélection, conditions */}
           {(eligibilite.length > 0 || selection.length > 0 || conditions.length > 0) && (
@@ -456,44 +497,17 @@ export default function ProgrammeDetailPage() {
             </div>
           )}
 
-          {candidatureUrl && status !== 'draft' && (
-            <Card className="mt-4"><CardContent className="p-5 space-y-4">
-              <h3 className="font-semibold">{t('programme.diffusion_title')}</h3>
-              <div className="flex items-center gap-2">
-                <Input value={candidatureUrl} readOnly className="flex-1" />
-                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(candidatureUrl); toast({ title: '📋 Lien copié' }); }}><Copy className="h-4 w-4" /></Button>
-                <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
-              </div>
-              <div className="flex items-center gap-4">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(candidatureUrl)}`}
-                  alt="QR Code"
-                  className="w-32 h-32 border rounded-lg p-1 cursor-pointer hover:opacity-80 transition-opacity"
-                  title="Cliquer pour télécharger"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
-                    link.download = `qr-${programme.form_slug}.png`;
-                    link.click();
-                  }}
-                />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{t('programme.qr_code')}</p>
-                  <p className="text-xs text-muted-foreground">{t('programme.qr_scan')}</p>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(candidatureUrl)}&format=png`;
-                    link.download = `qr-${programme.form_slug}.png`;
-                    link.click();
-                  }}>{t('programme.download_qr')}</Button>
+          {/* Suivi intégré : KPIs + tableau entreprises + par coach + analytics dépliée */}
+          {['in_progress', 'completed'].includes(status) && (
+            <div className="mt-6 space-y-6">
+              <ProgrammeDashboardTab programmeId={id!} />
+              <div className="space-y-4">
+                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Activity className="h-4 w-4" /> {t('dashboard_programme.comparative')}
                 </div>
+                <ProgrammeComparatifTab programmeId={id!} />
               </div>
-              <div className="text-sm text-muted-foreground">
-                <strong>{t('programme.embed')} :</strong>
-                <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
-              </div>
-              <p className="text-sm font-medium">{candidatures.length} {t('programme.candidatures_received')}</p>
-            </CardContent></Card>
+            </div>
           )}
         </TabsContent>
 
@@ -502,86 +516,122 @@ export default function ProgrammeDetailPage() {
           <CohorteEnterprisesTab programmeId={id!} programmeName={programme.name} />
         </TabsContent>
 
-        {/* Sélection (candidatures + kanban fusionnés) */}
-        <TabsContent value="selection">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <Input placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('common.all')}</SelectItem>
-                  <SelectItem value="received">{t('candidature.received')}</SelectItem>
-                  <SelectItem value="pre_selected">{t('candidature.pre_selected')}</SelectItem>
-                  <SelectItem value="selected">{t('candidature.selected')}</SelectItem>
-                  <SelectItem value="rejected">{t('candidature.rejected')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" className="gap-2" onClick={handleScreen} disabled={screening}>
-                {screening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-                {screening ? t('programme.screening_running') : t('programme.screening_ia')}
-              </Button>
-            </div>
-            <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
-            <details className="mt-2">
-              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">{t('candidature.table_view')} ({candidatures.length})</summary>
-              <Table className="mt-2">
-                <TableHeader><TableRow>
-                  <TableHead>{t('dashboard_programme.enterprises_short')}</TableHead><TableHead>{t('candidature.contact')}</TableHead><TableHead>{t('candidature.score_ia')}</TableHead><TableHead>{t('common.status')}</TableHead><TableHead>{t('common.date')}</TableHead><TableHead></TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {candidatures.map(c => (
-                    <TableRow key={c.id} className="cursor-pointer" onClick={() => openDetail(c.id)}>
-                      <TableCell className="font-medium">{c.company_name || '—'}</TableCell>
-                      <TableCell className="text-sm">{c.contact_name || '—'}</TableCell>
-                      <TableCell>{c.screening_score != null ? <Badge variant="outline">{c.screening_score}</Badge> : '—'}</TableCell>
-                      <TableCell><ProgrammeStatusBadge status={c.status} /></TableCell>
-                      <TableCell className="text-xs">{fmt(c.submitted_at)}</TableCell>
-                      <TableCell>
-                        {c.enterprise_id && (
-                          <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); nav(`/programmes/${id}/enterprise/${c.enterprise_id}`); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {candidatures.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('programme.no_candidatures')}</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </details>
-          </div>
-        </TabsContent>
-
-        {/* Suivi (dashboard + comparatif fusionnés) */}
-        <TabsContent value="suivi">
+        {/* Candidature (ex-Selection) : Gérer le formulaire + Diffusion + Sélection kanban */}
+        <TabsContent value="candidature">
           <div className="space-y-6">
-            <ProgrammeDashboardTab programmeId={id!} />
-            <details className="mt-2">
-              <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">{t('dashboard_programme.comparative')}</summary>
-              <div className="mt-3">
-                <ProgrammeComparatifTab programmeId={id!} />
+            {/* Header : Gérer le formulaire (toujours visible) + Clôturer les candidatures (si publié + ouvert) */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="font-semibold text-base">Formulaire de candidature</h3>
+                <p className="text-sm text-muted-foreground">
+                  Configure les champs du formulaire public et les dates de candidature dans la page de gestion.
+                </p>
               </div>
-            </details>
+              <div className="flex items-center gap-2 flex-wrap">
+                {programme.form_slug && candidaturesOpen && (
+                  <Button variant="outline" onClick={handleClose} className="gap-2">
+                    {t('programme.close_candidatures')}
+                  </Button>
+                )}
+                <Button onClick={() => nav(`/programmes/${id}/form`)} className="gap-2">
+                  <FileText className="h-4 w-4" /> Gérer le formulaire
+                </Button>
+              </div>
+            </div>
+
+            {/* Section Diffusion — apparaît uniquement après que le formulaire a été
+                créé (form_slug généré au 1er Enregistrer dans la page Gérer le formulaire). */}
+            {candidatureUrl && status !== 'draft' && (
+              <Card><CardContent className="p-5 space-y-4">
+                <h3 className="font-semibold">Diffusion de l'appel</h3>
+                <div className="flex items-center gap-2">
+                  <Input value={candidatureUrl} readOnly className="flex-1" />
+                  <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(candidatureUrl); toast({ title: '📋 Lien copié' }); }}><Copy className="h-4 w-4" /></Button>
+                  <Button variant="outline" size="icon" onClick={() => window.open(candidatureUrl, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <strong>Embed :</strong>
+                  <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">{`<iframe src="${candidatureUrl}" width="600" height="800" frameborder="0"></iframe>`}</pre>
+                </div>
+                <p className="text-sm font-medium">{candidatures.length} candidatures reçues</p>
+              </CardContent></Card>
+            )}
+
+            {/* Section Sélection : kanban + filtres */}
+            <div className="space-y-4">
+              <h3 className="font-semibold">Sélection des candidatures</h3>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Input placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('common.all')}</SelectItem>
+                    <SelectItem value="received">{t('candidature.received')}</SelectItem>
+                    <SelectItem value="pre_selected">{t('candidature.pre_selected')}</SelectItem>
+                    <SelectItem value="selected">{t('candidature.selected')}</SelectItem>
+                    <SelectItem value="rejected">{t('candidature.rejected')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" className="gap-2" onClick={handleScreen} disabled={screening}>
+                  {screening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                  {screening ? t('programme.screening_running') : t('programme.screening_ia')}
+                </Button>
+              </div>
+              <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
+              <details className="mt-2">
+                <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">{t('candidature.table_view')} ({candidatures.length})</summary>
+                <Table className="mt-2">
+                  <TableHeader><TableRow>
+                    <TableHead>{t('dashboard_programme.enterprises_short')}</TableHead><TableHead>{t('candidature.contact')}</TableHead><TableHead>{t('candidature.score_ia')}</TableHead><TableHead>{t('common.status')}</TableHead><TableHead>{t('common.date')}</TableHead><TableHead></TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {candidatures.map(c => (
+                      <TableRow key={c.id} className="cursor-pointer" onClick={() => openDetail(c.id)}>
+                        <TableCell className="font-medium">{c.company_name || '—'}</TableCell>
+                        <TableCell className="text-sm">{c.contact_name || '—'}</TableCell>
+                        <TableCell>{c.screening_score != null ? <Badge variant="outline">{c.screening_score}</Badge> : '—'}</TableCell>
+                        <TableCell><ProgrammeStatusBadge status={c.status} /></TableCell>
+                        <TableCell className="text-xs">{fmt(c.submitted_at)}</TableCell>
+                        <TableCell>
+                          {c.enterprise_id && (
+                            <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); nav(`/programmes/${id}/enterprise/${c.enterprise_id}`); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {candidatures.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('programme.no_candidatures')}</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </details>
+            </div>
           </div>
         </TabsContent>
 
-        {/* Reporting */}
-        <TabsContent value="reporting">
-          <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} hideClotureButton />
+        {/* Reporting & Impact (fusion des anciens onglets reporting + impact) */}
+        <TabsContent value="reporting_impact">
+          <div className="space-y-10">
+            {/* Bloc 1 : Reporting */}
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Reporting</h2>
+                <p className="text-sm text-muted-foreground">Bilan intermédiaire et export des données du programme.</p>
+              </div>
+              <ProgrammeReportingTab programmeId={id!} programmeName={programme.name} programmeStatus={programme.status} hideClotureButton />
+            </section>
+
+            {/* Bloc 2 : Impact ODD — le composant ProgrammeODDPortfolioTab a déjà son propre titre interne */}
+            <section className="space-y-4">
+              <ProgrammeODDPortfolioTab programmeId={id!} />
+              <ProgrammeImpactTab programmeId={id!} />
+            </section>
+          </div>
         </TabsContent>
 
         {/* Compliance & IC */}
         <TabsContent value="compliance">
           <ProgrammeComplianceTab programmeId={id!} />
-        </TabsContent>
-
-        {/* Impact */}
-        <TabsContent value="impact">
-          <ProgrammeODDPortfolioTab programmeId={id!} />
-          <div className="mt-8">
-            <ProgrammeImpactTab programmeId={id!} />
-          </div>
         </TabsContent>
 
         {/* Paramètres */}

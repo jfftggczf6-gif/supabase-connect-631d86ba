@@ -181,11 +181,11 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
         </CardContent></Card>
       )}
 
-      {/* Analytics (dépliable) */}
-      <details>
-        <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-2">
+      {/* Analytics — toujours visible, non repliable */}
+      <div className="space-y-4">
+        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <Activity className="h-4 w-4" /> {t('dashboard_programme.analytics')}
-        </summary>
+        </div>
         <div className="mt-4 space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             {/* Complétion par module */}
@@ -292,7 +292,7 @@ export default function ProgrammeDashboardTab({ programmeId }: Props) {
             </CardContent></Card>
           </div>
         </div>
-      </details>
+      </div>
 
       {/* Modal alertes */}
       <Dialog open={showAlerts} onOpenChange={setShowAlerts}>

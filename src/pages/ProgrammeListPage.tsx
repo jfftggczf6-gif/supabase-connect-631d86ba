@@ -72,9 +72,6 @@ export default function ProgrammeListPage() {
               <UserPlus className="h-4 w-4" /> Équipe & Invitations
             </Button>
           )}
-          <Button variant="outline" onClick={() => setShowCohorte(true)} className="gap-2">
-            <Users className="h-4 w-4" /> {t('programme.create_cohorte')}
-          </Button>
           <Button onClick={() => nav('/programmes/new')} className="gap-2">
             <Plus className="h-4 w-4" /> {t('programme.create')}
           </Button>

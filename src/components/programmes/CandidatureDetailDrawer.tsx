@@ -72,6 +72,12 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
     }
     toast({ title: t('candidature.updated') });
     onUpdated();
+    // Si l'action est un changement de status (move), on ferme le drawer pour
+    // que l'user voie immédiatement la carte se déplacer dans le kanban et
+    // que les autres espaces (Entreprises, dashboards) prennent le relais.
+    if (action === 'move') {
+      onOpenChange(false);
+    }
   };
 
   const s = detail?.screening_data || {};
@@ -157,9 +163,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
               {s.classification && <Badge variant="outline" className="text-sm h-8">{s.classification}</Badge>}
               <div className="ml-auto flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
-                <Button size="sm" onClick={() => {
-                  updateCandidature('move', { new_status: 'selected', ...(selectedCoach ? { coach_id: selectedCoach } : {}) });
-                }} disabled={saving}>{t('candidature.select')}</Button>
+                <Button size="sm" onClick={() => updateCandidature('move', { new_status: 'selected' })} disabled={saving}>{t('candidature.select')}</Button>
                 <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
               </div>
             </div>
@@ -673,25 +677,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   </Card>
                 )}
 
-                {/* Coach */}
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h4 className="font-semibold text-sm">{t('auth.role_coach')}</h4>
-                    <Select value={selectedCoach} onValueChange={setSelectedCoach}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder={t('candidature.choose_coach')} /></SelectTrigger>
-                      <SelectContent>
-                        {coaches.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name} ({c.count})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedCoach && selectedCoach !== detail.assigned_coach_id && (
-                      <Button size="sm" className="w-full" onClick={() => updateCandidature('assign_coach', { coach_id: selectedCoach })} disabled={saving}>
-                        {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null} {t('candidature.assign')}
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+                {/* La sélection du coach se fait depuis le volet Entreprises
+                    après création de l'entreprise (transition selected → enterprise) */}
 
                 {/* Notes */}
                 <Card>
