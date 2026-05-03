@@ -14,6 +14,7 @@ import { Loader2, Plus, ChevronRight, Building2, MoreVertical, Pencil, UserCog, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { SECTORS } from '@/lib/sectors';
 
 const SUPPORTED_COUNTRIES = [
   "Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo",
@@ -652,7 +653,14 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Secteur</Label>
-                  <Input value={newEntSector} onChange={e => setNewEntSector(e.target.value)} placeholder="Agro-industrie, BTP..." />
+                  <select
+                    value={newEntSector}
+                    onChange={e => setNewEntSector(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    {SECTORS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Email contact entrepreneur</Label>
@@ -795,11 +803,14 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Secteur</Label>
-              <Input
+              <select
                 value={editForm.sector}
                 onChange={e => setEditForm(f => ({ ...f, sector: e.target.value }))}
-                placeholder="Agro-industrie, BTP..."
-              />
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Non défini —</option>
+                {SECTORS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Email contact entrepreneur</Label>
