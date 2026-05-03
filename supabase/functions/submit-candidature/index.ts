@@ -311,16 +311,24 @@ serve(async (req) => {
     // Find programme by slug
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, status, end_date, name, organization_id")
+      .select("id, status, start_date, end_date, name, organization_id")
       .eq("form_slug", programme_slug)
       .single();
 
     if (progErr || !prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-    if (prog.status !== "open") return jsonRes({ error: "Ce programme n'accepte plus de candidatures" }, 400);
 
-    // Check end_date
+    // Cohérent avec get-programme-form : le formulaire est fermé si le
+    // programme est terminé ('completed' ou 'lost'), si end_date est dépassée,
+    // OU si start_date n'est pas encore atteinte. Le status 'in_progress'
+    // n'empêche PAS la soumission (cycle programme ≠ cycle formulaire).
+    if (["completed", "lost"].includes(prog.status)) {
+      return jsonRes({ error: "Ce programme est terminé et n'accepte plus de candidatures" }, 400);
+    }
     if (prog.end_date && new Date(prog.end_date) < new Date()) {
       return jsonRes({ error: "La date limite de candidature est dépassée" }, 400);
+    }
+    if (prog.start_date && new Date(prog.start_date) > new Date()) {
+      return jsonRes({ error: `Les candidatures ouvrent le ${new Date(prog.start_date).toLocaleDateString('fr-FR')}` }, 400);
     }
 
     // Check duplicate (same email + same programme)

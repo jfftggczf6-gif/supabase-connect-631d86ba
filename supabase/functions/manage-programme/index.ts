@@ -250,23 +250,31 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, organization_id, name, status")
+        .select("chef_programme_id, organization_id, name, status, type, form_slug")
         .eq("id", body.id)
         .single();
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
       if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
-      if (prog.status !== "draft") return jsonRes({ error: "Seul un programme en brouillon peut être publié" }, 400);
+      // Publication acceptée tant que le formulaire n'a pas déjà un slug.
+      // Le status programme (draft/open/closed/in_progress) n'est plus une
+      // contrainte — formulaire et programme sont des cycles indépendants.
+      if (prog.form_slug) return jsonRes({ error: "Le formulaire est déjà publié" }, 400);
 
-      // Generate slug
+      // Génération du slug (même logique pour tous les types — cohorte ou appel).
+      // Le formulaire devient public sous /candidature/<slug>.
       const slug = prog.name.toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
         + "-" + Date.now().toString(36);
 
+      // Status update : si draft → passe à 'open' (candidatures ouvertes).
+      // Sinon (legacy open/closed ou in_progress), garde tel quel.
+      const newStatus = prog.status === "draft" ? "open" : prog.status;
+
       const { data: updated, error: pubErr } = await supabase
         .from("programmes")
-        .update({ status: "open", form_slug: slug, updated_at: new Date().toISOString() })
+        .update({ status: newStatus, form_slug: slug, updated_at: new Date().toISOString() })
         .eq("id", body.id)
         .select()
         .single();
@@ -281,23 +289,41 @@ serve(async (req) => {
 
       const { data: prog } = await supabase
         .from("programmes")
-        .select("chef_programme_id, organization_id, status")
+        .select("chef_programme_id, organization_id, status, end_date")
         .eq("id", body.id)
         .single();
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
       if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
-      if (prog.status !== "open") return jsonRes({ error: "Seul un programme ouvert peut être clôturé" }, 400);
 
-      const { data: updated, error: closeErr } = await supabase
-        .from("programmes")
-        .update({ status: "closed", updated_at: new Date().toISOString() })
-        .eq("id", body.id)
-        .select()
-        .single();
+      // 'close' clôture les candidatures. Cas autorisés :
+      //  - status='open' → passe en 'closed' (workflow classique)
+      //  - status='in_progress' → garde 'in_progress' mais ferme les candidatures via end_date
+      //    (cas où on a démarré le programme tôt sans clore l'appel)
+      if (prog.status === "open") {
+        const { data: updated, error: closeErr } = await supabase
+          .from("programmes")
+          .update({ status: "closed", end_date: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString() })
+          .eq("id", body.id)
+          .select()
+          .single();
+        if (closeErr) return jsonRes({ error: closeErr.message }, 500);
+        return jsonRes({ success: true, programme: updated });
+      }
 
-      if (closeErr) return jsonRes({ error: closeErr.message }, 500);
-      return jsonRes({ success: true, programme: updated });
+      if (prog.status === "in_progress") {
+        // On ferme juste les candidatures (date de fin = aujourd'hui), status reste in_progress
+        const { data: updated, error: closeErr } = await supabase
+          .from("programmes")
+          .update({ end_date: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString() })
+          .eq("id", body.id)
+          .select()
+          .single();
+        if (closeErr) return jsonRes({ error: closeErr.message }, 500);
+        return jsonRes({ success: true, programme: updated });
+      }
+
+      return jsonRes({ error: "Le programme doit être en 'candidatures ouvertes' ou 'en cours' pour clôturer les candidatures" }, 400);
     }
 
     // ═══════ START ═══════
@@ -312,7 +338,10 @@ serve(async (req) => {
 
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
       if (!canManage(prog)) return jsonRes({ error: "Accès refusé" }, 403);
-      if (prog.status !== "closed" && prog.status !== "open") return jsonRes({ error: "Le programme doit être ouvert ou clôturé pour être démarré" }, 400);
+      // Statuts pré-démarrage acceptés : draft (nouveau workflow unifié), open et closed (legacy)
+      if (!["draft", "open", "closed"].includes(prog.status)) {
+        return jsonRes({ error: "Le programme doit être en brouillon (ou candidatures ouvertes/fermées) pour être démarré" }, 400);
+      }
 
       const { data: updated, error: startErr } = await supabase
         .from("programmes")

@@ -36,22 +36,32 @@ serve(async (req) => {
 
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, name, description, organization, logo_url, country_filter, sector_filter, end_date, status, form_fields, nb_places")
+      .select("id, name, description, organization, logo_url, country_filter, sector_filter, start_date, end_date, status, form_fields, nb_places")
       .eq("form_slug", slug)
       .single();
 
     if (progErr || !prog) return jsonRes({ error: "Programme non trouvé" }, 404);
 
-    // Check if closed or expired
-    const isExpired = prog.end_date && new Date(prog.end_date) < new Date();
-    const isClosed = prog.status !== "open";
+    // Le formulaire est fermé si :
+    //   - le programme est terminé (status='completed') ou perdu ('lost')
+    //   - OU la date de fin de candidatures est dépassée
+    // Note : les anciens status 'open'/'closed' ne sont plus contraignants —
+    // le cycle programme et le cycle formulaire sont découplés.
+    const today = new Date();
+    const isProgrammeFinished = ["completed", "lost"].includes(prog.status);
+    const isExpired = prog.end_date && new Date(prog.end_date) < today;
+    const isNotYetOpen = prog.start_date && new Date(prog.start_date) > today;
 
-    if (isClosed || isExpired) {
+    if (isProgrammeFinished || isExpired || isNotYetOpen) {
       return jsonRes({
         closed: true,
         name: prog.name,
         organization: prog.organization,
-        reason: isExpired ? "Date limite dépassée" : "Candidatures clôturées",
+        reason: isProgrammeFinished
+          ? "Programme terminé"
+          : isExpired
+            ? "Date limite dépassée"
+            : `Candidatures ouvertes à partir du ${new Date(prog.start_date!).toLocaleDateString('fr-FR')}`,
       });
     }
 
