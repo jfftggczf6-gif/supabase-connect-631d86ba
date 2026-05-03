@@ -539,9 +539,11 @@ export default function ProgrammeDetailPage() {
               </div>
             </div>
 
-            {/* Section Diffusion — apparaît uniquement après que le formulaire a été
-                créé (form_slug généré au 1er Enregistrer dans la page Gérer le formulaire). */}
-            {candidatureUrl && status !== 'draft' && (
+            {/* Section Diffusion — apparaît dès qu'un form_slug existe (formulaire publié).
+                Le cycle programme (draft/in_progress/completed) est découplé du cycle
+                formulaire : la diffusion peut être visible avec un programme en draft.
+                On la masque uniquement quand le programme est terminé. */}
+            {candidatureUrl && !['completed', 'lost'].includes(status) && (
               <Card><CardContent className="p-5 space-y-4">
                 <h3 className="font-semibold">Diffusion de l'appel</h3>
                 <div className="flex items-center gap-2">
