@@ -50,35 +50,15 @@ export default function ProgrammeComplianceTab({ programmeId }: Props) {
 
   const fetchData = async () => {
     setLoading(true);
-
-    // Get enterprises in this programme
-    const { data: cands } = await supabase
-      .from('candidatures')
-      .select('enterprise_id')
-      .eq('programme_id', programmeId)
-      .eq('status', 'selected');
-
-    if (!cands?.length) { setEnterprises([]); setLoading(false); return; }
-
-    const entIds = cands.map(c => c.enterprise_id).filter(Boolean);
-    const [{ data: ents }, { data: delivs }] = await Promise.all([
-      supabase.from('enterprises').select('id, name, sector, country, score_ir, compliance_status, score_ir_breakdown').in('id', entIds),
-      supabase.from('deliverables').select('enterprise_id, type, data, score').in('enterprise_id', entIds).in('type', ['compliance_report', 'ic_decision_report'] as any),
-    ]);
-
-    const delivMap: Record<string, Record<string, any>> = {};
-    (delivs || []).forEach((d: any) => {
-      if (!delivMap[d.enterprise_id]) delivMap[d.enterprise_id] = {};
-      delivMap[d.enterprise_id][d.type] = d.data;
+    const { data, error } = await supabase.functions.invoke('get-programme-compliance', {
+      body: { programme_id: programmeId },
     });
-
-    setEnterprises((ents || []).map(e => ({
-      ...e,
-      has_compliance_report: !!delivMap[e.id]?.compliance_report,
-      has_ic_report: !!delivMap[e.id]?.ic_decision_report,
-      compliance_score: (delivMap[e.id]?.compliance_report as any)?.score_compliance || null,
-      ic_verdict: (delivMap[e.id]?.ic_decision_report as any)?.recommandation_ic || null,
-    })));
+    if (error || !data?.success) {
+      console.error('[ProgrammeComplianceTab] fetch error', error);
+      setEnterprises([]);
+    } else {
+      setEnterprises(data.enterprises || []);
+    }
     setLoading(false);
   };
 
