@@ -152,7 +152,15 @@ export async function buildAgentContext(
   // tone + RAG sont async (DB), les autres sont sync (lookup tables).
   const [tone, rag] = await Promise.all([
     buildToneForAgent(supabase, organizationId),
-    buildRAGContext(supabase, safeCountry, safeSector, categories, deliverableType, enterpriseId ?? undefined),
+    buildRAGContext(
+      supabase,
+      safeCountry,
+      safeSector,
+      categories,
+      deliverableType,
+      enterpriseId ?? undefined,
+      organizationId ?? null,
+    ),
   ]);
 
   const financialKnowledge = getFinancialKnowledgePrompt(safeCountry as any, safeSector as any, includeFinancialExamples);

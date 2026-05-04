@@ -170,6 +170,32 @@ serve(async (req: Request) => {
       .single();
     if (updErr) throw updErr;
 
+    // 7. Hook post-transition : à l'entrée en 'closing', déclencher l'ingestion
+    //    deal-learnings (capitalisation post-deal pour la KB propriétaire du fonds).
+    //    Non-bloquant : invoqué en background via EdgeRuntime.waitUntil pour ne pas
+    //    ralentir la réponse user. Échec silencieux (loggué).
+    if (deal.stage !== 'closing' && new_stage === 'closing') {
+      // @ts-ignore - EdgeRuntime est disponible dans Deno Deploy
+      const waitUntil = (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil)
+        ? EdgeRuntime.waitUntil.bind(EdgeRuntime)
+        : (p: Promise<any>) => p.catch(e => console.error('[hook] background failure:', e));
+
+      waitUntil((async () => {
+        try {
+          const { error: ingestErr } = await adminClient.functions.invoke('ingest-deal-learnings', {
+            body: { deal_id, force: false },
+          });
+          if (ingestErr) {
+            console.warn(`[update-pe-deal-stage] ingest-deal-learnings failed for ${deal_id}:`, ingestErr.message);
+          } else {
+            console.log(`[update-pe-deal-stage] ingest-deal-learnings triggered for ${deal_id}`);
+          }
+        } catch (e: any) {
+          console.error(`[update-pe-deal-stage] ingest hook exception for ${deal_id}:`, e.message);
+        }
+      })());
+    }
+
     return new Response(JSON.stringify({ success: true, deal: updated }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

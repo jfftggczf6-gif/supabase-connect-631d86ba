@@ -743,7 +743,8 @@ export async function buildRAGContext(
   sector: string,
   categories: string[],
   deliverableType?: string,
-  enterpriseId?: string
+  enterpriseId?: string,
+  organizationId?: string | null,
 ): Promise<string> {
   try {
     const queryText = `PME ${sector || "entreprise"} en ${country || "Afrique"} : benchmarks financiers, conditions bancaires, fiscalité, bailleurs de fonds, cours matières premières, réglementation`;
@@ -789,16 +790,72 @@ export async function buildRAGContext(
       }
     }
 
-    if (!entries || entries.length === 0) return "";
-
-    let ragText = "\n\n══════ BASE DE CONNAISSANCES (RAG) ══════\n";
-    for (const entry of entries.slice(0, 20)) {
-      ragText += `\n--- ${(entry.category || "").toUpperCase()}: ${entry.title} ---\n`;
-      ragText += (entry.content || "").substring(0, 2000) + "\n";
-      if (entry.source) ragText += `(Source: ${entry.source})\n`;
-      if (entry.similarity) ragText += `(Pertinence: ${Math.round(entry.similarity * 100)}%)\n`;
+    let ragText = "";
+    if (entries && entries.length > 0) {
+      ragText = "\n\n══════ BASE DE CONNAISSANCES (RAG) ══════\n";
+      for (const entry of entries.slice(0, 20)) {
+        ragText += `\n--- ${(entry.category || "").toUpperCase()}: ${entry.title} ---\n`;
+        ragText += (entry.content || "").substring(0, 2000) + "\n";
+        if (entry.source) ragText += `(Source: ${entry.source})\n`;
+        if (entry.similarity) ragText += `(Pertinence: ${Math.round(entry.similarity * 100)}%)\n`;
+      }
+      ragText += "══════════════════════════════════════════\n";
     }
-    ragText += "══════════════════════════════════════════\n";
+
+    // ── KB propriétaire de l'organisation (deal-learnings, thèses, comparables) ──
+    if (organizationId) {
+      try {
+        // 1. Recherche vectorielle scopée org (priorité aux deal_learnings sectoriellement
+        //    proches), via knowledge_chunks filtre organization_id.
+        const orgEmb = queryEmbedding ?? await getQueryEmbedding(queryText);
+        if (orgEmb) {
+          const { data: orgChunks } = await supabase.rpc("search_knowledge_chunks", {
+            query_embedding: orgEmb,
+            match_threshold: 0.3,
+            match_count: 8,
+            filter_country: null,
+            filter_sector: null,
+            filter_organization_id: organizationId,
+          });
+          if (orgChunks && orgChunks.length > 0) {
+            ragText += "\n\n══════ KB PROPRIÉTAIRE DE L'ORG (deals comparables, thèses, leçons internes) ══════\n";
+            for (const c of orgChunks.slice(0, 10)) {
+              ragText += `\n--- ${(c.category || "").toUpperCase()}: ${c.title} ---\n`;
+              ragText += (c.content || "").substring(0, 1800) + "\n";
+              if (c.source) ragText += `(Source: ${c.source})\n`;
+              if (c.similarity) ragText += `(Pertinence: ${Math.round(c.similarity * 100)}%)\n`;
+            }
+            ragText += "══════════════════════════════════════════\n";
+          }
+        }
+
+        // 2. Fallback / complément : lecture directe organization_knowledge filtrée par
+        //    secteur/pays (plus large que la recherche vectorielle, utile si peu de chunks
+        //    mais une fiche pertinente texte).
+        const { data: orgEntries } = await supabase
+          .from("organization_knowledge")
+          .select("category, title, content, source")
+          .eq("organization_id", organizationId)
+          .eq("is_active", true)
+          .or(`sector.eq.${sector},sector.is.null`)
+          .or(`country.eq.${country},country.is.null`)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        if (orgEntries && orgEntries.length > 0) {
+          ragText += "\n\n══════ FICHES ORG SUPPLÉMENTAIRES ══════\n";
+          for (const e of orgEntries) {
+            ragText += `\n--- ${(e.category || "").toUpperCase()}: ${e.title} ---\n`;
+            ragText += (e.content || "").substring(0, 1500) + "\n";
+            if (e.source) ragText += `(Source: ${e.source})\n`;
+          }
+          ragText += "══════════════════════════════════════════\n";
+        }
+      } catch (e: any) {
+        console.warn("[buildRAGContext] org knowledge fetch failed (non-blocking):", e.message);
+      }
+    }
+
+    if (!ragText) return "";
 
     // ── Feedback loop: inject recent corrections as few-shot examples ──
     if (deliverableType) {
