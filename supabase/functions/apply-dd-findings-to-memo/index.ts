@@ -14,7 +14,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { buildToneForAgent } from "../_shared/agent-tone.ts";
+import { buildAgentContext } from "../_shared/agent-context.ts";
 import {
   fetchSections,
   getLatestVersion,
@@ -132,8 +132,15 @@ serve(async (req: Request) => {
     const sectionsByCode: Partial<Record<MemoSectionCode, any>> = {};
     sections.forEach(s => { sectionsByCode[s.section_code] = s; });
 
-    // 7) Compose tone PE
-    const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
+    // 7) Contexte agent complet (tone PE + benchmarks + valuation + RAG + guardrails)
+    const dealCountry = (deal.enterprises as any)?.country ?? null;
+    const dealSector = (deal.enterprises as any)?.sector ?? null;
+    const agentCtx = await buildAgentContext(adminClient, deal.organization_id, {
+      deliverableType: 'apply_dd_findings',
+      country: dealCountry,
+      sector: dealSector,
+      enterpriseId: (deal as any).enterprise_id ?? null,
+    });
 
     // 8) Pour chaque section impactée → appel Claude pour intégrer les findings
     const updatedSections: { code: MemoSectionCode; success: boolean; error?: string }[] = [];
@@ -156,9 +163,7 @@ ${f.recommendation ? `Recommandation : ${f.recommendation}` : ''}
       const jsonSchema = SECTION_SCHEMAS[code];
       const currentContent = JSON.stringify(section.content_json ?? {}, null, 2).slice(0, 10000);
 
-      const systemPrompt = `${toneBlock}
-
-Tu mets à jour la section "${sectionLabel}" du memo PE pour le deal "${dealName}" (${deal.deal_ref}) en INTÉGRANT les findings DD ci-dessous.
+      const taskPrompt = `Tu mets à jour la section "${sectionLabel}" du memo PE pour le deal "${dealName}" (${deal.deal_ref}) en INTÉGRANT les findings DD ci-dessous.
 
 ═══ CONTENU ACTUEL DE LA SECTION (état pré-DD) ═══
 Content MD :
@@ -190,6 +195,8 @@ ${jsonSchema}
 }
 
 Pas de texte avant/après, pas de markdown fences. JSON strict.`;
+
+      const systemPrompt = agentCtx.composeSystemPrompt(taskPrompt);
 
       try {
         const claudeResponse = await callAI(systemPrompt, `Réécris la section "${sectionLabel}" en intégrant les findings DD.`, 8192, undefined, 0.2, {

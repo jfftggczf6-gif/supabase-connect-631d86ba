@@ -10,7 +10,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { buildToneForAgent } from "../_shared/agent-tone.ts";
+import { buildAgentContext } from "../_shared/agent-context.ts";
 import { fetchSections, getLatestVersion } from "../_shared/memo-helpers.ts";
 
 interface RequestBody {
@@ -174,11 +174,15 @@ serve(async (req: Request) => {
     const currency = (deal as any).currency ?? "FCFA";
     const ticket = (deal as any).ticket_demande ?? null;
 
-    // 4) Prompt
-    const tone = buildToneForAgent({ agent: "managing_director", segment: "pe" });
-    const prompt = `${tone}
+    // 4) Prompt — contexte agent complet (tone + benchmarks + multiples + RAG + guardrails)
+    const agentCtx = await buildAgentContext(adminClient, (deal as any).organization_id, {
+      deliverableType: 'valuation',
+      country,
+      sector: enterprise?.sector ?? null,
+      enterpriseId: (deal as any).enterprise_id ?? null,
+    });
 
-═══ MISSION : VALUATION DÉTAILLÉE ${enterprise?.legal_name ?? dealRef} (${country}) ═══
+    const taskPrompt = `═══ MISSION : VALUATION DÉTAILLÉE ${enterprise?.legal_name ?? dealRef} (${country}) ═══
 
 Tu produis une analyse de valuation rigoureuse selon 3 méthodes pour un deal PE en Afrique francophone.
 Devise : ${currency}.${ticket ? ` Ticket demandé : ${ticket} ${currency}.` : ""}
@@ -231,25 +235,29 @@ ${memoContext.slice(0, 80000)}
 ═══ CONSIGNE ═══
 Retourne UNIQUEMENT le JSON, sans bloc markdown, sans commentaire avant/après.`;
 
-    // 5) Call AI
-    const ai = await callAI({
-      prompt,
-      maxTokens: 12000,
-      temperature: 0.2,
-      label: `generate-pe-valuation:${dealRef}`,
-    });
+    const systemPrompt = agentCtx.composeSystemPrompt(taskPrompt);
 
-    if (!ai?.text) {
+    // 5) Call AI — signature canonique : callAI(systemPrompt, userPrompt, maxTokens, model, temperature, costContext)
+    const aiText = await callAI(
+      systemPrompt,
+      `Produis maintenant la valuation complète en JSON strict.`,
+      12000,
+      undefined,
+      0.2,
+      { functionName: `generate-pe-valuation:${dealRef}`, enterpriseId: (deal as any).enterprise_id ?? undefined },
+    );
+
+    if (!aiText) {
       return errorResponse(`AI a renvoyé un résultat vide`, 500);
     }
 
     // 6) Parse JSON
     let parsed: any;
     try {
-      const cleaned = ai.text.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+      const cleaned = aiText.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      console.error("[generate-pe-valuation] JSON parse error:", e, "raw:", ai.text.slice(0, 500));
+      console.error("[generate-pe-valuation] JSON parse error:", e, "raw:", aiText.slice(0, 500));
       return errorResponse(`Parsing JSON IA échoué : ${(e as Error).message}`, 500);
     }
 

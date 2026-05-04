@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { buildToneForAgent } from "../_shared/agent-tone.ts";
+import { buildAgentContext } from "../_shared/agent-context.ts";
 import {
   ensureInvestmentMemo,
   createMemoVersion,
@@ -43,11 +43,12 @@ async function generateSection(
     deal: DealContext;
     docContents: string;
     otherSectionsContext?: string;
-    toneBlock: string;
+    contextPrefix: string;
+    wrapWithGuardrails: (s: string) => string;
     enterpriseId: string;
   },
 ): Promise<SectionContent> {
-  const { sectionCode, deal, docContents, otherSectionsContext, toneBlock, enterpriseId } = args;
+  const { sectionCode, deal, docContents, otherSectionsContext, contextPrefix, wrapWithGuardrails, enterpriseId } = args;
   const sectionLabel = SECTION_LABELS[sectionCode];
   const sectionNumber = SECTION_NUMBERS[sectionCode];
   const sectionDescription = SECTION_DESCRIPTIONS[sectionCode];
@@ -57,7 +58,7 @@ async function generateSection(
     ? `\n\n═══ CONTEXTE — AUTRES SECTIONS DÉJÀ RÉDIGÉES (utilise pour synthèse cohérente) ═══\n${otherSectionsContext.slice(0, 30000)}\n`
     : '';
 
-  const systemPrompt = `${toneBlock}
+  const systemPrompt = wrapWithGuardrails(`${contextPrefix}
 
 Tu produis la section ${sectionNumber} — "${sectionLabel}" du dossier d'investissement PE pour le deal "${deal.name}" (deal_ref: ${deal.ref}, secteur: ${deal.sector}, pays: ${deal.country}, ticket demandé: ${deal.ticket} ${deal.currency}).
 
@@ -82,7 +83,7 @@ ${otherSectionsBlock}
 3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
 4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
 5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".
-6. Si la section nécessite un tableau (rows), produis 3-15 lignes RÉELLES — pas de placeholders "...".`;
+6. Si la section nécessite un tableau (rows), produis 3-15 lignes RÉELLES — pas de placeholders "...".`);
 
   const userPrompt = `Produis maintenant la section "${sectionLabel}" en JSON strict.`;
 
@@ -221,7 +222,12 @@ serve(async (req: Request) => {
       }
       if (!docContents.trim()) throw new Error("Aucun document n'a pu être lu (parser Railway down ou docs vides)");
 
-      const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
+      const agentCtx = await buildAgentContext(adminClient, deal.organization_id, {
+        deliverableType: 'pre_screening',
+        country: deal.country,
+        sector: deal.sector,
+        enterpriseId: deal.id,
+      });
 
       // 6) Phase 1 — génération parallèle des 11 sections (sauf executive_summary)
       const phase1Codes: MemoSectionCode[] = [
@@ -245,7 +251,8 @@ serve(async (req: Request) => {
             sectionCode: code,
             deal: dealCtx,
             docContents,
-            toneBlock,
+            contextPrefix: agentCtx.prefix,
+            wrapWithGuardrails: agentCtx.wrapWithGuardrails,
             enterpriseId: deal.id,
           }).then(content => ({ code, content })),
         ),
@@ -279,7 +286,8 @@ serve(async (req: Request) => {
         deal: dealCtx,
         docContents,
         otherSectionsContext,
-        toneBlock,
+        contextPrefix: agentCtx.prefix,
+        wrapWithGuardrails: agentCtx.wrapWithGuardrails,
         enterpriseId: deal.id,
       });
       sectionsContent.executive_summary = execContent;

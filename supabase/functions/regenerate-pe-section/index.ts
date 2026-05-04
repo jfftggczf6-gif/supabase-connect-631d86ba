@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { buildToneForAgent } from "../_shared/agent-tone.ts";
+import { buildAgentContext } from "../_shared/agent-context.ts";
 import {
   fetchSections,
   fetchDealDocuments,
@@ -98,15 +98,18 @@ serve(async (req: Request) => {
       if (text) docContents += `\n\n=== ${doc.filename} ===\n${text}`;
     }
 
-    // 4) Compose prompt focalisé sur LA section
-    const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
+    // 4) Contexte agent complet (tone + benchmarks + KB + RAG + guardrails)
+    const agentCtx = await buildAgentContext(adminClient, deal.organization_id, {
+      deliverableType: 'regenerate_section',
+      country,
+      sector,
+      enterpriseId: (deal as any).enterprise_id ?? null,
+    });
     const sectionLabel = SECTION_LABELS[body.section_code];
     const sectionDescription = SECTION_DESCRIPTIONS[body.section_code];
     const jsonSchema = SECTION_SCHEMAS[body.section_code];
 
-    const systemPrompt = `${toneBlock}
-
-Tu RÉGÉNÈRES UNIQUEMENT la section "${sectionLabel}" du dossier d'investissement PE pour le deal "${dealName}" (${deal.deal_ref}, secteur ${sector}, pays ${country}).
+    const taskPrompt = `Tu RÉGÉNÈRES UNIQUEMENT la section "${sectionLabel}" du dossier d'investissement PE pour le deal "${dealName}" (${deal.deal_ref}, secteur ${sector}, pays ${country}).
 
 ═══ RÔLE DE LA SECTION ═══
 ${sectionDescription}
@@ -132,6 +135,8 @@ ${otherSectionsSummary.slice(0, 30000)}
 3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
 4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
 5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing".`;
+
+    const systemPrompt = agentCtx.composeSystemPrompt(taskPrompt);
 
     // 5) Appel Claude
     const claudeJSON = await callAI(systemPrompt, `Régénère la section "${sectionLabel}" maintenant.`, 8192, undefined, 0.2, {

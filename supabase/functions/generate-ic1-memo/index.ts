@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { buildToneForAgent } from "../_shared/agent-tone.ts";
+import { buildAgentContext } from "../_shared/agent-context.ts";
 import {
   updateMemoVersion,
   fetchSections,
@@ -42,11 +42,12 @@ async function enrichSectionForIC1(
     docContents: string;
     previousSection: SectionContent;
     otherSectionsContext?: string;
-    toneBlock: string;
+    contextPrefix: string;
+    wrapWithGuardrails: (s: string) => string;
     enterpriseId: string;
   },
 ): Promise<SectionContent> {
-  const { sectionCode, deal, docContents, previousSection, otherSectionsContext, toneBlock, enterpriseId } = args;
+  const { sectionCode, deal, docContents, previousSection, otherSectionsContext, contextPrefix, wrapWithGuardrails, enterpriseId } = args;
   const sectionLabel = SECTION_LABELS[sectionCode];
   const sectionNumber = SECTION_NUMBERS[sectionCode];
   const sectionDescription = SECTION_DESCRIPTIONS[sectionCode];
@@ -60,7 +61,7 @@ async function enrichSectionForIC1(
     ? `\n\n═══ CONTEXTE — AUTRES SECTIONS IC1 DÉJÀ ENRICHIES ═══\n${otherSectionsContext.slice(0, 30000)}\n`
     : '';
 
-  const systemPrompt = `${toneBlock}
+  const systemPrompt = wrapWithGuardrails(`${contextPrefix}
 
 Tu enrichis la section ${sectionNumber} — "${sectionLabel}" pour passer de la version PRE-SCREENING à la version NOTE IC1 du dossier d'investissement PE pour le deal "${deal.name}" (deal_ref: ${deal.ref}, secteur: ${deal.sector}, pays: ${deal.country}).
 
@@ -95,7 +96,7 @@ ${previousBlock}${otherSectionsBlock}
 2. Si une donnée manque : utilise "n/d" ou null, JAMAIS d'invention.
 3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
 4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
-5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".`;
+5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".`);
 
   const userPrompt = `Enrichis maintenant la section "${sectionLabel}" version IC1 en JSON strict.`;
 
@@ -256,7 +257,12 @@ serve(async (req: Request) => {
         if (text) docContents += `\n\n=== ${doc.filename} ===\n${text}`;
       }
 
-      const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
+      const agentCtx = await buildAgentContext(adminClient, deal.organization_id, {
+        deliverableType: 'ic1_memo',
+        country: dealCtx.country,
+        sector: dealCtx.sector,
+        enterpriseId: deal.id,
+      });
 
       // 8) Phase 1 — enrichissement parallèle des 11 sections
       const phase1Codes: MemoSectionCode[] = [
@@ -281,7 +287,8 @@ serve(async (req: Request) => {
             deal: dealCtx,
             docContents,
             previousSection: previousMap[code] ?? { content_md: null, content_json: {} },
-            toneBlock,
+            contextPrefix: agentCtx.prefix,
+            wrapWithGuardrails: agentCtx.wrapWithGuardrails,
             enterpriseId: deal.id,
           }).then(content => ({ code, content })),
         ),
@@ -316,7 +323,8 @@ serve(async (req: Request) => {
         docContents,
         previousSection: previousMap.executive_summary ?? { content_md: null, content_json: {} },
         otherSectionsContext,
-        toneBlock,
+        contextPrefix: agentCtx.prefix,
+        wrapWithGuardrails: agentCtx.wrapWithGuardrails,
         enterpriseId: deal.id,
       });
       sectionsContent.executive_summary = execContent;

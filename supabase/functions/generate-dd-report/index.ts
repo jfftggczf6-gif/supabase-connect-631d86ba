@@ -10,7 +10,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, callAI, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { buildToneForAgent } from "../_shared/agent-tone.ts";
+import { buildAgentContext } from "../_shared/agent-context.ts";
 import {
   fetchSections,
   getLatestVersion,
@@ -170,12 +170,15 @@ serve(async (req: Request) => {
       return errorResponse("Rapport DD non parsable (parser Railway down ou docs corrompus)", 400);
     }
 
-    // 5) Compose tone PE (DD analyste)
-    const toneBlock = await buildToneForAgent(adminClient, deal.organization_id);
+    // 5) Contexte agent complet (tone PE + benchmarks + RAG + guardrails)
+    const agentCtx = await buildAgentContext(adminClient, deal.organization_id, {
+      deliverableType: 'dd_report',
+      country,
+      sector,
+      enterpriseId: (deal as any).enterprise_id ?? null,
+    });
 
-    const systemPrompt = `${toneBlock}
-
-Tu es un ANALYSTE PE qui compare le RAPPORT DD EXTERNE (produit par un cabinet d'expertise indépendant) avec le MEMO IC1 ACTUEL du deal "${dealName}" (deal_ref: ${deal.deal_ref}, secteur: ${sector}, pays: ${country}).
+    const taskPrompt = `Tu es un ANALYSTE PE qui compare le RAPPORT DD EXTERNE (produit par un cabinet d'expertise indépendant) avec le MEMO IC1 ACTUEL du deal "${dealName}" (deal_ref: ${deal.deal_ref}, secteur: ${sector}, pays: ${country}).
 
 ═══ MISSION ═══
 Tu LIS le rapport DD externe et tu identifies :
@@ -231,6 +234,7 @@ ${ddReportContents.slice(0, 80000)}
 6. impacts_section_codes : codes valides parmi les 12 sections du memo.
 7. Cible : 8-25 findings (selon richesse rapport DD), 0-15 items checklist résiduelle.`;
 
+    const systemPrompt = agentCtx.composeSystemPrompt(taskPrompt);
     const userPrompt = `Produis maintenant le rapport DD initial (checklist + findings) en JSON strict.`;
 
     const claudeResponse = await callAI(systemPrompt, userPrompt, 16384, undefined, 0.2, {
