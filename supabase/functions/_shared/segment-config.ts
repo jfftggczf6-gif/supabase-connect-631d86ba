@@ -310,16 +310,42 @@ export function getActiveDeliverables(config: SegmentConfig, presets: any): stri
 }
 
 /**
- * Renvoie la devise par défaut au niveau organisation : preset → défaut segment.
+ * Renvoie la devise par défaut au niveau organisation, avec résolution dynamique.
+ *
+ * Priorité :
+ *   1. presets.devise si l'org l'a explicitement défini
+ *   2. devise locale du pays de l'org (via FISCAL_PARAMS) — évite qu'un fonds
+ *      PE basé en zone FCFA hérite d'EUR juste à cause du défaut segment
+ *   3. config.tone.devise_defaut en dernier recours (org sans pays connu)
  *
  * IMPORTANT : pour les chiffres dans les livrables financiers, on continue
  * d'utiliser getFiscalParams(country).devise qui résout dynamiquement par pays.
  * Cette fonction est destinée à l'UI (badge "devise par défaut" dans les
  * settings d'org) ou à l'affichage de KPIs cross-pays.
+ *
+ * @param orgCountry pays HQ de l'organisation (lu depuis organizations.country)
  */
-export function getDevise(config: SegmentConfig, presets: any): string {
-  return presets?.devise || config.tone.devise_defaut;
+export function getDevise(config: SegmentConfig, presets: any, orgCountry?: string | null): string {
+  if (presets?.devise) return presets.devise;
+  if (orgCountry) {
+    // Import dynamique pour éviter une dépendance circulaire avec helpers_v5
+    const params = FISCAL_PARAMS_DEVISE[orgCountry];
+    if (params) return params;
+  }
+  return config.tone.devise_defaut;
 }
+
+// Mini-table country → devise utilisée par getDevise. Source : helpers_v5.FISCAL_PARAMS.
+// Dupliquée ici plutôt qu'importée pour éviter une dépendance circulaire entre
+// segment-config.ts et helpers_v5.ts (helpers_v5 lit segment-config dans certains cas).
+const FISCAL_PARAMS_DEVISE: Record<string, string> = {
+  "Côte d'Ivoire": "FCFA", "Sénégal": "FCFA", "Mali": "FCFA", "Burkina Faso": "FCFA",
+  "Bénin": "FCFA", "Togo": "FCFA", "Niger": "FCFA", "Guinée-Bissau": "FCFA",
+  "Cameroun": "FCFA", "Gabon": "FCFA", "Congo": "FCFA",
+  "RDC": "USD", "Guinée": "GNF", "Ghana": "GHS", "Kenya": "KES",
+  "Nigeria": "NGN", "Maroc": "MAD", "Tunisie": "TND", "Madagascar": "MGA",
+  "Éthiopie": "ETB", "Tanzanie": "TZS", "Rwanda": "RWF", "Afrique du Sud": "ZAR",
+};
 
 /**
  * Pour les segments scoring 'grille_conformite' (banque) :

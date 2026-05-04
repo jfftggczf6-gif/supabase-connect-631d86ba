@@ -17,6 +17,7 @@ import {
   getPresets,
   type SegmentType,
 } from './segment-config.ts';
+import { getFiscalParams } from './helpers_v5.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FUND_SEGMENT_BLOCKS — adaptations du tone PE selon la taille du fonds
@@ -80,6 +81,18 @@ export async function buildToneForAgent(
   const config = getSegmentConfig(segment);
   const presets = safeOrgId ? await getPresets(supabase, safeOrgId) : null;
 
+  // Charge le pays de l'org pour résoudre dynamiquement la devise par défaut.
+  // Évite que les fonds PE basés en zone FCFA héritent d'EUR par défaut.
+  let orgCountry: string | null = null;
+  if (safeOrgId) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('country')
+      .eq('id', safeOrgId)
+      .maybeSingle();
+    orgCountry = org?.country ?? null;
+  }
+
   let tone = config.tone.system_prompt_block;
 
   // PE : ajouter le bloc segment de fonds selon la taille (amorcage/mid_market/gros_tickets)
@@ -109,10 +122,16 @@ export async function buildToneForAgent(
   }
 
   // Devise par défaut de l'org — signal contextuel uniquement.
+  // Résolution dynamique avec priorité :
+  //   1. presets.devise si l'org l'a explicitement défini
+  //   2. devise locale du pays de l'org (via getFiscalParams) — évite qu'un fonds
+  //      PE basé en Côte d'Ivoire hérite d'EUR à cause du défaut segment
+  //   3. devise_defaut du segment en dernier recours (org sans pays connu)
   // Les chiffres réels dans les livrables restent calculés via getFiscalParams(country).
   // Formulation explicite pour éviter que l'IA mélange devise org et devise entreprise
   // (cas typique : org en FCFA, entreprise au Ghana qui doit produire des chiffres en GHS).
-  const devise = presets?.devise || config.tone.devise_defaut;
+  const orgCountryDevise = orgCountry ? getFiscalParams(orgCountry).devise : '';
+  const devise = presets?.devise || orgCountryDevise || config.tone.devise_defaut;
   tone += `\n\nCONTEXTE DEVISE :
 - Devise par défaut de l'organisation : ${devise} (utilisée uniquement pour les vues agrégées multi-entreprises et les paramètres org).
 - Pour les chiffres d'une entreprise spécifique : utilise TOUJOURS la devise locale réelle de son pays (FCFA-XOF en UEMOA, FCFA-XAF en CEMAC, USD pour la RDC, GHS au Ghana, NGN au Nigeria, KES au Kenya, MAD au Maroc, TND en Tunisie, GNF en Guinée, etc.). La devise de l'org NE s'applique JAMAIS aux livrables individuels d'entreprise.`;
