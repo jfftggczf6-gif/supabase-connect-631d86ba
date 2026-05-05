@@ -13,10 +13,11 @@ import { Progress } from '@/components/ui/progress';
 import {
   Loader2, Sparkles, Plus, CheckCircle2, Circle, AlertCircle, Trash2,
   Briefcase, Users, FileBarChart, Zap, ShieldCheck, Wallet, ShoppingCart, Cog, MoreHorizontal,
-  Calendar, Edit2, Save, X,
+  Calendar, Edit2, Save, X, Activity, Clock, TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import StatCard from '@/components/shared/StatCard';
 
 interface Props {
   dealId: string;
@@ -204,27 +205,12 @@ export default function Plan100DaysSection({ dealId, organizationId }: Props) {
         </CardHeader>
         <CardContent>
           {/* Stats récap */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3 text-xs">
-            <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-              <div className="text-emerald-700 font-medium">Fait</div>
-              <div className="text-lg font-bold text-emerald-800">{done}/{total}</div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded p-2">
-              <div className="text-blue-700 font-medium">En cours</div>
-              <div className="text-lg font-bold text-blue-800">{inProgress}</div>
-            </div>
-            <div className="bg-red-50 border border-red-200 rounded p-2">
-              <div className="text-red-700 font-medium">Bloqué</div>
-              <div className="text-lg font-bold text-red-800">{blocked}</div>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded p-2">
-              <div className="text-amber-700 font-medium">En retard</div>
-              <div className="text-lg font-bold text-amber-800">{overdue}</div>
-            </div>
-            <div className="bg-violet-50 border border-violet-200 rounded p-2">
-              <div className="text-violet-700 font-medium">Progression</div>
-              <div className="text-lg font-bold text-violet-800">{progress}%</div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+            <StatCard icon={CheckCircle2} value={`${done}/${total}`} label="Fait" iconColor="text-emerald-500" />
+            <StatCard icon={Activity} value={inProgress} label="En cours" iconColor="text-blue-500" />
+            <StatCard icon={AlertCircle} value={blocked} label="Bloqué" iconColor="text-red-500" />
+            <StatCard icon={Clock} value={overdue} label="En retard" iconColor="text-amber-500" highlight={overdue > 0 ? 'amber' : undefined} />
+            <StatCard icon={TrendingUp} value={`${progress}%`} label="Progression" iconColor="text-primary" />
           </div>
           <Progress value={progress} className="h-2" />
         </CardContent>

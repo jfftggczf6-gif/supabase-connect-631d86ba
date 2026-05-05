@@ -20,6 +20,7 @@ import {
   LineChart, Line, BarChart, Bar, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import StatCard from '@/components/shared/StatCard';
 
 interface Props {
   dealId: string;
@@ -194,26 +195,33 @@ export default function MonitoringDashboard({ dealId, organizationId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div className="bg-violet-50 border border-violet-200 rounded p-2">
-              <div className="text-violet-700 font-medium">Score actuel</div>
-              <div className="text-2xl font-bold text-violet-800">{lastScore?.score_total ?? '—'}<span className="text-sm font-normal">/100</span></div>
-            </div>
-            <div className={`border rounded p-2 ${totalDelta >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-              <div className={`font-medium ${totalDelta >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>Évolution depuis entrée</div>
-              <div className={`text-2xl font-bold flex items-center gap-1 ${totalDelta >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                {totalDelta >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-                {totalDelta > 0 && '+'}{totalDelta || '—'}
-              </div>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded p-2">
-              <div className="text-amber-700 font-medium">Alertes ouvertes</div>
-              <div className="text-2xl font-bold text-amber-800">{openAlerts.length}</div>
-            </div>
-            <div className="bg-red-50 border border-red-200 rounded p-2">
-              <div className="text-red-700 font-medium">Critiques</div>
-              <div className="text-2xl font-bold text-red-800">{criticalOpen.length}</div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard
+              icon={Activity}
+              value={<>{lastScore?.score_total ?? '—'}<span className="text-sm font-normal">/100</span></>}
+              label="Score actuel"
+              iconColor="text-primary"
+            />
+            <StatCard
+              icon={totalDelta >= 0 ? TrendingUp : TrendingDown}
+              value={`${totalDelta > 0 ? '+' : ''}${totalDelta || '—'}`}
+              label="Évolution depuis entrée"
+              iconColor={totalDelta >= 0 ? 'text-emerald-500' : 'text-red-500'}
+            />
+            <StatCard
+              icon={Bell}
+              value={openAlerts.length}
+              label="Alertes ouvertes"
+              iconColor="text-amber-500"
+              highlight={openAlerts.length > 0 ? 'amber' : undefined}
+            />
+            <StatCard
+              icon={AlertCircle}
+              value={criticalOpen.length}
+              label="Critiques"
+              iconColor="text-red-500"
+              highlight={criticalOpen.length > 0 ? 'red' : undefined}
+            />
           </div>
         </CardContent>
       </Card>

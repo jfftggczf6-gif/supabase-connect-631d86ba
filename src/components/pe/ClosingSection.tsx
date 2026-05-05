@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Plus, CheckCircle2, Clock, Ban, Trash2, FileSignature, Banknote } from 'lucide-react';
+import { Loader2, Save, Plus, CheckCircle2, Clock, Ban, Trash2, FileSignature, Banknote, Hourglass, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
+import StatCard from '@/components/shared/StatCard';
 
 interface Props {
   dealId: string;
@@ -256,19 +257,25 @@ export default function ClosingSection({ dealId, organizationId }: Props) {
         <CardContent className="space-y-3">
           {/* Récap */}
           {tranches.length > 0 && (
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-                <div className="text-emerald-700 font-medium">Décaissé</div>
-                <div className="text-lg font-bold text-emerald-800">{fmt(totalDecaisse)} {termSheet.devise}</div>
-              </div>
-              <div className="bg-amber-50 border border-amber-200 rounded p-2">
-                <div className="text-amber-700 font-medium">En attente</div>
-                <div className="text-lg font-bold text-amber-800">{fmt(totalEnCours)} {termSheet.devise}</div>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded p-2">
-                <div className="text-slate-700 font-medium">Total prévu</div>
-                <div className="text-lg font-bold text-slate-800">{fmt(termSheet.total_amount)} {termSheet.devise}</div>
-              </div>
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard
+                icon={CheckCircle2}
+                value={`${fmt(totalDecaisse)} ${termSheet.devise}`}
+                label="Décaissé"
+                iconColor="text-emerald-500"
+              />
+              <StatCard
+                icon={Hourglass}
+                value={`${fmt(totalEnCours)} ${termSheet.devise}`}
+                label="En attente"
+                iconColor="text-amber-500"
+              />
+              <StatCard
+                icon={Wallet}
+                value={`${fmt(termSheet.total_amount)} ${termSheet.devise}`}
+                label="Total prévu"
+                iconColor="text-primary"
+              />
             </div>
           )}
 

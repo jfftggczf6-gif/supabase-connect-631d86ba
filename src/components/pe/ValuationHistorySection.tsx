@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Calculator, Plus, TrendingUp, TrendingDown, Sparkles, Calendar } from 'lucide-react';
+import { Loader2, Calculator, Plus, TrendingUp, TrendingDown, Sparkles, Calendar, Percent, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import StatCard from '@/components/shared/StatCard';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, Cell, ReferenceLine,
@@ -94,33 +95,32 @@ export default function ValuationHistorySection({ dealId, organizationId }: Prop
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div className="bg-violet-50 border border-violet-200 rounded p-2">
-              <div className="text-violet-700 font-medium">NAV actuelle</div>
-              <div className="text-2xl font-bold text-violet-800">
-                {lastVal?.nav_amount ? Number(lastVal.nav_amount).toLocaleString('fr-FR') : '—'}
-              </div>
-              <div className="text-[10px] text-violet-600">{lastVal?.devise}</div>
-            </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-              <div className="text-emerald-700 font-medium">MOIC</div>
-              <div className="text-2xl font-bold text-emerald-800 flex items-center gap-1">
-                {lastVal?.moic_to_date ? `${Number(lastVal.moic_to_date).toFixed(2)}x` : '—'}
-                {lastVal?.moic_to_date && firstVal?.moic_to_date && Number(lastVal.moic_to_date) > Number(firstVal.moic_to_date) && <TrendingUp className="h-4 w-4" />}
-              </div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded p-2">
-              <div className="text-blue-700 font-medium">IRR</div>
-              <div className="text-2xl font-bold text-blue-800">
-                {lastVal?.irr_to_date != null ? `${(Number(lastVal.irr_to_date) * 100).toFixed(1)}%` : '—'}
-              </div>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded p-2">
-              <div className="text-amber-700 font-medium">TVPI</div>
-              <div className="text-2xl font-bold text-amber-800">
-                {lastVal?.tvpi ? Number(lastVal.tvpi).toFixed(2) : '—'}
-              </div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard
+              icon={Calculator}
+              value={lastVal?.nav_amount ? Number(lastVal.nav_amount).toLocaleString('fr-FR') : '—'}
+              label="NAV actuelle"
+              subText={lastVal?.devise}
+              iconColor="text-primary"
+            />
+            <StatCard
+              icon={TrendingUp}
+              value={lastVal?.moic_to_date ? `${Number(lastVal.moic_to_date).toFixed(2)}x` : '—'}
+              label="MOIC"
+              iconColor="text-emerald-500"
+            />
+            <StatCard
+              icon={Percent}
+              value={lastVal?.irr_to_date != null ? `${(Number(lastVal.irr_to_date) * 100).toFixed(1)}%` : '—'}
+              label="IRR"
+              iconColor="text-blue-500"
+            />
+            <StatCard
+              icon={Target}
+              value={lastVal?.tvpi ? Number(lastVal.tvpi).toFixed(2) : '—'}
+              label="TVPI"
+              iconColor="text-amber-500"
+            />
           </div>
         </CardContent>
       </Card>

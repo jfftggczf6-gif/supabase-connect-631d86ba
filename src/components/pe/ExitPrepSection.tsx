@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import {
   Loader2, Sparkles, DoorOpen, TrendingUp, TrendingDown, CheckCircle2,
-  Building, Users2, ArrowUpRight, AlertTriangle, Target,
+  Building, Users2, ArrowUpRight, AlertTriangle, Target, Calculator, Percent, Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import StatCard from '@/components/shared/StatCard';
 
 interface Props {
   dealId: string;
@@ -184,26 +185,32 @@ export default function ExitPrepSection({ dealId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div className="bg-violet-50 border border-violet-200 rounded p-2">
-              <div className="text-violet-700 font-medium">Valuation sortie</div>
-              <div className="text-lg font-bold text-violet-800">{dossier.exit_valuation ? Number(dossier.exit_valuation).toLocaleString('fr-FR') : '—'}</div>
-              <div className="text-[10px]">{dossier.exit_devise}</div>
-            </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-              <div className="text-emerald-700 font-medium">Multiple sortie</div>
-              <div className="text-lg font-bold text-emerald-800">{dossier.exit_multiple ? `${dossier.exit_multiple}x` : '—'}</div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded p-2">
-              <div className="text-blue-700 font-medium">IRR estimé</div>
-              <div className="text-lg font-bold text-blue-800">{dossier.exit_irr != null ? `${(Number(dossier.exit_irr) * 100).toFixed(1)}%` : '—'}</div>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded p-2">
-              <div className="text-amber-700 font-medium">Durée portage</div>
-              <div className="text-lg font-bold text-amber-800">
-                {dossier.holding_period_months ? `${(dossier.holding_period_months / 12).toFixed(1)} ans` : '—'}
-              </div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard
+              icon={Calculator}
+              value={dossier.exit_valuation ? Number(dossier.exit_valuation).toLocaleString('fr-FR') : '—'}
+              label="Valuation sortie"
+              subText={dossier.exit_devise}
+              iconColor="text-primary"
+            />
+            <StatCard
+              icon={TrendingUp}
+              value={dossier.exit_multiple ? `${dossier.exit_multiple}x` : '—'}
+              label="Multiple sortie"
+              iconColor="text-emerald-500"
+            />
+            <StatCard
+              icon={Percent}
+              value={dossier.exit_irr != null ? `${(Number(dossier.exit_irr) * 100).toFixed(1)}%` : '—'}
+              label="IRR estimé"
+              iconColor="text-blue-500"
+            />
+            <StatCard
+              icon={Calendar}
+              value={dossier.holding_period_months ? `${(dossier.holding_period_months / 12).toFixed(1)} ans` : '—'}
+              label="Durée portage"
+              iconColor="text-amber-500"
+            />
           </div>
         </CardContent>
       </Card>
