@@ -65,13 +65,25 @@ serve(async (req: Request) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
-    const { deal_id, new_stage, lost_reason, force } = await req.json();
+    const { deal_id, new_stage, lost_reason, force, ic_decision } = await req.json();
     if (!deal_id || !new_stage) throw new Error("deal_id and new_stage required");
     if (!VALID_STAGES.includes(new_stage)) {
       throw new Error(`Invalid stage. Must be one of: ${VALID_STAGES.join(', ')}`);
     }
     if (new_stage === 'lost' && (!lost_reason || !lost_reason.trim())) {
       throw new Error('lost_reason required when stage=lost');
+    }
+
+    // Validation IC decision si fournie
+    if (ic_decision) {
+      if (!['ic1', 'ic_finale'].includes(ic_decision.ic_type)) throw new Error("ic_decision.ic_type must be ic1 or ic_finale");
+      if (!['go', 'go_conditional', 'no_go'].includes(ic_decision.decision)) throw new Error("ic_decision.decision invalid");
+      if (ic_decision.decision === 'no_go' && (!ic_decision.motif || !ic_decision.motif.trim())) {
+        throw new Error("motif required when ic_decision.decision=no_go");
+      }
+      if (ic_decision.decision === 'go_conditional' && (!ic_decision.conditions || ic_decision.conditions.length === 0)) {
+        throw new Error("conditions[] required when ic_decision.decision=go_conditional");
+      }
     }
 
     // 1. Charger le deal
@@ -169,6 +181,25 @@ serve(async (req: Request) => {
       .select('*')
       .single();
     if (updErr) throw updErr;
+
+    // 6.5 Capture décision IC si fournie (transitions note_ic1→dd ou note_ic_finale→closing)
+    if (ic_decision) {
+      const { error: icErr } = await adminClient.from('pe_ic_decisions').insert({
+        deal_id,
+        organization_id: deal.organization_id,
+        ic_type: ic_decision.ic_type,
+        decision: ic_decision.decision,
+        conditions: ic_decision.conditions || [],
+        motif: ic_decision.motif || null,
+        notes: ic_decision.notes || null,
+        decided_by: user.id,
+        voted_by: ic_decision.voted_by || [user.id],
+      });
+      if (icErr) {
+        console.warn(`[update-pe-deal-stage] failed to insert ic_decision: ${icErr.message}`);
+        // non-bloquant — la transition est déjà faite
+      }
+    }
 
     // 7. Hook post-transition : à l'entrée en 'closing', déclencher l'ingestion
     //    deal-learnings (capitalisation post-deal pour la KB propriétaire du fonds).

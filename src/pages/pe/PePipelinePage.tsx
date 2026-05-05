@@ -95,10 +95,19 @@ export default function PePipelinePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const performTransition = async (deal: Deal, toStage: string, lostReason?: string) => {
+  const performTransition = async (
+    deal: Deal,
+    toStage: string,
+    extras: { lostReason?: string; icDecision?: any } = {},
+  ) => {
     const fromStage = deal.stage;
     const { error, data } = await supabase.functions.invoke('update-pe-deal-stage', {
-      body: { deal_id: deal.id, new_stage: toStage, lost_reason: lostReason },
+      body: {
+        deal_id: deal.id,
+        new_stage: toStage,
+        lost_reason: extras.lostReason,
+        ic_decision: extras.icDecision,
+      },
     });
     if (error || (data as any)?.error) {
       toast.error((data as any)?.error || error?.message || 'Erreur');
@@ -206,8 +215,8 @@ export default function PePipelinePage() {
           fromStage={pendingTransition.deal.stage}
           toStage={pendingTransition.toStage}
           dealRef={pendingTransition.deal.deal_ref}
-          onConfirm={async (reason) => {
-            await performTransition(pendingTransition.deal, pendingTransition.toStage, reason);
+          onConfirm={async (extras) => {
+            await performTransition(pendingTransition.deal, pendingTransition.toStage, extras);
             setPendingTransition(null);
           }}
         />
