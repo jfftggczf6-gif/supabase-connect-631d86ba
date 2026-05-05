@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Upload, FileText, Loader2 } from 'lucide-react';
+import { ArrowRight, Upload, FileText, Loader2, Search, FileEdit, ShieldCheck, FileSignature, Activity, DoorOpen } from 'lucide-react';
 import ScoreCircle from '@/components/dashboard/viewers/atoms/pe/ScoreCircle';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
+import PeDealStatusBadge from '@/components/pe/PeDealStatusBadge';
 
 interface Props {
   dealId: string;
@@ -111,7 +112,8 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
         <CardContent className="p-5 flex justify-between items-start">
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">Deal · {deal?.stage}</span>
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">Deal</span>
+              {deal?.stage && <PeDealStatusBadge stage={deal.stage} />}
               {memo?.classification && <ClassificationTag classification={memo.classification} />}
             </div>
             <div className="text-xl font-semibold">{enterpriseName}</div>
@@ -203,11 +205,111 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
         </CardContent>
       </Card>
 
-      {/* Quick actions : Upload + Historique */}
+      {/* === Progression par phase === */}
+      {(() => {
+        const stage = deal?.stage ?? 'sourcing';
+        // Mapping stages → 3 grandes phases (analyse / décision / portefeuille)
+        const phases = [
+          {
+            id: 'analyse',
+            label: 'Analyse',
+            stages: ['sourcing', 'pre_screening', 'note_ic1'],
+            color: 'bg-violet-500',
+          },
+          {
+            id: 'decision',
+            label: 'Décision',
+            stages: ['dd', 'note_ic_finale', 'closing'],
+            color: 'bg-blue-500',
+          },
+          {
+            id: 'portefeuille',
+            label: 'Portefeuille',
+            stages: ['portfolio', 'exit_prep', 'exited'],
+            color: 'bg-emerald-500',
+          },
+        ];
+        const stageOrder = [
+          'sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale',
+          'closing', 'portfolio', 'exit_prep', 'exited',
+        ];
+        const currentIdx = stageOrder.indexOf(stage);
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Progression par phase</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {phases.map(phase => {
+                const phaseStartIdx = stageOrder.indexOf(phase.stages[0]);
+                const phaseEndIdx = stageOrder.indexOf(phase.stages[phase.stages.length - 1]);
+                const stagesInPhase = phase.stages.length;
+                let stagesDone = 0;
+                if (currentIdx < phaseStartIdx) stagesDone = 0;
+                else if (currentIdx >= phaseEndIdx) stagesDone = stagesInPhase;
+                else stagesDone = currentIdx - phaseStartIdx + 1;
+                const pct = Math.round((stagesDone / stagesInPhase) * 100);
+                return (
+                  <div key={phase.id} className="flex items-center gap-3">
+                    <span className="text-xs font-medium w-24 truncate">{phase.label}</span>
+                    <div className="flex-1 relative">
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${phase.color}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground w-10 text-right">{stagesDone}/{stagesInPhase}</span>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* === Prochaine étape recommandée === */}
+      {(() => {
+        const stage = deal?.stage ?? 'sourcing';
+        const nextStepConfig: Record<string, { icon: any; label: string; phase: string; selectItem: string }> = {
+          sourcing: { icon: Search, label: 'Lancer le pré-screening 360°', phase: 'Analyse', selectItem: 'pre_screening' },
+          pre_screening: { icon: FileEdit, label: 'Continuer la rédaction du memo IC1', phase: 'Analyse', selectItem: 'memo' },
+          note_ic1: { icon: ShieldCheck, label: 'Lancer la Due Diligence', phase: 'Décision', selectItem: 'dd' },
+          dd: { icon: FileEdit, label: 'Préparer la note IC finale', phase: 'Décision', selectItem: 'memo' },
+          note_ic_finale: { icon: FileSignature, label: 'Préparer le closing', phase: 'Décision', selectItem: 'closing' },
+          closing: { icon: Activity, label: 'Démarrer le suivi monitoring', phase: 'Portefeuille', selectItem: 'monitoring' },
+          portfolio: { icon: Activity, label: 'Saisir le rapport trimestriel', phase: 'Portefeuille', selectItem: 'monitoring' },
+          exit_prep: { icon: DoorOpen, label: 'Finaliser le dossier de sortie', phase: 'Portefeuille', selectItem: 'exit_prep' },
+        };
+        const next = nextStepConfig[stage];
+        if (!next) return null;
+        const Icon = next.icon;
+        return (
+          <Card
+            className="border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
+            onClick={() => onSelectItem(next.selectItem)}
+          >
+            <CardContent className="flex items-center gap-3 py-4">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Icon className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">Prochaine étape recommandée</p>
+                <p className="text-sm font-semibold">{next.label}</p>
+                <p className="text-[10px] text-muted-foreground">{next.phase}</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-primary" />
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* === Quick actions : Upload + Historique === */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => onSelectItem('documents')}>
           <CardContent className="p-4 flex items-center gap-3">
-            <Upload className="h-5 w-5 text-muted-foreground" />
+            <Upload className="h-5 w-5 text-primary" />
             <div>
               <div className="text-sm font-medium">Upload document</div>
               <div className="text-xs text-muted-foreground">{docCount} {docCount > 1 ? 'pièces' : 'pièce'} · upload + parsing</div>
@@ -216,7 +318,7 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
         </Card>
         <Card className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => onSelectItem('history')}>
           <CardContent className="p-4 flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground" />
+            <FileText className="h-5 w-5 text-primary" />
             <div>
               <div className="text-sm font-medium">Historique</div>
               <div className="text-xs text-muted-foreground">Versions et modifications</div>

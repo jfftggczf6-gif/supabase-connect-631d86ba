@@ -15,6 +15,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 import PeDealSidebar from '@/components/pe/PeDealSidebar';
 import PeOverviewHub from '@/components/pe/PeOverviewHub';
+import PeDealStatusBadge from '@/components/pe/PeDealStatusBadge';
 import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import PeDealDocumentsUploader from '@/components/pe/PeDealDocumentsUploader';
@@ -244,7 +245,7 @@ export default function PeDealDetailPage() {
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe/pipeline')}>
               <ArrowLeft className="h-4 w-4" /> Retour au pipeline
             </Button>
-            <Badge variant="outline">{deal.stage}</Badge>
+            <PeDealStatusBadge stage={deal.stage} />
             {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}
           </div>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSettingsOpen(true)}>
