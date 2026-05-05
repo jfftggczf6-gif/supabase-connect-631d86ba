@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
-  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles,
+  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -297,6 +297,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           onClick={() => onSelectItem('plan_100j')}
           icon={Sparkles}
           label="Plan 100 jours"
+        />
+
+        {/* Monitoring trimestriel : pilotage en portfolio */}
+        <ItemRow
+          active={selectedItem === 'monitoring'}
+          onClick={() => onSelectItem('monitoring')}
+          icon={Activity}
+          label="Monitoring"
         />
 
       </nav>

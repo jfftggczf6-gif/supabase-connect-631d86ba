@@ -26,6 +26,7 @@ import PeValuationView from '@/components/pe/PeValuationView';
 import MemoVersionsView from '@/components/pe/MemoVersionsView';
 import ClosingSection from '@/components/pe/ClosingSection';
 import Plan100DaysSection from '@/components/pe/Plan100DaysSection';
+import MonitoringDashboard from '@/components/pe/MonitoringDashboard';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -200,6 +201,9 @@ export default function PeDealDetailPage() {
     }
     if (selectedItem === 'plan_100j') {
       return currentOrg ? <Plan100DaysSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
+    }
+    if (selectedItem === 'monitoring') {
+      return currentOrg ? <MonitoringDashboard dealId={deal.id} organizationId={currentOrg.id} /> : null;
     }
     // Versions du memo (live + snapshots) avec vue comparatif
     if (selectedItem === 'memo_versions') {
