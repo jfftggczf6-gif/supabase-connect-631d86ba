@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
-  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, History, DoorOpen,
+  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, DoorOpen,
 } from 'lucide-react';
 
 const SECTIONS = [
