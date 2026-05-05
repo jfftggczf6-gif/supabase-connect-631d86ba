@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
-  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, History,
+  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, History, DoorOpen,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -313,6 +313,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           onClick={() => onSelectItem('valuation_history')}
           icon={History}
           label="NAV History"
+        />
+
+        {/* Exit prep : préparation de la sortie (3-7 ans après closing) */}
+        <ItemRow
+          active={selectedItem === 'exit_prep'}
+          onClick={() => onSelectItem('exit_prep')}
+          icon={DoorOpen}
+          label="Exit & sortie"
         />
 
       </nav>

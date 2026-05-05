@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 // Stages canoniques Phase B' : analyse + ic1 + ic_finale ont été renommés.
+// Phase G : ajout des stages de sortie (exit_prep, exited).
 const VALID_STAGES = [
   'sourcing',
   'pre_screening',
@@ -15,6 +16,8 @@ const VALID_STAGES = [
   'note_ic_finale',
   'closing',
   'portfolio',
+  'exit_prep',
+  'exited',
   'lost',
 ];
 
@@ -22,10 +25,10 @@ const VALID_STAGES = [
 const STAGES_BY_ROLE: Record<string, string[]> = {
   analyste:           ['sourcing', 'pre_screening'],
   analyst:            ['sourcing', 'pre_screening'],
-  investment_manager: ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale'],
-  managing_director:  ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio'],
-  admin:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio'],
-  owner:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio'],
+  investment_manager: ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'exit_prep'],
+  managing_director:  ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited'],
+  admin:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited'],
+  owner:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited'],
 };
 
 // Seuils de validation requis pour chaque transition critique.
@@ -230,6 +233,33 @@ serve(async (req: Request) => {
           if (planErr) console.warn(`[update-pe-deal-stage] generate-100days-plan failed:`, planErr.message);
         } catch (e: any) {
           console.error(`[update-pe-deal-stage] 100days hook exception:`, e.message);
+        }
+      })());
+    }
+
+    // 7b. Hook à la finalisation de la sortie : capitalisation post-exit dans la KB
+    //     propriétaire du fonds (deal-learnings + benchmarks réalisés alimentés).
+    if (deal.stage !== 'exited' && new_stage === 'exited') {
+      // @ts-ignore
+      const waitUntil = (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil)
+        ? EdgeRuntime.waitUntil.bind(EdgeRuntime)
+        : (p: Promise<any>) => p.catch(e => console.error('[hook] background failure:', e));
+
+      waitUntil((async () => {
+        try {
+          // Régénère deal-learnings avec les données de sortie cette fois (force=true)
+          const { error: ingestErr } = await adminClient.functions.invoke('ingest-deal-learnings', {
+            body: { deal_id, force: true },
+          });
+          if (ingestErr) console.warn(`[update-pe-deal-stage] post-exit ingest failed:`, ingestErr.message);
+
+          // Marque le dossier exit comme capitalisé
+          await adminClient
+            .from('pe_exit_dossiers')
+            .update({ capitalized_in_kb: true, capitalization_date: new Date().toISOString() })
+            .eq('deal_id', deal_id);
+        } catch (e: any) {
+          console.error(`[update-pe-deal-stage] exit capitalization exception:`, e.message);
         }
       })());
     }
