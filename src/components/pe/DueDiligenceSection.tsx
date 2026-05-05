@@ -11,9 +11,11 @@ import {
   CheckCircle2, XCircle, AlertCircle, Circle, Loader2,
   Wand2, FileSearch, Upload, FileText, Trash2, Send,
   CheckCircle, ArrowRightLeft, AlertTriangle, Info, Quote, ExternalLink,
+  Briefcase, Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRef } from 'react';
+import AddInternalFindingDialog from './AddInternalFindingDialog';
 
 type DDCategory = 'financier' | 'juridique' | 'commercial' | 'operationnel' | 'rh' | 'esg' | 'fiscal' | 'it';
 type DDSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
@@ -47,6 +49,7 @@ interface Finding {
   impacts_section_codes: string[];
   status: FindingStatus;
   source: 'ai' | 'manual';
+  source_type?: 'external_report' | 'internal_analysis';
   applied_to_memo_at: string | null;
   created_at: string;
 }
@@ -151,6 +154,7 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [ddReports, setDdReports] = useState<DDReportDoc[]>([]);
+  const [addInternalOpen, setAddInternalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(async () => {
@@ -518,10 +522,15 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
       </Card>
 
       <Tabs defaultValue="findings">
-        <TabsList>
-          <TabsTrigger value="findings">Findings ({findings.length})</TabsTrigger>
-          <TabsTrigger value="checklist">Checklist ({checklist.length})</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <TabsList>
+            <TabsTrigger value="findings">Findings ({findings.length})</TabsTrigger>
+            <TabsTrigger value="checklist">Checklist ({checklist.length})</TabsTrigger>
+          </TabsList>
+          <Button size="sm" variant="outline" onClick={() => setAddInternalOpen(true)} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Finding interne
+          </Button>
+        </div>
 
         {/* Findings tab — groupé par sévérité */}
         <TabsContent value="findings" className="space-y-3 mt-3">
@@ -565,6 +574,12 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
                             <span className="font-medium text-sm">{f.title}</span>
                             {f.source === 'ai' && (
                               <span className="text-[10px] text-muted-foreground">·  IA</span>
+                            )}
+                            {f.source_type === 'internal_analysis' && (
+                              <Badge variant="outline" className="text-[10px] gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                                <Briefcase className="h-2.5 w-2.5" />
+                                Interne
+                              </Badge>
                             )}
                             {f.applied_to_memo_at && (
                               <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
@@ -693,6 +708,13 @@ export default function DueDiligenceSection({ dealId, organizationId }: Props) {
           )}
         </TabsContent>
       </Tabs>
+
+      <AddInternalFindingDialog
+        open={addInternalOpen}
+        onOpenChange={setAddInternalOpen}
+        dealId={dealId}
+        onAdded={reload}
+      />
     </div>
   );
 }
