@@ -37,6 +37,7 @@ import PeRequireType from "./components/pe/PeRequireType";
 import PePipelinePage from "./pages/pe/PePipelinePage";
 import PeDealDetailPage from "./pages/pe/PeDealDetailPage";
 import PeTeamPage from "./pages/pe/PeTeamPage";
+import PeLpReportingPage from "./pages/pe/PeLpReportingPage";
 import DossierWorkspacePage from "./pages/banque/DossierWorkspacePage";
 import BanquePipelinePage from "./pages/banque/BanquePipelinePage";
 import NotFound from "./pages/NotFound";
@@ -83,6 +84,9 @@ const App = () => (
             } />
             <Route path="/pe/team" element={
               <ProtectedRoute><PeRequireType><PeTeamPage /></PeRequireType></ProtectedRoute>
+            } />
+            <Route path="/pe/reporting-lp" element={
+              <ProtectedRoute><PeRequireType><PeLpReportingPage /></PeRequireType></ProtectedRoute>
             } />
             <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
             <Route path="/livrables" element={
