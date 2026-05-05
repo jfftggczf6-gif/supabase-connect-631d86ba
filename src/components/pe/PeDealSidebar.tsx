@@ -47,9 +47,45 @@ interface Props {
   dealId: string;
   selectedItem: string;
   onSelectItem: (item: string) => void;
+  /** Stage actuel du deal (pilote la visibilité progressive des items). */
+  dealStage?: string;
+  /** Rôle de l'utilisateur courant — utilisé pour role-gating des items post-invest. */
+  userRole?: string | null;
+  /** Nombre de mois de portage (utilisé pour révéler "Exit & sortie" après ~3 ans). */
+  holdingMonths?: number;
 }
 
-export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers de visibilité — stage-gating + role-gating
+// ═══════════════════════════════════════════════════════════════════════════
+
+const STAGE_ORDER = [
+  'sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale',
+  'closing', 'portfolio', 'exit_prep', 'exited',
+];
+
+function isStageAtLeast(currentStage: string | undefined, minStage: string): boolean {
+  if (!currentStage) return false;
+  const ci = STAGE_ORDER.indexOf(currentStage);
+  const mi = STAGE_ORDER.indexOf(minStage);
+  if (ci < 0 || mi < 0) return true; // legacy / unknown stages : permissif
+  return ci >= mi;
+}
+
+const ROLES_PORTFOLIO_OPS = ['investment_manager', 'managing_director', 'owner', 'admin', 'super_admin'];
+const ROLES_EXIT = ['managing_director', 'owner', 'admin', 'super_admin'];
+
+function canSeePortfolioOps(role?: string | null): boolean {
+  if (!role) return true; // role inconnu : permissif (cas legacy / dev)
+  return ROLES_PORTFOLIO_OPS.includes(role);
+}
+
+function canSeeExit(role?: string | null): boolean {
+  if (!role) return true;
+  return ROLES_EXIT.includes(role);
+}
+
+export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, dealStage, userRole, holdingMonths }: Props) {
   const [activeVersion, setActiveVersion] = useState<ActiveMemoVersion | null>(null);
   const [docCount, setDocCount] = useState(0);
   const [versionCount, setVersionCount] = useState(0);
@@ -192,27 +228,32 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           label="Historique"
           badge={versionCount || null}
         />
-        <ItemRow
-          active={selectedItem === 'memo_versions'}
-          onClick={() => onSelectItem('memo_versions')}
-          icon={GitCompareArrows}
-          label="Versions du memo"
-        />
+        {/* Versions du memo : visible dès qu'au moins 2 versions ont été créées (stage ≥ DD) */}
+        {isStageAtLeast(dealStage, 'dd') && (
+          <ItemRow
+            active={selectedItem === 'memo_versions'}
+            onClick={() => onSelectItem('memo_versions')}
+            icon={GitCompareArrows}
+            label="Versions du memo"
+          />
+        )}
 
         {/* ── LIVRABLES ── */}
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Livrables</div>
 
-        {/* Pré-screening 360° : dashboard visuel compact (toujours sur la version active) */}
-        <ItemRow
-          active={selectedItem === 'pre_screening'}
-          onClick={() => onSelectItem('pre_screening')}
-          icon={FileEdit}
-          label="Pré-screening 360°"
-          badge={memoProgress()}
-        />
+        {/* Pré-screening 360° : visible dès stage ≥ pre_screening */}
+        {isStageAtLeast(dealStage, 'pre_screening') && (
+          <ItemRow
+            active={selectedItem === 'pre_screening'}
+            onClick={() => onSelectItem('pre_screening')}
+            icon={FileEdit}
+            label="Pré-screening 360°"
+            badge={memoProgress()}
+          />
+        )}
 
-        {/* Memo d'investissement : UN SEUL document qui évolue (pre_screening → IC1 → IC finale) */}
-        {(() => {
+        {/* Memo d'investissement : visible dès stage ≥ note_ic1 */}
+        {isStageAtLeast(dealStage, 'note_ic1') && (() => {
           const isOpen = expanded;
           const stageBadge = memoStageBadge();
           const pending = memoPendingCount();
@@ -267,61 +308,84 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           );
         })()}
 
-        {/* Valuation : continuité du memo (avant DD) */}
-        <ItemRow
-          active={selectedItem === 'valuation'}
-          onClick={() => onSelectItem('valuation')}
-          icon={Calculator}
-          label="Valuation"
-        />
+        {/* Valuation : visible dès stage ≥ note_ic1 */}
+        {isStageAtLeast(dealStage, 'note_ic1') && (
+          <ItemRow
+            active={selectedItem === 'valuation'}
+            onClick={() => onSelectItem('valuation')}
+            icon={Calculator}
+            label="Valuation"
+          />
+        )}
 
-        {/* DD : zone à part (Module E) */}
-        <ItemRow
-          active={selectedItem === 'dd'}
-          onClick={() => onSelectItem('dd')}
-          icon={Search}
-          label="Due Diligence"
-        />
+        {/* DD : visible dès stage ≥ dd */}
+        {isStageAtLeast(dealStage, 'dd') && (
+          <ItemRow
+            active={selectedItem === 'dd'}
+            onClick={() => onSelectItem('dd')}
+            icon={Search}
+            label="Due Diligence"
+          />
+        )}
 
-        {/* Closing : term sheet + tranches de décaissement */}
-        <ItemRow
-          active={selectedItem === 'closing'}
-          onClick={() => onSelectItem('closing')}
-          icon={FileSignature}
-          label="Closing"
-        />
+        {/* ── PORTFOLIO MANAGEMENT (stage ≥ closing/portfolio + role IM/MD/admin/owner) ── */}
+        {(isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole)) && (
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">
+            Portefeuille
+          </div>
+        )}
 
-        {/* Plan 100 jours : actions post-closing */}
-        <ItemRow
-          active={selectedItem === 'plan_100j'}
-          onClick={() => onSelectItem('plan_100j')}
-          icon={Sparkles}
-          label="Plan 100 jours"
-        />
+        {/* Closing : visible dès stage ≥ closing, role IM/MD/admin/owner */}
+        {isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole) && (
+          <ItemRow
+            active={selectedItem === 'closing'}
+            onClick={() => onSelectItem('closing')}
+            icon={FileSignature}
+            label="Closing"
+          />
+        )}
 
-        {/* Monitoring trimestriel : pilotage en portfolio */}
-        <ItemRow
-          active={selectedItem === 'monitoring'}
-          onClick={() => onSelectItem('monitoring')}
-          icon={Activity}
-          label="Monitoring"
-        />
+        {/* Plan 100 jours : stage ≥ portfolio, role IM/MD/admin/owner */}
+        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
+          <ItemRow
+            active={selectedItem === 'plan_100j'}
+            onClick={() => onSelectItem('plan_100j')}
+            icon={Sparkles}
+            label="Plan 100 jours"
+          />
+        )}
 
-        {/* NAV history : valorisations périodiques (semestriel/annuel) */}
-        <ItemRow
-          active={selectedItem === 'valuation_history'}
-          onClick={() => onSelectItem('valuation_history')}
-          icon={History}
-          label="NAV History"
-        />
+        {/* Monitoring trimestriel : stage ≥ portfolio, role IM/MD/admin/owner */}
+        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
+          <ItemRow
+            active={selectedItem === 'monitoring'}
+            onClick={() => onSelectItem('monitoring')}
+            icon={Activity}
+            label="Monitoring"
+          />
+        )}
 
-        {/* Exit prep : préparation de la sortie (3-7 ans après closing) */}
-        <ItemRow
-          active={selectedItem === 'exit_prep'}
-          onClick={() => onSelectItem('exit_prep')}
-          icon={DoorOpen}
-          label="Exit & sortie"
-        />
+        {/* NAV history : stage ≥ portfolio, role IM/MD/admin/owner */}
+        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
+          <ItemRow
+            active={selectedItem === 'valuation_history'}
+            onClick={() => onSelectItem('valuation_history')}
+            icon={History}
+            label="NAV History"
+          />
+        )}
+
+        {/* Exit & sortie : stage ≥ exit_prep OU (portfolio ET >= 36 mois holding), role MD/admin/owner */}
+        {((isStageAtLeast(dealStage, 'exit_prep')) ||
+          (isStageAtLeast(dealStage, 'portfolio') && (holdingMonths ?? 0) >= 36)) &&
+          canSeeExit(userRole) && (
+          <ItemRow
+            active={selectedItem === 'exit_prep'}
+            onClick={() => onSelectItem('exit_prep')}
+            icon={DoorOpen}
+            label="Exit & sortie"
+          />
+        )}
 
       </nav>
     </div>

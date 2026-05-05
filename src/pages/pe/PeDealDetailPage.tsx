@@ -45,6 +45,7 @@ export default function PeDealDetailPage() {
   const [saving, setSaving] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string>('overview');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [holdingMonths, setHoldingMonths] = useState<number>(0);
   const [form, setForm] = useState({
     ticket_demande: '', currency: 'EUR', source: 'autre', source_detail: '', lead_analyst_id: '',
   });
@@ -63,6 +64,20 @@ export default function PeDealDetailPage() {
       leadName = p?.full_name || p?.email || null;
     }
     setDeal({ ...d, enterprise_name: (d.enterprises as any)?.name ?? null, lead_analyst_name: leadName });
+
+    // Calcul holding months depuis term sheet (utile pour révéler "Exit & sortie" si > 36 mois)
+    const { data: ts } = await supabase
+      .from('pe_term_sheets')
+      .select('signed_at')
+      .eq('deal_id', d.id)
+      .maybeSingle();
+    if (ts?.signed_at) {
+      const start = new Date(ts.signed_at);
+      const months = Math.round((Date.now() - start.getTime()) / (30 * 24 * 60 * 60 * 1000));
+      setHoldingMonths(months);
+    } else {
+      setHoldingMonths(0);
+    }
     setForm({
       ticket_demande: d.ticket_demande != null ? String(d.ticket_demande / 1_000_000) : '',
       currency: d.currency || 'EUR',
@@ -244,6 +259,9 @@ export default function PeDealDetailPage() {
               dealId={deal.id}
               selectedItem={selectedItem}
               onSelectItem={setSelectedItem}
+              dealStage={deal.stage}
+              userRole={isSuperAdmin ? 'super_admin' : orgRole}
+              holdingMonths={holdingMonths}
             />
           </div>
           <div className="flex-1 min-w-0 overflow-y-auto">
