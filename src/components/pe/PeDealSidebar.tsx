@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   ChevronDown, ChevronRight, Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
-  Send, AlertCircle, Calculator, ZoomIn,
+  Send, AlertCircle, Calculator, ZoomIn, FileSignature,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -281,6 +281,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem }: Pr
           onClick={() => onSelectItem('dd')}
           icon={Search}
           label="Due Diligence"
+        />
+
+        {/* Closing : term sheet + tranches de décaissement */}
+        <ItemRow
+          active={selectedItem === 'closing'}
+          onClick={() => onSelectItem('closing')}
+          icon={FileSignature}
+          label="Closing"
         />
 
       </nav>

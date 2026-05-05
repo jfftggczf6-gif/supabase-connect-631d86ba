@@ -24,6 +24,7 @@ import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
 import DueDiligenceSection from '@/components/pe/DueDiligenceSection';
 import PeValuationView from '@/components/pe/PeValuationView';
 import MemoVersionsView from '@/components/pe/MemoVersionsView';
+import ClosingSection from '@/components/pe/ClosingSection';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -192,6 +193,9 @@ export default function PeDealDetailPage() {
     }
     if (selectedItem === 'dd') {
       return currentOrg ? <DueDiligenceSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
+    }
+    if (selectedItem === 'closing') {
+      return currentOrg ? <ClosingSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
     }
     // Versions du memo (live + snapshots) avec vue comparatif
     if (selectedItem === 'memo_versions') {
