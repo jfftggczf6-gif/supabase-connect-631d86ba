@@ -217,6 +217,24 @@ serve(async (req: Request) => {
         .eq("id", cand.id);
       if (updErr) return jsonRes({ error: updErr.message }, 500);
 
+      // Relance l'auto-screening (Railway parse + IA ré-analyse avec les docs maintenant
+      // disponibles). On le fait via un appel à submit-candidature action=update_documents
+      // qui sait déjà gérer le re-screen en background.
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/submit-candidature`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': Deno.env.get("SUPABASE_ANON_KEY")!,
+          },
+          body: JSON.stringify({
+            action: 'update_documents',
+            candidature_id: cand.id,
+            documents: newDocuments,
+          }),
+        }).catch(() => {}); // non-bloquant : si le re-screen échoue, le user voit quand même son rattrapage validé
+      } catch (_) { /* non-bloquant */ }
+
       return jsonRes({ success: true });
     }
 
