@@ -187,13 +187,7 @@ export default function CandidatureRecovery() {
               <h1 className="text-xl font-semibold">Renvoi de tes pièces justificatives</h1>
             </div>
             <p className="text-sm text-muted-foreground">
-              Bonjour <strong>{info?.contact_name ?? info?.company_name}</strong>, suite à un souci
-              technique lors de ta candidature{info?.programme_name && ` à "${info.programme_name}"`},
-              tes pièces justificatives n'ont pas été correctement enregistrées.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Merci de bien vouloir les renvoyer ci-dessous (mêmes fichiers qu'à la première soumission).
-              Ta candidature elle-même est intacte — seuls les fichiers manquent.
+              Merci de renvoyer les pièces justificatives ci-dessous.
             </p>
             {info?.expires_at && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
