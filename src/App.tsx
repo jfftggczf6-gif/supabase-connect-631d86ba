@@ -12,6 +12,7 @@ import OrganizationsPage from "./pages/admin/OrganizationsPage";
 import OrganizationDetailPage from "./pages/admin/OrganizationDetailPage";
 import MeteringDashboard from "./pages/admin/MeteringDashboard";
 import CandidatureRecoveryAdminPage from "./pages/admin/CandidatureRecoveryAdminPage";
+import AddEntrepreneurAdminPage from "./pages/admin/AddEntrepreneurAdminPage";
 import CandidatureRecovery from "./pages/CandidatureRecovery";
 import MembersPage from "./pages/org/MembersPage";
 import InvitationAcceptPage from "./pages/InvitationAcceptPage";
@@ -95,6 +96,7 @@ const App = () => (
             <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/candidature-recovery" element={<ProtectedRoute><RequireSuperAdmin><CandidatureRecoveryAdminPage /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/admin/add-entrepreneur" element={<ProtectedRoute><RequireSuperAdmin><AddEntrepreneurAdminPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><MembersPage /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
