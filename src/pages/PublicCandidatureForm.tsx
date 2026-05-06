@@ -73,34 +73,51 @@ export default function PublicCandidatureForm() {
 
       const candidatureId = data.candidature_id;
 
-      // 2. Upload files to Supabase Storage. On capture chaque erreur — si UN
-      // SEUL upload échoue, on bloque la soumission (sinon les fichiers manquants
-      // sont silencieusement perdus comme cas FoodSen).
+      // 2. Upload files via signed URLs (RLS storage anon est bloquée — cas
+      // FoodSen 2026-05-06). On demande une signed URL à l'edge fn pour chaque
+      // fichier puis on PUT directement dessus. On capture chaque erreur — si UN
+      // SEUL upload échoue, on bloque la soumission.
       if (Object.keys(fileUploads).length > 0) {
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
         const docsMeta: any[] = [];
         const failedUploads: string[] = [];
 
         for (const [fieldLabel, filesOrFile] of Object.entries(fileUploads)) {
           const fileList = Array.isArray(filesOrFile) ? filesOrFile : [filesOrFile];
           for (const file of fileList) {
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const storagePath = `${candidatureId}/${Date.now()}_${safeName}`;
-            const { error: uploadErr } = await supabaseClient.storage
-              .from('candidature-documents')
-              .upload(storagePath, file, { upsert: true });
-            if (uploadErr) {
-              console.error(`[PublicCandidatureForm] upload failed for ${file.name}:`, uploadErr.message);
+            // 2a. Demande signed URL à l'edge fn
+            const urlRes = await fetch(`${SUPABASE_URL}/functions/v1/submit-candidature`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+              body: JSON.stringify({
+                action: 'get_upload_url',
+                candidature_id: candidatureId,
+                filename: file.name,
+              }),
+            });
+            const urlData = await urlRes.json();
+            if (!urlRes.ok || !urlData.signed_url) {
+              console.error(`[PublicCandidatureForm] no signed URL for ${file.name}:`, urlData.error);
               failedUploads.push(file.name);
               continue;
             }
+
+            // 2b. Upload via PUT direct
+            const putRes = await fetch(urlData.signed_url, {
+              method: 'PUT',
+              headers: { 'Content-Type': file.type || 'application/octet-stream' },
+              body: file,
+            });
+            if (!putRes.ok) {
+              console.error(`[PublicCandidatureForm] PUT failed for ${file.name}:`, putRes.status);
+              failedUploads.push(file.name);
+              continue;
+            }
+
             docsMeta.push({
               field_label: fieldLabel,
               file_name: file.name,
               file_size: file.size,
-              storage_path: `candidature-documents/${storagePath}`,
+              storage_path: urlData.storage_path,
             });
           }
         }

@@ -273,6 +273,33 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // Handle signed upload URL request — used by PublicCandidatureForm to upload
+    // files via PUT on signed URL (bypass RLS). Sécurité : on vérifie que la
+    // candidature existe et n'est pas déjà acceptée/rejetée.
+    if (body.action === 'get_upload_url' && body.candidature_id && body.filename) {
+      const { data: cand } = await supabase
+        .from("candidatures")
+        .select("id, status")
+        .eq("id", body.candidature_id)
+        .maybeSingle();
+      if (!cand) return jsonRes({ error: "Candidature introuvable" }, 404);
+      if (cand.status && !['received', 'pre_selected'].includes(cand.status)) {
+        return jsonRes({ error: "Cette candidature n'accepte plus de fichiers" }, 400);
+      }
+      const safeName = String(body.filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${cand.id}/${Date.now()}_${safeName}`;
+      const { data: signed, error: signErr } = await supabase.storage
+        .from('candidature-documents')
+        .createSignedUploadUrl(storagePath);
+      if (signErr || !signed) return jsonRes({ error: signErr?.message || "Impossible de créer le lien d'upload" }, 500);
+      return jsonRes({
+        success: true,
+        signed_url: signed.signedUrl,
+        path: storagePath,
+        storage_path: `candidature-documents/${storagePath}`,
+      });
+    }
+
     // Handle document update (after initial submission) — re-trigger screening with docs
     if (body.action === 'update_documents' && body.candidature_id) {
       await supabase.from("candidatures").update({
