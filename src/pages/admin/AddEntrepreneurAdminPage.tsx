@@ -106,7 +106,9 @@ export default function AddEntrepreneurAdminPage() {
     setSubmitting(true);
 
     try {
-      // 1. Crée l'enterprise
+      // 1. Crée l'enterprise — user_id = admin courant (propriétaire temporaire,
+      // sera updaté à l'entrepreneur par accept-invitation à l'acceptation du lien).
+      // Pattern identique à Coach et Chef de programme (RLS exige user_id non null).
       const { data: { user } } = await supabase.auth.getUser();
       const { data: ent, error } = await supabase
         .from('enterprises' as any)
@@ -117,7 +119,7 @@ export default function AddEntrepreneurAdminPage() {
           contact_email: email.trim() || null,
           contact_name: name.trim(),
           organization_id: orgId,
-          user_id: null, // sera updaté par accept-invitation
+          user_id: user?.id || null,
           phase: 'identite',
         })
         .select('id, name')
