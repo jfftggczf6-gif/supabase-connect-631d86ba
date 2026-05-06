@@ -80,13 +80,16 @@ serve(async (req) => {
     const orgRole = userOrg?.role;
 
     // Mapping rôle legacy + rôle d'org → capacités
-    // owner/admin/manager = équivalent chef_programme (peuvent créer/gérer programmes)
+    // owner/admin/manager + managing_director/investment_manager (PE) = équivalent chef_programme
+    //   (peuvent créer/gérer programmes ou appels à candidatures pour leur fonds)
     // analyst/coach = équivalent coach (lecture seule filtrée)
     const isChefProg =
       userRole === "chef_programme" ||
       orgRole === "owner" ||
       orgRole === "admin" ||
-      orgRole === "manager";
+      orgRole === "manager" ||
+      orgRole === "managing_director" ||
+      orgRole === "investment_manager";
     const isCoach =
       userRole === "coach" ||
       orgRole === "coach" ||
@@ -95,11 +98,14 @@ serve(async (req) => {
     // Helper : l'utilisateur peut-il gérer (update/publish/delete) un programme donné ?
     // Règles:
     // - super_admin : tout
-    // - owner/admin : tous les programmes de leur org
-    // - manager/chef_programme : uniquement leurs propres programmes
+    // - owner/admin/managing_director : tous les programmes de leur org
+    // - manager/investment_manager/chef_programme : uniquement leurs propres programmes
     const canManage = (prog: { chef_programme_id?: string | null; organization_id?: string | null }) => {
       if (isAdmin) return true;
-      if ((orgRole === "owner" || orgRole === "admin") && userOrgId && prog.organization_id === userOrgId) return true;
+      if (
+        (orgRole === "owner" || orgRole === "admin" || orgRole === "managing_director")
+        && userOrgId && prog.organization_id === userOrgId
+      ) return true;
       if (isChefProg && prog.chef_programme_id === user.id) return true;
       return false;
     };
@@ -207,11 +213,11 @@ serve(async (req) => {
         query = query.eq("organization_id", userOrgId);
       }
 
-      // owner/admin de l'org → voient TOUS les programmes de l'org (pas de filtre supplémentaire)
-      if (orgRole === "owner" || orgRole === "admin") {
+      // owner/admin/managing_director de l'org → voient TOUS les programmes de l'org
+      if (orgRole === "owner" || orgRole === "admin" || orgRole === "managing_director") {
         // pas de filtre additionnel, déjà filtré par organization_id
       } else if (isChefProg) {
-        // manager / chef_programme legacy → filtre par leurs programmes
+        // manager / investment_manager / chef_programme legacy → filtre par leurs programmes
         query = query.or(`chef_programme_id.eq.${user.id},created_by.eq.${user.id}`);
       } else if (isCoach) {
         query = query.in("status", ["open", "in_progress", "completed"]);

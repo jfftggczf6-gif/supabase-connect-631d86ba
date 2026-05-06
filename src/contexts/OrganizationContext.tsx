@@ -82,10 +82,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           role: d.role,
         }));
 
-      // Tri par priorité de rôle : owner > admin > manager > coach > analyst > entrepreneur
+      // Tri par priorité de rôle : owner > admin > MD > manager > IM > coach > analyst > entrepreneur
       // => si l'utilisateur a plusieurs memberships, on privilégie le rôle avec le plus de droits
       const rolePriority: Record<string, number> = {
-        owner: 0, admin: 1, manager: 2, coach: 3, analyst: 4, entrepreneur: 5,
+        owner: 0, admin: 1, managing_director: 2, manager: 3,
+        investment_manager: 4, coach: 5, analyst: 6, entrepreneur: 7,
       };
       parsed.sort((a, b) => (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99));
 

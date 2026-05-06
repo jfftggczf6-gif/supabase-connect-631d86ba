@@ -82,8 +82,8 @@ export default function PeTeamPage() {
 
   return (
     <DashboardLayout title="Équipe PE" subtitle={currentOrg?.name || ''}>
-      <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/pe/pipeline')}>
-        ← Retour au pipeline
+      <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate('/pe')}>
+        ← Retour au workspace
       </Button>
 
       <div className="flex items-center justify-between mb-4">

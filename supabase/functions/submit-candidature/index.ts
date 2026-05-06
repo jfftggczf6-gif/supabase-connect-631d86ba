@@ -308,18 +308,28 @@ serve(async (req) => {
     if (!company_name) return jsonRes({ error: "company_name requis" }, 400);
     if (!contact_email) return jsonRes({ error: "contact_email requis" }, 400);
 
-    // Find programme by slug
+    // Find programme by slug + type org pour brancher auto-création deal PE
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, status, end_date, name, organization_id")
+      .select("id, status, start_date, end_date, name, organization_id, organizations:organization_id(type)")
       .eq("form_slug", programme_slug)
       .single();
 
     if (progErr || !prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-    if (prog.status !== "open") return jsonRes({ error: "Ce programme n'accepte plus de candidatures" }, 400);
 
-    // Check end_date
-    if (prog.end_date && new Date(prog.end_date) < new Date()) {
+    // Statut dérivé des dates (cohérent avec la logique côté front).
+    // brouillon (pas de dates) → fermé. Avant date début → pas encore ouvert.
+    // Après date fin → fermé.
+    const now = new Date();
+    if (!prog.start_date || !prog.end_date) {
+      return jsonRes({ error: "Ce formulaire n'est pas encore prêt à recevoir des candidatures" }, 400);
+    }
+    if (new Date(prog.start_date) > now) {
+      return jsonRes({
+        error: `Les candidatures ne sont pas encore ouvertes. Ouverture le ${new Date(prog.start_date).toLocaleDateString('fr-FR')}.`,
+      }, 400);
+    }
+    if (new Date(prog.end_date + 'T23:59:59') < now) {
       return jsonRes({ error: "La date limite de candidature est dépassée" }, 400);
     }
 
@@ -362,6 +372,75 @@ serve(async (req) => {
     }
 
     console.log(`[submit-candidature] ✅ ${company_name} → ${prog.name} (${candidature.id})`);
+
+    // ─── Si org type=pe : auto-création enterprise + pe_deal en pré-screening ───
+    // Le formulaire d'appel à candidatures alimente directement le pipeline PE.
+    const orgType = (prog as any).organizations?.type;
+    if (orgType === 'pe' && prog.organization_id) {
+      try {
+        // 1. Insert ou récupère enterprise (par nom + org)
+        let enterpriseId: string | null = null;
+        const { data: existingEnt } = await supabase
+          .from('enterprises')
+          .select('id')
+          .eq('name', company_name)
+          .eq('organization_id', prog.organization_id)
+          .maybeSingle();
+
+        if (existingEnt) {
+          enterpriseId = existingEnt.id;
+        } else {
+          const { data: newEnt, error: entErr } = await supabase
+            .from('enterprises')
+            .insert({
+              name: company_name,
+              organization_id: prog.organization_id,
+              user_id: null, // pas de compte user à ce stade (lead non validé)
+              contact_email: contact_email,
+              contact_name: contact_name || null,
+              contact_phone: contact_phone || null,
+              sector: form_data?.sector || form_data?.secteur || null,
+              country: form_data?.country || form_data?.pays || null,
+              city: form_data?.city || form_data?.ville || null,
+            })
+            .select('id')
+            .single();
+          if (entErr) {
+            console.error('[submit-candidature] enterprise insert error:', entErr.message);
+          } else {
+            enterpriseId = newEnt.id;
+          }
+        }
+
+        // 2. Lier la candidature à l'enterprise
+        if (enterpriseId) {
+          await supabase
+            .from('candidatures')
+            .update({ enterprise_id: enterpriseId })
+            .eq('id', candidature.id);
+
+          // 3. Créer pe_deal en pre_screening (deal_ref auto-généré par trigger)
+          const { error: dealErr } = await supabase
+            .from('pe_deals')
+            .insert({
+              deal_ref: '',
+              organization_id: prog.organization_id,
+              enterprise_id: enterpriseId,
+              stage: 'pre_screening',
+              source: 'appel_candidatures',
+              source_detail: prog.name,
+            });
+          if (dealErr) {
+            console.error('[submit-candidature] pe_deal insert error:', dealErr.message);
+          } else {
+            console.log(`[submit-candidature] ✅ pe_deal créé en pre_screening pour ${company_name}`);
+          }
+        }
+      } catch (e: any) {
+        // On ne bloque pas la candidature si la création deal échoue, juste on log
+        console.error('[submit-candidature] auto-create pe_deal failed:', e.message);
+      }
+    }
 
     // Auto-screen in background
     // @ts-ignore

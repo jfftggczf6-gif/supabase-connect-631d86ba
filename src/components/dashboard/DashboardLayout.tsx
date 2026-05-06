@@ -130,10 +130,10 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/pe/') || location.pathname === '/dashboard') && 'bg-muted')}
-                onClick={() => navigate('/pe/pipeline')}
+                className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/pe') || location.pathname === '/dashboard') && 'bg-muted')}
+                onClick={() => navigate('/pe')}
               >
-                <ClipboardList className="h-4 w-4" /> Pipeline PE
+                <ClipboardList className="h-4 w-4" /> Workspace PE
               </Button>
             )}
             {showPipelineBanque && (

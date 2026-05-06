@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
-  ChevronDown, ChevronRight, Home, FolderOpen, History,
+  Home, FolderOpen, History,
   CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
   Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, DoorOpen,
 } from 'lucide-react';
@@ -89,7 +89,6 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
   const [activeVersion, setActiveVersion] = useState<ActiveMemoVersion | null>(null);
   const [docCount, setDocCount] = useState(0);
   const [versionCount, setVersionCount] = useState(0);
-  const [expanded, setExpanded] = useState<boolean>(true);
 
   const reload = async () => {
     const { data: memo } = await supabase
@@ -170,28 +169,45 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
     return STAGE_BADGE_LABELS[activeVersion.stage] ?? activeVersion.stage;
   };
 
+  // ItemRow aligné sur le pattern DashboardSidebar (programme/banque) :
+  // border-l-2 transparent, active = bg-primary/10 + text-primary + border-l-primary
   const ItemRow = ({
-    active, onClick, icon: Icon, label, badge, disabled, rightExtra,
-  }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string | number | null; disabled?: boolean; rightExtra?: React.ReactNode }) => (
+    active, onClick, icon: Icon, label, badge, disabled, rightExtra, status,
+  }: {
+    active: boolean;
+    onClick: () => void;
+    icon: any;
+    label: string;
+    badge?: string | number | null;
+    disabled?: boolean;
+    rightExtra?: React.ReactNode;
+    /** Statut module type programme : completed = check vert, in_progress = loader, sinon cercle vide */
+    status?: 'completed' | 'in_progress' | 'not_started';
+  }) => (
     <button
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
-        active ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+        'w-full flex items-center gap-2.5 px-4 py-1.5 text-left text-xs transition-colors border-l-2',
+        active
+          ? 'bg-primary/10 text-primary font-medium border-l-primary'
+          : 'border-l-transparent hover:bg-muted/50 ' + (status === 'completed' ? 'text-foreground' : 'text-muted-foreground'),
         disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent',
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {badge != null && badge !== '' && (
-          <span className="text-[10px] text-muted-foreground">{badge}</span>
-        )}
-        {rightExtra}
-      </div>
+      <Icon className="h-4 w-4 flex-none" />
+      <span className="flex-1 text-left truncate">{label}</span>
+      {badge != null && badge !== '' && (
+        <span className="text-[10px] text-muted-foreground/70 flex-none">{badge}</span>
+      )}
+      {rightExtra}
+      {status === 'completed' ? (
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-none" />
+      ) : status === 'in_progress' ? (
+        <Loader2 className="h-3.5 w-3.5 text-primary animate-spin flex-none" />
+      ) : status === 'not_started' ? (
+        <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 flex-none" />
+      ) : null}
     </button>
   );
 
@@ -207,7 +223,9 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
         />
 
         {/* ── DONNÉES ── */}
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Données</div>
+        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
+          <span className="flex-1 text-left">Données</span>
+        </div>
         <ItemRow
           active={selectedItem === 'documents'}
           onClick={() => onSelectItem('documents')}
@@ -239,7 +257,9 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
         )}
 
         {/* ── LIVRABLES ── */}
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">Livrables</div>
+        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
+          <span className="flex-1 text-left">Livrables</span>
+        </div>
 
         {/* Pré-screening 360° : visible dès stage ≥ pre_screening */}
         {isStageAtLeast(dealStage, 'pre_screening') && (
@@ -252,58 +272,57 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           />
         )}
 
-        {/* Memo d'investissement : visible dès stage ≥ note_ic1 */}
+        {/* Memo d'investissement : visible dès stage ≥ note_ic1
+            FIXE — toujours déplié (pas de collapse), aligné sur le pattern programme */}
         {isStageAtLeast(dealStage, 'note_ic1') && (() => {
-          const isOpen = expanded;
           const stageBadge = memoStageBadge();
           const pending = memoPendingCount();
           return (
             <div>
               <button
-                onClick={() => {
-                  setExpanded(e => !e);
-                  onSelectItem('memo');
-                }}
+                onClick={() => onSelectItem('memo')}
                 className={cn(
-                  'w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md transition-colors',
-                  selectedItem === 'memo' ? 'bg-muted font-medium' : 'hover:bg-muted/50',
+                  'w-full flex items-center gap-2.5 px-4 py-1.5 text-left text-xs transition-colors border-l-2',
+                  selectedItem === 'memo'
+                    ? 'bg-primary/10 text-primary font-medium border-l-primary'
+                    : 'border-l-transparent hover:bg-muted/50 text-foreground',
                 )}
               >
-                {isOpen ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-                <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ShieldCheck className="h-4 w-4 flex-none" />
                 <span className="flex-1 truncate">Memo d'investissement</span>
                 {stageBadge && (
-                  <span className="text-[10px] px-1.5 rounded font-medium" style={{ background: 'var(--pe-bg-purple)', color: 'var(--pe-purple)' }}>
+                  <span className="text-[10px] px-1.5 rounded font-medium bg-violet-50 text-violet-700">
                     {stageBadge}
                   </span>
                 )}
                 {pending > 0 && (
-                  <span className="text-[10px] px-1 rounded font-medium" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>{pending} ⏳</span>
+                  <span className="text-[10px] px-1 rounded font-medium bg-blue-50 text-blue-700">{pending} ⏳</span>
                 )}
                 {memoProgress() && (
-                  <span className="text-[10px] text-muted-foreground">{memoProgress()}</span>
+                  <span className="text-[10px] text-muted-foreground/70">{memoProgress()}</span>
                 )}
               </button>
-              {isOpen && (
-                <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
-                  {SECTIONS.map((s) => {
-                    const itemKey = `memo:${s.code}`;
-                    return (
-                      <button
-                        key={s.code}
-                        onClick={() => onSelectItem(itemKey)}
-                        className={cn(
-                          'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
-                          selectedItem === itemKey ? 'bg-muted font-medium' : 'hover:bg-muted/50',
-                        )}
-                      >
-                        <span className="truncate">{s.label}</span>
-                        {sectionStatusIcon(s.code)}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              {/* Sections — toujours visibles (pas de collapse) */}
+              <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
+                {SECTIONS.map((s) => {
+                  const itemKey = `memo:${s.code}`;
+                  return (
+                    <button
+                      key={s.code}
+                      onClick={() => onSelectItem(itemKey)}
+                      className={cn(
+                        'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
+                        selectedItem === itemKey
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'hover:bg-muted/50 text-muted-foreground',
+                      )}
+                    >
+                      <span className="truncate">{s.label}</span>
+                      {sectionStatusIcon(s.code)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })()}
@@ -330,8 +349,8 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
 
         {/* ── PORTFOLIO MANAGEMENT (stage ≥ closing/portfolio + role IM/MD/admin/owner) ── */}
         {(isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole)) && (
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-3 mb-1 px-3">
-            Portefeuille
+          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
+            <span className="flex-1 text-left">Portefeuille</span>
           </div>
         )}
 

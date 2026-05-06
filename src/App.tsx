@@ -34,6 +34,8 @@ import Settings from "./pages/Settings";
 import KnowledgePage from "./pages/KnowledgePage";
 import KnowledgeReviewPage from "./pages/admin/KnowledgeReviewPage";
 import PeRequireType from "./components/pe/PeRequireType";
+import PeWorkspacePage from "./pages/pe/PeWorkspacePage";
+import PeCandidatureFormEditorPage from "./pages/pe/PeCandidatureFormEditorPage";
 import PePipelinePage from "./pages/pe/PePipelinePage";
 import PeDealDetailPage from "./pages/pe/PeDealDetailPage";
 import PeTeamPage from "./pages/pe/PeTeamPage";
@@ -65,16 +67,22 @@ const App = () => (
               <ProtectedRoute><Dashboard /></ProtectedRoute>
             } />
             <Route path="/programmes" element={
-              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeListPage /></RequireRole></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'managing_director', 'investment_manager']}><ProgrammeListPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/new" element={
-              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeCreatePage /></RequireRole></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'managing_director', 'investment_manager']}><ProgrammeCreatePage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id" element={
-              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'managing_director', 'investment_manager']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
+            } />
+            <Route path="/pe" element={
+              <ProtectedRoute><PeRequireType><PeWorkspacePage /></PeRequireType></ProtectedRoute>
+            } />
+            <Route path="/pe/candidature/:programmeId/edit" element={
+              <ProtectedRoute><PeRequireType><PeCandidatureFormEditorPage /></PeRequireType></ProtectedRoute>
             } />
             <Route path="/pe/pipeline" element={
               <ProtectedRoute><PeRequireType><PePipelinePage /></PeRequireType></ProtectedRoute>

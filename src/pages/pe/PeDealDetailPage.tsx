@@ -144,7 +144,7 @@ export default function PeDealDetailPage() {
     });
     if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message); return; }
     toast.success('Deal marqué comme perdu');
-    navigate('/pe/pipeline');
+    navigate('/pe');
   };
 
   if (loading) return <DashboardLayout title="Deal"><div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div></DashboardLayout>;
@@ -242,8 +242,8 @@ export default function PeDealDetailPage() {
         {/* Action bar : back + stage + settings (fixe au-dessus du workspace) */}
         <div className="flex-none px-6 py-2 border-b bg-card/30 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe/pipeline')}>
-              <ArrowLeft className="h-4 w-4" /> Retour au pipeline
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe')}>
+              <ArrowLeft className="h-4 w-4" /> Retour au workspace
             </Button>
             <PeDealStatusBadge stage={deal.stage} />
             {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}

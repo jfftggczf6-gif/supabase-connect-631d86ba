@@ -12,12 +12,14 @@ const INVITE_PERMISSIONS: Record<string, string[]> = {
   owner: [
     'admin', 'manager',
     'analyst', 'coach', 'entrepreneur',
+    'managing_director', 'investment_manager',
     'directeur_pme', 'direction_pme', 'directeur_agence',
     'analyste_credit', 'conseiller_pme', 'partner',
   ],
   admin: [
     'admin', 'manager',
     'analyst', 'coach', 'entrepreneur',
+    'managing_director', 'investment_manager',
     'directeur_pme', 'direction_pme', 'directeur_agence',
     'analyste_credit', 'conseiller_pme', 'partner',
   ],
@@ -26,6 +28,9 @@ const INVITE_PERMISSIONS: Record<string, string[]> = {
     'directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner',
   ],
   coach: ['entrepreneur'],
+  // PE hierarchy
+  managing_director:  ['investment_manager', 'analyst'],
+  investment_manager: ['analyst'],
   // Banque hierarchy
   directeur_pme:    ['directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'],
   direction_pme:    ['directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'],
@@ -52,7 +57,7 @@ serve(async (req: Request) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
-    const { email, role, organization_id, personal_message, enterprise_id } = await req.json();
+    const { email, role, organization_id, personal_message, enterprise_id, full_name, responsable_user_id } = await req.json();
     if (!email || !role || !organization_id) {
       return new Response(JSON.stringify({ error: "email, role, organization_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -153,6 +158,8 @@ serve(async (req: Request) => {
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           role,
           enterprise_id: enterprise_id ?? null,
+          full_name: full_name ?? null,
+          responsable_user_id: responsable_user_id ?? null,
         })
         .eq("id", existing.id)
         .select()
@@ -162,7 +169,12 @@ serve(async (req: Request) => {
     } else {
       const { data, error } = await adminClient
         .from("organization_invitations")
-        .insert({ organization_id, email, role, invited_by: user.id, personal_message, enterprise_id: enterprise_id ?? null })
+        .insert({
+          organization_id, email, role, invited_by: user.id,
+          personal_message, enterprise_id: enterprise_id ?? null,
+          full_name: full_name ?? null,
+          responsable_user_id: responsable_user_id ?? null,
+        })
         .select()
         .single();
       if (error) throw error;

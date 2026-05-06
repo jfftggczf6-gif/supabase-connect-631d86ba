@@ -64,7 +64,7 @@ export default function Dashboard() {
   // Org PE → pipeline kanban (sauf entrepreneur)
   if (currentOrg.type === 'pe') {
     if (orgRole === 'entrepreneur') return <EntrepreneurDashboard />;
-    return <Navigate to="/pe/pipeline" replace />;
+    return <Navigate to="/pe" replace />;
   }
 
   // Org Banque / Banque d'affaires → pipeline crédit
