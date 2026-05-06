@@ -663,10 +663,27 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <p className="font-medium truncate">{doc.file_name}</p>
                               <p className="text-muted-foreground">{doc.field_label} — {Math.round((doc.file_size || 0) / 1024)} KB</p>
                             </div>
-                            <Button size="sm" variant="ghost" className="h-6 text-xs shrink-0" onClick={() => {
+                            <Button size="sm" variant="ghost" className="h-6 text-xs shrink-0" onClick={async () => {
+                              // Bucket candidature-documents = privé en prod. On génère une URL signée
+                              // (valide 5 min) plutôt qu'une URL publique qui renverrait 404.
                               const path = (doc.storage_path || '').replace('candidature-documents/', '');
-                              const { data: d } = supabase.storage.from('candidature-documents').getPublicUrl(path);
-                              window.open(d.publicUrl, '_blank');
+                              const { data: signed, error } = await supabase.storage
+                                .from('candidature-documents')
+                                .createSignedUrl(path, 300, { download: doc.file_name });
+                              if (error || !signed?.signedUrl) {
+                                toast({
+                                  title: 'Téléchargement impossible',
+                                  description: error?.message || 'Lien introuvable',
+                                  variant: 'destructive',
+                                });
+                                return;
+                              }
+                              const a = document.createElement('a');
+                              a.href = signed.signedUrl;
+                              a.download = doc.file_name;
+                              a.target = '_blank';
+                              a.rel = 'noopener';
+                              a.click();
                             }}>
                               <Download className="h-3.5 w-3.5" />
                             </Button>
