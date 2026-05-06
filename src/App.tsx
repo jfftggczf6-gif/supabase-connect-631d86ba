@@ -11,6 +11,8 @@ import RequireRole from "@/components/guards/RequireRole";
 import OrganizationsPage from "./pages/admin/OrganizationsPage";
 import OrganizationDetailPage from "./pages/admin/OrganizationDetailPage";
 import MeteringDashboard from "./pages/admin/MeteringDashboard";
+import CandidatureRecoveryAdminPage from "./pages/admin/CandidatureRecoveryAdminPage";
+import CandidatureRecovery from "./pages/CandidatureRecovery";
 import MembersPage from "./pages/org/MembersPage";
 import InvitationAcceptPage from "./pages/InvitationAcceptPage";
 import Index from "./pages/Index";
@@ -74,6 +76,7 @@ const App = () => (
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
             } />
             <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
+            <Route path="/candidature/recovery/:token" element={<CandidatureRecovery />} />
             <Route path="/livrables" element={
               <ProtectedRoute><Livrables /></ProtectedRoute>
             } />
@@ -91,6 +94,7 @@ const App = () => (
             <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/admin/candidature-recovery" element={<ProtectedRoute><RequireSuperAdmin><CandidatureRecoveryAdminPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><MembersPage /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

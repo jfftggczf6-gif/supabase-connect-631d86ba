@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen } from 'lucide-react';
+import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen, KeyRound } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -101,6 +101,9 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => navigate('/admin/knowledge-review')} className="gap-2 text-xs">
                         <BookOpen className="h-3.5 w-3.5" /> Validation KB
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/admin/candidature-recovery')} className="gap-2 text-xs">
+                        <KeyRound className="h-3.5 w-3.5" /> Liens rattrapage candidatures
                       </DropdownMenuItem>
                     </>
                   )}
