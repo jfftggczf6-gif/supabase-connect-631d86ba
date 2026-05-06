@@ -70,9 +70,6 @@ export default function CandidatureRecovery() {
     setError(null);
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
       const newDocuments: any[] = [];
       const failedUploads: string[] = [];
 
@@ -81,20 +78,34 @@ export default function CandidatureRecovery() {
         const file = files[key];
         if (!file) continue;
 
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storagePath = `${info.candidature_id}/${Date.now()}_${safeName}`;
-        const { error: upErr } = await supabaseClient.storage
-          .from('candidature-documents')
-          .upload(storagePath, file, { upsert: true });
-        if (upErr) {
+        // 1. Demande à l'edge fn une signed upload URL pour ce fichier
+        const urlRes = await fetch(`${SUPABASE_URL}/functions/v1/candidature-recovery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+          body: JSON.stringify({ action: 'upload_url', token, filename: file.name }),
+        });
+        const urlData = await urlRes.json();
+        if (!urlRes.ok || !urlData.signed_url) {
           failedUploads.push(file.name);
           continue;
         }
+
+        // 2. Upload directement via PUT sur l'URL signée (bypass RLS)
+        const putRes = await fetch(urlData.signed_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+        if (!putRes.ok) {
+          failedUploads.push(file.name);
+          continue;
+        }
+
         newDocuments.push({
           field_label: expected.field_label,
           file_name: file.name,
           file_size: file.size,
-          storage_path: `candidature-documents/${storagePath}`,
+          storage_path: urlData.storage_path,
         });
       }
 

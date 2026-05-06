@@ -2,11 +2,12 @@
 // dont les fichiers ont été perdus (cas FoodSen — uploads échoués silencieusement).
 //
 // Actions :
-//   - "generate" : super_admin uniquement. Crée un token + 7j d'expiration. Renvoie l'URL.
-//   - "info"     : public. Vérifie le token et renvoie les infos minimales (nom entreprise, liste des
-//                  fichiers attendus avec field_label) pour que le candidat sache quoi re-uploader.
-//   - "submit"   : public. Reçoit la liste des nouveaux storage_paths et met à jour documents[].
-//                  Marque le token comme utilisé (recovery_used_at).
+//   - "generate"     : super_admin uniquement. Crée un token + 7j d'expiration. Renvoie l'URL.
+//   - "info"         : public. Vérifie le token et renvoie les infos minimales.
+//   - "upload_url"   : public + token. Crée une signed upload URL pour un fichier donné.
+//                      Évite d'avoir à autoriser les uploads anon directs (RLS bypass via service_role).
+//   - "submit"       : public. Reçoit la liste des nouveaux storage_paths et met à jour documents[].
+//                      Marque le token comme utilisé (recovery_used_at).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -123,6 +124,52 @@ serve(async (req: Request) => {
         programme_name: (cand.programmes as any)?.name || null,
         expected_files: expectedFiles,
         expires_at: cand.recovery_expires_at,
+      });
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // ACTION : upload_url (public, sécurisé par token)
+    // Crée une signed upload URL pour un fichier donné. Le client (page recovery)
+    // utilisera ensuite cette URL pour uploader directement via PUT, sans avoir
+    // à passer par une policy RLS anon (qui peut être bloquée selon config).
+    // ───────────────────────────────────────────────────────────────────────
+    if (action === 'upload_url') {
+      const token = body.token as string;
+      const filename = body.filename as string;
+
+      if (!token || token.length < 20) return jsonRes({ error: "Token invalide" }, 400);
+      if (!filename) return jsonRes({ error: "filename requis" }, 400);
+
+      const { data: cand } = await adminClient
+        .from("candidatures")
+        .select("id, recovery_expires_at, recovery_used_at")
+        .eq("recovery_token", token)
+        .maybeSingle();
+      if (!cand) return jsonRes({ error: "Lien invalide" }, 404);
+      if (cand.recovery_used_at) return jsonRes({ error: "Ce lien a déjà été utilisé" }, 410);
+      if (cand.recovery_expires_at && new Date(cand.recovery_expires_at) < new Date()) {
+        return jsonRes({ error: "Ce lien a expiré" }, 410);
+      }
+
+      // Sanitize le filename et construit le storage path
+      const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${cand.id}/${Date.now()}_${safeName}`;
+      const fullStoragePath = `candidature-documents/${storagePath}`;
+
+      // Génère une signed upload URL (valable 60s) via service_role
+      const { data: signed, error: signErr } = await adminClient.storage
+        .from('candidature-documents')
+        .createSignedUploadUrl(storagePath);
+      if (signErr || !signed) {
+        return jsonRes({ error: signErr?.message || "Impossible de créer le lien d'upload" }, 500);
+      }
+
+      return jsonRes({
+        success: true,
+        signed_url: signed.signedUrl,
+        upload_token: signed.token,
+        path: storagePath,            // path à l'intérieur du bucket
+        storage_path: fullStoragePath, // path complet à stocker en DB
       });
     }
 
