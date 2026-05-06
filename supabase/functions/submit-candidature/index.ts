@@ -143,18 +143,34 @@ async function autoScreen(supabase: any, candidatureId: string, candidature: any
         field_label: k, file_name: v?.filename || v?.file_name || k, file_size: v?.file_size || 0,
       }));
 
-  // Extract document contents
+  // Extract document contents — parsing parallélisé par batches de 5 pour
+  // ne pas dépasser la limite d'execution edge function (400s Pro). Sans ça,
+  // 20+ docs × 30s timeout chacun pouvaient bloquer le re-screen.
   let documentContents = "";
-  if (docs.length > 0 && docs.some((d: any) => d.storage_path)) {
+  const docsWithPath = docs.filter((d: any) => d.storage_path);
+  if (docsWithPath.length > 0) {
     try {
+      const BATCH_SIZE = 5;
       const results: string[] = [];
-      for (const doc of docs) {
-        if (!doc.storage_path) continue;
-        const text = await parseDocFromStorage(supabase, doc.storage_path, doc.file_name || "document");
-        if (text.trim()) results.push(`══════ ${doc.field_label || doc.file_name || 'Document'} ══════\n${text.slice(0, 15000)}`);
+      for (let i = 0; i < docsWithPath.length; i += BATCH_SIZE) {
+        const batch = docsWithPath.slice(i, i + BATCH_SIZE);
+        const settled = await Promise.allSettled(
+          batch.map((doc: any) =>
+            parseDocFromStorage(supabase, doc.storage_path, doc.file_name || "document")
+              .then((text: string) => ({ doc, text }))
+          )
+        );
+        for (const r of settled) {
+          if (r.status === 'fulfilled' && r.value.text?.trim()) {
+            const { doc, text } = r.value;
+            results.push(`══════ ${doc.field_label || doc.file_name || 'Document'} ══════\n${text.slice(0, 15000)}`);
+          } else if (r.status === 'rejected') {
+            console.warn(`[auto-screen] doc parse rejected:`, r.reason?.message);
+          }
+        }
       }
       documentContents = results.join("\n\n");
-      console.log(`[auto-screen] Extracted ${documentContents.length} chars from ${docs.length} doc(s)`);
+      console.log(`[auto-screen] Extracted ${documentContents.length} chars from ${docsWithPath.length} doc(s) in ${Math.ceil(docsWithPath.length / BATCH_SIZE)} batch(es)`);
     } catch (e: any) {
       console.warn("[auto-screen] Document extraction failed:", e.message);
     }
