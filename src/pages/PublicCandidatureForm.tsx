@@ -73,18 +73,29 @@ export default function PublicCandidatureForm() {
 
       const candidatureId = data.candidature_id;
 
-      // 2. Upload files to Supabase Storage (using anon key — bucket must allow public uploads)
+      // 2. Upload files to Supabase Storage. On capture chaque erreur — si UN
+      // SEUL upload échoue, on bloque la soumission (sinon les fichiers manquants
+      // sont silencieusement perdus comme cas FoodSen).
       if (Object.keys(fileUploads).length > 0) {
         const { createClient } = await import('@supabase/supabase-js');
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const docsMeta: any[] = [];
+        const failedUploads: string[] = [];
+
         for (const [fieldLabel, filesOrFile] of Object.entries(fileUploads)) {
           const fileList = Array.isArray(filesOrFile) ? filesOrFile : [filesOrFile];
           for (const file of fileList) {
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const storagePath = `${candidatureId}/${Date.now()}_${safeName}`;
-            await supabaseClient.storage.from('candidature-documents').upload(storagePath, file, { upsert: true });
+            const { error: uploadErr } = await supabaseClient.storage
+              .from('candidature-documents')
+              .upload(storagePath, file, { upsert: true });
+            if (uploadErr) {
+              console.error(`[PublicCandidatureForm] upload failed for ${file.name}:`, uploadErr.message);
+              failedUploads.push(file.name);
+              continue;
+            }
             docsMeta.push({
               field_label: fieldLabel,
               file_name: file.name,
@@ -94,22 +105,43 @@ export default function PublicCandidatureForm() {
           }
         }
 
-        // 3. Update candidature with document metadata
+        // Si au moins un upload a échoué, on stoppe la soumission avec un message clair.
+        if (failedUploads.length > 0) {
+          setError(
+            `Impossible de téléverser ${failedUploads.length} fichier(s) : ${failedUploads.slice(0, 3).join(', ')}` +
+            `${failedUploads.length > 3 ? '…' : ''}. ` +
+            `Ta candidature N'A PAS été enregistrée. Vérifie ta connexion et réessaie, ou contacte le support.`
+          );
+          setSubmitting(false);
+          return;
+        }
+
+        // 3. Update candidature with document metadata — bloquant aussi (si ça
+        // rate, les docs ne seront pas attachés à la candidature en DB).
         if (docsMeta.length > 0) {
-          await fetch(`${SUPABASE_URL}/functions/v1/submit-candidature`, {
+          const updateRes = await fetch(`${SUPABASE_URL}/functions/v1/submit-candidature`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
             body: JSON.stringify({
               action: 'update_documents',
               candidature_id: candidatureId,
               documents: docsMeta,
-            })
-          }).catch(() => {}); // Non-blocking
+            }),
+          });
+          if (!updateRes.ok) {
+            const result = await updateRes.json().catch(() => ({}));
+            setError(`Erreur lors de l'enregistrement des documents : ${result.error || 'erreur inconnue'}. Réessaie.`);
+            setSubmitting(false);
+            return;
+          }
         }
       }
 
       setSubmitted(true);
-    } catch { setError('Erreur de connexion'); }
+    } catch (e: any) {
+      console.error('[PublicCandidatureForm] submit error:', e);
+      setError(e?.message ? `Erreur : ${e.message}` : 'Erreur de connexion');
+    }
     finally { setSubmitting(false); }
   };
 
