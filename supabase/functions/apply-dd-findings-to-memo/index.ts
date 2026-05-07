@@ -190,16 +190,26 @@ ${jsonSchema}
 
 ═══ FORMAT RÉPONSE ═══
 {
-  "content_md": "<markdown narratif mis à jour 150-300 mots>",
+  "content_md": "<markdown long-form 800-1500 mots, style memo IC institutionnel — voir spec ci-dessous>",
   "content_json": <objet content_json mis à jour conforme au schéma>
 }
+
+═══ SPEC content_md ═══
+- Long-form 800-1500 mots, style memo banque d'affaires (livrable principal pour l'IC + DFI).
+- 2 à 5 sous-sections en H3 (### Sous-titre).
+- Paragraphes denses 5-10 lignes, prose continue. Pas de bullets sauf liste explicite.
+- Sources inline : "(source: rapport DD)", "(source: SYSCOHADA 2024)", "(source: entretien DG 11/04)".
+- IMPORTANT : tu PARS du content_md actuel s'il est déjà long-form, et tu l'enrichis avec les findings DD. Ne régresse pas vers du contenu court.
+- Chaque finding DD doit être intégré dans la prose avec sa source ("(source DD: red flag T1)").
+- Le content_md doit pouvoir se lire SEUL — un IC qui lit uniquement la prose comprend toute l'analyse.
 
 Pas de texte avant/après, pas de markdown fences. JSON strict.`;
 
       const systemPrompt = agentCtx.composeSystemPrompt(taskPrompt);
 
       try {
-        const claudeResponse = await callAI(systemPrompt, `Réécris la section "${sectionLabel}" en intégrant les findings DD.`, 8192, undefined, 0.2, {
+        // Long-form : 8192 → 16384 pour permettre une réécriture intégrale en prose dense
+        const claudeResponse = await callAI(systemPrompt, `Réécris la section "${sectionLabel}" en intégrant les findings DD.`, 16384, undefined, 0.3, {
           functionName: `apply-dd-findings-to-memo:${code}`,
           enterpriseId: deal.id,
         });

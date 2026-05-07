@@ -17,7 +17,6 @@ import PeDealCard from '@/components/pe/PeDealCard';
 import CreateDealDialog from '@/components/pe/CreateDealDialog';
 import StageTransitionDialog from '@/components/pe/StageTransitionDialog';
 import { getStagesForRole, SENSITIVE_TRANSITIONS, canTransition, type PeStage } from '@/lib/pe-stage-config';
-import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 export interface KanbanDeal {
   id: string;
@@ -110,7 +109,6 @@ export default function PePipelineKanban({ hideHeader = false, onDealsLoaded }: 
     toStage: string,
     extras: { lostReason?: string; icDecision?: any } = {},
   ) => {
-    const fromStage = deal.stage;
     const { error, data } = await supabase.functions.invoke('update-pe-deal-stage', {
       body: { deal_id: deal.id, new_stage: toStage, lost_reason: extras.lostReason, ic_decision: extras.icDecision },
     });
@@ -120,25 +118,6 @@ export default function PePipelineKanban({ hideHeader = false, onDealsLoaded }: 
       return;
     }
     toast.success(`Deal passé en ${toStage}`);
-
-    if (toStage === 'note_ic1' && fromStage === 'pre_screening') {
-      try {
-        const token = await getValidAccessToken(null);
-        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ic1-memo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ deal_id: deal.id }),
-        });
-        const result = await resp.json();
-        if (resp.ok) {
-          toast.success(result.already_exists ? 'Note IC1 existait déjà' : 'Note IC1 enrichie');
-        } else {
-          toast.warning(`Note IC1 non générée : ${result.error}`);
-        }
-      } catch (e: any) {
-        toast.warning(`Note IC1 non générée : ${e.message}`);
-      }
-    }
     load();
   };
 

@@ -4,9 +4,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Download, FileText, Presentation, FileSpreadsheet, FileType, Loader2, ChevronDown } from 'lucide-react';
+import { Download, FileText, Presentation, FileSpreadsheet, FileType, Loader2, ChevronDown, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 type RenderKind = 'memo_ic1' | 'valuation' | 'pre_screening' | 'dd_report';
 type RenderFormat = 'docx' | 'pptx' | 'xlsx' | 'pdf';
@@ -58,8 +59,35 @@ interface Props {
 }
 
 export default function PeExportButton({ dealId, kind, label, variant = 'outline', size = 'sm', iconOnly = false }: Props) {
-  const [busy, setBusy] = useState<RenderFormat | null>(null);
+  const [busy, setBusy] = useState<RenderFormat | 'slide_payload' | null>(null);
   const opts = KIND_OPTIONS[kind];
+
+  // Génère le slide_payload IA — préalable à l'export PPT pour memo_ic1.
+  // Sonnet 4.6 sur ~30k tokens d'input → ~$0.30-0.50, 20-40s.
+  const generateSlidePayload = async (): Promise<boolean> => {
+    setBusy('slide_payload');
+    const toastId = toast.loading('Génération du slide payload IA (~30s)...');
+    try {
+      const token = await getValidAccessToken(null);
+      const supabaseUrl = (supabase as any).supabaseUrl ?? import.meta.env.VITE_SUPABASE_URL;
+      const resp = await fetch(`${supabaseUrl}/functions/v1/generate-pe-slide-payload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ deal_id: dealId }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+        throw new Error(err.error || `Erreur HTTP ${resp.status}`);
+      }
+      toast.success('Slide payload généré', { id: toastId });
+      return true;
+    } catch (e) {
+      toast.error(`Génération slide payload échouée : ${(e as Error).message}`, { id: toastId });
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const handleExport = async (format: RenderFormat) => {
     if (busy) return;
@@ -85,6 +113,19 @@ export default function PeExportButton({ dealId, kind, label, variant = 'outline
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+        // Cas spécial : PPT échoué car slide_payload manquant → on propose de le générer
+        if (kind === 'memo_ic1' && format === 'pptx' && (err.error?.includes('slide_payload') || err.error?.includes('generate-pe-slide-payload'))) {
+          toast.dismiss(toastId);
+          const ok = window.confirm("Aucun slide payload IA n'a été généré pour ce memo.\n\nLe générer maintenant ? (~30 secondes, ~0,30 €)\nL'export PPT démarrera automatiquement après.");
+          if (ok) {
+            const generated = await generateSlidePayload();
+            if (generated) {
+              setBusy(null);
+              return handleExport(format); // retry après génération
+            }
+          }
+          return;
+        }
         throw new Error(err.error || `Erreur HTTP ${resp.status}`);
       }
 
@@ -120,7 +161,7 @@ export default function PeExportButton({ dealId, kind, label, variant = 'outline
           <ChevronDown className="h-3 w-3 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="text-xs text-muted-foreground">{KIND_LABELS[kind]}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {opts.map(opt => {
@@ -137,6 +178,20 @@ export default function PeExportButton({ dealId, kind, label, variant = 'outline
             </DropdownMenuItem>
           );
         })}
+        {/* memo_ic1 : option dédiée pour régénérer le slide payload IA (utile après modif memo) */}
+        {kind === 'memo_ic1' && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={generateSlidePayload}
+              disabled={!!busy}
+              className="gap-2 cursor-pointer text-violet-700"
+            >
+              {busy === 'slide_payload' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Régénérer slide payload IA
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

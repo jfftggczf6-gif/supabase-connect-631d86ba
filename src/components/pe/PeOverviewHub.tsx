@@ -106,7 +106,7 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
   const validatedPct = memo ? Math.round((memo.validatedCount / memo.totalCount) * 100) : 0;
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4">
       {/* Identité du deal */}
       <Card>
         <CardContent className="p-5 flex justify-between items-start">

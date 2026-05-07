@@ -1,23 +1,29 @@
+// CreateDealDialog — Formulaire de création d'un nouveau deal PE.
+//
+// Plan formulaire (7 champs) :
+//   1. Entreprise (input texte)
+//   2. Nom et prénom du dirigeant (input texte)
+//   3. Secteur (dropdown fixe)
+//   4. Pays (dropdown fixe — UEMOA/CEMAC + autres)
+//   5. Ticket demandé (input numérique)
+//   6. Analyste (dropdown — lead_analyst_id)
+//   7. Responsable (dropdown — lead_im_id, IM/MD/owner)
+//
+// La devise est calculée auto depuis le pays via trigger
+// pe_deals_set_currency_from_enterprise — pas de choix manuel.
+
 import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Upload, X, FileText } from 'lucide-react';
-import { useCurrentRole } from '@/hooks/useCurrentRole';
 
-const SOURCES = [
-  { value: 'reseau_pe', label: 'Réseau PE' },
-  { value: 'inbound', label: 'Inbound' },
-  { value: 'dfi', label: 'DFI' },
-  { value: 'banque', label: 'Banque' },
-  { value: 'mandat_ba', label: "Mandat banque d'affaires" },
-  { value: 'conference', label: 'Conférence' },
-  { value: 'autre', label: 'Autre' },
-];
+const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 interface Props {
   open: boolean;
@@ -27,51 +33,69 @@ interface Props {
   onCreated: () => void;
 }
 
-interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
+interface MemberOpt {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+}
 
-const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+const SECTORS = [
+  'Pharma',
+  'Agroalimentaire',
+  'Agro / Aquaculture',
+  'Logistique',
+  'Distribution',
+  'Industrie',
+  'Énergie',
+  'Eau & assainissement',
+  'Fintech',
+  'Tech / Logiciels',
+  'Télécoms',
+  'Éducation',
+  'Santé',
+  'Immobilier',
+  'BTP',
+  'Mode & Textile',
+  'Tourisme & Hôtellerie',
+  'Médias',
+  'Services',
+  'Autre',
+];
+
+const COUNTRIES = [
+  // UEMOA
+  "Côte d'Ivoire", 'Sénégal', 'Burkina Faso', 'Mali', 'Bénin', 'Togo', 'Niger', 'Guinée-Bissau',
+  // CEMAC
+  'Cameroun', 'Gabon', 'Tchad', 'République du Congo', 'République Centrafricaine', 'Guinée Équatoriale',
+  // Autres marchés clés
+  'RDC', 'Maroc', 'Tunisie', 'Algérie', 'Mauritanie', 'Guinée', 'Madagascar',
+  // Anglophone
+  'Ghana', 'Nigeria', 'Kenya', 'Rwanda', 'Tanzanie', 'Ouganda', 'Afrique du Sud',
+];
+
+const ANALYST_ROLES = ['analyst', 'analyste'];
+const IM_ROLES = ['investment_manager', 'managing_director', 'owner', 'admin'];
 
 export default function CreateDealDialog({ open, onOpenChange, organizationId, currentUserId, onCreated }: Props) {
-  const { role } = useCurrentRole();
-  const isAnalyst = role === 'analyste' || role === 'analyst';
-
+  // Form state
   const [enterpriseName, setEnterpriseName] = useState('');
+  const [dirigeantName, setDirigeantName] = useState('');
+  const [sector, setSector] = useState<string>('');
+  const [country, setCountry] = useState<string>('');
   const [ticket, setTicket] = useState('');
-  const [currency, setCurrency] = useState('EUR');
-  const [source, setSource] = useState('reseau_pe');
-  const [sourceDetail, setSourceDetail] = useState('');
-  const [leadAnalystId, setLeadAnalystId] = useState(currentUserId);
-  const [analysts, setAnalysts] = useState<AnalystOpt[]>([]);
+  const [analystId, setAnalystId] = useState<string>(currentUserId);
+  const [imId, setImId] = useState<string>('');
+
+  // Members
+  const [analysts, setAnalysts] = useState<MemberOpt[]>([]);
+  const [ims, setIms] = useState<MemberOpt[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Files staged for upload after creation
+  // Drag & drop documents (optionnel — uploadés après création du deal)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setLeadAnalystId(currentUserId);
-    setPendingFiles([]);
-    if (isAnalyst) return; // analyst skip team load (auto-self)
-    (async () => {
-      const { data: members } = await supabase
-        .from('organization_members')
-        .select('user_id, role')
-        .eq('organization_id', organizationId)
-        .eq('is_active', true)
-        .in('role', ['analyst', 'analyste', 'investment_manager', 'managing_director', 'owner', 'admin']);
-      const ids = (members || []).map((m: any) => m.user_id);
-      if (!ids.length) { setAnalysts([]); return; }
-      const { data: profs } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', ids);
-      const profMap = new Map((profs || []).map((p: any) => [p.user_id, p]));
-      setAnalysts((members || []).map((m: any) => ({
-        ...m,
-        full_name: profMap.get(m.user_id)?.full_name || null,
-        email: profMap.get(m.user_id)?.email || null,
-      })));
-    })();
-  }, [open, organizationId, currentUserId, isAnalyst]);
 
   const addFiles = (files: FileList | File[]) => {
     const arr = Array.from(files);
@@ -117,154 +141,252 @@ export default function CreateDealDialog({ open, onOpenChange, organizationId, c
     if (uploaded) toast.success(`${uploaded} document${uploaded > 1 ? 's' : ''} attaché${uploaded > 1 ? 's' : ''}`);
   };
 
+  useEffect(() => {
+    if (!open) return;
+    setAnalystId(currentUserId);
+    setImId('');
+    setPendingFiles([]);
+    (async () => {
+      const allRoles = [...new Set([...ANALYST_ROLES, ...IM_ROLES])];
+      const { data: members } = await supabase
+        .from('organization_members')
+        .select('user_id, role')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .in('role', allRoles);
+      const ids = (members || []).map((m: any) => m.user_id);
+      if (!ids.length) { setAnalysts([]); setIms([]); return; }
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', ids);
+      const profMap = new Map((profs || []).map((p: any) => [p.user_id, p]));
+      const enriched: MemberOpt[] = (members || []).map((m: any) => ({
+        user_id: m.user_id,
+        role: m.role,
+        full_name: profMap.get(m.user_id)?.full_name || null,
+        email: profMap.get(m.user_id)?.email || null,
+      }));
+      setAnalysts(enriched.filter(m => ANALYST_ROLES.includes(m.role)));
+      setIms(enriched.filter(m => IM_ROLES.includes(m.role)));
+    })();
+  }, [open, organizationId, currentUserId]);
+
+  const labelOf = (m: MemberOpt) => m.full_name || m.email || m.user_id.slice(0, 8);
+
+  const reset = () => {
+    setEnterpriseName('');
+    setDirigeantName('');
+    setSector('');
+    setCountry('');
+    setTicket('');
+    setAnalystId(currentUserId);
+    setImId('');
+    setPendingFiles([]);
+  };
+
   const handleCreate = async () => {
+    if (!enterpriseName.trim()) {
+      toast.error("Le nom de l'entreprise est requis");
+      return;
+    }
     setSubmitting(true);
     const { data, error } = await supabase.functions.invoke('create-pe-deal', {
       body: {
         organization_id: organizationId,
-        enterprise_name: enterpriseName.trim() || null,
+        enterprise_name: enterpriseName.trim(),
+        enterprise_country: country || null,
+        enterprise_sector: sector || null,
+        dirigeant_name: dirigeantName.trim() || null,
         ticket_demande: ticket ? Number(ticket) * 1_000_000 : null,
-        currency,
-        source,
-        source_detail: source === 'autre' ? sourceDetail.trim() || null : null,
-        lead_analyst_id: leadAnalystId,
+        lead_analyst_id: analystId,
+        lead_im_id: imId || null,
       },
     });
     if (error || (data as any)?.error) {
       setSubmitting(false);
-      toast.error((data as any)?.error || error?.message);
+      toast.error((data as any)?.error || error?.message || 'Erreur création deal');
       return;
     }
     const dealId = (data as any).deal.id;
     toast.success(`Deal ${(data as any).deal.deal_ref} créé`);
 
-    // Upload pending files vers le nouveau deal
+    // Upload des fichiers optionnels vers le nouveau deal
     if (pendingFiles.length > 0) {
       await uploadDocsToDeal(dealId);
     }
 
     setSubmitting(false);
-    setEnterpriseName(''); setTicket(''); setSourceDetail(''); setPendingFiles([]);
+    reset();
     onCreated();
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Nouveau deal</DialogTitle></DialogHeader>
-        <div className="space-y-3 py-2">
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Nouveau deal</DialogTitle>
+          <DialogDescription>
+            La devise du deal est définie automatiquement selon le pays de l'entreprise.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* 1. Entreprise */}
           <div className="space-y-1.5">
-            <Label>Nom de la cible</Label>
-            <Input value={enterpriseName} onChange={e => setEnterpriseName(e.target.value)} placeholder="PharmaCi Industries" />
+            <Label htmlFor="ent-name">Entreprise <span className="text-destructive">*</span></Label>
+            <Input
+              id="ent-name"
+              value={enterpriseName}
+              onChange={(e) => setEnterpriseName(e.target.value)}
+              placeholder="Ex : PharmaCi Industries SA"
+              autoFocus
+            />
           </div>
+
+          {/* 2. Dirigeant */}
+          <div className="space-y-1.5">
+            <Label htmlFor="dirigeant">Nom et prénom du dirigeant</Label>
+            <Input
+              id="dirigeant"
+              value={dirigeantName}
+              onChange={(e) => setDirigeantName(e.target.value)}
+              placeholder="Ex : Amidou Kouassi"
+            />
+          </div>
+
+          {/* 3. Secteur + 4. Pays */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Ticket demandé (M)</Label>
-              <Input type="number" step="0.1" value={ticket} onChange={e => setTicket(e.target.value)} placeholder="4.2" />
+              <Label>Secteur</Label>
+              <Select value={sector} onValueChange={setSector}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                <SelectContent>
+                  {SECTORS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Devise</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label>Pays</Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="FCFA">FCFA</SelectItem>
+                  {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Source</Label>
-            <Select value={source} onValueChange={setSource}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SOURCES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          {source === 'autre' && (
-            <div className="space-y-1.5">
-              <Label>Précision</Label>
-              <Input value={sourceDetail} onChange={e => setSourceDetail(e.target.value)} placeholder="…" />
-            </div>
-          )}
 
-          {!isAnalyst && (
+          {/* 5. Ticket demandé */}
+          <div className="space-y-1.5">
+            <Label htmlFor="ticket">Ticket demandé (en M)</Label>
+            <Input
+              id="ticket"
+              type="number"
+              inputMode="decimal"
+              value={ticket}
+              onChange={(e) => setTicket(e.target.value)}
+              placeholder="Ex : 4.2"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Devise déterminée automatiquement selon le pays sélectionné.
+            </p>
+          </div>
+
+          {/* 6. Analyste + 7. Responsable */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Analyste lead</Label>
-              <Select value={leadAnalystId} onValueChange={setLeadAnalystId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label>Analyste</Label>
+              <Select value={analystId} onValueChange={setAnalystId}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                 <SelectContent>
-                  {analysts.map((a) => (
-                    <SelectItem key={a.user_id} value={a.user_id}>
-                      {a.full_name || a.email} {a.user_id === currentUserId ? '(moi)' : ''}
-                    </SelectItem>
+                  {analysts.length === 0 && (
+                    <SelectItem value="__none" disabled>Aucun analyste disponible</SelectItem>
+                  )}
+                  {analysts.map(m => (
+                    <SelectItem key={m.user_id} value={m.user_id}>{labelOf(m)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
+            <div className="space-y-1.5">
+              <Label>Responsable</Label>
+              <Select value={imId} onValueChange={setImId}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                <SelectContent>
+                  {ims.length === 0 && (
+                    <SelectItem value="__none" disabled>Aucun responsable disponible</SelectItem>
+                  )}
+                  {ims.map(m => (
+                    <SelectItem key={m.user_id} value={m.user_id}>{labelOf(m)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-          {/* Pièces initiales — drag-drop optionnel à la création */}
-          <div className="space-y-1.5">
-            <Label>Pièces initiales (optionnel)</Label>
+          {/* Drag & drop optionnel — documents associés au deal (uploadés après création) */}
+          <div className="space-y-1.5 pt-2">
+            <Label>
+              Documents <span className="text-muted-foreground font-normal">(optionnel)</span>
+            </Label>
             <div
-              className={`rounded-lg border-2 border-dashed p-3 text-center text-sm transition cursor-pointer ${dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={(e) => {
                 e.preventDefault();
                 setDragOver(false);
-                if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+                if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
               }}
               onClick={() => fileInputRef.current?.click()}
+              className={`p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors ${
+                dragOver ? 'border-violet-500 bg-violet-50/40' : 'border-border hover:border-primary/50'
+              }`}
             >
               <input
                 ref={fileInputRef}
                 type="file"
-                multiple
                 className="hidden"
-                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg"
+                onChange={(e) => e.target.files && addFiles(e.target.files)}
               />
-              <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                <Upload className="h-4 w-4" />
-                <span>Glisser-déposer ou cliquer · PDF, Excel, Word · 50 Mo max</span>
-              </div>
+              <Upload className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-sm font-medium">Déposez les pièces du deal</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Pitch deck, liasses, business plan, etc. — 50 Mo max par fichier
+              </p>
             </div>
-
             {pendingFiles.length > 0 && (
-              <div className="space-y-1 mt-1">
+              <div className="space-y-1.5 mt-2">
                 {pendingFiles.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs bg-muted rounded px-2 py-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{f.name}</span>
-                      <span className="text-muted-foreground">{(f.size / 1024 / 1024).toFixed(1)} Mo</span>
-                    </div>
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/40 rounded text-xs">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex-1 truncate">{f.name}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {(f.size / 1024 / 1024).toFixed(1)} Mo
+                    </Badge>
                     <button
                       type="button"
-                      className="text-muted-foreground hover:text-destructive"
                       onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                      title="Retirer"
+                      className="text-muted-foreground hover:text-destructive"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground">
-              Si tu joins des pièces, tu pourras pousser le deal en Pré-screening pour générer l'analyse 360°.
-            </p>
           </div>
         </div>
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-          <Button onClick={handleCreate} disabled={submitting}>
-            {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Créer
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={submitting}>
+            Annuler
+          </Button>
+          <Button onClick={handleCreate} disabled={submitting || !enterpriseName.trim()}>
+            {submitting ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Création...</> : 'Créer le deal'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -7,6 +7,7 @@ export { default as UnitEconomicsSection } from './UnitEconomicsSection';
 export { default as FinancialsPnlSection } from './FinancialsPnlSection';
 export { default as FinancialsBalanceSection } from './FinancialsBalanceSection';
 export { default as InvestmentThesisSection } from './InvestmentThesisSection';
+export { default as ValuationMemoSection } from './ValuationMemoSection';
 export { default as SupportRequestedSection } from './SupportRequestedSection';
 export { default as EsgRisksSection } from './EsgRisksSection';
 export { default as AnnexesSection } from './AnnexesSection';

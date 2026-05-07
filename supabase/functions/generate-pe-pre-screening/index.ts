@@ -70,24 +70,47 @@ ${jsonSchema}
 
 ═══ CHAMPS À PRODUIRE ═══
 {
-  "content_md": "<string markdown ~150-300 mots — texte narratif COMPLÉMENTAIRE au content_json structuré (ne répète pas, contextualise)>",
+  "content_md": "<string markdown LONG-FORM 500-1000 mots — voir spec ci-dessous>",
   "content_json": <objet conforme exactement au schéma ci-dessus>
 }
+
+═══ SPEC content_md — STYLE MEMO IC INSTITUTIONNEL ═══
+Le content_md est le LIVRABLE PRINCIPAL — ce texte sera lu par le comité d'investissement et les co-investisseurs DFI dans le memo Word/PDF final. Il doit ressembler à un memo de banque d'affaires de premier rang. À ce stade pré-screening, le memo sera ensuite enrichi en IC1 (donc pas besoin d'aller au maximum de détail, mais déjà rédactionnel propre).
+
+LONGUEUR : 500 à 1000 mots (sauf annexes : 300-500 mots).
+
+STRUCTURE :
+- Pas de titre H1 (rendu par le viewer).
+- 2 à 4 sous-sections en H3 (### Sous-titre) adaptées au sujet de la section.
+- Paragraphes denses de 5 à 10 lignes, prose continue. Pas de bullet points sauf liste explicite type "Points clés".
+
+STYLE D'ÉCRITURE :
+- Chaque chiffre/affirmation factuelle est justifié dans la même phrase ou le paragraphe immédiat.
+- Sources inline : "(source: pitch deck p.3)", "(source: SYSCOHADA 2024)", "(source: I&P IPAE 2023-2024)". Préférer cette forme aux crochets [Source: ...].
+- Vocabulaire institutionnel : "la cible", "le dirigeant", "le deal", "la trajectoire".
+- Connecteurs logiques entre paragraphes ("Par ailleurs", "Cependant", "À noter que").
+
+EXEMPLE (extrait financials_pnl) :
+"### Croissance et marges
+
+PharmaCi affiche un chiffre d'affaires de 2,82 milliards FCFA en 2024, en croissance de 18% sur 3 ans (CAGR — source: liasses SYSCOHADA 2023-2025), portée principalement par l'extension du canal AO publics passé de 45% à 60% du mix. La marge brute consolidée ressort à 32%, supérieure de 4 points à la médiane sectorielle UEMOA (28% — source: I&P IPAE Africa 2023-2024)..."
 
 ═══ CONTEXTE — DOCUMENTS DEAL ═══
 ${docContents.slice(0, 60000) || '(aucun document parsable)'}
 ${otherSectionsBlock}
 ═══ RÈGLES ═══
 1. Chiffres EXACTS issus des documents. Pas d'invention.
-2. Si une donnée manque : utilise "n/d" ou null, JAMAIS d'invention.
-3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
+2. Si une donnée manque : "n/d" dans content_json, et **mention explicite** dans content_md ("Le DSCR n'est pas reconstituable en l'état des données fournies — à clarifier en DD."). Pas d'invention.
+3. Sources inline DANS content_md ET dans les champs body/paragraphs du content_json.
 4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
 5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".
-6. Si la section nécessite un tableau (rows), produis 3-15 lignes RÉELLES — pas de placeholders "...".`);
+6. Si la section nécessite un tableau (rows), produis 3-15 lignes RÉELLES — pas de placeholders "...".
+7. Le content_md doit pouvoir se lire SEUL (sans le content_json à côté) — un IC qui lit uniquement la prose comprend toute l'analyse.`);
 
   const userPrompt = `Produis maintenant la section "${sectionLabel}" en JSON strict.`;
 
-  const claudeResponse = await callAI(systemPrompt, userPrompt, 8192, undefined, 0.2, {
+  // Long-form : ~1000 mots = ~2000 tokens pour content_md + JSON → 12k tokens minimum
+  const claudeResponse = await callAI(systemPrompt, userPrompt, 12288, undefined, 0.3, {
     functionName: `generate-pe-pre-screening:${sectionCode}`,
     enterpriseId,
   });

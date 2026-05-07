@@ -28,6 +28,9 @@ import {
   Upload, FileText, Loader2, X, CheckCircle2, FileWarning,
   Download, Trash2,
 } from 'lucide-react';
+import PeNextStepCta from '@/components/pe/PeNextStepCta';
+
+const PRE_SCREENING_STAGES = new Set(['sourcing', 'pre_screening']);
 
 const ACCEPTED = '.csv,.txt,.md,.xlsx,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.webp,.pptx,.ppt';
 const MAX_FILES = 20;
@@ -36,6 +39,10 @@ interface Props {
   dealId: string;
   organizationId: string;
   onComplete?: () => void;
+  /** Stage actuel — utilisé pour afficher le CTA pré-screening en bas. */
+  dealStage?: string;
+  /** Navigation vers un autre item de la sidebar. */
+  onNavigate?: (item: string) => void;
 }
 
 interface DealDoc {
@@ -71,7 +78,7 @@ function isValidCategory(s: string | null): s is DocumentCategory {
   return s !== null && s in CATEGORY_LABELS;
 }
 
-export default function PeDealDocumentsUploader({ dealId, organizationId, onComplete }: Props) {
+export default function PeDealDocumentsUploader({ dealId, organizationId, onComplete, dealStage, onNavigate }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [existing, setExisting] = useState<DealDoc[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -237,6 +244,7 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
         </Card>
       )}
 
+
       {/* Drop zone — Upload document */}
       <Card className="p-0 border-dashed border-2">
         <div
@@ -395,6 +403,14 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
           </div>
         </Card>
       )}
+
+      {/* CTA pré-screening — uniquement aux stages sourcing/pre_screening avec docs */}
+      {existing.length > 0 && !uploading && dealStage && PRE_SCREENING_STAGES.has(dealStage) && (
+        <div className="flex justify-center pt-2">
+          <PeNextStepCta dealId={dealId} dealStage={dealStage} onNavigate={onNavigate} />
+        </div>
+      )}
+
     </div>
   );
 }

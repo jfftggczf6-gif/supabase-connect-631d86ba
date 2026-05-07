@@ -1,26 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
-import { CheckCircle2 } from 'lucide-react';
-import RedFlagItem from '@/components/dashboard/viewers/atoms/pe/RedFlagItem';
+import NarrativeBlock from './NarrativeBlock';
+import SectionMetadataFooter from './SectionMetadataFooter';
 
 interface Props {
   section: { content_md: string | null; content_json: any };
   allSections?: Record<string, any>;
 }
-
-const SubHeading = ({ children }: { children: React.ReactNode }) => (
-  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5">{children}</h4>
-);
-
-const sevToRedFlag: Record<string, 'high' | 'medium' | 'low'> = {
-  Critical: 'high', High: 'high', Medium: 'medium', Low: 'low',
-  high: 'high', medium: 'medium', low: 'low',
-};
-
-const HIGHLIGHT: Record<string, string> = {
-  ok: 'var(--pe-ok)', warning: 'var(--pe-warning)', danger: 'var(--pe-danger)',
-};
 
 interface BilanRow {
   label: string;
@@ -36,28 +22,22 @@ function BilanTable({ title, headers, rows }: { title: string; headers: string[]
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">{title}</p>
-      <div className="text-sm rounded border bg-muted/30 p-3">
-        <div className="grid border-b text-[10px] text-muted-foreground py-1" style={{ gridTemplateColumns: cols }}>
-          <span>FCFA (M)</span>
-          {headers.map((h, i) => <span key={i} className="text-right">{h}</span>)}
-          <span className="text-right">Évolution</span>
-        </div>
-        {rows.map((r, i) => (
-          <div
-            key={i}
-            className="grid py-1 border-b border-border/30 text-xs"
-            style={{
-              gridTemplateColumns: cols,
-              fontWeight: r.bold ? 500 : undefined,
-              color: r.highlight ? HIGHLIGHT[r.highlight] : undefined,
-            }}
-          >
-            <span className={r.indent ? 'pl-3 text-muted-foreground italic' : ''}>{r.label}</span>
-            {r.values.map((v, j) => <span key={j} className="text-right">{v ?? '—'}</span>)}
-            <span className="text-right">{r.delta ?? ''}</span>
-          </div>
-        ))}
+      <div className="grid border-b text-[10px] text-muted-foreground py-1" style={{ gridTemplateColumns: cols }}>
+        <span>FCFA (M)</span>
+        {headers.map((h, i) => <span key={i} className="text-right">{h}</span>)}
+        <span className="text-right">Évolution</span>
       </div>
+      {rows.map((r, i) => (
+        <div
+          key={i}
+          className="grid py-1 border-b border-border/30 text-xs"
+          style={{ gridTemplateColumns: cols, fontWeight: r.bold ? 500 : undefined }}
+        >
+          <span className={r.indent ? 'pl-3 text-muted-foreground italic' : ''}>{r.label}</span>
+          {r.values.map((v, j) => <span key={j} className="text-right">{v ?? '—'}</span>)}
+          <span className="text-right text-muted-foreground">{r.delta ?? ''}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -69,17 +49,13 @@ interface KpiCard {
 function KpiGrid({ kpis }: { kpis: KpiCard[] }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-      {kpis.map((k, i) => {
-        const bg = k.color === 'danger' ? 'var(--pe-bg-danger)' : k.color === 'warning' ? 'var(--pe-bg-warning)' : k.color === 'ok' ? 'var(--pe-bg-ok)' : 'var(--muted)';
-        const fg = k.color ? HIGHLIGHT[k.color] : undefined;
-        return (
-          <div key={i} className="rounded p-3" style={{ background: bg }}>
-            <div className="text-[10px]" style={{ color: fg ?? 'var(--muted-foreground)' }}>{k.label}</div>
-            <div className="text-base font-medium" style={{ color: fg }}>{k.value}</div>
-            {k.hint && <div className="text-[9px] mt-0.5" style={{ color: fg ?? 'var(--muted-foreground)' }}>{k.hint}</div>}
-          </div>
-        );
-      })}
+      {kpis.map((k, i) => (
+        <div key={i} className="rounded p-3 bg-background border">
+          <div className="text-[10px] text-muted-foreground">{k.label}</div>
+          <div className="text-base font-medium">{k.value}</div>
+          {k.hint && <div className="text-[9px] mt-0.5 text-muted-foreground">{k.hint}</div>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -91,182 +67,145 @@ export default function FinancialsBalanceSection({ section }: Props) {
   const passif = cj.bilan_passif;
   const bfrKpis: KpiCard[] = cj.bfr_kpis ?? [];
   const bfrAnalysis = cj.bfr_analysis;
-  const bfrDecomposition = cj.bfr_decomposition; // { headers, rows: [{label, values: [v2023, v2025, comment], highlight, bold}], totals }
-  const leviersBfr = cj.leviers_bfr; // { intro, items: [{n, title, body}] }
+  const bfrDecomposition = cj.bfr_decomposition;
+  const leviersBfr = cj.leviers_bfr;
   const endettementKpis: KpiCard[] = cj.endettement_kpis ?? [];
-  const endettement = cj.endettement; // string ou paragraphes
-  const desendettement = cj.desendettement; // string
-  const tresorerieAnalysis = cj.tresorerie_analysis; // string
-  const cashFlowOps = cj.cash_flow_operations; // string
-  const noRedFlagBox = cj.no_red_flag_conclusion; // string positive
-  const vigilancePoints: any[] = cj.vigilance_points ?? []; // [{title, body}]
-  const vna = cj.vna_paragraphe; // string
+  const endettement = cj.endettement;
+  const desendettement = cj.desendettement;
+  const tresorerieAnalysis = cj.tresorerie_analysis;
+  const cashFlowOps = cj.cash_flow_operations;
+  const noRedFlagBox = cj.no_red_flag_conclusion;
+  const vigilancePoints: any[] = cj.vigilance_points ?? [];
+  const vna = cj.vna_paragraphe;
   const redFlags: any[] = cj.red_flags ?? [];
   const footer = cj.footer;
 
   return (
     <Card>
-      <CardHeader className="pb-2 space-y-2">
+      <CardHeader className="pb-2">
         <CardTitle className="text-base">États financiers — Bilan et trésorerie</CardTitle>
-        {meta && (
-          <div className="flex flex-wrap gap-1.5 text-[11px]">
-            {meta.redige_par && <Badge variant="outline" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)', border: 'none' }}>Rédigé : {meta.redige_par}</Badge>}
-            {meta.review_par && <Badge variant="outline" style={{ background: 'var(--pe-bg-purple)', color: 'var(--pe-purple)', border: 'none' }}>Review : {meta.review_par}</Badge>}
-          </div>
-        )}
-        {meta?.version_note && (
-          <div className="rounded px-3 py-1.5 text-[11px]" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>
-            <strong>Version {meta.version_label ?? 'IC1 (draft)'}</strong> — {meta.version_note}
-          </div>
-        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
         {(actif || passif) && (
-          <div>
-            <SubHeading>Bilan simplifié 3 ans — SYSCOHADA</SubHeading>
+          <NarrativeBlock title="Bilan simplifié 3 ans — SYSCOHADA">
             {actif && <BilanTable title="ACTIF" headers={actif.headers ?? ['2023', '2024', '2025']} rows={actif.rows ?? []} />}
             {passif && <div className="mt-3"><BilanTable title="PASSIF" headers={passif.headers ?? ['2023', '2024', '2025']} rows={passif.rows ?? []} /></div>}
-          </div>
+          </NarrativeBlock>
         )}
 
-        {bfrKpis.length > 0 && (
-          <div>
-            <SubHeading>Analyse du BFR — point de vigilance principal</SubHeading>
-            <KpiGrid kpis={bfrKpis} />
-          </div>
-        )}
-
-        {bfrAnalysis?.paragraphs?.length > 0 && (
-          <div className="space-y-2 text-sm leading-relaxed">
-            {bfrAnalysis.paragraphs.map((p: string, i: number) => <p key={i}>{p}</p>)}
-          </div>
-        )}
-
-        {bfrDecomposition?.rows?.length > 0 && (
-          <div>
-            <p className="text-sm font-medium mb-1">Décomposition du BFR :</p>
-            <div className="text-sm rounded border bg-muted/30 p-3">
-              <div className="grid grid-cols-[3fr_1fr_1fr_1fr] border-b text-[10px] text-muted-foreground py-1">
-                <span>Composante BFR</span>
-                {(bfrDecomposition.headers ?? ['2023', '2025', 'Commentaire']).map((h: string, i: number) => (
-                  <span key={i} className={i === 2 ? '' : 'text-right'}>{h}</span>
+        {(bfrKpis.length > 0 || bfrAnalysis?.paragraphs?.length > 0 || bfrDecomposition?.rows?.length > 0) && (
+          <NarrativeBlock title="Analyse du BFR">
+            {bfrKpis.length > 0 && <KpiGrid kpis={bfrKpis} />}
+            {bfrAnalysis?.paragraphs?.length > 0 && (
+              <div className="space-y-2 mt-3">
+                {bfrAnalysis.paragraphs.map((p: string, i: number) => <p key={i}>{p}</p>)}
+              </div>
+            )}
+            {bfrDecomposition?.rows?.length > 0 && (
+              <div className="mt-3 pt-2 border-t border-dashed border-border">
+                <p className="font-medium mb-2">Décomposition du BFR :</p>
+                <div className="grid grid-cols-[3fr_1fr_1fr_1fr] border-b text-[10px] text-muted-foreground py-1">
+                  <span>Composante BFR</span>
+                  {(bfrDecomposition.headers ?? ['2023', '2025', 'Commentaire']).map((h: string, i: number) => (
+                    <span key={i} className={i === 2 ? '' : 'text-right'}>{h}</span>
+                  ))}
+                </div>
+                {bfrDecomposition.rows.map((r: any, i: number) => (
+                  <div key={i} className="grid grid-cols-[3fr_1fr_1fr_1fr] py-1 border-b border-border/30 text-xs"
+                    style={{ fontWeight: r.bold ? 500 : undefined }}>
+                    <span>{r.label}</span>
+                    <span className="text-right">{r.value_a}</span>
+                    <span className="text-right">{r.value_b}</span>
+                    <span className="text-muted-foreground italic">{r.comment}</span>
+                  </div>
                 ))}
               </div>
-              {bfrDecomposition.rows.map((r: any, i: number) => (
-                <div key={i} className="grid grid-cols-[3fr_1fr_1fr_1fr] py-1 border-b border-border/30 text-xs"
-                  style={{ fontWeight: r.bold ? 500 : undefined, color: r.highlight ? HIGHLIGHT[r.highlight] : undefined }}>
-                  <span>{r.label}</span>
-                  <span className="text-right">{r.value_a}</span>
-                  <span className="text-right">{r.value_b}</span>
-                  <span className="text-muted-foreground italic">{r.comment}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+            )}
+          </NarrativeBlock>
         )}
 
         {leviersBfr && (
-          <div>
-            <SubHeading>Leviers de réduction du BFR identifiés</SubHeading>
-            {leviersBfr.intro && <p className="text-sm leading-relaxed mb-2">{leviersBfr.intro}</p>}
+          <NarrativeBlock title="Leviers de réduction du BFR identifiés">
+            {leviersBfr.intro && <p className="mb-2">{leviersBfr.intro}</p>}
             {leviersBfr.items?.length > 0 && (
-              <div className="space-y-2 text-sm leading-relaxed">
+              <div className="space-y-2">
                 {leviersBfr.items.map((it: any, i: number) => (
                   <p key={i}><strong>({it.n}) {it.title}</strong> — {it.body}</p>
                 ))}
               </div>
             )}
-          </div>
+          </NarrativeBlock>
         )}
 
-        {(endettement || endettementKpis.length > 0) && (
-          <div>
-            <SubHeading>Endettement — profil sain et en amélioration</SubHeading>
-            {endettement && <p className="text-sm leading-relaxed mb-2">{endettement}</p>}
+        {(endettement || endettementKpis.length > 0 || desendettement) && (
+          <NarrativeBlock title="Endettement">
+            {endettement && <p className="mb-2">{endettement}</p>}
             {endettementKpis.length > 0 && <KpiGrid kpis={endettementKpis} />}
-          </div>
+            {desendettement && (
+              <p className="mt-2"><strong>Désendettement en cours :</strong> {desendettement}</p>
+            )}
+          </NarrativeBlock>
         )}
 
-        {desendettement && (
-          <div>
-            <p className="text-sm leading-relaxed"><strong>Désendettement en cours :</strong> {desendettement}</p>
-          </div>
-        )}
-
-        {tresorerieAnalysis && (
-          <div>
-            <SubHeading>Analyse de la trésorerie — volatilité préoccupante</SubHeading>
-            <p className="text-sm leading-relaxed">{tresorerieAnalysis}</p>
-          </div>
-        )}
-
-        {cashFlowOps && (
-          <div>
-            <p className="text-sm leading-relaxed"><strong>Cash flow from operations :</strong> {cashFlowOps}</p>
-          </div>
+        {(tresorerieAnalysis || cashFlowOps) && (
+          <NarrativeBlock title="Analyse de la trésorerie">
+            {tresorerieAnalysis && <p>{tresorerieAnalysis}</p>}
+            {cashFlowOps && (
+              <p className="mt-2"><strong>Cash flow from operations :</strong> {cashFlowOps}</p>
+            )}
+          </NarrativeBlock>
         )}
 
         {(noRedFlagBox || vigilancePoints.length > 0) && (
-          <div>
-            <SubHeading>Red flags bilan et conclusion</SubHeading>
-            {noRedFlagBox && (
-              <div className="rounded px-3 py-2 text-sm" style={{ background: 'var(--pe-bg-ok)', borderLeft: '3px solid var(--pe-ok)' }}>
-                <p className="flex items-center gap-2 font-semibold" style={{ color: 'var(--pe-ok)' }}>
-                  <CheckCircle2 className="h-4 w-4" />
-                  {noRedFlagBox}
-                </p>
-              </div>
-            )}
+          <NarrativeBlock title="Red flags bilan et conclusion">
+            {noRedFlagBox && <p className="mb-2">{noRedFlagBox}</p>}
             {vigilancePoints.length > 0 && (
-              <div className="rounded px-3 py-2 text-sm mt-2" style={{ background: 'var(--pe-bg-warning)', borderLeft: '3px solid var(--pe-warning)' }}>
-                <p className="font-semibold mb-1" style={{ color: 'var(--pe-warning)' }}>{vigilancePoints.length} points de vigilance :</p>
-                <ul className="space-y-1 text-xs">
+              <div className="space-y-2">
+                <p className="font-medium">{vigilancePoints.length} point{vigilancePoints.length > 1 ? 's' : ''} de vigilance :</p>
+                <ul className="space-y-1 text-muted-foreground">
                   {vigilancePoints.map((vp: any, i: number) => (
-                    <li key={i}>· <strong>{vp.title}</strong> — {vp.body}</li>
+                    <li key={i}>· <strong className="text-foreground">{vp.title}</strong> — {vp.body}</li>
                   ))}
                 </ul>
               </div>
             )}
-          </div>
+          </NarrativeBlock>
         )}
 
         {vna && (
-          <div>
-            <p className="text-sm leading-relaxed"><strong>Valeur nette d'actif (VNA) :</strong> {vna}</p>
-          </div>
+          <NarrativeBlock title="Valeur nette d'actif (VNA)">
+            <p>{vna}</p>
+          </NarrativeBlock>
         )}
 
-        {/* Legacy red_flags fallback */}
         {redFlags.length > 0 && !vigilancePoints.length && (
-          <div>
-            <SubHeading>Red flags identifiés</SubHeading>
-            <div className="space-y-1.5">
+          <NarrativeBlock title="Red flags identifiés">
+            <div className="space-y-3">
               {redFlags.map((rf: any, i: number) => (
-                <RedFlagItem
-                  key={i}
-                  title={rf.title + (rf.severity ? ` — sévérité ${rf.severity}` : '')}
-                  severity={sevToRedFlag[rf.severity] ?? 'medium'}
-                  detail={rf.body ?? rf.detail ?? ''}
-                />
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-red-500 font-bold mt-0.5 shrink-0">✕</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{rf.title}{rf.severity ? ` — sévérité ${rf.severity}` : ''}</p>
+                    {(rf.body || rf.detail) && (
+                      <p className="text-muted-foreground mt-0.5">{rf.body ?? rf.detail}</p>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
+          </NarrativeBlock>
         )}
 
         {section.content_md && (
-          <div className="prose prose-sm max-w-none text-foreground border-t pt-2">
-            <ReactMarkdown>{section.content_md}</ReactMarkdown>
-          </div>
+          <NarrativeBlock title="Notes complémentaires">
+            <div className="prose prose-sm max-w-none text-foreground">
+              <ReactMarkdown>{section.content_md}</ReactMarkdown>
+            </div>
+          </NarrativeBlock>
         )}
 
-        {footer && (
-          <div className="rounded px-3 py-2 text-[11px] mt-2" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>
-            Section 8 · Rédigée par {footer.redige_par ?? '—'} {footer.date ? `le ${footer.date}` : ''}
-            {footer.review_comment && <p className="mt-0.5">Commentaire IM : "{footer.review_comment}"</p>}
-            {footer.sources && <p className="mt-0.5">Sources : {footer.sources}</p>}
-          </div>
-        )}
+        <SectionMetadataFooter meta={meta} footer={footer} />
       </CardContent>
     </Card>
   );

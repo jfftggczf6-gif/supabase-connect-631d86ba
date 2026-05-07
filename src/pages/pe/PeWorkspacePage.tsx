@@ -35,7 +35,7 @@ interface EnterpriseRow {
 const TABS = [
   { value: 'synthese', label: 'Synthèse' },
   { value: 'candidature', label: 'Candidature' },
-  { value: 'enterprises', label: 'Entreprises' },
+  { value: 'enterprises', label: 'Deals' },
   { value: 'reporting_impact', label: 'Reporting & Impact' },
   { value: 'ic_committee', label: 'Comité d\'investissement' },
   { value: 'equipe', label: 'Équipe' },

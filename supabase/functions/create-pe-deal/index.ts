@@ -33,11 +33,15 @@ serve(async (req: Request) => {
       organization_id,
       enterprise_id,
       enterprise_name,
+      enterprise_country,
+      enterprise_sector,
+      dirigeant_name,
       ticket_demande,
       currency,
       source,
       source_detail,
       lead_analyst_id,
+      lead_im_id,
     } = body;
 
     if (!organization_id) throw new Error("organization_id required");
@@ -61,6 +65,7 @@ serve(async (req: Request) => {
     }
 
     // 2. Si enterprise_name fourni mais pas enterprise_id, créer enterprise minimale
+    //    avec pays / secteur / dirigeant (contact_name).
     let resolvedEnterpriseId = enterprise_id ?? null;
     if (!resolvedEnterpriseId && enterprise_name && enterprise_name.trim()) {
       const { data: ent, error: entErr } = await adminClient
@@ -70,6 +75,9 @@ serve(async (req: Request) => {
           organization_id,
           user_id: user.id,
           phase: 'identite',
+          country: enterprise_country?.trim() || null,
+          sector: enterprise_sector?.trim() || null,
+          contact_name: dirigeant_name?.trim() || null,
         })
         .select('id')
         .single();
@@ -77,17 +85,19 @@ serve(async (req: Request) => {
       resolvedEnterpriseId = ent.id;
     }
 
-    // 3. INSERT dans pe_deals (le trigger génère deal_ref)
+    // 3. INSERT dans pe_deals (le trigger génère deal_ref + le trigger
+    //    pe_deals_currency_auto met currency depuis enterprise.country)
     const { data: deal, error: dealErr } = await adminClient
       .from("pe_deals")
       .insert({
         organization_id,
         enterprise_id: resolvedEnterpriseId,
         ticket_demande: ticket_demande ?? null,
-        currency: currency ?? 'EUR',
+        currency: currency ?? 'XOF',  // override par trigger si enterprise_id présent
         source: source ?? 'autre',
         source_detail: source_detail ?? null,
         lead_analyst_id: lead_analyst_id ?? user.id,
+        lead_im_id: lead_im_id ?? null,
         created_by: user.id,
       })
       .select('*')

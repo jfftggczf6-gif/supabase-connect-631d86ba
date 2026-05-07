@@ -1,19 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import NarrativeBlock from './NarrativeBlock';
+import SectionMetadataFooter from './SectionMetadataFooter';
 
 interface Props {
   section: { content_md: string | null; content_json: any };
   allSections?: Record<string, any>;
 }
 
-const SubHeading = ({ children }: { children: React.ReactNode }) => (
-  <h4 className="text-xs font-bold uppercase tracking-wide text-foreground mb-2 mt-3 border-l-2 border-[var(--pe-purple)] pl-2 py-0.5">{children}</h4>
-);
-
 function GenericTable({ headers, rows, gridCols }: { headers: string[]; rows: any[][]; gridCols: string }) {
   return (
-    <div className="text-sm rounded border bg-muted/30 p-3">
+    <>
       <div className="grid border-b text-[10px] text-muted-foreground py-1" style={{ gridTemplateColumns: gridCols }}>
         {headers.map((h, i) => <span key={i} className={i === 0 ? '' : 'text-right'}>{h}</span>)}
       </div>
@@ -22,128 +20,174 @@ function GenericTable({ headers, rows, gridCols }: { headers: string[]; rows: an
           {row.map((cell, j) => (
             <span key={j} className={j === 0 ? 'text-muted-foreground' : 'text-right'}>
               {typeof cell === 'object' && cell != null
-                ? <span style={{ color: cell.color, fontWeight: cell.bold ? 500 : undefined }}>{cell.v}</span>
+                ? <span style={{ fontWeight: cell.bold ? 500 : undefined }}>{cell.v}</span>
                 : cell}
             </span>
           ))}
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
 export default function UnitEconomicsSection({ section }: Props) {
   const cj = section.content_json ?? {};
   const meta = cj.meta;
-  const renderingByCanal = cj.rentabilite_canal; // { headers, rows: cells[][] }
+  const renderingByCanal = cj.rentabilite_canal;
   const renderingByFamille = cj.rentabilite_famille;
-  const decompositionCout = cj.decomposition_cout; // [{label, value, hint}]
-  const sensibiliteApi = cj.sensibilite_api; // { headers, rows }
-  const breakEven = cj.break_even; // { value, hint }
-  const levierOpe = cj.levier_operationnel; // string
-  const unitEcoSn = cj.unit_eco_sn; // string
-  const benchmarks = cj.benchmarks; // { headers, rows }
+  const decompositionCout = cj.decomposition_cout;
+  const sensibiliteApi = cj.sensibilite_api;
+  const breakEven = cj.break_even;
+  const levierOpe = cj.levier_operationnel;
+  const unitEcoSn = cj.unit_eco_sn;
+  const benchmarks = cj.benchmarks;
   const footer = cj.footer;
 
   return (
     <Card>
-      <CardHeader className="pb-2 space-y-2">
+      <CardHeader className="pb-2">
         <CardTitle className="text-base">Unit economics</CardTitle>
-        {meta && (
-          <div className="flex flex-wrap gap-1.5 text-[11px]">
-            {meta.redige_par && <Badge variant="outline" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)', border: 'none' }}>Rédigé : {meta.redige_par}</Badge>}
-            {meta.review_par && <Badge variant="outline" style={{ background: 'var(--pe-bg-purple)', color: 'var(--pe-purple)', border: 'none' }}>Review : {meta.review_par}</Badge>}
-          </div>
-        )}
-        {meta?.version_note && (
-          <div className="rounded px-3 py-1.5 text-[11px]" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>
-            <strong>Version {meta.version_label ?? 'IC1 (draft)'}</strong> — {meta.version_note}
-          </div>
-        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
         {renderingByCanal?.rows?.length > 0 && (
-          <div>
-            <SubHeading>Rentabilité par canal de distribution</SubHeading>
+          <NarrativeBlock title="Rentabilité par canal de distribution">
             <GenericTable headers={renderingByCanal.headers} rows={renderingByCanal.rows} gridCols="2fr 1fr 1fr 1fr 1fr" />
-          </div>
+          </NarrativeBlock>
         )}
 
         {renderingByFamille?.rows?.length > 0 && (
-          <div>
-            <SubHeading>Rentabilité par famille thérapeutique</SubHeading>
+          <NarrativeBlock title="Rentabilité par famille thérapeutique">
             <GenericTable headers={renderingByFamille.headers} rows={renderingByFamille.rows} gridCols="2fr 1fr 1fr 1fr 1fr" />
-          </div>
+          </NarrativeBlock>
         )}
 
-        {decompositionCout?.length > 0 && (
-          <div>
-            <SubHeading>Décomposition du coût de revient (par unité)</SubHeading>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              {decompositionCout.map((k: any, i: number) => (
-                <div key={i} className="rounded p-3 bg-muted">
-                  <div className="text-base font-medium">{k.value}</div>
-                  <div className="text-[10px] mt-0.5">{k.label}</div>
-                  {k.hint && <div className="text-[9px] text-muted-foreground mt-0.5">{k.hint}</div>}
+        {decompositionCout?.length > 0 && (() => {
+          // Extrait le pourcentage depuis le hint ("55% du coût" → 55) ou retombe sur part égale
+          const pcts = decompositionCout.map((k: any) => {
+            const m = String(k.hint ?? '').match(/(\d+(?:\.\d+)?)/);
+            return m ? parseFloat(m[1]) : 0;
+          });
+          const total = pcts.reduce((a: number, b: number) => a + b, 0);
+          const normalized = total > 0
+            ? pcts.map((p: number) => (p / total) * 100)
+            : decompositionCout.map(() => 100 / decompositionCout.length);
+          // 5 nuances de violet pour les segments
+          const COLORS = ['#5B21B6', '#7C3AED', '#8B5CF6', '#A78BFA', '#C4B5FD'];
+          const chartData = decompositionCout.map((k: any, i: number) => ({
+            name: k.label,
+            value: normalized[i],
+            rawValue: k.value,
+            hint: k.hint,
+          }));
+          // Total coût à afficher au centre du donut (somme des values FCFA si parsable)
+          const totalCout = decompositionCout.reduce((sum: number, k: any) => {
+            const m = String(k.value ?? '').match(/(\d+(?:[.,]\d+)?)/);
+            return sum + (m ? parseFloat(m[1].replace(',', '.')) : 0);
+          }, 0);
+          return (
+            <NarrativeBlock title="Décomposition du coût de revient (par unité)">
+              <div className="grid md:grid-cols-[260px_1fr] gap-6 items-center">
+                {/* Donut */}
+                <div className="relative h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={1}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {chartData.map((_: any, i: number) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any, _name: any, props: any) => [
+                          `${props.payload.rawValue}${props.payload.hint ? ` (${props.payload.hint})` : ''}`,
+                          props.payload.name,
+                        ]}
+                        contentStyle={{ fontSize: '12px', borderRadius: '6px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Total au centre */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</div>
+                    <div className="text-lg font-bold">{totalCout > 0 ? `${totalCout} FCFA` : '—'}</div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+
+                {/* Légende détaillée */}
+                <div className="space-y-2">
+                  {decompositionCout.map((k: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span
+                        className="inline-block h-3 w-3 rounded-sm shrink-0"
+                        style={{ background: COLORS[i % COLORS.length] }}
+                      />
+                      <div className="flex-1 min-w-0 flex items-baseline justify-between gap-3 flex-wrap">
+                        <span className="font-medium">{k.label}</span>
+                        <span className="text-sm tabular-nums">
+                          <strong>{k.value}</strong>
+                          {k.hint && <span className="text-muted-foreground"> · {k.hint}</span>}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </NarrativeBlock>
+          );
+        })()}
 
         {sensibiliteApi?.rows?.length > 0 && (
-          <div>
-            <SubHeading>Sensibilité au prix des API</SubHeading>
+          <NarrativeBlock title="Sensibilité au prix des API">
             <GenericTable headers={sensibiliteApi.headers} rows={sensibiliteApi.rows} gridCols="2fr 1fr 1fr 1fr 1fr" />
-          </div>
+          </NarrativeBlock>
         )}
 
         {breakEven && (
-          <div>
-            <SubHeading>Break-even et levier opérationnel</SubHeading>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="rounded p-3" style={{ background: 'var(--pe-bg-ok)' }}>
-                <div className="text-[10px]" style={{ color: 'var(--pe-ok)' }}>Break-even</div>
-                <div className="text-base font-medium" style={{ color: 'var(--pe-ok)' }}>{breakEven.value}</div>
-                {breakEven.hint && <div className="text-[9px] mt-0.5" style={{ color: 'var(--pe-ok)' }}>{breakEven.hint}</div>}
+          <NarrativeBlock title="Break-even et levier opérationnel">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded p-3 bg-background border">
+                <div className="text-[10px] text-muted-foreground">Break-even</div>
+                <div className="text-base font-medium">{breakEven.value}</div>
+                {breakEven.hint && <div className="text-[9px] mt-0.5 text-muted-foreground">{breakEven.hint}</div>}
               </div>
               {levierOpe && (
-                <div className="rounded p-3 bg-muted">
+                <div className="rounded p-3 bg-background border">
                   <div className="text-[10px] text-muted-foreground">Levier opérationnel</div>
-                  <p className="text-xs mt-0.5 leading-relaxed">{levierOpe}</p>
+                  <p className="text-xs mt-0.5">{levierOpe}</p>
                 </div>
               )}
             </div>
-          </div>
+          </NarrativeBlock>
         )}
 
         {unitEcoSn && (
-          <div>
-            <SubHeading>Unit economics expansion Sénégal</SubHeading>
-            <p className="text-sm leading-relaxed">{unitEcoSn}</p>
-          </div>
+          <NarrativeBlock title="Unit economics expansion Sénégal">
+            <p>{unitEcoSn}</p>
+          </NarrativeBlock>
         )}
 
         {benchmarks?.rows?.length > 0 && (
-          <div>
-            <SubHeading>Benchmarks sectoriels</SubHeading>
+          <NarrativeBlock title="Benchmarks sectoriels">
             <GenericTable headers={benchmarks.headers} rows={benchmarks.rows} gridCols="2fr 1fr 1fr 1fr 1fr" />
-          </div>
+          </NarrativeBlock>
         )}
 
         {section.content_md && !renderingByCanal && (
-          <div className="prose prose-sm max-w-none text-foreground border-t pt-2">
-            <ReactMarkdown>{section.content_md}</ReactMarkdown>
-          </div>
+          <NarrativeBlock title="Notes complémentaires">
+            <div className="prose prose-sm max-w-none text-foreground">
+              <ReactMarkdown>{section.content_md}</ReactMarkdown>
+            </div>
+          </NarrativeBlock>
         )}
 
-        {footer && (
-          <div className="rounded px-3 py-2 text-[11px] mt-2" style={{ background: 'var(--pe-bg-info)', color: 'var(--pe-info)' }}>
-            Section 6 · Rédigée par {footer.redige_par ?? '—'} {footer.date ? `le ${footer.date}` : ''}
-            {footer.sources && <p className="mt-0.5">Sources : {footer.sources}</p>}
-          </div>
-        )}
+        <SectionMetadataFooter meta={meta} footer={footer} />
       </CardContent>
     </Card>
   );

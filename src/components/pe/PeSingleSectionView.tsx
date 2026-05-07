@@ -316,11 +316,9 @@ export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
       <Card>
         <CardHeader className="pb-2 flex flex-row items-start justify-between space-y-0 gap-2">
           <div className="min-w-0">
-            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-              <span>{SECTION_LABELS[sectionCode]}</span>
-              <StatusBadge status={sectionStatus} />
+            <CardTitle className="text-base">
+              {SECTION_LABELS[sectionCode]}
             </CardTitle>
-            {versionMeta && <p className="text-xs text-muted-foreground mt-0.5">Version : <strong>{versionMeta.label}</strong></p>}
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {!editing && (

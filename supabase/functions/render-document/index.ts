@@ -74,7 +74,7 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
   if (deal.enterprise_id) {
     const { data: ent } = await supabase
       .from('enterprises')
-      .select('name, country')
+      .select('name, country, sector')
       .eq('id', deal.enterprise_id)
       .maybeSingle();
     enterprise = ent;
@@ -106,6 +106,15 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
   }
   if (!version) throw new Error("Aucune version de memo prête");
 
+  // Charge le slide_payload (peut être null si pas encore généré)
+  // — utilisé par le builder programmatique memo-pptx pour produire le deck.
+  const { data: versionFull } = await supabase
+    .from('memo_versions')
+    .select('slide_payload, slide_payload_generated_at')
+    .eq('id', version.id)
+    .maybeSingle();
+  const slide_payload = versionFull?.slide_payload ?? null;
+
   const sections = await fetchSections(supabase, version.id);
   const byCode: Record<string, any> = {};
   for (const s of sections) byCode[s.section_code] = s;
@@ -117,6 +126,10 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
       status_label: s?.status === 'validated' ? 'Validée' : s?.status === 'rejected' ? 'À retravailler' : 'Brouillon',
       score: s?.content_json?.section_score ?? '—',
       content_md: s?.content_md ?? '',
+      // content_json envoyé pour que le builder docx puisse extraire :
+      //   - points_cles / bullets (executive_summary)
+      //   - recommendation.score_esono / recommendation.verdict (executive_summary)
+      content_json: s?.content_json ?? {},
     };
   }
 
@@ -152,10 +165,11 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
     });
   }
 
-  // Valuation (light) pour la slide synthèse PPT
+  // Valuation : on récupère synthesis + status pour pouvoir afficher l'empty state
+  // côté builder Word/PPT si la valuation n'est pas générée.
   const { data: val } = await supabase
     .from('pe_valuation')
-    .select('synthesis, currency')
+    .select('synthesis, currency, status, ai_justification')
     .eq('deal_id', dealId)
     .maybeSingle();
 
@@ -199,6 +213,7 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
       enterprise: {
         legal_name: (deal as any).enterprises?.name ?? deal.deal_ref,
         country: (deal as any).enterprises?.country ?? '—',
+        sector: (deal as any).enterprises?.sector ?? '—',
       },
       memo: {
         overall_score: version.overall_score ?? '—',
@@ -207,6 +222,12 @@ async function buildMemoIc1Payload(supabase: any, dealId: string) {
       },
       sections: sectionsPayload,
       valuation,
+      // valuation_full = objet brut (status + synthesis raw) consommé par le
+      // builder programmatique memo-docx pour rendre la section Valorisation.
+      valuation_full: val ?? null,
+      // slide_payload = payload IA structuré pour le builder PPT (memo-pptx).
+      // Null si pas encore généré → le builder PPT throw une erreur explicite.
+      slide_payload,
       findings_applied,
     },
     organizationId: deal.organization_id,

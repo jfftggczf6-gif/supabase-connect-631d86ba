@@ -16,11 +16,13 @@ import { toast } from 'sonner';
 import PeDealSidebar from '@/components/pe/PeDealSidebar';
 import PeOverviewHub from '@/components/pe/PeOverviewHub';
 import PeDealStatusBadge from '@/components/pe/PeDealStatusBadge';
+import PeNextStepCta from '@/components/pe/PeNextStepCta';
 import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import PeDealDocumentsUploader from '@/components/pe/PeDealDocumentsUploader';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
+import PeDealNotesView from '@/components/pe/PeDealNotesView';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
 import DueDiligenceSection from '@/components/pe/DueDiligenceSection';
 import PeValuationView from '@/components/pe/PeValuationView';
@@ -186,34 +188,63 @@ export default function PeDealDetailPage() {
       return <PeBenchmarkSourcesView dealId={deal.id} />;
     }
     if (selectedItem === 'documents') {
-      return currentOrg ? <PeDealDocumentsUploader dealId={deal.id} organizationId={currentOrg.id} /> : null;
+      return currentOrg ? (
+        <PeDealDocumentsUploader
+          dealId={deal.id}
+          organizationId={currentOrg.id}
+          dealStage={deal.stage}
+          onNavigate={setSelectedItem}
+        />
+      ) : null;
     }
-    if (selectedItem === 'history') {
+    if (selectedItem === 'notes') {
+      return currentOrg ? (
+        <PeDealNotesView dealId={deal.id} organizationId={currentOrg.id} />
+      ) : null;
+    }
+    if (selectedItem === 'history' || selectedItem === 'memo_versions') {
       return (
-        <div className="space-y-3">
-          <DealHistoryTimeline dealId={deal.id} />
-          <Card>
-            <CardContent className="p-0">
-              <div className="p-3 border-b text-sm font-medium">Transitions de stage</div>
-              <table className="w-full text-sm">
-                <thead><tr className="border-b">
-                  <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Transition</th>
-                  <th className="text-left p-3">Raison</th>
-                </tr></thead>
-                <tbody>
-                  {history.map(h => (
-                    <tr key={h.id} className="border-b">
-                      <td className="p-3 text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString('fr-FR')}</td>
-                      <td className="p-3">{h.from_stage || '—'} → <span className="font-medium">{h.to_stage}</span></td>
-                      <td className="p-3 text-xs">{h.reason || '—'}</td>
-                    </tr>
-                  ))}
-                  {!history.length && <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Aucune transition enregistrée.</td></tr>}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2 text-violet-700 uppercase tracking-wider">
+              Versions du memo
+            </h3>
+            <MemoVersionsView dealId={deal.id} />
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2 text-violet-700 uppercase tracking-wider">
+              Timeline
+            </h3>
+            <DealHistoryTimeline dealId={deal.id} />
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2 text-violet-700 uppercase tracking-wider">
+              Transitions de stage
+            </h3>
+            <Card>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b">
+                    <th className="text-left p-3">Date</th>
+                    <th className="text-left p-3">Transition</th>
+                    <th className="text-left p-3">Raison</th>
+                  </tr></thead>
+                  <tbody>
+                    {history.map(h => (
+                      <tr key={h.id} className="border-b">
+                        <td className="p-3 text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString('fr-FR')}</td>
+                        <td className="p-3">{h.from_stage || '—'} → <span className="font-medium">{h.to_stage}</span></td>
+                        <td className="p-3 text-xs">{h.reason || '—'}</td>
+                      </tr>
+                    ))}
+                    {!history.length && <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Aucune transition enregistrée.</td></tr>}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       );
     }
@@ -228,11 +259,11 @@ export default function PeDealDetailPage() {
     }
     // Pré-screening : dashboard compact 13 blocs (pas le long scroll des 12 sections)
     if (selectedItem === 'pre_screening') {
-      return <PreScreening360Dashboard dealId={deal.id} />;
+      return <PreScreening360Dashboard dealId={deal.id} dealStage={deal.stage} onNavigate={setSelectedItem} />;
     }
     // Memo d'investissement : phase entière (long scroll des 12 sections de la version active)
     if (selectedItem === 'memo' || ['note_ic1', 'note_ic_finale'].includes(selectedItem)) {
-      return <MemoSectionsViewer dealId={deal.id} />;
+      return <MemoSectionsViewer dealId={deal.id} dealStage={deal.stage} onNavigate={setSelectedItem} />;
     }
     // Due Diligence
     if (selectedItem === 'valuation') {
@@ -255,10 +286,6 @@ export default function PeDealDetailPage() {
     }
     if (selectedItem === 'exit_prep') {
       return currentOrg ? <ExitPrepSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
-    }
-    // Versions du memo (live + snapshots) avec vue comparatif
-    if (selectedItem === 'memo_versions') {
-      return <MemoVersionsView dealId={deal.id} />;
     }
     return <div className="text-muted-foreground">Sélectionne un item dans le menu.</div>;
   };
@@ -286,8 +313,8 @@ export default function PeDealDetailPage() {
       fullscreen
     >
       <div className="h-full flex flex-col overflow-hidden">
-        {/* Action bar : back + stage + settings (fixe au-dessus du workspace) */}
-        <div className="flex-none px-6 py-2 border-b bg-card/30 flex items-center justify-between gap-3 flex-wrap">
+        {/* Action bar : back + stage (gauche) | étape suivante (centre) | gérer le deal (droite) */}
+        <div className="flex-none px-6 py-2 border-b bg-card/30 grid grid-cols-3 items-center gap-3">
           <div className="flex items-center gap-3 flex-wrap">
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/pe')}>
               <ArrowLeft className="h-4 w-4" /> Retour au workspace
@@ -295,9 +322,14 @@ export default function PeDealDetailPage() {
             <PeDealStatusBadge stage={deal.stage} />
             {deal.lead_analyst_name && <span className="text-sm text-muted-foreground">Lead : {deal.lead_analyst_name}</span>}
           </div>
-          <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700" onClick={() => setSettingsOpen(true)}>
-            <SettingsIcon className="h-4 w-4" /> Gérer le deal
-          </Button>
+          <div className="flex justify-center">
+            <PeNextStepCta dealId={deal.id} dealStage={deal.stage} onNavigate={setSelectedItem} hidePreScreening />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700" onClick={() => setSettingsOpen(true)}>
+              <SettingsIcon className="h-4 w-4" /> Gérer le deal
+            </Button>
+          </div>
         </div>
 
         {/* Workspace 2 colonnes — sidebar fixe + contenu scrollable */}

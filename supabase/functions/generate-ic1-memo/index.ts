@@ -84,23 +84,59 @@ ${jsonSchema}
 
 ═══ CHAMPS À PRODUIRE ═══
 {
-  "content_md": "<string markdown ~150-300 mots — texte narratif COMPLÉMENTAIRE au content_json structuré>",
+  "content_md": "<string markdown LONG-FORM — voir spec ci-dessous>",
   "content_json": <objet conforme exactement au schéma ci-dessus, enrichi vs pre-screening>
 }
+
+═══ SPEC content_md — STYLE MEMO IC INSTITUTIONNEL ═══
+Le content_md est le LIVRABLE PRINCIPAL — c'est le texte qui apparaîtra dans le memo Word/PDF distribué au comité d'investissement et aux co-investisseurs DFI. Il doit ressembler à un memo de banque d'affaires de premier rang :
+
+LONGUEUR : 800 à 1500 mots pour cette section (sauf annexes : 400-700 mots).
+
+STRUCTURE :
+- Pas de titre H1 (le titre de section est rendu par le viewer).
+- 2 à 5 sous-sections en H3 (### Sous-titre) — choisies selon la section :
+  * shareholding_governance : "Structure capitalistique", "Gouvernance et conventions", "Évolution prévue"
+  * top_management : "Profils dirigeants", "Capacité d'absorption", "Plan de recrutement"
+  * services : "Nature de l'activité", "Gamme et catalogue", "Capacité de production", "Distribution", "Avantage compétitif"
+  * competition_market : "Taille du marché", "Mégatendances", "Paysage concurrentiel", "Positionnement", "Menaces"
+  * unit_economics : "Rentabilité par canal", "Décomposition du coût", "Sensibilité", "Break-even"
+  * financials_pnl : "Croissance et marges", "Qualité des résultats", "Retraitements EBITDA", "Trajectoire prévisionnelle"
+  * financials_balance : "Structure bilancielle", "BFR et liquidité", "Endettement", "Risque comptable"
+  * investment_thesis : "Cas d'investissement", "Drivers de création de valeur", "Risques principaux", "Conditions"
+  * support_requested : "Utilisation des fonds", "Plan 100 jours", "Value creation", "KPIs de suivi"
+  * esg_risks : "Alignement ODD", "Critères 2X / IFC PS", "Matrice de risques", "Red flags"
+  * annexes : liste structurée — pas obligatoirement de sous-titres
+  * executive_summary : "Synthèse de la cible", "Performance financière", "Thèse d'investissement", "Recommandation"
+
+STYLE D'ÉCRITURE :
+- Paragraphes denses de 5 à 10 lignes, en prose continue (pas de bullet points sauf liste explicite type "Points clés").
+- Chaque chiffre/affirmation factuelle DOIT être justifié dans la même phrase ou le paragraphe immédiat.
+- Sources citées inline dans le texte : "(source: pitch deck p.3)", "(source: SYSCOHADA 2024)", "(source: I&P IPAE 2023-2024)", "(source: entretien DG 11/04)". Préférer cette forme au format crochet [Source: ...] qui est moins fluide.
+- Vocabulaire institutionnel : "la cible", "le dirigeant", "le deal", "la trajectoire", "la valeur d'entreprise".
+- Connecteurs logiques entre paragraphes ("Par ailleurs", "Cependant", "À noter que", "En conséquence").
+- Éviter les répétitions et les phrases bullet-style courtes.
+
+EXEMPLE DE PROSE ATTENDUE (extrait financials_pnl) :
+"### Croissance et marges
+
+PharmaCi affiche un chiffre d'affaires de 2,82 milliards FCFA en 2024, en croissance de 18% sur un cycle de 3 ans (CAGR 2022-2024 — source: liasses SYSCOHADA 2023-2025), portée principalement par l'extension du canal AO publics passé de 45% à 60% du mix. La marge brute consolidée ressort à 32%, supérieure de 4 points à la médiane sectorielle UEMOA (28% — source: I&P IPAE Africa 2023-2024), reflétant le positionnement premium sur les molécules antibiotiques et antipaludéens. Cette surperformance s'explique par la maîtrise BPF qui permet une captation de la prime qualité (+15-20% prix vs concurrents non certifiés — source: entretien DG 08/04)."
 
 ═══ CONTEXTE — DOCUMENTS DEAL ═══
 ${docContents.slice(0, 60000) || '(aucun document parsable)'}
 ${previousBlock}${otherSectionsBlock}
 ═══ RÈGLES ═══
 1. Chiffres EXACTS issus des documents. Pas d'invention.
-2. Si une donnée manque : utilise "n/d" ou null, JAMAIS d'invention.
-3. Cite les sources [Source: pitch.pdf p.3] dans content_md ET dans les champs body/paragraphs du content_json.
+2. Si une donnée manque : utilise "n/d" dans content_json, et **mentionne explicitement** dans content_md que la donnée n'est pas encore disponible (ex: "Le DSCR n'est pas reconstituable en l'état des données fournies — à clarifier en DD."). Pas d'invention.
+3. Sources inline DANS content_md (style "(source: pitch.pdf p.3)") ET dans les champs body/paragraphs du content_json.
 4. Réponse = UN seul JSON {"content_md": "...", "content_json": {...}}. Pas de texte avant/après, pas de markdown fences.
-5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".`);
+5. Respecte les enums exacts : color = "ok"|"warning"|"danger"|"info" ; severity = "Critical"|"High"|"Medium"|"Low" ; status doc = "ok"|"partial"|"missing" ; verdict = "go_direct"|"go_conditionnel"|"hold"|"reject".
+6. Le content_md doit pouvoir se lire SEUL (sans avoir besoin du content_json à côté) — un IC qui lit uniquement la prose doit comprendre la totalité de l'analyse.`);
 
   const userPrompt = `Enrichis maintenant la section "${sectionLabel}" version IC1 en JSON strict.`;
 
-  const claudeResponse = await callAI(systemPrompt, userPrompt, 8192, undefined, 0.2, {
+  // Long-form : ~1500 mots = ~3000 tokens pour content_md + JSON enrichi → 16k tokens minimum
+  const claudeResponse = await callAI(systemPrompt, userPrompt, 16384, undefined, 0.3, {
     functionName: `generate-ic1-memo:${sectionCode}`,
     enterpriseId,
   });

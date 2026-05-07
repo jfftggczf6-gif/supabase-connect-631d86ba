@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   Home, FolderOpen, History,
-  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked, GitCompareArrows,
-  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, DoorOpen,
+  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked,
+  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, DoorOpen, PenLine,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -256,7 +256,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           onClick={() => onSelectItem('documents')}
           icon={FolderOpen}
           label="Upload document"
-          badge={docCount || null}
+        />
+        <ItemRow
+          active={selectedItem === 'notes'}
+          onClick={() => onSelectItem('notes')}
+          icon={PenLine}
+          label="Notes analyste"
         />
         <ItemRow
           active={selectedItem === 'benchmark'}
@@ -269,22 +274,14 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           onClick={() => onSelectItem('history')}
           icon={History}
           label="Historique"
-          badge={versionCount || null}
         />
-        {/* Versions du memo : visible dès qu'au moins 2 versions ont été créées (stage ≥ DD) */}
-        {isStageAtLeast(dealStage, 'dd') && (
-          <ItemRow
-            active={selectedItem === 'memo_versions'}
-            onClick={() => onSelectItem('memo_versions')}
-            icon={GitCompareArrows}
-            label="Versions du memo"
-          />
-        )}
 
-        {/* ── LIVRABLES ── */}
-        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-          <span className="flex-1 text-left">Livrables</span>
-        </div>
+        {/* ── ANALYSE (stage ≥ pre_screening) ── */}
+        {isStageAtLeast(dealStage, 'pre_screening') && (
+          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
+            <span className="flex-1 text-left">Analyse</span>
+          </div>
+        )}
 
         {/* Pré-screening 360° : visible dès stage ≥ pre_screening */}
         {isStageAtLeast(dealStage, 'pre_screening') && (
@@ -293,14 +290,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
             onClick={() => onSelectItem('pre_screening')}
             icon={FileEdit}
             label="Pré-screening 360°"
-            badge={memoProgress()}
           />
         )}
 
         {/* Memo d'investissement : visible dès stage ≥ note_ic1
             FIXE — toujours déplié (pas de collapse), aligné sur le pattern programme */}
         {isStageAtLeast(dealStage, 'note_ic1') && (() => {
-          const stageBadge = memoStageBadge();
           const pending = memoPendingCount();
           return (
             <div>
@@ -315,16 +310,8 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
               >
                 <ShieldCheck className="h-4 w-4 flex-none" />
                 <span className="flex-1 truncate">Memo d'investissement</span>
-                {stageBadge && (
-                  <span className="text-[10px] px-1.5 rounded font-medium bg-violet-50 text-violet-700">
-                    {stageBadge}
-                  </span>
-                )}
                 {pending > 0 && (
                   <span className="text-[10px] px-1 rounded font-medium bg-blue-50 text-blue-700">{pending} ⏳</span>
-                )}
-                {memoProgress() && (
-                  <span className="text-[10px] text-muted-foreground/70">{memoProgress()}</span>
                 )}
               </button>
               {/* Sections — toujours visibles (pas de collapse) */}
@@ -362,6 +349,13 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           />
         )}
 
+        {/* ── DÉCISION (stage ≥ dd) ── DD + Closing */}
+        {isStageAtLeast(dealStage, 'dd') && (
+          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
+            <span className="flex-1 text-left">Décision</span>
+          </div>
+        )}
+
         {/* DD : visible dès stage ≥ dd */}
         {isStageAtLeast(dealStage, 'dd') && (
           <ItemRow
@@ -372,13 +366,6 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           />
         )}
 
-        {/* ── PORTFOLIO MANAGEMENT (stage ≥ closing/portfolio + role IM/MD/admin/owner) ── */}
-        {(isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole)) && (
-          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-            <span className="flex-1 text-left">Portefeuille</span>
-          </div>
-        )}
-
         {/* Closing : visible dès stage ≥ closing, role IM/MD/admin/owner */}
         {isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole) && (
           <ItemRow
@@ -387,6 +374,13 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
             icon={FileSignature}
             label="Closing"
           />
+        )}
+
+        {/* ── PORTEFEUILLE (stage ≥ portfolio, role IM/MD/admin/owner) ── */}
+        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
+          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
+            <span className="flex-1 text-left">Portefeuille</span>
+          </div>
         )}
 
         {/* Plan 100 jours : stage ≥ portfolio, role IM/MD/admin/owner */}
@@ -419,16 +413,21 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           />
         )}
 
-        {/* Exit & sortie : stage ≥ exit_prep OU (portfolio ET >= 36 mois holding), role MD/admin/owner */}
+        {/* ── SORTIE (stage ≥ exit_prep OU portfolio ≥ 36 mois, role MD/admin/owner) ── */}
         {((isStageAtLeast(dealStage, 'exit_prep')) ||
           (isStageAtLeast(dealStage, 'portfolio') && (holdingMonths ?? 0) >= 36)) &&
           canSeeExit(userRole) && (
-          <ItemRow
-            active={selectedItem === 'exit_prep'}
-            onClick={() => onSelectItem('exit_prep')}
-            icon={DoorOpen}
-            label="Exit & sortie"
-          />
+          <>
+            <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
+              <span className="flex-1 text-left">Sortie</span>
+            </div>
+            <ItemRow
+              active={selectedItem === 'exit_prep'}
+              onClick={() => onSelectItem('exit_prep')}
+              icon={DoorOpen}
+              label="Exit & sortie"
+            />
+          </>
         )}
 
       </nav>
