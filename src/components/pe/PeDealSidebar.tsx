@@ -248,7 +248,7 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
         />
 
         {/* ── DONNÉES ── */}
-        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
+        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
           <span className="flex-1 text-left">Données</span>
         </div>
         <ItemRow
@@ -282,7 +282,7 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
         )}
 
         {/* ── LIVRABLES ── */}
-        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
+        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
           <span className="flex-1 text-left">Livrables</span>
         </div>
 
@@ -374,7 +374,7 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
 
         {/* ── PORTFOLIO MANAGEMENT (stage ≥ closing/portfolio + role IM/MD/admin/owner) ── */}
         {(isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole)) && (
-          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
+          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
             <span className="flex-1 text-left">Portefeuille</span>
           </div>
         )}
