@@ -66,7 +66,13 @@ export default function PeDealDetailPage() {
       const { data: p } = await supabase.from('profiles').select('full_name, email').eq('user_id', d.lead_analyst_id).maybeSingle();
       leadName = p?.full_name || p?.email || null;
     }
-    setDeal({ ...d, enterprise_name: (d.enterprises as any)?.name ?? null, lead_analyst_name: leadName });
+    setDeal({
+      ...d,
+      enterprise_name: (d.enterprises as any)?.name ?? null,
+      enterprise_sector: (d.enterprises as any)?.sector ?? null,
+      enterprise_country: (d.enterprises as any)?.country ?? null,
+      lead_analyst_name: leadName,
+    });
 
     // Calcul holding months depuis term sheet (utile pour révéler "Exit & sortie" si > 36 mois)
     const { data: ts } = await supabase
@@ -258,7 +264,27 @@ export default function PeDealDetailPage() {
   };
 
   return (
-    <DashboardLayout title={deal.deal_ref} subtitle={deal.enterprise_name || '—'} fullscreen>
+    <DashboardLayout
+      title={deal.enterprise_name || deal.deal_ref}
+      subtitle={(() => {
+        // Compose le sous-titre : ticket · pays · secteur · réf
+        const fmtTicket = (amount: number | null, currency: string | null) => {
+          if (!amount) return null;
+          const cur = currency ?? 'XOF';
+          if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M ${cur}`;
+          if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K ${cur}`;
+          return `${amount} ${cur}`;
+        };
+        const parts = [
+          fmtTicket(deal.ticket_demande, deal.currency),
+          deal.enterprise_country,
+          deal.enterprise_sector,
+          deal.deal_ref,
+        ].filter(Boolean);
+        return parts.length ? parts.join(' · ') : '—';
+      })()}
+      fullscreen
+    >
       <div className="h-full flex flex-col overflow-hidden">
         {/* Action bar : back + stage + settings (fixe au-dessus du workspace) */}
         <div className="flex-none px-6 py-2 border-b bg-card/30 flex items-center justify-between gap-3 flex-wrap">
