@@ -310,6 +310,8 @@ export default function PeDealDetailPage() {
               dealStage={deal.stage}
               userRole={isSuperAdmin ? 'super_admin' : orgRole}
               holdingMonths={holdingMonths}
+              enterpriseName={deal.enterprise_name}
+              enterpriseCountry={deal.enterprise_country}
             />
           </div>
           <div className="flex-1 min-w-0 overflow-y-auto">

@@ -53,6 +53,10 @@ interface Props {
   userRole?: string | null;
   /** Nombre de mois de portage (utilisé pour révéler "Exit & sortie" après ~3 ans). */
   holdingMonths?: number;
+  /** Nom de l'entreprise — affiché dans le header (pattern programme). */
+  enterpriseName?: string | null;
+  /** Pays de l'entreprise — affiché sous le nom dans le header. */
+  enterpriseCountry?: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -85,7 +89,7 @@ function canSeeExit(role?: string | null): boolean {
   return ROLES_EXIT.includes(role);
 }
 
-export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, dealStage, userRole, holdingMonths }: Props) {
+export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, dealStage, userRole, holdingMonths, enterpriseName, enterpriseCountry }: Props) {
   const [activeVersion, setActiveVersion] = useState<ActiveMemoVersion | null>(null);
   const [docCount, setDocCount] = useState(0);
   const [versionCount, setVersionCount] = useState(0);
@@ -211,8 +215,29 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
     </button>
   );
 
+  // Calcul du % de progression — basé sur les sections du memo remplies / total
+  const totalProgress = activeVersion
+    ? Math.round((activeVersion.filledSections.size / SECTIONS.length) * 100)
+    : 0;
+
   return (
     <div className="w-64 shrink-0 border-r bg-card overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      {/* Header entreprise — pattern aligné sur DashboardSidebar (volet programme) */}
+      {(enterpriseName || enterpriseCountry) && (
+        <div className="px-4 py-4 border-b bg-violet-50/40">
+          {enterpriseName && (
+            <p className="font-bold text-sm text-foreground truncate">{enterpriseName}</p>
+          )}
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            — · {enterpriseCountry || '—'}
+          </p>
+          <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-violet-500 transition-all" style={{ width: `${totalProgress}%` }} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{totalProgress}% complété</p>
+        </div>
+      )}
+
       <nav className="p-2 space-y-0.5">
         {/* Vue d'ensemble — toujours en haut */}
         <ItemRow
