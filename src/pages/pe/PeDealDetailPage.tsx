@@ -47,9 +47,10 @@ export default function PeDealDetailPage() {
   const [selectedItem, setSelectedItem] = useState<string>('overview');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [holdingMonths, setHoldingMonths] = useState<number>(0);
-  const [fundCurrency, setFundCurrency] = useState<string>('XOF'); // devise par défaut du fonds (lue depuis organizations.settings.pe_thesis)
+  // La devise est calculée auto par un trigger DB depuis enterprises.country
+  // → on lit deal.currency, pas besoin de state séparé.
   const [form, setForm] = useState({
-    ticket_demande: '', currency: 'EUR', source: 'autre', source_detail: '', lead_analyst_id: '', stage: '',
+    ticket_demande: '', source: 'autre', source_detail: '', lead_analyst_id: '', stage: '',
   });
 
   const isAnalyst = orgRole === 'analyste' || orgRole === 'analyst';
@@ -82,20 +83,11 @@ export default function PeDealDetailPage() {
     }
     setForm({
       ticket_demande: d.ticket_demande != null ? String(d.ticket_demande / 1_000_000) : '',
-      currency: d.currency || 'EUR',
       source: d.source || 'autre',
       source_detail: d.source_detail || '',
       lead_analyst_id: d.lead_analyst_id || '',
       stage: d.stage || '',
     });
-
-    // Charge la devise par défaut du fonds depuis pe_thesis (Paramètres du fonds)
-    if (currentOrg?.id) {
-      const { data: org } = await supabase
-        .from('organizations').select('settings').eq('id', currentOrg.id).maybeSingle();
-      const peThesis = (org?.settings as any)?.pe_thesis || {};
-      setFundCurrency(peThesis.currency || 'XOF');
-    }
 
     const { data: hist } = await supabase
       .from('pe_deal_history')
@@ -310,13 +302,12 @@ export default function PeDealDetailPage() {
             <SheetDescription>Modifie le ticket, le lead analyst ou bascule l'étape.</SheetDescription>
           </SheetHeader>
           <div className="space-y-4 mt-4">
-            {/* Montant du ticket — devise héritée du fonds, affichée en lecture seule */}
+            {/* Montant du ticket — devise calculée auto depuis le pays de l'entreprise (trigger DB) */}
             <div className="space-y-1.5">
               <Label>Montant du ticket</Label>
               <Input type="number" step="0.1" value={form.ticket_demande}
                 placeholder="Ex: 4.5"
                 onChange={e => setForm(f => ({ ...f, ticket_demande: e.target.value }))} />
-              <p className="text-xs text-muted-foreground">en M {fundCurrency} (devise du fonds)</p>
             </div>
 
             {/* Lead analyst */}
