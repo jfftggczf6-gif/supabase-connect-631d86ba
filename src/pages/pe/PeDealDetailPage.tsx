@@ -32,6 +32,8 @@ import Plan100DaysSection from '@/components/pe/Plan100DaysSection';
 import MonitoringDashboard from '@/components/pe/MonitoringDashboard';
 import ValuationHistorySection from '@/components/pe/ValuationHistorySection';
 import ExitPrepSection from '@/components/pe/ExitPrepSection';
+import PeGenerationToast from '@/components/pe/PeGenerationToast';
+import { usePeGenerationStatus } from '@/hooks/usePeGenerationStatus';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -175,6 +177,12 @@ export default function PeDealDetailPage() {
     toast.success('Deal mis à jour');
     load();
   };
+
+  // Hook de suivi live des générations IA — alimente le toast persistant
+  // en bas à droite quand le memo / pre-screening / valuation est en
+  // status='generating'. Souscrit en Realtime à memo_versions, memo_sections
+  // et pe_valuation. Doit être appelé AVANT les early returns (règle React).
+  const generationStatus = usePeGenerationStatus(deal?.id ?? null);
 
   if (loading) return <DashboardLayout title="Deal"><div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div></DashboardLayout>;
   if (!deal) return <DashboardLayout title="Deal"><p>Deal introuvable</p></DashboardLayout>;
@@ -353,6 +361,16 @@ export default function PeDealDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast de suivi des générations IA en cours (memo, valuation, slide payload) */}
+      <PeGenerationToast
+        status={generationStatus}
+        onOpen={() => {
+          if (generationStatus.currentStep === 'pre_screening') setSelectedItem('pre_screening');
+          else if (generationStatus.currentStep === 'memo_ic1' || generationStatus.currentStep === 'memo_ic_finale') setSelectedItem('memo');
+          else if (generationStatus.currentStep === 'valuation') setSelectedItem('valuation');
+        }}
+      />
 
       {/* Slide-over "Gérer le deal" */}
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
