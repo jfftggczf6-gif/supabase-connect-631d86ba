@@ -167,7 +167,7 @@ export default function PeParametersTab({ organizationId }: Props) {
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
