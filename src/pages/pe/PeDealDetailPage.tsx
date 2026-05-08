@@ -34,6 +34,9 @@ import ValuationHistorySection from '@/components/pe/ValuationHistorySection';
 import ExitPrepSection from '@/components/pe/ExitPrepSection';
 import PeGenerationToast from '@/components/pe/PeGenerationToast';
 import { usePeGenerationStatus } from '@/hooks/usePeGenerationStatus';
+import { useFundCurrency } from '@/hooks/useFundCurrency';
+import { useFxRates } from '@/hooks/useFxRates';
+import { convertCurrency } from '@/lib/currency-conversion';
 
 interface AnalystOpt { user_id: string; full_name: string | null; email: string | null; role: string; }
 interface HistoryRow { id: string; from_stage: string | null; to_stage: string; reason: string | null; created_at: string; }
@@ -51,8 +54,9 @@ export default function PeDealDetailPage() {
   const [selectedItem, setSelectedItem] = useState<string>('overview');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [holdingMonths, setHoldingMonths] = useState<number>(0);
-  // La devise est calculée auto par un trigger DB depuis enterprises.country
-  // → on lit deal.currency, pas besoin de state séparé.
+  const { currency: fundCurrency } = useFundCurrency(currentOrg?.id);
+  const { rates: fxRates } = useFxRates();
+  // La devise du fonds (Paramètres) prime sur celle du deal pour l'affichage.
   const [form, setForm] = useState({
     ticket_demande: '', source: 'autre', source_detail: '', lead_analyst_id: '', stage: '',
   });
@@ -303,12 +307,12 @@ export default function PeDealDetailPage() {
       title={deal.enterprise_name || deal.deal_ref}
       subtitle={(() => {
         // Compose le sous-titre : ticket · pays · secteur · réf
-        const fmtTicket = (amount: number | null, currency: string | null) => {
+        const fmtTicket = (amount: number | null, dealCur: string | null) => {
           if (!amount) return null;
-          const cur = currency ?? 'XOF';
-          if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M ${cur}`;
-          if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K ${cur}`;
-          return `${amount} ${cur}`;
+          const converted = convertCurrency(amount, dealCur, fundCurrency, fxRates);
+          if (converted >= 1_000_000) return `${(converted / 1_000_000).toFixed(1)}M ${fundCurrency}`;
+          if (converted >= 1_000) return `${(converted / 1_000).toFixed(0)}K ${fundCurrency}`;
+          return `${Math.round(converted)} ${fundCurrency}`;
         };
         const parts = [
           fmtTicket(deal.ticket_demande, deal.currency),

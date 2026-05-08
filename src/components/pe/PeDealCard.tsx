@@ -6,6 +6,9 @@ import { Loader2, Paperclip, FileCheck2, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { useFundCurrency } from '@/hooks/useFundCurrency';
+import { useFxRates } from '@/hooks/useFxRates';
+import { convertCurrency } from '@/lib/currency-conversion';
 import RegenerateConfirmDialog from './RegenerateConfirmDialog';
 
 interface Deal {
@@ -37,6 +40,8 @@ const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 export default function PeDealCard({ deal, organizationId, onClick, onRefresh }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: deal.id });
   const cardStyle = { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.5 : 1 };
+  const { currency: fundCurrency } = useFundCurrency(organizationId);
+  const { rates: fxRates } = useFxRates();
 
   const [docCount, setDocCount] = useState(0);
   const [latest, setLatest] = useState<VersionSummary | null>(null);
@@ -146,7 +151,7 @@ export default function PeDealCard({ deal, organizationId, onClick, onRefresh }:
   };
 
   const fmtTicket = deal.ticket_demande
-    ? `${(deal.ticket_demande / 1_000_000).toFixed(1)}M ${deal.currency || ''}`
+    ? `${(convertCurrency(deal.ticket_demande, deal.currency, fundCurrency, fxRates) / 1_000_000).toFixed(1)}M ${fundCurrency}`
     : '—';
 
   const scoreColor = (s: number) =>

@@ -7,6 +7,9 @@ import { ArrowRight, Upload, FileText, Loader2, Search, FileEdit, ShieldCheck, F
 import ScoreCircle from '@/components/dashboard/viewers/atoms/pe/ScoreCircle';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
 import PeDealStatusBadge from '@/components/pe/PeDealStatusBadge';
+import { useFundCurrency } from '@/hooks/useFundCurrency';
+import { useFxRates } from '@/hooks/useFxRates';
+import { convertCurrency } from '@/lib/currency-conversion';
 
 interface Props {
   dealId: string;
@@ -36,6 +39,8 @@ const STAGE_BADGE_LABELS: Record<string, string> = {
 };
 
 export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
+  const { currency: fundCurrency } = useFundCurrency(deal?.organization_id);
+  const { rates: fxRates } = useFxRates();
   const [memo, setMemo] = useState<MemoSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [docCount, setDocCount] = useState(0);
@@ -122,7 +127,7 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
             </div>
             {deal?.ticket_demande && (
               <div className="text-sm mt-2">
-                Ticket demandé : <strong>{(deal.ticket_demande / 1_000_000).toFixed(1)}M {deal.currency || 'EUR'}</strong>
+                Ticket demandé : <strong>{(convertCurrency(deal.ticket_demande, deal.currency, fundCurrency, fxRates) / 1_000_000).toFixed(1)}M {fundCurrency}</strong>
               </div>
             )}
           </div>

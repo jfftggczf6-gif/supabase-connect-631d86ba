@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, X, Plus, Settings, Globe, Target, Coins, Leaf } from 'lucide-react';
+import { Loader2, Save, X, Plus, Settings, Globe, Target, Coins, Leaf, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
+import { useFxRates } from '@/hooks/useFxRates';
 
 interface Props {
   organizationId: string;
@@ -108,6 +109,7 @@ export default function PeParametersTab({ organizationId }: Props) {
   const [saving, setSaving] = useState(false);
   const [thesis, setThesis] = useState<PeThesis>(DEFAULT_THESIS);
   const [orgName, setOrgName] = useState('');
+  const fx = useFxRates();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,6 +245,51 @@ export default function PeParametersTab({ organizationId }: Props) {
                 disabled={!canEdit}
               />
             </div>
+          </div>
+
+          {/* Taux de change — alimentés automatiquement par fetch-fx-rates (Frankfurter / ECB) */}
+          <div className="pt-2 border-t">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div>
+                <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                  <RefreshCw className={`h-3 w-3 ${fx.refreshing ? 'animate-spin' : ''}`} />
+                  Taux de change vs EUR
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  {fx.lastFetchedAt
+                    ? `Dernière maj : ${new Date(fx.lastFetchedAt).toLocaleString('fr-FR')} · ${fx.source ?? '—'}`
+                    : 'Aucune mise à jour'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => { await fx.refresh(); toast.success('Taux mis à jour'); }}
+                disabled={fx.refreshing}
+                className="h-7 text-xs"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${fx.refreshing ? 'animate-spin' : ''}`} />
+                Rafraîchir
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-muted/50 rounded px-2 py-1.5">
+                <div className="text-muted-foreground">1 EUR =</div>
+                <div className="font-mono font-semibold">{fx.rates.XOF?.toFixed(3) ?? '655.957'} XOF</div>
+              </div>
+              <div className="bg-muted/50 rounded px-2 py-1.5">
+                <div className="text-muted-foreground">1 EUR =</div>
+                <div className="font-mono font-semibold">{fx.rates.XAF?.toFixed(3) ?? '655.957'} XAF</div>
+              </div>
+              <div className="bg-muted/50 rounded px-2 py-1.5">
+                <div className="text-muted-foreground">1 EUR =</div>
+                <div className="font-mono font-semibold">{fx.rates.USD?.toFixed(4) ?? '1.0800'} USD</div>
+              </div>
+            </div>
+            {fx.error && (
+              <p className="text-[11px] text-red-600 mt-1.5">⚠ {fx.error}</p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -11,6 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Briefcase, DollarSign, Activity, Target, Globe, FileText, Eye, Plus, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/shared/StatCard';
+import { useFundCurrency } from '@/hooks/useFundCurrency';
+import { useFxRates } from '@/hooks/useFxRates';
+import { convertCurrency } from '@/lib/currency-conversion';
 
 interface Props {
   organizationId: string;
@@ -57,6 +60,8 @@ function fmtMoney(amount: number, currency: string) {
 
 export default function PeReportingImpactTab({ organizationId }: Props) {
   const navigate = useNavigate();
+  const { currency: fundCurrency } = useFundCurrency(organizationId);
+  const { rates: fxRates } = useFxRates();
   const [kpis, setKpis] = useState<PortfolioKpis | null>(null);
   const [distribution, setDistribution] = useState<Distribution>({ countries: [], sectors: [] });
   const [reports, setReports] = useState<LpReportRow[]>([]);
@@ -101,22 +106,24 @@ export default function PeReportingImpactTab({ organizationId }: Props) {
     let totalNav = 0;
     const moics: number[] = [];
     const irrs: number[] = [];
-    const currencyCounts = new Map<string, number>();
     const countryCounts = new Map<string, number>();
     const sectorCounts = new Map<string, number>();
 
+    // Conversion vers la devise du fonds (Paramètres) avant agrégation.
+    // ticket_demande et nav_amount sont stockés dans la devise du deal (auto-mappée par pays).
     deals.forEach((d: any) => {
-      if (d.ticket_demande) totalInvested += Number(d.ticket_demande);
-      if (d.currency) currencyCounts.set(d.currency, (currencyCounts.get(d.currency) ?? 0) + 1);
+      const dealCur = d.currency ?? fundCurrency;
+      if (d.ticket_demande) {
+        totalInvested += convertCurrency(Number(d.ticket_demande), dealCur, fundCurrency, fxRates);
+      }
       if (d.enterprises?.country) countryCounts.set(d.enterprises.country, (countryCounts.get(d.enterprises.country) ?? 0) + 1);
       if (d.enterprises?.sector) sectorCounts.set(d.enterprises.sector, (sectorCounts.get(d.enterprises.sector) ?? 0) + 1);
       const v = lastValPerDeal.get(d.id);
-      if (v?.nav_amount) totalNav += Number(v.nav_amount);
+      if (v?.nav_amount) totalNav += convertCurrency(Number(v.nav_amount), dealCur, fundCurrency, fxRates);
       if (v?.moic_to_date != null) moics.push(Number(v.moic_to_date));
       if (v?.irr_to_date != null) irrs.push(Number(v.irr_to_date));
     });
 
-    const dominantCurrency = [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'XOF';
     const avgMoic = moics.length ? moics.reduce((a, b) => a + b, 0) / moics.length : null;
     const avgIrr = irrs.length ? irrs.reduce((a, b) => a + b, 0) / irrs.length : null;
     const tvpi = totalInvested > 0 ? totalNav / totalInvested : null;
@@ -129,7 +136,7 @@ export default function PeReportingImpactTab({ organizationId }: Props) {
       avgIrr,
       tvpi,
       alertsOpen: alertsCount ?? 0,
-      currency: dominantCurrency,
+      currency: fundCurrency,
     });
 
     setDistribution({
@@ -147,7 +154,7 @@ export default function PeReportingImpactTab({ organizationId }: Props) {
     setReports((reportsData ?? []) as any);
 
     setLoading(false);
-  }, [organizationId]);
+  }, [organizationId, fundCurrency, fxRates]);
 
   useEffect(() => { load(); }, [load]);
 
