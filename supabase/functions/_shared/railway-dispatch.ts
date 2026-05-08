@@ -33,8 +33,72 @@ export interface DispatchOpts {
   dealId?: string;
   candidatureId?: string;
   memoId?: string;
+  programmeId?: string;
   /** Override timeout (default 350s) */
   pollTimeoutMs?: number;
+}
+
+/**
+ * Insère un ai_job + POST fire-and-forget vers le worker. Retourne 202 + job_id
+ * immédiatement. Le front lit le résultat via Realtime sur ai_jobs (ou la table
+ * cible mise à jour par l'agent : memo_versions, pe_valuation, etc.).
+ *
+ * À utiliser pour les agents longs (>5 min) où on ne veut pas que l'edge fn
+ * timeout : IC1 (12 sections //), valuation, dd-report, apply-dd-findings.
+ */
+export async function dispatchAndForget(opts: DispatchOpts): Promise<DispatchResult | DispatchError> {
+  const RAILWAY_AI_URL = Deno.env.get("RAILWAY_AI_URL");
+  const RAILWAY_AI_KEY = Deno.env.get("RAILWAY_AI_KEY");
+  if (!RAILWAY_AI_URL || !RAILWAY_AI_KEY) {
+    return { success: false, error: "Worker non configuré (RAILWAY_AI_URL/RAILWAY_AI_KEY)", status: 500 };
+  }
+
+  const adminClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const { data: job, error: jobErr } = await adminClient
+    .from("ai_jobs")
+    .insert({
+      agent_name: opts.agentName,
+      payload: opts.payload,
+      status: "pending",
+      deal_id: opts.dealId ?? null,
+      candidature_id: opts.candidatureId ?? null,
+      memo_id: opts.memoId ?? null,
+      programme_id: opts.programmeId ?? null,
+      organization_id: opts.organizationId,
+      user_id: opts.userId,
+    })
+    .select("id")
+    .single();
+  if (jobErr || !job) {
+    return { success: false, error: `INSERT job: ${jobErr?.message ?? "unknown"}`, status: 500 };
+  }
+
+  // POST fire-and-forget vers Railway (pas d'await sur la promesse)
+  fetch(`${RAILWAY_AI_URL}/run-agent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Worker-API-Key": RAILWAY_AI_KEY,
+    },
+    body: JSON.stringify({
+      agent_name: opts.agentName,
+      job_id: job.id,
+      payload: opts.payload,
+    }),
+  }).catch((e) => {
+    console.error("Worker dispatch failed:", e);
+  });
+
+  return {
+    success: true,
+    job_id: job.id,
+    result: { accepted: true },
+    duration_ms: 0,
+  };
 }
 
 /**
