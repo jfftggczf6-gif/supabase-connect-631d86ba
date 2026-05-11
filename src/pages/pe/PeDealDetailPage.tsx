@@ -32,8 +32,6 @@ import Plan100DaysSection from '@/components/pe/Plan100DaysSection';
 import MonitoringDashboard from '@/components/pe/MonitoringDashboard';
 import ValuationHistorySection from '@/components/pe/ValuationHistorySection';
 import ExitPrepSection from '@/components/pe/ExitPrepSection';
-import PeGenerationToast from '@/components/pe/PeGenerationToast';
-import { usePeGenerationStatus } from '@/hooks/usePeGenerationStatus';
 import { useFundCurrency } from '@/hooks/useFundCurrency';
 import { useFxRates } from '@/hooks/useFxRates';
 import { convertCurrency } from '@/lib/currency-conversion';
@@ -184,9 +182,8 @@ export default function PeDealDetailPage() {
 
   // Hook de suivi live des générations IA — alimente le toast persistant
   // en bas à droite quand le memo / pre-screening / valuation est en
-  // status='generating'. Souscrit en Realtime à memo_versions, memo_sections
-  // et pe_valuation. Doit être appelé AVANT les early returns (règle React).
-  const generationStatus = usePeGenerationStatus(deal?.id ?? null);
+  // Suivi des générations IA → désormais via AiJobsLiveToast monté globalement
+  // dans App.tsx (couvre tous les agents, sur toutes les pages).
 
   if (loading) return <DashboardLayout title="Deal"><div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div></DashboardLayout>;
   if (!deal) return <DashboardLayout title="Deal"><p>Deal introuvable</p></DashboardLayout>;
@@ -365,16 +362,6 @@ export default function PeDealDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* Toast de suivi des générations IA en cours (memo, valuation, slide payload) */}
-      <PeGenerationToast
-        status={generationStatus}
-        onOpen={() => {
-          if (generationStatus.currentStep === 'pre_screening') setSelectedItem('pre_screening');
-          else if (generationStatus.currentStep === 'memo_ic1' || generationStatus.currentStep === 'memo_ic_finale') setSelectedItem('memo');
-          else if (generationStatus.currentStep === 'valuation') setSelectedItem('valuation');
-        }}
-      />
 
       {/* Slide-over "Gérer le deal" */}
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>

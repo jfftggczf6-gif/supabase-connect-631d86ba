@@ -3,8 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
+import AiJobsLiveToast from "@/components/AiJobsLiveToast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import RequireSuperAdmin from "@/components/guards/RequireSuperAdmin";
 import RequireRole from "@/components/guards/RequireRole";
@@ -45,6 +46,12 @@ import BanquePipelinePage from "./pages/banque/BanquePipelinePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Composant interne pour utiliser le hook useAuth (besoin d'être dans AuthProvider)
+function GlobalAiJobsToast() {
+  const { user } = useAuth();
+  return <AiJobsLiveToast userId={user?.id ?? null} />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -141,6 +148,7 @@ const App = () => (
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <GlobalAiJobsToast />
         </OrganizationProvider>
         </AuthProvider>
       </BrowserRouter>
