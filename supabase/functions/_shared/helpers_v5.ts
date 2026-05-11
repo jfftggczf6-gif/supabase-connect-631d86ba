@@ -754,13 +754,16 @@ export async function buildRAGContext(
     let entries: any[] = [];
 
     if (queryEmbedding) {
-      const { data: semanticResults } = await supabase.rpc("search_knowledge", {
-        query_embedding: JSON.stringify(queryEmbedding),
+      // KB globale via search_knowledge_chunks (sans filter_organization_id).
+      // search_knowledge sur knowledge_base.embedding n'est pas utilisé :
+      // colonne non peuplée. Les embeddings vivent dans knowledge_chunks.
+      const { data: semanticResults } = await supabase.rpc("search_knowledge_chunks", {
+        query_embedding: queryEmbedding,
         match_threshold: 0.5,
         match_count: 15,
-        filter_categories: categories,
         filter_country: country || null,
         filter_sector: sector || null,
+        filter_organization_id: null,
       });
 
       if (semanticResults && semanticResults.length > 0) {
