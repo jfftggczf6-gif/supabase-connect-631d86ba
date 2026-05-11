@@ -93,6 +93,8 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
   const [activeVersion, setActiveVersion] = useState<ActiveMemoVersion | null>(null);
   const [docCount, setDocCount] = useState(0);
   const [versionCount, setVersionCount] = useState(0);
+  const [hasValuation, setHasValuation] = useState(false);
+  const [hasDdFindings, setHasDdFindings] = useState(false);
 
   const reload = async () => {
     const { data: memo } = await supabase
@@ -141,6 +143,22 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
       .select('id', { count: 'exact', head: true })
       .eq('deal_id', dealId);
     setDocCount(count ?? 0);
+
+    // Existence de livrables avancés (sert à débloquer la nav même si le stage
+    // du deal n'a pas encore été avancé manuellement par l'IM/MD).
+    const [{ data: valuation }, { count: ddCount }] = await Promise.all([
+      supabase
+        .from('pe_valuation')
+        .select('status')
+        .eq('deal_id', dealId)
+        .maybeSingle(),
+      supabase
+        .from('pe_dd_findings')
+        .select('id', { count: 'exact', head: true })
+        .eq('deal_id', dealId),
+    ]);
+    setHasValuation(!!valuation && valuation.status === 'ready');
+    setHasDdFindings((ddCount ?? 0) > 0);
   };
 
   useEffect(() => { reload(); }, [dealId]);
@@ -221,6 +239,17 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
     ? Math.round((activeVersion.filledSections.size / SECTIONS.length) * 100)
     : 0;
 
+  // Gates "contenu existe" : la sidebar débloque les sections dès qu'un livrable
+  // a été généré, indépendamment du stage formel du deal (qui reste sous
+  // contrôle IM/MD via "Gérer le deal"). Un analyste peut ainsi lire et préparer
+  // l'IC1 sans que le pipeline soit forcé d'avancer.
+  const hasMemoEnriched =
+    activeVersion?.stage === 'note_ic1' || activeVersion?.stage === 'note_ic_finale';
+  const showAnalysis = isStageAtLeast(dealStage, 'pre_screening') || !!activeVersion;
+  const showMemo = isStageAtLeast(dealStage, 'note_ic1') || hasMemoEnriched;
+  const showValuation = isStageAtLeast(dealStage, 'note_ic1') || hasValuation;
+  const showDecision = isStageAtLeast(dealStage, 'dd') || hasDdFindings;
+
   return (
     <div className="w-64 shrink-0 border-r bg-card overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
       {/* Header entreprise — pattern aligné sur DashboardSidebar (volet programme) */}
@@ -277,15 +306,15 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           label="Historique"
         />
 
-        {/* ── ANALYSE (stage ≥ pre_screening) ── */}
-        {isStageAtLeast(dealStage, 'pre_screening') && (
+        {/* ── ANALYSE : visible dès qu'un memo existe ou stage ≥ pre_screening ── */}
+        {showAnalysis && (
           <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
             <span className="flex-1 text-left">Analyse</span>
           </div>
         )}
 
-        {/* Pré-screening 360° : visible dès stage ≥ pre_screening */}
-        {isStageAtLeast(dealStage, 'pre_screening') && (
+        {/* Pré-screening 360° : visible dès qu'un memo existe ou stage ≥ pre_screening */}
+        {showAnalysis && (
           <ItemRow
             active={selectedItem === 'pre_screening'}
             onClick={() => onSelectItem('pre_screening')}
@@ -294,9 +323,9 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           />
         )}
 
-        {/* Memo d'investissement : visible dès stage ≥ note_ic1
+        {/* Memo d'investissement : visible dès qu'un memo IC1+ existe (ou stage ≥ note_ic1).
             FIXE — toujours déplié (pas de collapse), aligné sur le pattern programme */}
-        {isStageAtLeast(dealStage, 'note_ic1') && (() => {
+        {showMemo && (() => {
           const pending = memoPendingCount();
           return (
             <div>
@@ -340,8 +369,8 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           );
         })()}
 
-        {/* Valuation : visible dès stage ≥ note_ic1 */}
-        {isStageAtLeast(dealStage, 'note_ic1') && (
+        {/* Valuation : visible dès qu'une valuation est ready ou stage ≥ note_ic1 */}
+        {showValuation && (
           <ItemRow
             active={selectedItem === 'valuation'}
             onClick={() => onSelectItem('valuation')}
@@ -350,15 +379,15 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
           />
         )}
 
-        {/* ── DÉCISION (stage ≥ dd) ── DD + Closing */}
-        {isStageAtLeast(dealStage, 'dd') && (
+        {/* ── DÉCISION : visible dès que des findings DD existent ou stage ≥ dd ── */}
+        {showDecision && (
           <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
             <span className="flex-1 text-left">Décision</span>
           </div>
         )}
 
-        {/* DD : visible dès stage ≥ dd */}
-        {isStageAtLeast(dealStage, 'dd') && (
+        {/* DD : visible dès qu'un finding existe ou stage ≥ dd */}
+        {showDecision && (
           <ItemRow
             active={selectedItem === 'dd'}
             onClick={() => onSelectItem('dd')}

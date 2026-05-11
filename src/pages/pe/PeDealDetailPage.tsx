@@ -60,7 +60,12 @@ export default function PeDealDetailPage() {
   });
 
   const isAnalyst = orgRole === 'analyste' || orgRole === 'analyst';
+  const isIm = orgRole === 'investment_manager';
   const isMd = orgRole === 'owner' || orgRole === 'admin' || orgRole === 'managing_director' || isSuperAdmin;
+  // Avancement du stage du deal : réservé IM/MD. L'analyste ne peut pas
+  // bumper un deal (workflow validation business — c'est l'IM ou le MD qui
+  // décide qu'une étape est franchie après revue/validation des sections).
+  const canChangeStage = isMd || isIm;
 
   const load = useCallback(async () => {
     if (!dealId) return;
@@ -394,8 +399,9 @@ export default function PeDealDetailPage() {
               </div>
             )}
 
-            {/* Status — dropdown des 10 stages, MD/IM peut sauter avec warning si formalisation IC sautée */}
-            {isMd && (
+            {/* Status — dropdown des 10 stages, MD/IM peut sauter avec warning si formalisation IC sautée.
+                Analyste : pas de dropdown (avancement = décision IM/MD). */}
+            {canChangeStage && (
               <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select value={form.stage} onValueChange={v => setForm(f => ({ ...f, stage: v }))}>
