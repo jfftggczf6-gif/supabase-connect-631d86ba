@@ -183,38 +183,83 @@ export default function PreScreening360Dashboard({ dealId, dealStage, onNavigate
   const esgCJ = sections.esg_risks?.content_json ?? {};
   const annCJ = sections.annexes?.content_json ?? {};
 
-  // KPIs bandeau (5 premiers du résumé exécutif)
-  const kpis: any[] = (execCJ.kpis_bandeau ?? []).slice(0, 5);
+  // KPIs bandeau — accepte le shape legacy {label,value,hint} OU le nouveau
+  // {indicateur,valeur,source} produit par le worker Python.
+  const rawKpis: any[] = execCJ.kpis_bandeau ?? execCJ.kpis_cles ?? [];
+  const kpis: any[] = rawKpis.slice(0, 5).map((k: any) => ({
+    label: k.label ?? k.indicateur,
+    value: k.value ?? k.valeur,
+    hint: k.hint ?? k.source,
+  }));
 
-  // Activité
-  const activite = servCJ.nature_activite ?? servCJ.activite;
-  // Actionnariat (top 3)
-  const capRows: any[] = sharCJ.cap_table?.rows ?? sharCJ.actionnariat?.items ?? [];
-  // Management
-  const mgmtRows: any[] = mgmtCJ.equipe_dirigeante?.rows ?? mgmtCJ.management?.items ?? [];
+  // Activité — peut être une string directe, sinon on tape dans services pour
+  // composer une description courte à partir de chaine_de_valeur / moat.
+  const activite = (
+    servCJ.nature_activite
+      ?? servCJ.activite
+      ?? servCJ.description
+      ?? servCJ.chaine_de_valeur?.description
+      ?? servCJ.section_summary
+  ) ?? null;
+
+  // Actionnariat (top 3) — legacy: cap_table.rows / actionnariat.items.
+  // Nouveau: table_capitalisation.associes (worker Python).
+  const capRowsRaw: any[] = (
+    sharCJ.cap_table?.rows
+      ?? sharCJ.actionnariat?.items
+      ?? sharCJ.table_capitalisation?.associes
+      ?? []
+  );
+  const capRows: any[] = capRowsRaw.map((r: any) => ({
+    actionnaire: r.actionnaire ?? r.nom ?? r.name,
+    pct: r.pct ?? r.pourcentage ?? r.part,
+    type: r.type ?? r.qualite ?? r.role,
+  }));
+
+  // Management — legacy: top_management.equipe_dirigeante.rows / management.items.
+  // Nouveau: les dirigeants sont dans shareholding_governance.dirigeants.
+  const mgmtRowsRaw: any[] = (
+    mgmtCJ.equipe_dirigeante?.rows
+      ?? mgmtCJ.management?.items
+      ?? mgmtCJ.dirigeants
+      ?? sharCJ.dirigeants
+      ?? []
+  );
+  const mgmtRows: any[] = mgmtRowsRaw.map((r: any) => ({
+    nom: r.nom ?? r.name,
+    poste: r.poste ?? r.qualite ?? r.role ?? r.fonction,
+    experience: r.experience ?? r.experience_ans ?? r.age_a_immatriculation,
+  }));
 
   // Snapshot 3y
-  const snap = pnlCJ.pnl_3y ?? pnlCJ.snapshot_3y;
+  const snap = pnlCJ.pnl_3y ?? pnlCJ.snapshot_3y ?? pnlCJ.financials_3y;
   // Use of proceeds
-  const useOfProceeds = supCJ.use_of_proceeds_detailed ?? supCJ.use_of_proceeds;
+  const useOfProceeds = supCJ.use_of_proceeds_detailed ?? supCJ.use_of_proceeds ?? supCJ.allocation;
   // Scenarios
-  const scenarios = thesCJ.scenarios_returns;
+  const scenarios = thesCJ.scenarios_returns ?? thesCJ.scenarios;
 
   // Adéquation thèse
-  const thesisMatch = thesCJ.thesis_match;
-  // Red flags
-  const redFlags: any[] = execCJ.red_flags_synthesis ?? esgCJ.red_flags ?? [];
+  const thesisMatch = thesCJ.thesis_match ?? thesCJ.adequation_these;
+  // Red flags — peut venir de execCJ.red_flags_synthesis, esgCJ.red_flags, ou
+  // simplement execCJ.red_flags (nouveau shape).
+  const redFlags: any[] = (
+    execCJ.red_flags_synthesis
+      ?? execCJ.red_flags
+      ?? esgCJ.red_flags
+      ?? []
+  );
 
   // Doc quality (depuis annexes ou legacy)
-  const docQuality = annCJ.doc_quality ?? null;
-  const inventaire = annCJ.inventaire_documentaire ?? null;
+  const docQuality = annCJ.doc_quality ?? annCJ.qualite_documentaire ?? null;
+  const inventaire = annCJ.inventaire_documentaire ?? annCJ.inventaire ?? null;
 
   // Synthèse IA
-  const aiSynth = execCJ.ai_synthesis;
+  const aiSynth = execCJ.ai_synthesis ?? execCJ.synthesis ?? execCJ.these_investissement;
   // Benchmark (depuis competition_market ou legacy benchmark)
-  const benchmark = compCJ.benchmark ?? compCJ.concurrents;
-  // Recommandation
-  const reco = execCJ.recommendation ?? thesCJ.recommendation;
+  const benchmark = compCJ.benchmark ?? compCJ.concurrents ?? compCJ.benchmarks_sectoriels;
+  // Recommandation — legacy: object {verdict, ...} ; nouveau: simple string verdict.
+  const rawReco = execCJ.recommendation ?? thesCJ.recommendation;
+  const reco = rawReco ?? (execCJ.verdict ? { verdict: execCJ.verdict, rationale: execCJ.these_investissement } : null);
 
   const enterpriseName = (deal?.enterprises as any)?.name ?? deal?.deal_ref;
   const sector = (deal?.enterprises as any)?.sector;
