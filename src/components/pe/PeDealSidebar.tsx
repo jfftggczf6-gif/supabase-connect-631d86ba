@@ -102,11 +102,12 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
       .maybeSingle();
 
     if (memo) {
-      // Living document : on prend la dernière version (peu importe le stage)
+      // Living document : on prend la dernière version utilisable (skip 'rejected')
       const { data: vers } = await supabase
         .from('memo_versions')
         .select('id, stage, status, memo_sections(section_code, content_md, content_json, status)')
         .eq('memo_id', memo.id)
+        .neq('status', 'rejected')
         .order('created_at', { ascending: false });
 
       const latest = vers?.[0];

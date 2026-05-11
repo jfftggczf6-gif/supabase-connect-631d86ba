@@ -55,11 +55,14 @@ export default function PeOverviewHub({ dealId, deal, onSelectItem }: Props) {
         .maybeSingle();
 
       if (investmentMemo) {
-        // Living document : on prend la dernière version 'ready' (toute stage confondu)
+        // Living document : on prend la dernière version utilisable (pas 'rejected'),
+        // toute stage confondu. Une régen qui plante crée une version 'rejected' à 0
+        // section — la skipper évite qu'elle masque la dernière version validée.
         const { data: vers } = await supabase
           .from('memo_versions')
           .select('id, label, stage, status, overall_score, classification, memo_sections(content_md, content_json, status)')
           .eq('memo_id', investmentMemo.id)
+          .neq('status', 'rejected')
           .order('created_at', { ascending: false })
           .limit(1);
         const latest = vers?.[0];

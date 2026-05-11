@@ -58,6 +58,7 @@ export default function PeDealCard({ deal, organizationId, onClick, onRefresh }:
         .from('memo_versions')
         .select('status, overall_score, stage, investment_memos!inner(deal_id)')
         .eq('investment_memos.deal_id', deal.id)
+        .neq('status', 'rejected')
         .order('created_at', { ascending: false })
         .limit(1),
     ]);
