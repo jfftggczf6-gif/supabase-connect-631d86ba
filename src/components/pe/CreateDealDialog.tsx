@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 import { Loader2, Upload, X, FileText } from 'lucide-react';
 
@@ -78,6 +79,12 @@ const ANALYST_ROLES = ['analyst', 'analyste'];
 const IM_ROLES = ['investment_manager', 'managing_director', 'owner', 'admin'];
 
 export default function CreateDealDialog({ open, onOpenChange, organizationId, currentUserId, onCreated }: Props) {
+  const { currentRole, isSuperAdmin } = useOrganization();
+  // L'analyste qui crée un deal devient automatiquement le lead_analyst.
+  // Le lead_im (Responsable) sera assigné plus tard par le MD/IM — pas par
+  // l'analyste lui-même. On cache donc les 2 dropdowns dans ce cas.
+  const isAnalystCreator = !isSuperAdmin && ['analyst', 'analyste'].includes(currentRole || '');
+
   // Form state
   const [enterpriseName, setEnterpriseName] = useState('');
   const [dirigeantName, setDirigeantName] = useState('');
@@ -294,37 +301,40 @@ export default function CreateDealDialog({ open, onOpenChange, organizationId, c
             </p>
           </div>
 
-          {/* 6. Analyste + 7. Responsable */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Analyste</Label>
-              <Select value={analystId} onValueChange={setAnalystId}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
-                <SelectContent>
-                  {analysts.length === 0 && (
-                    <SelectItem value="__none" disabled>Aucun analyste disponible</SelectItem>
-                  )}
-                  {analysts.map(m => (
-                    <SelectItem key={m.user_id} value={m.user_id}>{labelOf(m)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* 6. Analyste + 7. Responsable — cachés pour l'analyste (auto-assigné à lui-même,
+              le Responsable sera défini plus tard par le MD/IM) */}
+          {!isAnalystCreator && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Analyste</Label>
+                <Select value={analystId} onValueChange={setAnalystId}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                  <SelectContent>
+                    {analysts.length === 0 && (
+                      <SelectItem value="__none" disabled>Aucun analyste disponible</SelectItem>
+                    )}
+                    {analysts.map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>{labelOf(m)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Responsable</Label>
+                <Select value={imId} onValueChange={setImId}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                  <SelectContent>
+                    {ims.length === 0 && (
+                      <SelectItem value="__none" disabled>Aucun responsable disponible</SelectItem>
+                    )}
+                    {ims.map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>{labelOf(m)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Responsable</Label>
-              <Select value={imId} onValueChange={setImId}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
-                <SelectContent>
-                  {ims.length === 0 && (
-                    <SelectItem value="__none" disabled>Aucun responsable disponible</SelectItem>
-                  )}
-                  {ims.map(m => (
-                    <SelectItem key={m.user_id} value={m.user_id}>{labelOf(m)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           {/* Drag & drop optionnel — documents associés au deal (uploadés après création) */}
           <div className="space-y-1.5 pt-2">
