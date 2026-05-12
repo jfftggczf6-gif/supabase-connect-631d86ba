@@ -70,29 +70,32 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   }, [fetchExistingFiles]);
 
   const handleDownloadExisting = async (filename: string) => {
-    // `download: true` ajoute Content-Disposition: attachment côté Supabase
-    // → le browser télécharge au lieu d'essayer d'afficher inline (sinon les
-    // .pptx, .docx, .xlsx ouvrent un onglet vide).
-    // On passe aussi un displayName propre (sans le préfixe timestamp Date.now()
-    // qu'on ajoute à l'upload) pour que l'utilisateur retrouve le nom original.
+    // Téléchargement via Blob + object URL : marche sur Safari (qui bloque
+    // window.open après un await pour cause de "user gesture lost"), et garde
+    // un nom de fichier propre (sans le préfixe timestamp ajouté à l'upload).
     const displayName = filename.replace(/^\d+_/, '');
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(`${enterpriseId}/reconstruction/${filename}`, 600, {
-        download: displayName,
-      });
-    if (error || !data) {
-      toast.error('Impossible de générer le lien de téléchargement');
-      return;
+    try {
+      const { data: blob, error } = await supabase.storage
+        .from('documents')
+        .download(`${enterpriseId}/reconstruction/${filename}`);
+      if (error || !blob) {
+        console.error('[download] supabase error', error);
+        toast.error('Téléchargement impossible : ' + (error?.message || 'fichier inaccessible'));
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = displayName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Libération mémoire après laisser le browser le temps de démarrer le DL
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e: any) {
+      console.error('[download] exception', e);
+      toast.error('Erreur de téléchargement');
     }
-    // Crée un <a> temporaire pour déclencher le download via attribute "download"
-    // (plus fiable que window.open quand Content-Disposition est attachment)
-    const a = document.createElement('a');
-    a.href = data.signedUrl;
-    a.download = displayName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
   };
 
   const handleDeleteExisting = async (filename: string) => {
