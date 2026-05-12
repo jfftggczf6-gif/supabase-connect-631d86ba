@@ -33,24 +33,41 @@ export function getStagesForRole(_role: string | null | undefined): StageDef[] {
 }
 
 /** Vérifie qu'un rôle a le droit de pousser un deal vers `toStage` depuis `fromStage`.
- *  L'analyste peut sourcing → pre_screening, mais doit demander validation IM/MD
- *  pour passer en note_ic1+ (DD, IC finale, closing). */
+ *  - Analyste : peut sourcing → pre_screening, mais doit demander validation IM/MD
+ *    pour passer en note_ic1+ (DD, IC finale, closing).
+ *  - IM : gère tout l'opérationnel, MAIS la décision IC finale (note_ic_finale →
+ *    closing) reste au MD (sign-off go/no-go d'investissement).
+ *  - MD / owner / admin / super_admin : tout autorisé. */
 export function canTransition(
   role: string | null | undefined,
   fromStage: string,
   toStage: string,
 ): { allowed: boolean; reason?: string } {
   const isAnalyst = role === 'analyste' || role === 'analyst';
-  if (!isAnalyst) return { allowed: true };
+  const isIm = role === 'investment_manager';
 
-  // Analyste : ne peut pas pousser un deal au-delà de pre_screening sans validation
-  const restrictedTargets = ['note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio'];
-  if (restrictedTargets.includes(toStage)) {
-    return {
-      allowed: false,
-      reason: 'Demande la validation à ton IM ou MD avant de pousser ce deal plus loin.',
-    };
+  if (isAnalyst) {
+    const restrictedTargets = ['note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio'];
+    if (restrictedTargets.includes(toStage)) {
+      return {
+        allowed: false,
+        reason: 'Demande la validation à ton IM ou MD avant de pousser ce deal plus loin.',
+      };
+    }
+    return { allowed: true };
   }
+
+  if (isIm) {
+    // IC finale = décision MD uniquement (engagement d'investissement).
+    if (fromStage === 'note_ic_finale' && toStage === 'closing') {
+      return {
+        allowed: false,
+        reason: "L'approbation de l'IC finale est réservée au Managing Director.",
+      };
+    }
+    return { allowed: true };
+  }
+
   return { allowed: true };
 }
 

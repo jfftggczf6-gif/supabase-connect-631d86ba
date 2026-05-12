@@ -32,7 +32,7 @@ interface EnterpriseRow {
   alerts_count: number;
 }
 
-const TABS = [
+const ALL_TABS = [
   { value: 'synthese', label: 'Synthèse' },
   { value: 'candidature', label: 'Candidature' },
   { value: 'enterprises', label: 'Deals' },
@@ -41,6 +41,17 @@ const TABS = [
   { value: 'equipe', label: 'Équipe' },
   { value: 'parametres', label: 'Paramètres' },
 ];
+
+// Paramètres = MD/owner/admin uniquement (config du fonds, seuils, branding).
+// L'IM accède à tout le reste, y compris Équipe (gestion opérationnelle).
+const TABS_BY_ROLE_RESTRICTED: Record<string, string[]> = {
+  investment_manager: ['parametres'],
+};
+function visibleTabs(role: string | null | undefined, isSuperAdmin: boolean) {
+  if (isSuperAdmin) return ALL_TABS;
+  const restricted = TABS_BY_ROLE_RESTRICTED[role || ''] || [];
+  return ALL_TABS.filter(t => !restricted.includes(t.value));
+}
 
 export default function PeWorkspacePage() {
   const { currentOrg, currentRole: orgRole, isSuperAdmin } = useOrganization();
@@ -145,9 +156,17 @@ export default function PeWorkspacePage() {
 
   // Redirect analyste → /pe/pipeline une fois le rôle chargé.
   useEffect(() => {
-    console.log('[PeWorkspace] role check:', { orgRole, isSuperAdmin, isAnalystOnly });
     if (isAnalystOnly) navigate('/pe/pipeline', { replace: true });
-  }, [isAnalystOnly, navigate, orgRole, isSuperAdmin]);
+  }, [isAnalystOnly, navigate]);
+
+  // Si l'utilisateur (IM par ex.) navigue vers un onglet auquel il n'a pas
+  // accès, on le ramène sur "synthese" silencieusement.
+  useEffect(() => {
+    const allowed = visibleTabs(orgRole, isSuperAdmin).map(t => t.value);
+    if (activeTab && !allowed.includes(activeTab)) {
+      setSearchParams({ tab: 'synthese' }, { replace: true });
+    }
+  }, [activeTab, orgRole, isSuperAdmin, setSearchParams]);
 
   if (!currentOrg || isAnalystOnly) {
     return (
@@ -168,7 +187,7 @@ export default function PeWorkspacePage() {
 
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
         <TabsList className="flex-wrap">
-          {TABS.map(tab => (
+          {visibleTabs(orgRole, isSuperAdmin).map(tab => (
             <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
           ))}
         </TabsList>
