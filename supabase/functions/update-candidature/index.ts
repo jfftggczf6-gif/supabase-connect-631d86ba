@@ -31,8 +31,11 @@ async function createEnterpriseFromCandidature(
   programmeName: string,
   supabase: any,
 ): Promise<{ enterprise: any; tempPassword: string }> {
-  // 1. Create user account
+  // 1. Create user account (idempotent : si l'email existe déjà — typiquement
+  //    suite à un retry après un échec partiel — on récupère l'user existant
+  //    au lieu de planter avec "User already registered").
   const tempPassword = `ESONO-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  let userId: string;
   const { data: newUser, error: createUserErr } = await supabase.auth.admin.createUser({
     email: candidature.contact_email,
     password: tempPassword,
@@ -40,8 +43,20 @@ async function createEnterpriseFromCandidature(
     user_metadata: { full_name: candidature.contact_name },
   });
 
-  if (createUserErr) throw new Error(`Création compte: ${createUserErr.message}`);
-  const userId = newUser.user.id;
+  if (createUserErr) {
+    // Email déjà enregistré : on récupère l'user existant via listUsers
+    if (/already.*registered|email_exists|user.*already.*exist/i.test(createUserErr.message || "")) {
+      const { data: usersPage } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const existing = usersPage?.users?.find((u: any) => (u.email || "").toLowerCase() === candidature.contact_email.toLowerCase());
+      if (!existing) throw new Error(`Création compte: email déjà pris mais user introuvable`);
+      userId = existing.id;
+      console.log(`[update-candidature] User déjà existant réutilisé: ${userId}`);
+    } else {
+      throw new Error(`Création compte: ${createUserErr.message}`);
+    }
+  } else {
+    userId = newUser.user.id;
+  }
 
   // 2. Create profile + role
   await supabase.from("profiles").upsert({
