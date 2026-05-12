@@ -145,8 +145,9 @@ export default function PeWorkspacePage() {
 
   // Redirect analyste → /pe/pipeline une fois le rôle chargé.
   useEffect(() => {
+    console.log('[PeWorkspace] role check:', { orgRole, isSuperAdmin, isAnalystOnly });
     if (isAnalystOnly) navigate('/pe/pipeline', { replace: true });
-  }, [isAnalystOnly, navigate]);
+  }, [isAnalystOnly, navigate, orgRole, isSuperAdmin]);
 
   if (!currentOrg || isAnalystOnly) {
     return (
