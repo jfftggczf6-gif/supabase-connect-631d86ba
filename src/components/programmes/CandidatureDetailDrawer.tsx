@@ -162,9 +162,34 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
               )}
               {s.classification && <Badge variant="outline" className="text-sm h-8">{s.classification}</Badge>}
               <div className="ml-auto flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
-                <Button size="sm" onClick={() => updateCandidature('move', { new_status: 'selected' })} disabled={saving}>{t('candidature.select')}</Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
+                {detail?.status === 'selected' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      setSaving(true);
+                      const { data, error } = await supabase.functions.invoke('update-candidature', {
+                        body: { candidature_id: candidatureId, action: 'retry_doc_transfer' }
+                      });
+                      setSaving(false);
+                      if (error || data?.error) {
+                        toast({ title: 'Erreur', description: data?.error || error?.message, variant: 'destructive' });
+                      } else {
+                        toast({ title: 'Transfer relancé', description: `${data?.transferred ?? 0} nouveaux, ${data?.skipped ?? 0} déjà là, ${data?.failed?.length ?? 0} échecs` });
+                        onUpdated();
+                      }
+                    }}
+                    disabled={saving}
+                  >
+                    Re-transférer documents
+                  </Button>
+                ) : (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
+                    <Button size="sm" onClick={() => updateCandidature('move', { new_status: 'selected' })} disabled={saving}>{t('candidature.select')}</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
+                  </>
+                )}
               </div>
             </div>
 

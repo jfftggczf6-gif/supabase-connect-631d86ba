@@ -168,25 +168,57 @@ async function createEnterpriseFromCandidature(
     const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
     const parsedContents: string[] = [];
 
+    // Skip-if-exists : on liste les docs déjà transférés pour ne pas re-traiter
+    // ce qui a déjà été fait (cas retry après timeout / erreur partielle).
+    let alreadyTransferred = new Set<string>();
+    try {
+      const { data: existingFiles } = await supabase.storage
+        .from("documents")
+        .list(`${enterprise.id}/reconstruction/`, { limit: 1000 });
+      alreadyTransferred = new Set(
+        (existingFiles || []).map((f: any) => f.name.replace(/^\d+_/, ''))
+      );
+      if (alreadyTransferred.size > 0) {
+        console.log(`[transfer-doc] ${alreadyTransferred.size} doc(s) déjà transférés, skip lors de la boucle`);
+      }
+    } catch (e) {
+      console.warn(`[transfer-doc] list existing failed (non-blocking):`, e);
+    }
+
+    let transferredCount = 0;
+    let skippedCount = 0;
+    let failedDocs: string[] = [];
+
     for (const doc of docs) {
       if (!doc.storage_path) continue;
+      const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      // Skip si déjà transféré (idempotence sur retry)
+      if (alreadyTransferred.has(safeName)) {
+        skippedCount++;
+        continue;
+      }
+
       try {
         // Download from candidature-documents bucket
         const parts = doc.storage_path.split("/");
         const bucket = parts[0];
         const filePath = parts.slice(1).join("/");
         const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
-        if (dlErr || !fileData) { console.warn(`[transfer-doc] Download failed: ${doc.file_name}`); continue; }
+        if (dlErr || !fileData) {
+          console.warn(`[transfer-doc] Download failed: ${doc.file_name}`);
+          failedDocs.push(doc.file_name);
+          continue;
+        }
 
-        // Upload to enterprise documents bucket — DANS le sous-dossier /reconstruction/
-        // pour matcher le path attendu par ReconstructionUploader côté UI (sinon
-        // les docs sont stockés mais invisibles dans l'onglet Documents).
-        // Préfixe timestamp pour aligner avec le format d'upload entrepreneur.
-        const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        // Upload to enterprise documents bucket — sous-dossier /reconstruction/
+        // pour matcher le path attendu par ReconstructionUploader côté UI.
         const entPath = `${enterprise.id}/reconstruction/${Date.now()}_${safeName}`;
         await supabase.storage.from("documents").upload(entPath, fileData, { upsert: true });
+        transferredCount++;
 
-        // Parse via Railway for document_content
+        // Parse via Railway — timeout réduit à 10s pour rester dans la limite
+        // edge fn même avec 30+ docs. Non-bloquant : si parse échoue, on continue.
         try {
           const arrayBuf = await fileData.arrayBuffer();
           const blob = new Blob([new Uint8Array(arrayBuf)]);
@@ -196,7 +228,7 @@ async function createEnterpriseFromCandidature(
             method: "POST",
             headers: { "Authorization": `Bearer ${PARSER_API_KEY}` },
             body: formData,
-            signal: AbortSignal.timeout(30_000),
+            signal: AbortSignal.timeout(10_000),
           });
           if (parseResp.ok) {
             const parsed = await parseResp.json();
@@ -205,14 +237,17 @@ async function createEnterpriseFromCandidature(
             }
           }
         } catch (parseErr: any) {
-          console.warn(`[transfer-doc] Parse failed for ${doc.file_name}:`, parseErr.message);
+          console.warn(`[transfer-doc] Parse skipped for ${doc.file_name}:`, parseErr.message);
         }
 
         console.log(`[transfer-doc] ✅ ${doc.file_name} → enterprise ${enterprise.name}`);
       } catch (e: any) {
         console.warn(`[transfer-doc] Error transferring ${doc.file_name}:`, e.message);
+        failedDocs.push(doc.file_name);
       }
     }
+
+    console.log(`[transfer-doc] Résumé : ${transferredCount} nouveaux, ${skippedCount} skippés (déjà là), ${failedDocs.length} échecs`);
 
     // Save parsed content to enterprise
     if (parsedContents.length > 0) {
@@ -323,6 +358,61 @@ serve(async (req) => {
 
     const programme = candidature.programmes;
     if (isChef && programme?.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+
+    // ═══════ RETRY DOC TRANSFER ═══════
+    // Réservé aux candidatures déjà sélectionnées dont le transfer initial a
+    // partiellement échoué (timeout, parser down, etc.). Re-lance l'étape 6 du
+    // pipeline createEnterpriseFromCandidature en mode idempotent : skip-if-exists
+    // sur chaque doc → ne transfère que ce qui manque.
+    if (action === "retry_doc_transfer") {
+      if (candidature.status !== "selected" || !candidature.enterprise_id) {
+        return jsonRes({ error: "Candidature non sélectionnée ou sans entreprise liée" }, 400);
+      }
+      try {
+        const { data: ent } = await supabase.from("enterprises").select("id, name").eq("id", candidature.enterprise_id).single();
+        if (!ent) return jsonRes({ error: "Entreprise liée introuvable" }, 404);
+
+        // Réutilise la même logique en construisant une candidature artificielle
+        // pour passer dans createEnterpriseFromCandidature. Mais c'est plus
+        // simple et plus sûr d'extraire juste la boucle de transfer ici.
+        const docs = Array.isArray(candidature.documents) ? candidature.documents : [];
+        if (docs.length === 0) return jsonRes({ success: true, transferred: 0, skipped: 0, message: "Aucun document à transférer" });
+
+        const { data: existingFiles } = await supabase.storage
+          .from("documents")
+          .list(`${ent.id}/reconstruction/`, { limit: 1000 });
+        const alreadyTransferred = new Set(
+          (existingFiles || []).map((f: any) => f.name.replace(/^\d+_/, ''))
+        );
+
+        let transferred = 0, skipped = 0;
+        const failed: string[] = [];
+        for (const doc of docs) {
+          if (!doc.storage_path) continue;
+          const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          if (alreadyTransferred.has(safeName)) { skipped++; continue; }
+          try {
+            const parts = doc.storage_path.split("/");
+            const bucket = parts[0];
+            const filePath = parts.slice(1).join("/");
+            const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
+            if (dlErr || !fileData) { failed.push(doc.file_name); continue; }
+            await supabase.storage.from("documents").upload(
+              `${ent.id}/reconstruction/${Date.now()}_${safeName}`,
+              fileData,
+              { upsert: true },
+            );
+            transferred++;
+          } catch (e: any) {
+            failed.push(doc.file_name);
+            console.warn(`[retry-transfer] ${doc.file_name}:`, e.message);
+          }
+        }
+        return jsonRes({ success: true, transferred, skipped, failed, total: docs.length });
+      } catch (e: any) {
+        return jsonRes({ error: `Retry transfer failed: ${e?.message || 'unknown'}` }, 500);
+      }
+    }
 
     // ═══════ MOVE ═══════
     if (action === "move") {
