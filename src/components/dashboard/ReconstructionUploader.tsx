@@ -70,14 +70,29 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   }, [fetchExistingFiles]);
 
   const handleDownloadExisting = async (filename: string) => {
+    // `download: true` ajoute Content-Disposition: attachment côté Supabase
+    // → le browser télécharge au lieu d'essayer d'afficher inline (sinon les
+    // .pptx, .docx, .xlsx ouvrent un onglet vide).
+    // On passe aussi un displayName propre (sans le préfixe timestamp Date.now()
+    // qu'on ajoute à l'upload) pour que l'utilisateur retrouve le nom original.
+    const displayName = filename.replace(/^\d+_/, '');
     const { data, error } = await supabase.storage
       .from('documents')
-      .createSignedUrl(`${enterpriseId}/reconstruction/${filename}`, 600);
+      .createSignedUrl(`${enterpriseId}/reconstruction/${filename}`, 600, {
+        download: displayName,
+      });
     if (error || !data) {
       toast.error('Impossible de générer le lien de téléchargement');
       return;
     }
-    window.open(data.signedUrl, '_blank');
+    // Crée un <a> temporaire pour déclencher le download via attribute "download"
+    // (plus fiable que window.open quand Content-Disposition est attachment)
+    const a = document.createElement('a');
+    a.href = data.signedUrl;
+    a.download = displayName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleDeleteExisting = async (filename: string) => {
