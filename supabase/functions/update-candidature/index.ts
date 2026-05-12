@@ -24,13 +24,46 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 const DEFAULT_MODULES = ["bmc", "sic", "inputs", "framework", "diagnostic", "plan_financier", "business_plan"];
 
+// Copie server-side (sans transit RAM par l'edge fn) avec retry exponentiel.
+// `destinationBucket` permet la copie cross-bucket (ex: candidature_uploads → documents).
+// 3 tentatives, backoff 500ms / 1500ms. "Already exists" = succès idempotent.
+async function copyWithRetry(
+  supabase: any,
+  fromBucket: string,
+  fromPath: string,
+  toPath: string,
+  maxAttempts = 3,
+): Promise<{ ok: boolean; error?: string }> {
+  let lastErr = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { error } = await supabase.storage
+        .from(fromBucket)
+        .copy(fromPath, toPath, { destinationBucket: "documents" });
+      if (!error) return { ok: true };
+      lastErr = error.message || String(error);
+      if (/already exists|duplicate|resource already/i.test(lastErr)) return { ok: true };
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
+    }
+    if (attempt < maxAttempts) {
+      await new Promise(r => setTimeout(r, 500 * (3 ** (attempt - 1))));
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
 async function createEnterpriseFromCandidature(
   candidature: any,
   coachId: string | null,
   programmeId: string,
   programmeName: string,
   supabase: any,
-): Promise<{ enterprise: any; tempPassword: string }> {
+): Promise<{
+  enterprise: any;
+  tempPassword: string;
+  docs: { total: number; transferred: number; skipped: number; failed: string[] };
+}> {
   // 1. Create user account (idempotent : si l'email existe déjà — typiquement
   //    suite à un retry après un échec partiel — on récupère l'user existant
   //    au lieu de planter avec "User already registered").
@@ -163,6 +196,9 @@ async function createEnterpriseFromCandidature(
 
   // 6. Transfer candidature documents to enterprise
   const docs = Array.isArray(candidature.documents) ? candidature.documents : [];
+  let transferredCount = 0;
+  let skippedCount = 0;
+  const failedDocs: string[] = [];
   if (docs.length > 0) {
     const RAILWAY_URL = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
     const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
@@ -185,10 +221,6 @@ async function createEnterpriseFromCandidature(
       console.warn(`[transfer-doc] list existing failed (non-blocking):`, e);
     }
 
-    let transferredCount = 0;
-    let skippedCount = 0;
-    let failedDocs: string[] = [];
-
     for (const doc of docs) {
       if (!doc.storage_path) continue;
       const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -199,31 +231,29 @@ async function createEnterpriseFromCandidature(
         continue;
       }
 
+      const parts = doc.storage_path.split("/");
+      const bucket = parts[0];
+      const filePath = parts.slice(1).join("/");
+      const entPath = `${enterprise.id}/reconstruction/${Date.now()}_${safeName}`;
+
+      // Copie server-side avec retry (3 tentatives, backoff exponentiel).
+      // Pas de transit par la RAM de l'edge fn → robuste sur grosses batches.
+      const { ok, error: copyErr } = await copyWithRetry(supabase, bucket, filePath, entPath);
+      if (!ok) {
+        console.warn(`[transfer-doc] Copy failed after retries: ${doc.file_name} — ${copyErr}`);
+        failedDocs.push(doc.file_name);
+        continue;
+      }
+      transferredCount++;
+
+      // Parse via Railway — download séparé pour ne charger en RAM qu'au
+      // moment du parse (puis libéré). Best-effort : si parse échoue, le
+      // transfer reste validé.
       try {
-        // Download from candidature-documents bucket
-        const parts = doc.storage_path.split("/");
-        const bucket = parts[0];
-        const filePath = parts.slice(1).join("/");
-        const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
-        if (dlErr || !fileData) {
-          console.warn(`[transfer-doc] Download failed: ${doc.file_name}`);
-          failedDocs.push(doc.file_name);
-          continue;
-        }
-
-        // Upload to enterprise documents bucket — sous-dossier /reconstruction/
-        // pour matcher le path attendu par ReconstructionUploader côté UI.
-        const entPath = `${enterprise.id}/reconstruction/${Date.now()}_${safeName}`;
-        await supabase.storage.from("documents").upload(entPath, fileData, { upsert: true });
-        transferredCount++;
-
-        // Parse via Railway — timeout réduit à 10s pour rester dans la limite
-        // edge fn même avec 30+ docs. Non-bloquant : si parse échoue, on continue.
-        try {
-          const arrayBuf = await fileData.arrayBuffer();
-          const blob = new Blob([new Uint8Array(arrayBuf)]);
+        const { data: fileData } = await supabase.storage.from(bucket).download(filePath);
+        if (fileData) {
           const formData = new FormData();
-          formData.append("file", blob, doc.file_name);
+          formData.append("file", fileData, doc.file_name);
           const parseResp = await fetch(`${RAILWAY_URL}/parse`, {
             method: "POST",
             headers: { "Authorization": `Bearer ${PARSER_API_KEY}` },
@@ -236,15 +266,12 @@ async function createEnterpriseFromCandidature(
               parsedContents.push(`\n══════ ${doc.file_name} (${parsed.category || 'candidature'}) ══════\n${parsed.content}`);
             }
           }
-        } catch (parseErr: any) {
-          console.warn(`[transfer-doc] Parse skipped for ${doc.file_name}:`, parseErr.message);
         }
-
-        console.log(`[transfer-doc] ✅ ${doc.file_name} → enterprise ${enterprise.name}`);
-      } catch (e: any) {
-        console.warn(`[transfer-doc] Error transferring ${doc.file_name}:`, e.message);
-        failedDocs.push(doc.file_name);
+      } catch (parseErr: any) {
+        console.warn(`[transfer-doc] Parse skipped for ${doc.file_name}:`, parseErr.message);
       }
+
+      console.log(`[transfer-doc] ✅ ${doc.file_name} → enterprise ${enterprise.name}`);
     }
 
     console.log(`[transfer-doc] Résumé : ${transferredCount} nouveaux, ${skippedCount} skippés (déjà là), ${failedDocs.length} échecs`);
@@ -272,7 +299,16 @@ async function createEnterpriseFromCandidature(
     updated_at: new Date().toISOString(),
   }).eq("id", candidature.id);
 
-  return { enterprise, tempPassword };
+  return {
+    enterprise,
+    tempPassword,
+    docs: {
+      total: docs.length,
+      transferred: transferredCount,
+      skipped: skippedCount,
+      failed: failedDocs,
+    },
+  };
 }
 
 serve(async (req) => {
@@ -391,21 +427,18 @@ serve(async (req) => {
           if (!doc.storage_path) continue;
           const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
           if (alreadyTransferred.has(safeName)) { skipped++; continue; }
-          try {
-            const parts = doc.storage_path.split("/");
-            const bucket = parts[0];
-            const filePath = parts.slice(1).join("/");
-            const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
-            if (dlErr || !fileData) { failed.push(doc.file_name); continue; }
-            await supabase.storage.from("documents").upload(
-              `${ent.id}/reconstruction/${Date.now()}_${safeName}`,
-              fileData,
-              { upsert: true },
-            );
+
+          const parts = doc.storage_path.split("/");
+          const bucket = parts[0];
+          const filePath = parts.slice(1).join("/");
+          const entPath = `${ent.id}/reconstruction/${Date.now()}_${safeName}`;
+
+          const { ok, error: copyErr } = await copyWithRetry(supabase, bucket, filePath, entPath);
+          if (ok) {
             transferred++;
-          } catch (e: any) {
+          } else {
             failed.push(doc.file_name);
-            console.warn(`[retry-transfer] ${doc.file_name}:`, e.message);
+            console.warn(`[retry-transfer] ${doc.file_name} failed after retries:`, copyErr);
           }
         }
         return jsonRes({ success: true, transferred, skipped, failed, total: docs.length });
@@ -455,6 +488,7 @@ serve(async (req) => {
             status: "selected",
             enterprise_id: result.enterprise.id,
             enterprise_name: result.enterprise.name,
+            docs: result.docs,
           });
         } catch (e: any) {
           console.error(`[update-candidature] ❌ Enterprise creation failed for candidature ${candidature_id} (${candidature.company_name}):`, e?.message, e?.stack);
@@ -507,6 +541,7 @@ serve(async (req) => {
             enterprise_created: true,
             enterprise_id: result.enterprise.id,
             temp_password: result.tempPassword,
+            docs: result.docs,
           });
         } catch (e: any) {
           return jsonRes({ error: `Erreur création entreprise: ${e.message}` }, 500);

@@ -101,7 +101,18 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
       toast({ title: t('common.error'), description: data?.error || error?.message || t('common.error'), variant: 'destructive' });
       return;
     }
-    toast({ title: t('candidature.status_updated') });
+    // Si transition vers "selected" : signaler un échec partiel sur les
+    // documents (cas rare, mais self-service via bouton "Re-transférer").
+    const d = data?.docs;
+    if (d && d.total > 0 && d.failed?.length > 0) {
+      toast({
+        title: `${d.transferred}/${d.total} documents transférés`,
+        description: `${d.failed.length} en échec. Cliquez "Re-transférer documents" dans la fiche.`,
+        variant: 'destructive',
+      });
+    } else {
+      toast({ title: t('candidature.status_updated') });
+    }
     onRefresh();
   };
 
