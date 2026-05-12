@@ -10,7 +10,7 @@ import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile, buildDocumentContent, buildParsingReport, type ParsedDocument, type ParsingReport } from '@/lib/document-parser';
 import {
   Wand2, X, FileText, Loader2, CheckCircle2,
-  AlertTriangle, RotateCcw
+  AlertTriangle, RotateCcw, Download, Trash2
 } from 'lucide-react';
 
 const ACCEPTED_EXTENSIONS = '.csv,.txt,.md,.xlsx,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.webp,.pptx,.ppt';
@@ -68,6 +68,30 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   useEffect(() => {
     fetchExistingFiles();
   }, [fetchExistingFiles]);
+
+  const handleDownloadExisting = async (filename: string) => {
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(`${enterpriseId}/reconstruction/${filename}`, 600);
+    if (error || !data) {
+      toast.error('Impossible de générer le lien de téléchargement');
+      return;
+    }
+    window.open(data.signedUrl, '_blank');
+  };
+
+  const handleDeleteExisting = async (filename: string) => {
+    if (!confirm(`Supprimer "${filename.replace(/^\d+_/, '')}" ?`)) return;
+    const { error } = await supabase.storage
+      .from('documents')
+      .remove([`${enterpriseId}/reconstruction/${filename}`]);
+    if (error) {
+      toast.error('Erreur de suppression : ' + error.message);
+      return;
+    }
+    toast.success('Document supprimé');
+    await fetchExistingFiles();
+  };
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles);
@@ -350,14 +374,32 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
               <CheckCircle2 className="h-3 w-3" /> {existingFiles.length} document(s) déjà intégré(s)
             </p>
             <p className="text-[10px] text-muted-foreground mb-2">Les nouveaux fichiers viendront compléter ces documents. Rien n'est perdu.</p>
-            <div className="max-h-32 overflow-y-auto space-y-1">
+            <div className="max-h-48 overflow-y-auto space-y-1">
               {existingFiles.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs bg-muted/40 rounded-lg px-3 py-1.5">
+                <div key={i} className="flex items-center gap-2 text-xs bg-muted/40 rounded-lg px-3 py-1.5 group">
                   <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{f.name.replace(/^\d+_/, '')}</span>
+                  <span className="truncate flex-1">{f.name.replace(/^\d+_/, '')}</span>
                   {f.metadata?.size && (
-                    <span className="text-muted-foreground/50 shrink-0">{formatFileSize(f.metadata.size)}</span>
+                    <span className="text-muted-foreground/50 shrink-0 text-[10px]">{formatFileSize(f.metadata.size)}</span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadExisting(f.name)}
+                    className="shrink-0 p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
+                    aria-label="Télécharger"
+                    title="Télécharger"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExisting(f.name)}
+                    className="shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+                    aria-label="Supprimer"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               ))}
             </div>
