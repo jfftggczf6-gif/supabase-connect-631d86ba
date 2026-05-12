@@ -86,7 +86,13 @@ serve(async (req: Request) => {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const isOwningCoach = ent.coach_id === user.id || ent.user_id === user.id;
+      let isOwningCoach = ent.coach_id === user.id || ent.user_id === user.id;
+      if (!isOwningCoach) {
+        // Coach assigné via la table N-to-N enterprise_coaches (cas Nathalie)
+        const { data: a } = await adminClient.from("enterprise_coaches")
+          .select("id").eq("enterprise_id", ent.id).eq("coach_id", user.id).eq("is_active", true).maybeSingle();
+        isOwningCoach = !!a;
+      }
       const isPrivileged = !!isSA.data || ['owner', 'admin', 'manager'].includes(inviterRole || '');
       if (!isOwningCoach && !isPrivileged) {
         return new Response(JSON.stringify({ error: "Not allowed to invite entrepreneur for this enterprise" }), {

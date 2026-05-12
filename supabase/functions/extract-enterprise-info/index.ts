@@ -26,7 +26,22 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const { data: ent } = await supabase.from("enterprises").select("*").eq("id", enterprise_id).single();
-    if (!ent || (ent.user_id !== user.id && ent.coach_id !== user.id)) {
+    if (!ent) {
+      return errorResponse("Entreprise non trouvée", 404);
+    }
+    // Permission : owner / legacy coach_id / coach n-to-n actif / org manager
+    let _allowed = ent.user_id === user.id || ent.coach_id === user.id;
+    if (!_allowed) {
+      const { data: a } = await supabase.from("enterprise_coaches")
+        .select("id").eq("enterprise_id", enterprise_id).eq("coach_id", user.id).eq("is_active", true).maybeSingle();
+      _allowed = !!a;
+    }
+    if (!_allowed && ent.organization_id) {
+      const { data: m } = await supabase.from("organization_members")
+        .select("role").eq("user_id", user.id).eq("organization_id", ent.organization_id).eq("is_active", true).maybeSingle();
+      _allowed = !!m && ['owner', 'admin', 'manager'].includes(m.role);
+    }
+    if (!_allowed) {
       return errorResponse("Entreprise non trouvée", 404);
     }
 
