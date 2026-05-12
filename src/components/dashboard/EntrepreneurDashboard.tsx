@@ -1616,7 +1616,7 @@ export default function EntrepreneurDashboard({
                 globalScore={globalScore}
                 onSelectModule={setSelectedModule}
               />
-            ) : selectedModule === 'upload' && !readOnly ? (
+            ) : selectedModule === 'upload' ? (
               /* Upload panel */
               <div className="p-6 max-w-2xl mx-auto space-y-4">
                 <h2 className="font-display font-bold text-lg mb-2">{t('dashboard_coach.documents')}</h2>
