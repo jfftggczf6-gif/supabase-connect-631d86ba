@@ -35,6 +35,11 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
   //   - Programme  → "Programmes" (/programmes)
   const segment = currentOrg?.type;
   const isPeAccess = isSuperAdmin || ['owner', 'admin', 'managing_director', 'investment_manager', 'analyste', 'analyst', 'partner'].includes(orgRole || '');
+  // L'analyste n'a pas accès au tableau de bord fonds (KPIs, Reporting, Comité, Équipe, Paramètres) :
+  // il atterit sur le pipeline seulement, avec ses propres deals.
+  const isPeAnalystOnly = !isSuperAdmin && ['analyste', 'analyst'].includes(orgRole || '');
+  const peWorkspaceRoute = isPeAnalystOnly ? '/pe/pipeline' : '/pe';
+  const peWorkspaceLabel = isPeAnalystOnly ? 'Pipeline PE' : 'Workspace PE';
   const isBanqueAccess = isSuperAdmin || ['owner', 'admin', 'directeur_pme', 'direction_pme', 'directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'].includes(orgRole || '');
   const isProgrammeAccess = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
   const showPipelinePe = segment === 'pe' && isPeAccess;
@@ -131,9 +136,9 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
                 variant="ghost"
                 size="sm"
                 className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/pe') || location.pathname === '/dashboard') && 'bg-muted')}
-                onClick={() => navigate('/pe')}
+                onClick={() => navigate(peWorkspaceRoute)}
               >
-                <ClipboardList className="h-4 w-4" /> Workspace PE
+                <ClipboardList className="h-4 w-4" /> {peWorkspaceLabel}
               </Button>
             )}
             {showPipelineBanque && (

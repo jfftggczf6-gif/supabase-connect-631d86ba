@@ -64,12 +64,18 @@ export default function PePipelinePage() {
     if (!currentOrg) return;
     setLoading(true);
 
-    const { data: dealsData } = await supabase
+    // Analyste = pipeline réduit à ses propres deals (lead_analyst_id = user.id).
+    // Les autres rôles (MD, IM, owner, admin, super_admin) voient tout le portefeuille.
+    const isAnalystOnly = ['analyste', 'analyst'].includes(role || '');
+    let dealsQuery = supabase
       .from('pe_deals')
       .select('id, deal_ref, enterprise_id, stage, ticket_demande, currency, lead_analyst_id, score_360')
       .eq('organization_id', currentOrg.id)
-      .neq('stage', 'lost')
-      .order('created_at', { ascending: false });
+      .neq('stage', 'lost');
+    if (isAnalystOnly && user?.id) {
+      dealsQuery = dealsQuery.eq('lead_analyst_id', user.id);
+    }
+    const { data: dealsData } = await dealsQuery.order('created_at', { ascending: false });
 
     const entIds = [...new Set(((dealsData || []) as any[]).map((d: any) => d.enterprise_id).filter(Boolean))] as string[];
     const userIds = [...new Set(((dealsData || []) as any[]).map((d: any) => d.lead_analyst_id).filter(Boolean))] as string[];
@@ -91,7 +97,7 @@ export default function PePipelinePage() {
       lead_analyst_initials: initials(profMap.get(d.lead_analyst_id) || null),
     })));
     setLoading(false);
-  }, [currentOrg]);
+  }, [currentOrg, role, user?.id]);
 
   useEffect(() => { load(); }, [load]);
 

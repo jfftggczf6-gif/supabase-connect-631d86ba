@@ -2,7 +2,7 @@
 // Layout type ProgrammeDetailPage : action bar top + onglets (Synthèse / Candidature /
 // Entreprises / Reporting & Impact / Comité d'investissement / Équipe / Paramètres)
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,10 +43,16 @@ const TABS = [
 ];
 
 export default function PeWorkspacePage() {
-  const { currentOrg } = useOrganization();
+  const { currentOrg, currentRole: orgRole, isSuperAdmin } = useOrganization();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'synthese';
+
+  // Le tableau de bord fonds (KPIs, Reporting, Comité, Équipe, Paramètres) est
+  // réservé aux MD/IM/owner/admin. Les analystes sont redirigés vers le pipeline
+  // simple (où ils ne voient que leurs propres deals).
+  const isAnalystOnly = !isSuperAdmin && ['analyste', 'analyst'].includes(orgRole || '');
+  if (isAnalystOnly) return <Navigate to="/pe/pipeline" replace />;
 
   const [deals, setDeals] = useState<KanbanDeal[]>([]);
   const [kpis, setKpis] = useState({
