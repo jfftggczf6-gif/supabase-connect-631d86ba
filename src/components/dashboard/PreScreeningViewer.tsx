@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import SectionEditButton from './SectionEditButton';
@@ -27,7 +27,67 @@ interface PreScreeningViewerProps {
   onUpdated?: () => void;
 }
 
-export default function PreScreeningViewer({ data, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline, enterpriseId, onUpdated }: PreScreeningViewerProps) {
+// Adapter rétrocompatible : map l'ancien schéma (produit par submit-candidature
+// et screen-candidatures) vers le nouveau (attendu par ce viewer). Conserve
+// le contenu existant — n'écrase jamais un champ nouveau schéma déjà présent.
+function normalizeOldSchema(d: Record<string, any> | null | undefined): Record<string, any> {
+  if (!d) return {};
+  const hasOld = !!(d.indicateurs_financiers || d.recommandation_accompagnement || d.matching_criteres);
+  if (!hasOld) return d;
+
+  const n: Record<string, any> = { ...d };
+
+  if (!n.kpis_bandeau && d.indicateurs_financiers) {
+    n.kpis_bandeau = {
+      ca_n: d.indicateurs_financiers.ca_annuel ?? d.fiche_entreprise?.ca_declare ?? null,
+      ca_growth_pct: d.indicateurs_financiers.croissance_ca_pct ?? null,
+      marge_brute_pct: d.indicateurs_financiers.marge_estimee_pct ?? null,
+    };
+  }
+
+  if (!n.programme_match && d.matching_criteres) {
+    n.programme_match = {
+      criteres_ok: d.matching_criteres.criteres_ok || [],
+      criteres_ko: d.matching_criteres.criteres_ko || [],
+      criteres_partiels: d.matching_criteres.criteres_partiels || [],
+    };
+  }
+
+  if (!n.analyse_narrative && (d.resume_comite || d.points_vigilance?.length || d.recommandation_accompagnement)) {
+    const reco = d.recommandation_accompagnement || {};
+    n.analyse_narrative = {
+      verdict_analyste: {
+        synthese_pour_comite: typeof d.resume_comite === 'string' ? d.resume_comite : (reco.justification || ''),
+        deal_breakers: Array.isArray(d.points_vigilance)
+          ? d.points_vigilance.map((p: any) => p?.titre).filter(Boolean)
+          : [],
+        conditions_sine_qua_non: reco.conditions_prealables || [],
+        quick_wins: reco.priorites_si_selectionnee || [],
+      },
+    };
+  }
+
+  if (!n.guide_coach && d.recommandation_accompagnement) {
+    const reco = d.recommandation_accompagnement;
+    n.guide_coach = {
+      points_bloquants_pipeline: (reco.conditions_prealables || []).map((c: string) => ({
+        blocage: c,
+        consequence: 'Décaissement conditionné à la levée de ce blocage',
+        resolution: c,
+      })),
+      actions_coach_semaine: (reco.priorites_si_selectionnee || []).map((p: string, i: number) => ({
+        priorite: i + 1,
+        action: p,
+        objectif: '',
+      })),
+    };
+  }
+
+  return n;
+}
+
+export default function PreScreeningViewer({ data: rawData, enterprise: ent, onRegenerate, onLaunchPipeline: _onLaunchPipeline, enterpriseId, onUpdated }: PreScreeningViewerProps) {
+  const data = useMemo(() => normalizeOldSchema(rawData), [rawData]);
   const { t } = useTranslation();
   const { session: authSession } = useAuth();
   const navigate = useNavigate();
