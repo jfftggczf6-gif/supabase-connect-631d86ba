@@ -93,19 +93,28 @@ async function createEnterpriseFromCandidature(
 
   if (entErr) throw new Error(`Création entreprise: ${entErr.message}`);
 
-  // 4b. Create enterprise_coaches entry (N-à-N)
+  // 4b. Create enterprise_coaches entry (N-à-N) — try/catch car le builder
+  //     Supabase ne supporte pas .catch() chainé (n'est pas une vraie Promise).
   if (coachId) {
-    await supabase.from("enterprise_coaches").insert({
-      enterprise_id: enterprise.id, coach_id: coachId, role: 'principal',
-      assigned_by: coachId, organization_id: orgId, is_active: true,
-    }).catch(() => {}); // Ignore si déjà existe
+    try {
+      await supabase.from("enterprise_coaches").insert({
+        enterprise_id: enterprise.id, coach_id: coachId, role: 'principal',
+        assigned_by: coachId, organization_id: orgId, is_active: true,
+      });
+    } catch (e) {
+      console.warn(`[update-candidature] enterprise_coaches insert skipped:`, e);
+    }
   }
 
   // 4c. Rattacher l'entrepreneur à l'org
   if (orgId) {
-    await supabase.from("organization_members").upsert({
-      organization_id: orgId, user_id: userId, role: 'entrepreneur', is_active: true,
-    }, { onConflict: "organization_id,user_id" }).catch(() => {});
+    try {
+      await supabase.from("organization_members").upsert({
+        organization_id: orgId, user_id: userId, role: 'entrepreneur', is_active: true,
+      }, { onConflict: "organization_id,user_id" });
+    } catch (e) {
+      console.warn(`[update-candidature] organization_members upsert skipped:`, e);
+    }
   }
 
   // 5. Create default modules (with organization_id)
