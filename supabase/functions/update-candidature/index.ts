@@ -291,40 +291,46 @@ serve(async (req) => {
         return jsonRes({ error: `Transition ${candidature.status} → ${new_status} non autorisée` }, 400);
       }
 
-      // Si transition vers "selected" : update status immédiatement,
-      // puis création d'entreprise EN BACKGROUND (non bloquant pour le user).
-      // Le coach est optionnel ; assignable plus tard depuis le volet Entreprises.
+      // Si transition vers "selected" : on crée l'entreprise EN SYNCHRONE.
+      // Auparavant on faisait ça en background via EdgeRuntime.waitUntil pour
+      // accélérer la réponse — mais les erreurs étaient avalées silencieusement
+      // (le user voyait "sélectionné" alors que l'entreprise n'avait jamais été
+      // créée, cas FOODSEN 12/05). On accepte 2-4s d'attente supplémentaire
+      // pour que le user voie l'erreur tout de suite si ça plante.
       if (new_status === "selected") {
-        // 1. Update status tout de suite — l'UI peut refresh
-        const { error: moveErr } = await supabase
-          .from("candidatures")
-          .update({ status: "selected", updated_at: new Date().toISOString() })
-          .eq("id", candidature_id);
-        if (moveErr) return jsonRes({ error: moveErr.message }, 500);
+        try {
+          const result = await createEnterpriseFromCandidature(
+            candidature, coach_id || null, programme.id, programme.name, supabase
+          );
+          console.log(`[update-candidature] ✅ Enterprise créée: ${result.enterprise.name} (${result.enterprise.id})`);
 
-        // 2. Création d'entreprise en background
-        // @ts-ignore
-        EdgeRuntime.waitUntil((async () => {
-          try {
-            const result = await createEnterpriseFromCandidature(
-              candidature, coach_id || null, programme.id, programme.name, supabase
-            );
-            console.log(`[update-candidature] ✅ Enterprise créée: ${result.enterprise.name}`);
-            // Lie l'enterprise_id à la candidature (best effort)
-            await supabase
-              .from("candidatures")
-              .update({ enterprise_id: result.enterprise.id })
-              .eq("id", candidature_id);
-          } catch (e: any) {
-            console.error("[update-candidature] ❌ Background enterprise creation failed:", e?.message);
+          // Status update + lien enterprise_id, après création réussie
+          const { error: moveErr } = await supabase
+            .from("candidatures")
+            .update({
+              status: "selected",
+              enterprise_id: result.enterprise.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", candidature_id);
+          if (moveErr) {
+            console.error(`[update-candidature] Status update échoué après création: ${moveErr.message}`);
+            return jsonRes({ error: `Entreprise créée mais update candidature impossible: ${moveErr.message}`, enterprise_id: result.enterprise.id }, 500);
           }
-        })());
 
-        // 3. Réponse immédiate — l'enterprise sera créée en background.
-        // Note : l'envoi de l'email de bienvenue (avec login + mot de passe) se fait
-        // aussi côté createEnterpriseFromCandidature ou peut être ajouté à cette
-        // closure background si besoin (à brancher avec RESEND_API_KEY).
-        return jsonRes({ success: true, status: "selected", enterprise_creation: "pending_background" });
+          return jsonRes({
+            success: true,
+            status: "selected",
+            enterprise_id: result.enterprise.id,
+            enterprise_name: result.enterprise.name,
+          });
+        } catch (e: any) {
+          console.error(`[update-candidature] ❌ Enterprise creation failed for candidature ${candidature_id} (${candidature.company_name}):`, e?.message, e?.stack);
+          return jsonRes({
+            error: `Création entreprise impossible : ${e?.message || 'erreur inconnue'}`,
+            candidature_status_unchanged: true,
+          }, 500);
+        }
       }
 
       // Simple status move (non-selected ou autres transitions)
