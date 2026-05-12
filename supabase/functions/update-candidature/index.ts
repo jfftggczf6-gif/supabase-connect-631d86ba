@@ -122,6 +122,26 @@ async function createEnterpriseFromCandidature(
   if (existingEnt) {
     enterprise = existingEnt;
     console.log(`[update-candidature] Enterprise existante réutilisée: ${enterprise.name} (${enterprise.id})`);
+
+    // Auto-mapping : si l'entreprise existait déjà avec des champs contact vides,
+    // on les remplit depuis la candidature (cas typique : enterprise créée à la
+    // main avant que la candidature soit liée). Ne touche QUE les champs null/vides.
+    const patch: Record<string, any> = {};
+    if (!enterprise.contact_email && candidature.contact_email) patch.contact_email = candidature.contact_email;
+    if (!enterprise.contact_name && candidature.contact_name) patch.contact_name = candidature.contact_name;
+    if (!enterprise.contact_phone && candidature.contact_phone) patch.contact_phone = candidature.contact_phone;
+    if (!enterprise.sector && candidature.form_data?.sector) patch.sector = candidature.form_data.sector;
+    if (!enterprise.country && (candidature.form_data?.country || candidature.form_data?.pays)) {
+      patch.country = candidature.form_data.country || candidature.form_data.pays;
+    }
+    if (!enterprise.city && (candidature.form_data?.city || candidature.form_data?.ville)) {
+      patch.city = candidature.form_data.city || candidature.form_data.ville;
+    }
+    if (Object.keys(patch).length > 0) {
+      await supabase.from("enterprises").update(patch).eq("id", enterprise.id);
+      Object.assign(enterprise, patch);
+      console.log(`[update-candidature] Champs vides patchés sur enterprise existante : ${Object.keys(patch).join(", ")}`);
+    }
   } else {
     const { data: created, error: entErr } = await supabase.from("enterprises").insert({
       user_id: userId,
