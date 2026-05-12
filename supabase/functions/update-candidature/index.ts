@@ -178,8 +178,12 @@ async function createEnterpriseFromCandidature(
         const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
         if (dlErr || !fileData) { console.warn(`[transfer-doc] Download failed: ${doc.file_name}`); continue; }
 
-        // Upload to enterprise documents bucket
-        const entPath = `${enterprise.id}/${doc.file_name}`;
+        // Upload to enterprise documents bucket — DANS le sous-dossier /reconstruction/
+        // pour matcher le path attendu par ReconstructionUploader côté UI (sinon
+        // les docs sont stockés mais invisibles dans l'onglet Documents).
+        // Préfixe timestamp pour aligner avec le format d'upload entrepreneur.
+        const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const entPath = `${enterprise.id}/reconstruction/${Date.now()}_${safeName}`;
         await supabase.storage.from("documents").upload(entPath, fileData, { upsert: true });
 
         // Parse via Railway for document_content
