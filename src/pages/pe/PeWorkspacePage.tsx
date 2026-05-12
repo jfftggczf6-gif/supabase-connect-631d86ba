@@ -2,7 +2,7 @@
 // Layout type ProgrammeDetailPage : action bar top + onglets (Synthèse / Candidature /
 // Entreprises / Reporting & Impact / Comité d'investissement / Équipe / Paramètres)
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,9 +50,11 @@ export default function PeWorkspacePage() {
 
   // Le tableau de bord fonds (KPIs, Reporting, Comité, Équipe, Paramètres) est
   // réservé aux MD/IM/owner/admin. Les analystes sont redirigés vers le pipeline
-  // simple (où ils ne voient que leurs propres deals).
+  // simple (où ils ne voient que leurs propres deals). On utilise useEffect
+  // pour respecter les Rules of Hooks (le rôle passe de null→'analyst' au
+  // moment du chargement du contexte org, donc l'early return pré-hook
+  // changerait l'ordre des hooks entre renders).
   const isAnalystOnly = !isSuperAdmin && ['analyste', 'analyst'].includes(orgRole || '');
-  if (isAnalystOnly) return <Navigate to="/pe/pipeline" replace />;
 
   const [deals, setDeals] = useState<KanbanDeal[]>([]);
   const [kpis, setKpis] = useState({
@@ -141,7 +143,12 @@ export default function PeWorkspacePage() {
 
   useEffect(() => { loadEnterprisesTable(); }, [loadEnterprisesTable]);
 
-  if (!currentOrg) {
+  // Redirect analyste → /pe/pipeline une fois le rôle chargé.
+  useEffect(() => {
+    if (isAnalystOnly) navigate('/pe/pipeline', { replace: true });
+  }, [isAnalystOnly, navigate]);
+
+  if (!currentOrg || isAnalystOnly) {
     return (
       <DashboardLayout title="Workspace PE">
         <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
