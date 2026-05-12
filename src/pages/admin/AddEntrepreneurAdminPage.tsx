@@ -406,37 +406,65 @@ export default function AddEntrepreneurAdminPage() {
             </div>
           )}
 
-          {/* Infos entreprise */}
-          <div className="space-y-1">
-            <Label className="text-xs">Nom de l'entreprise *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="SARL Mon Entreprise" />
-          </div>
+          {/* Mode existing : carte de résumé read-only (la fiche n'est pas modifiée
+              par ce form, seul l'email peut être surchargé pour l'invitation). */}
+          {mode === 'existing' && existingEntId && (() => {
+            const ent = enterprises.find(e => e.id === existingEntId);
+            if (!ent) return null;
+            return (
+              <div className="space-y-1">
+                <Label className="text-xs">Fiche entreprise (lecture seule)</Label>
+                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs space-y-1">
+                  <p><span className="text-muted-foreground">Nom :</span> <strong>{ent.name}</strong></p>
+                  <p><span className="text-muted-foreground">Pays :</span> {ent.country || '—'}</p>
+                  <p><span className="text-muted-foreground">Secteur :</span> {ent.sector || '—'}</p>
+                </div>
+              </div>
+            );
+          })()}
 
+          {/* Mode new : champs entreprise éditables */}
+          {mode === 'new' && (
+            <div className="space-y-1">
+              <Label className="text-xs">Nom de l'entreprise *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="SARL Mon Entreprise" />
+            </div>
+          )}
+
+          {/* Email — toujours visible, éditable. Préfill auto en mode existing si l'enterprise en a un. */}
           <div className="space-y-1">
             <Label className="text-xs">Email entrepreneur {sendInvitation && '*'}</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@entreprise.com" />
+            {mode === 'existing' && (
+              <p className="text-[11px] text-muted-foreground">
+                Tu peux changer l'email destinataire si l'invitation doit aller à une autre adresse.
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Pays *</Label>
-              <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
-                <SelectContent>
-                  {SUPPORTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+          {/* Pays + Secteur — uniquement en mode new */}
+          {mode === 'new' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Pays *</Label>
+                <Select value={country} onValueChange={setCountry}>
+                  <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Secteur</Label>
+                <Select value={sector} onValueChange={setSector}>
+                  <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
+                  <SelectContent>
+                    {SECTORS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Secteur</Label>
-              <Select value={sector} onValueChange={setSector}>
-                <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
-                <SelectContent>
-                  {SECTORS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           {/* Programme à associer (optionnel) — crée une candidature 'selected' */}
           {orgId && programmes.length > 0 && (
