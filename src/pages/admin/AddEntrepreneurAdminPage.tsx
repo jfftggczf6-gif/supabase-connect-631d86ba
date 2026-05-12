@@ -39,16 +39,25 @@ const SECTORS = [
 
 interface Org { id: string; name: string; type: string; }
 interface CoachOpt { user_id: string; full_name: string; }
+interface EntOpt { id: string; name: string; contact_email: string | null; country: string | null; sector: string | null; user_id: string | null; }
+interface ProgOpt { id: string; name: string; }
+
+type Mode = 'new' | 'existing';
 
 export default function AddEntrepreneurAdminPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [orgsLoading, setOrgsLoading] = useState(true);
   const [coaches, setCoaches] = useState<CoachOpt[]>([]);
   const [coachesLoading, setCoachesLoading] = useState(false);
+  const [enterprises, setEnterprises] = useState<EntOpt[]>([]);
+  const [programmes, setProgrammes] = useState<ProgOpt[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const [mode, setMode] = useState<Mode>('new');
   const [orgId, setOrgId] = useState('');
   const [coachUserId, setCoachUserId] = useState('none');
+  const [existingEntId, setExistingEntId] = useState('');
+  const [programmeId, setProgrammeId] = useState('none');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('');
@@ -67,6 +76,47 @@ export default function AddEntrepreneurAdminPage() {
       setOrgsLoading(false);
     })();
   }, []);
+
+  // Charge entreprises + programmes de l'org sélectionnée (en parallèle avec les coaches).
+  useEffect(() => {
+    if (!orgId) { setEnterprises([]); setProgrammes([]); setExistingEntId(''); setProgrammeId('none'); return; }
+    (async () => {
+      const [{ data: ents }, { data: progs }] = await Promise.all([
+        supabase
+          .from('enterprises')
+          .select('id, name, contact_email, country, sector, user_id')
+          .eq('organization_id', orgId)
+          .order('name'),
+        supabase
+          .from('programmes')
+          .select('id, name')
+          .eq('organization_id', orgId)
+          .order('name'),
+      ]);
+      setEnterprises((ents || []) as any);
+      setProgrammes((progs || []) as any);
+    })();
+  }, [orgId]);
+
+  // Quand on choisit une entreprise existante, on préfill les champs (read-only en mode existing)
+  useEffect(() => {
+    if (mode !== 'existing' || !existingEntId) return;
+    const ent = enterprises.find(e => e.id === existingEntId);
+    if (!ent) return;
+    setName(ent.name);
+    setEmail(ent.contact_email || '');
+    setCountry(ent.country || '');
+    setSector(ent.sector || '');
+  }, [mode, existingEntId, enterprises]);
+
+  // Reset des champs spécifiques au changement de mode
+  useEffect(() => {
+    setExistingEntId('');
+    if (mode === 'new') {
+      // mode "new" : on vide pour ne pas garder les valeurs de l'ancien enterprise
+      setName(''); setEmail(''); setCountry(''); setSector('');
+    }
+  }, [mode]);
 
   // Charge les coaches de l'org sélectionnée
   useEffect(() => {
@@ -95,56 +145,120 @@ export default function AddEntrepreneurAdminPage() {
   }, [orgId]);
 
   const handleSubmit = async () => {
-    if (!orgId || !name.trim() || !country) {
-      toast.error('Organisation, nom et pays requis');
+    if (!orgId) {
+      toast.error('Organisation requise');
+      return;
+    }
+    if (mode === 'new' && (!name.trim() || !country)) {
+      toast.error('Nom et pays requis pour une nouvelle entreprise');
+      return;
+    }
+    if (mode === 'existing' && !existingEntId) {
+      toast.error('Choisis une entreprise existante');
       return;
     }
     if (sendInvitation && !email.trim()) {
-      toast.error('Email requis pour envoyer l\'invitation');
+      toast.error("Email requis pour envoyer l'invitation");
       return;
     }
     setSubmitting(true);
 
     try {
-      // 1. Crée l'enterprise — user_id = admin courant (propriétaire temporaire,
-      // sera updaté à l'entrepreneur par accept-invitation à l'acceptation du lien).
-      // Pattern identique à Coach et Chef de programme (RLS exige user_id non null).
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: ent, error } = await supabase
-        .from('enterprises' as any)
-        .insert({
-          name: name.trim(),
-          sector: sector || null,
-          country,
-          contact_email: email.trim() || null,
-          contact_name: name.trim(),
-          organization_id: orgId,
-          user_id: user?.id || null,
-          phase: 'identite',
-        })
-        .select('id, name')
-        .single();
-      if (error) throw error;
-      const inserted = ent as any;
+      let entId: string;
+      let entName: string;
 
-      // 2. Lien coach (si choisi) — enterprise_coaches
-      if (coachUserId !== 'none') {
-        const { error: ecErr } = await supabase
-          .from('enterprise_coaches' as any)
+      if (mode === 'existing') {
+        // Réutiliser l'entreprise sélectionnée
+        const ent = enterprises.find(e => e.id === existingEntId);
+        if (!ent) throw new Error('Entreprise introuvable');
+        entId = ent.id;
+        entName = ent.name;
+
+        // Patcher contact_email si vide et qu'on en a un + envoi d'invit
+        if (!ent.contact_email && email.trim()) {
+          await supabase
+            .from('enterprises' as any)
+            .update({ contact_email: email.trim() })
+            .eq('id', entId);
+        }
+      } else {
+        // Crée une nouvelle entreprise — user_id = admin courant (propriétaire
+        // temporaire, sera updaté par accept-invitation à l'acceptation du lien).
+        const { data: ent, error } = await supabase
+          .from('enterprises' as any)
           .insert({
-            enterprise_id: inserted.id,
-            coach_id: coachUserId,
+            name: name.trim(),
+            sector: sector || null,
+            country,
+            contact_email: email.trim() || null,
+            contact_name: name.trim(),
             organization_id: orgId,
-            role: 'principal',
-            assigned_by: user?.id || null,
-            is_active: true,
-          });
-        if (ecErr) {
-          toast.warning(`Entreprise créée mais coach non assigné : ${ecErr.message}`);
+            user_id: user?.id || null,
+            phase: 'identite',
+          })
+          .select('id, name')
+          .single();
+        if (error) throw error;
+        entId = (ent as any).id;
+        entName = (ent as any).name;
+      }
+
+      // 2. Lien coach (si choisi) — enterprise_coaches (idempotent : si déjà lié, on skip)
+      if (coachUserId !== 'none') {
+        const { data: existingLink } = await supabase
+          .from('enterprise_coaches' as any)
+          .select('id')
+          .eq('enterprise_id', entId)
+          .eq('coach_id', coachUserId)
+          .eq('is_active', true)
+          .maybeSingle();
+        if (!existingLink) {
+          const { error: ecErr } = await supabase
+            .from('enterprise_coaches' as any)
+            .insert({
+              enterprise_id: entId,
+              coach_id: coachUserId,
+              organization_id: orgId,
+              role: 'principal',
+              assigned_by: user?.id || null,
+              is_active: true,
+            });
+          if (ecErr) {
+            toast.warning(`Action effectuée mais coach non assigné : ${ecErr.message}`);
+          }
         }
       }
 
-      // 3. Invitation entrepreneur (si toggle ON)
+      // 3. Liaison programme (si choisi) — crée une candidature status='selected'
+      //    qui fait apparaître l'entreprise dans la fiche du programme.
+      if (programmeId !== 'none') {
+        const { data: existingCand } = await supabase
+          .from('candidatures' as any)
+          .select('id, status')
+          .eq('enterprise_id', entId)
+          .eq('programme_id', programmeId)
+          .maybeSingle();
+        if (!existingCand) {
+          const { error: candErr } = await supabase
+            .from('candidatures' as any)
+            .insert({
+              programme_id: programmeId,
+              enterprise_id: entId,
+              organization_id: orgId,
+              status: 'selected',
+              company_name: entName,
+              contact_email: email.trim() || null,
+              contact_name: name.trim() || entName,
+              assigned_coach_id: coachUserId !== 'none' ? coachUserId : null,
+            });
+          if (candErr) {
+            toast.warning(`Action effectuée mais programme non lié : ${candErr.message}`);
+          }
+        }
+      }
+
+      // 4. Invitation entrepreneur (si toggle ON)
       if (sendInvitation && email.trim()) {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -156,29 +270,30 @@ export default function AddEntrepreneurAdminPage() {
             email: email.trim(),
             role: 'entrepreneur',
             organization_id: orgId,
-            enterprise_id: inserted.id,
+            enterprise_id: entId,
             full_name: name.trim(),
           }),
         });
         const result = await resp.json();
         if (!resp.ok) {
-          toast.warning(`Entreprise créée mais invitation non envoyée : ${result.error}`);
+          toast.warning(`Action effectuée mais invitation non envoyée : ${result.error}`);
         } else if (result.email_sent === false && result.invitation_url) {
           try { await navigator.clipboard.writeText(result.invitation_url); } catch { /* ignore */ }
           toast.warning(`Invitation créée mais email non envoyé. Lien copié — transmets-le à ${email}.`, { duration: 12000 });
         } else {
-          toast.success(`✅ Entreprise "${inserted.name}" créée + 📧 invitation envoyée à ${email}`);
+          toast.success(`✅ "${entName}" — 📧 invitation envoyée à ${email}`);
         }
       } else {
-        toast.success(`✅ Entreprise "${inserted.name}" créée (sans invitation)`);
+        toast.success(`✅ "${entName}" — action effectuée (sans invitation)`);
       }
 
       // Reset
       setName(''); setEmail(''); setCountry(''); setSector('');
-      setCoachUserId('none');
+      setCoachUserId('none'); setExistingEntId(''); setProgrammeId('none');
       setSendInvitation(true);
+      setMode('new');
     } catch (e: any) {
-      toast.error(e.message || 'Erreur création entrepreneur');
+      toast.error(e.message || 'Erreur action entrepreneur');
     } finally {
       setSubmitting(false);
     }
@@ -201,11 +316,15 @@ export default function AddEntrepreneurAdminPage() {
         <CardContent className="py-3 flex items-start gap-3 text-sm">
           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-amber-900">
-            <p className="font-medium">À utiliser pour créer un entrepreneur de A à Z</p>
+            <p className="font-medium">Créer ou lier un entrepreneur</p>
             <p className="text-xs mt-1">
-              L'entreprise est créée, liée à un coach (si tu en choisis un) et l'entrepreneur reçoit
-              un email avec un lien pour finir son inscription. À l'acceptation, il est automatiquement
-              redirigé vers son dashboard et lié à son organisation.
+              <strong>Nouvelle entreprise</strong> : crée le dossier + lien coach + invitation email.
+              <br />
+              <strong>Entreprise existante</strong> : envoie l'invitation à une entreprise déjà créée
+              (ex : sortie de candidature ou créée à la main). Aucun doublon.
+              <br />
+              Tu peux aussi associer l'entreprise à un programme (création d'une candidature
+              "Sélectionnée" automatique).
             </p>
           </div>
         </CardContent>
@@ -227,6 +346,47 @@ export default function AddEntrepreneurAdminPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Mode : nouvelle ou existante */}
+          {orgId && (
+            <div className="space-y-1">
+              <Label className="text-xs">Mode *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('new')}
+                  className={`text-sm py-2 px-3 rounded-lg border transition-colors ${mode === 'new' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted border-border'}`}
+                >
+                  🆕 Nouvelle entreprise
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('existing')}
+                  className={`text-sm py-2 px-3 rounded-lg border transition-colors ${mode === 'existing' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted border-border'}`}
+                >
+                  🔗 Entreprise existante
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Sélection entreprise existante (mode existing) */}
+          {orgId && mode === 'existing' && (
+            <div className="space-y-1">
+              <Label className="text-xs">Entreprise existante *</Label>
+              <Select value={existingEntId} onValueChange={setExistingEntId}>
+                <SelectTrigger><SelectValue placeholder={enterprises.length === 0 ? 'Aucune entreprise dans cette org' : 'Choisir une entreprise'} /></SelectTrigger>
+                <SelectContent>
+                  {enterprises.map(e => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name}
+                      {e.contact_email && <span className="text-muted-foreground text-xs ml-1">({e.contact_email})</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Coach principal (optionnel) */}
           {orgId && (
@@ -278,6 +438,25 @@ export default function AddEntrepreneurAdminPage() {
             </div>
           </div>
 
+          {/* Programme à associer (optionnel) — crée une candidature 'selected' */}
+          {orgId && programmes.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs">Programme à associer (optionnel)</Label>
+              <Select value={programmeId} onValueChange={setProgrammeId}>
+                <SelectTrigger><SelectValue placeholder="Aucun programme" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun (pas de programme lié)</SelectItem>
+                  {programmes.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                L'entreprise apparaîtra dans la fiche du programme (statut "Sélectionnée").
+              </p>
+            </div>
+          )}
+
           {/* Toggle envoi invitation */}
           <label className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 border ${email.trim() ? 'bg-primary/5 border-primary/20 cursor-pointer' : 'bg-muted/30 border-muted-foreground/10 text-muted-foreground cursor-not-allowed'}`}>
             <input
@@ -296,11 +475,21 @@ export default function AddEntrepreneurAdminPage() {
 
           <Button
             onClick={handleSubmit}
-            disabled={submitting || !orgId || !name.trim() || !country || (sendInvitation && !email.trim())}
+            disabled={
+              submitting ||
+              !orgId ||
+              (mode === 'new' && (!name.trim() || !country)) ||
+              (mode === 'existing' && !existingEntId) ||
+              (sendInvitation && !email.trim())
+            }
             className="w-full gap-2 bg-violet-600 hover:bg-violet-700"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (sendInvitation ? <Send className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />)}
-            {submitting ? 'Création...' : (sendInvitation ? 'Créer et envoyer l\'invitation' : 'Créer l\'entrepreneur')}
+            {submitting
+              ? 'En cours...'
+              : sendInvitation
+                ? (mode === 'existing' ? "Envoyer l'invitation" : "Créer et envoyer l'invitation")
+                : (mode === 'existing' ? 'Lier (sans invitation)' : "Créer l'entrepreneur")}
           </Button>
         </CardContent>
       </Card>
