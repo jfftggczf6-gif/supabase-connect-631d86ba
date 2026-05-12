@@ -75,23 +75,37 @@ async function createEnterpriseFromCandidature(
   const { data: progData } = await supabase.from("programmes").select("organization_id").eq("id", programmeId).single();
   const orgId = progData?.organization_id || candidature.organization_id || null;
 
-  // 4. Create enterprise (with organization_id)
-  // coach_id est optionnel : peut être assigné plus tard dans le volet Entreprises.
-  const { data: enterprise, error: entErr } = await supabase.from("enterprises").insert({
-    user_id: userId,
-    coach_id: coachId || null,
-    organization_id: orgId,
-    name: candidature.company_name,
-    sector: candidature.form_data?.sector || null,
-    country: candidature.form_data?.country || candidature.form_data?.pays || null,
-    city: candidature.form_data?.city || candidature.form_data?.ville || null,
-    contact_name: candidature.contact_name,
-    contact_email: candidature.contact_email,
-    contact_phone: candidature.contact_phone,
-    employees_count: candidature.form_data?.effectif || candidature.form_data?.employees || 0,
-  }).select().single();
+  // 4. Create enterprise (idempotent : si une entreprise existe déjà pour ce
+  //    user dans cette org, on la réutilise au lieu d'en créer un doublon —
+  //    cas typique d'un retry après échec partiel).
+  let enterprise: any;
+  const { data: existingEnt } = await supabase
+    .from("enterprises")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
 
-  if (entErr) throw new Error(`Création entreprise: ${entErr.message}`);
+  if (existingEnt) {
+    enterprise = existingEnt;
+    console.log(`[update-candidature] Enterprise existante réutilisée: ${enterprise.name} (${enterprise.id})`);
+  } else {
+    const { data: created, error: entErr } = await supabase.from("enterprises").insert({
+      user_id: userId,
+      coach_id: coachId || null,
+      organization_id: orgId,
+      name: candidature.company_name,
+      sector: candidature.form_data?.sector || null,
+      country: candidature.form_data?.country || candidature.form_data?.pays || null,
+      city: candidature.form_data?.city || candidature.form_data?.ville || null,
+      contact_name: candidature.contact_name,
+      contact_email: candidature.contact_email,
+      contact_phone: candidature.contact_phone,
+      employees_count: candidature.form_data?.effectif || candidature.form_data?.employees || 0,
+    }).select().single();
+    if (entErr) throw new Error(`Création entreprise: ${entErr.message}`);
+    enterprise = created;
+  }
 
   // 4b. Create enterprise_coaches entry (N-à-N) — try/catch car le builder
   //     Supabase ne supporte pas .catch() chainé (n'est pas une vraie Promise).
