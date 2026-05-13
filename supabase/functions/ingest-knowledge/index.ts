@@ -47,17 +47,25 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    // Fire-and-forget: déclenche l'ingestion RAG (chunking + embeddings Voyage) en arrière-plan
-    // pour rendre chaque nouvelle entrée immédiatement recherchable par vecteur.
+    // Fire-and-forget : 2 indexations en parallèle pour rendre la doc immédiatement
+    // searchable par les 2 catégories d'agents.
+    //   - rag-ingest      → chunking + embeddings Voyage dans knowledge_chunks
+    //                       (utilisé par les agents Python sur Railway via search_knowledge_chunks)
+    //   - generate-embeddings (mode 'single') → embedding global Voyage 1024d sur
+    //                       knowledge_base.embedding (utilisé par les 15 agents Deno
+    //                       via search_knowledge / buildRAGContext)
     for (const entry of data || []) {
       fetch(`${supabaseUrl}/functions/v1/rag-ingest`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceKey}`,
-        },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
         body: JSON.stringify({ kb_entry_id: entry.id, force: false }),
       }).catch((e) => console.warn(`[ingest-knowledge] rag-ingest failed for ${entry.id}:`, e.message));
+
+      fetch(`${supabaseUrl}/functions/v1/generate-embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+        body: JSON.stringify({ mode: "single", id: entry.id }),
+      }).catch((e) => console.warn(`[ingest-knowledge] generate-embeddings failed for ${entry.id}:`, e.message));
     }
 
     return jsonResponse({
