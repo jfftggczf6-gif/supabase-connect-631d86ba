@@ -374,7 +374,7 @@ export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
         <Card>
           <CardContent className="p-4">
             <Textarea value={draftMd} onChange={(e) => setDraftMd(e.target.value)} rows={20} className="font-mono text-sm" placeholder="Markdown..." />
-            <p className="text-[10px] text-muted-foreground mt-2">Markdown : **gras**, *italique*, listes, tableaux. Préserve les [Source: pitch.pdf p.3].</p>
+            <p className="text-[10px] text-muted-foreground mt-2">Markdown : **gras**, *italique*, listes, tableaux. Les sources vont dans le champ meta.sources de la section — pas inline dans le texte.</p>
           </CardContent>
         </Card>
       )}

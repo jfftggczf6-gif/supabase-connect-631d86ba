@@ -114,8 +114,23 @@ export default function PeBenchmarkSourcesView({ dealId }: Props) {
               if (Array.isArray(cj.concurrents?.rows)) comps = cj.concurrents.rows;
               if (Array.isArray(cj.menaces)) menaces = cj.menaces;
             }
-            // Extraction sources citées : pattern [Source: ...] ou [<nom> <année>]
-            if (s.content_md) {
+            // Sources structurées : on lit meta.sources (string libre, séparée par
+            // virgules / puces / point-virgules) au lieu d'extraire par regex du prose.
+            // Le AI_GUARDRAILS interdit désormais les citations inline.
+            const metaSources = (s.content_json as any)?.meta?.sources;
+            if (typeof metaSources === 'string' && metaSources.trim()) {
+              metaSources.split(/[·•,;]+/).forEach((src: string) => {
+                const trimmed = src.trim();
+                if (trimmed.length >= 3 && trimmed.length <= 120) cited.add(trimmed);
+              });
+            } else if (Array.isArray(metaSources)) {
+              metaSources.forEach((src: any) => {
+                if (typeof src === 'string' && src.trim()) cited.add(src.trim());
+              });
+            }
+            // Fallback rétrocompat : si meta.sources vide, on tente l'extraction
+            // par regex sur les anciens documents générés avant la mise à jour.
+            if (s.content_md && (!metaSources || (typeof metaSources === 'string' && !metaSources.trim()))) {
               const matches = (s.content_md as string).matchAll(/\[(?:Source\s*:\s*)?([^\]]{4,80})\]/gi);
               for (const m of matches) {
                 cited.add(m[1].trim());
@@ -350,8 +365,8 @@ export default function PeBenchmarkSourcesView({ dealId }: Props) {
         <CardContent>
           {citedSources.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Aucune citation explicite détectée dans le contenu généré.
-              Les sources citées apparaissent sous forme [Source: ...] dans le markdown des sections.
+              Aucune source structurée pour ce livrable.
+              Les agents renseignent le champ <code>meta.sources</code> de chaque section ; régénère la section concernée si tu en attends.
             </p>
           ) : (
             <div className="space-y-1">
