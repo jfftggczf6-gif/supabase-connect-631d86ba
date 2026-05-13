@@ -78,28 +78,30 @@ serve(async (req) => {
     let processed = 0;
     let errors = 0;
 
-    for (let i = 0; i < entries.length; i += 5) {
-      const batch = entries.slice(i, i + 5);
-      const results = await Promise.allSettled(
-        batch.map(async (entry) => {
-          const textToEmbed = `${entry.category}: ${entry.title}\n${entry.content}`;
-          const embedding = await getEmbedding(textToEmbed);
-          await sb.from("knowledge_base")
-            .update({ embedding: JSON.stringify(embedding) })
-            .eq("id", entry.id);
-          return entry.id;
-        })
-      );
-
-      for (const r of results) {
-        if (r.status === "fulfilled") processed++;
-        else { errors++; console.error("Embedding error:", r.reason); }
+    // Diagnostic mode : séquentiel + log de la première erreur pour comprendre
+    // si c'est rate-limit, format, ou autre.
+    const firstErrors: string[] = [];
+    for (const entry of entries) {
+      try {
+        const textToEmbed = `${entry.category}: ${entry.title}\n${entry.content}`;
+        const embedding = await getEmbedding(textToEmbed);
+        await sb.from("knowledge_base")
+          .update({ embedding: JSON.stringify(embedding) })
+          .eq("id", entry.id);
+        processed++;
+      } catch (err: any) {
+        errors++;
+        if (firstErrors.length < 3) firstErrors.push(err.message?.slice(0, 200) || String(err));
+        console.error("Embedding error:", err);
       }
-
-      if (i + 5 < entries.length) await new Promise(r => setTimeout(r, 500));
+      // 300ms entre appels — Voyage free tier ~3 RPM mais on commence par tenter sans
+      await new Promise(r => setTimeout(r, 300));
     }
 
-    return new Response(JSON.stringify({ success: true, processed, errors, total: entries.length }), {
+    return new Response(JSON.stringify({
+      success: true, processed, errors, total: entries.length,
+      first_errors: firstErrors,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
