@@ -16,7 +16,8 @@ import { toast } from 'sonner';
 import PeDealCard from '@/components/pe/PeDealCard';
 import CreateDealDialog from '@/components/pe/CreateDealDialog';
 import StageTransitionDialog from '@/components/pe/StageTransitionDialog';
-import { getStagesForRole, SENSITIVE_TRANSITIONS, canTransition, type PeStage } from '@/lib/pe-stage-config';
+import { resolveStagesForRole, SENSITIVE_TRANSITIONS, canTransition, type PeStage } from '@/lib/pe-stage-config';
+import { useOrgPreset } from '@/hooks/useOrgPreset';
 
 export interface KanbanDeal {
   id: string;
@@ -59,7 +60,13 @@ export default function PePipelineKanban({ hideHeader = false, onDealsLoaded }: 
   const { currentOrg } = useOrganization();
   const { user } = useAuth();
   const { role } = useCurrentRole();
-  const COLUMNS = useMemo(() => getStagesForRole(role).map(s => ({ stage: s.code, label: s.label })), [role]);
+  const { workflow } = useOrgPreset();
+  // Stages résolus depuis le preset DB (workflow.pipeline_statuts +
+  // pipeline_views_per_role[role]) ; fallback hardcodé si pas de preset.
+  const COLUMNS = useMemo(
+    () => resolveStagesForRole(role, workflow).map(s => ({ stage: s.code, label: s.label })),
+    [role, workflow],
+  );
   const [deals, setDeals] = useState<KanbanDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
