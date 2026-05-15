@@ -119,6 +119,41 @@ serve(async (req) => {
 
     const sorted = [...comparatif].sort(sortFn);
 
+    // ═══ Stats cohorte (top coach, meilleur secteur, progression) ═══
+    const totalProg = comparatif.reduce((s, c) => s + (c.progression || 0), 0);
+    const progressionMoyenne = comparatif.length ? Math.round(totalProg / comparatif.length) : 0;
+    const nbEntreprisesAmeliorees = comparatif.filter(c => c.progression > 0).length;
+
+    const sectorAgg: Record<string, { sumScore: number; count: number }> = {};
+    const coachAgg: Record<string, { sumScore: number; count: number }> = {};
+    for (const c of comparatif) {
+      const sect = c.sector && c.sector !== "N/A" ? c.sector : null;
+      if (sect) {
+        if (!sectorAgg[sect]) sectorAgg[sect] = { sumScore: 0, count: 0 };
+        sectorAgg[sect].sumScore += c.score_final;
+        sectorAgg[sect].count += 1;
+      }
+      const co = c.coach && c.coach !== "N/A" ? c.coach : null;
+      if (co) {
+        if (!coachAgg[co]) coachAgg[co] = { sumScore: 0, count: 0 };
+        coachAgg[co].sumScore += c.score_final;
+        coachAgg[co].count += 1;
+      }
+    }
+    const meilleurSecteur = Object.entries(sectorAgg)
+      .map(([k, v]) => ({ k, avg: v.sumScore / v.count }))
+      .sort((a, b) => b.avg - a.avg)[0]?.k || null;
+    const meilleurCoach = Object.entries(coachAgg)
+      .map(([k, v]) => ({ k, avg: v.sumScore / v.count }))
+      .sort((a, b) => b.avg - a.avg)[0]?.k || null;
+
+    const statsCohorte = {
+      progression_moyenne: progressionMoyenne,
+      meilleur_secteur: meilleurSecteur,
+      meilleur_coach: meilleurCoach,
+      nb_entreprises_ameliorees: nbEntreprisesAmeliorees,
+    };
+
     // AI synthesis (optional, quick)
     let analyseIa = "";
     try {
@@ -148,6 +183,7 @@ serve(async (req) => {
     return jsonRes({
       success: true,
       comparatif: sorted,
+      stats_cohorte: statsCohorte,
       classement_par_score: [...comparatif].sort((a, b) => b.score_final - a.score_final).map((c, i) => ({ rang: i + 1, enterprise: c.enterprise, score: c.score_final })),
       classement_par_progression: [...comparatif].sort((a, b) => b.progression - a.progression).map((c, i) => ({ rang: i + 1, enterprise: c.enterprise, progression: c.progression })),
       analyse_ia: analyseIa,

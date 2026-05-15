@@ -1,31 +1,34 @@
-// v4 — restore corsHeaders 2026-03-19
+// v5 — migration vers Voyage AI (voyage-3, 1024d) 2026-05-13 pour cohérence avec
+// le RAG knowledge_chunks qui utilise déjà Voyage. Avant : OpenAI text-embedding-3-small
+// 1536d, mais OPENAI_API_KEY non configuré sur prod → 50/50 erreurs.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/helpers_v5.ts";
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
-const EMBEDDING_DIMENSIONS = 1536;
+const EMBEDDING_MODEL = "voyage-3";
+const EMBEDDING_DIMENSIONS = 1024;
 
 async function getEmbedding(text: string): Promise<number[]> {
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!openaiKey) throw new Error("OPENAI_API_KEY not configured");
+  const voyageKey = Deno.env.get("VOYAGE_API_KEY");
+  if (!voyageKey) throw new Error("VOYAGE_API_KEY not configured");
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const response = await fetch("https://api.voyageai.com/v1/embeddings", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${openaiKey}`,
+      "Authorization": `Bearer ${voyageKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: EMBEDDING_MODEL,
-      input: text.substring(0, 8000),
-      dimensions: EMBEDDING_DIMENSIONS,
+      input: [text.substring(0, 32000)],
+      input_type: "document",
+      output_dimension: EMBEDDING_DIMENSIONS,
     }),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Embedding API error: ${response.status} — ${err.substring(0, 200)}`);
+    throw new Error(`Voyage embedding API error: ${response.status} — ${err.substring(0, 200)}`);
   }
 
   const data = await response.json();
@@ -75,28 +78,30 @@ serve(async (req) => {
     let processed = 0;
     let errors = 0;
 
-    for (let i = 0; i < entries.length; i += 5) {
-      const batch = entries.slice(i, i + 5);
-      const results = await Promise.allSettled(
-        batch.map(async (entry) => {
-          const textToEmbed = `${entry.category}: ${entry.title}\n${entry.content}`;
-          const embedding = await getEmbedding(textToEmbed);
-          await sb.from("knowledge_base")
-            .update({ embedding: JSON.stringify(embedding) })
-            .eq("id", entry.id);
-          return entry.id;
-        })
-      );
-
-      for (const r of results) {
-        if (r.status === "fulfilled") processed++;
-        else { errors++; console.error("Embedding error:", r.reason); }
+    // Diagnostic mode : séquentiel + log de la première erreur pour comprendre
+    // si c'est rate-limit, format, ou autre.
+    const firstErrors: string[] = [];
+    for (const entry of entries) {
+      try {
+        const textToEmbed = `${entry.category}: ${entry.title}\n${entry.content}`;
+        const embedding = await getEmbedding(textToEmbed);
+        await sb.from("knowledge_base")
+          .update({ embedding: JSON.stringify(embedding) })
+          .eq("id", entry.id);
+        processed++;
+      } catch (err: any) {
+        errors++;
+        if (firstErrors.length < 3) firstErrors.push(err.message?.slice(0, 200) || String(err));
+        console.error("Embedding error:", err);
       }
-
-      if (i + 5 < entries.length) await new Promise(r => setTimeout(r, 500));
+      // 300ms entre appels — Voyage free tier ~3 RPM mais on commence par tenter sans
+      await new Promise(r => setTimeout(r, 300));
     }
 
-    return new Response(JSON.stringify({ success: true, processed, errors, total: entries.length }), {
+    return new Response(JSON.stringify({
+      success: true, processed, errors, total: entries.length,
+      first_errors: firstErrors,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {

@@ -12,6 +12,9 @@ import RequireRole from "@/components/guards/RequireRole";
 import OrganizationsPage from "./pages/admin/OrganizationsPage";
 import OrganizationDetailPage from "./pages/admin/OrganizationDetailPage";
 import MeteringDashboard from "./pages/admin/MeteringDashboard";
+import CandidatureRecoveryAdminPage from "./pages/admin/CandidatureRecoveryAdminPage";
+import AddEntrepreneurAdminPage from "./pages/admin/AddEntrepreneurAdminPage";
+import CandidatureRecovery from "./pages/CandidatureRecovery";
 import MembersPage from "./pages/org/MembersPage";
 import InvitationAcceptPage from "./pages/InvitationAcceptPage";
 import Index from "./pages/Index";
@@ -29,6 +32,7 @@ import DataRoomPublic from "./pages/DataRoomPublic";
 import ProgrammeListPage from "./pages/ProgrammeListPage";
 import ProgrammeCreatePage from "./pages/ProgrammeCreatePage";
 import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
+import ProgrammeFormPage from "./pages/ProgrammeFormPage";
 import ProgrammeEnterprisePage from "./pages/ProgrammeEnterprisePage";
 import PublicCandidatureForm from "./pages/PublicCandidatureForm";
 import Settings from "./pages/Settings";
@@ -82,6 +86,9 @@ const App = () => (
             <Route path="/programmes/:id" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'managing_director', 'investment_manager']}><ProgrammeDetailPage /></RequireRole></ProtectedRoute>
             } />
+            <Route path="/programmes/:id/form" element={
+              <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><ProgrammeFormPage /></RequireRole></ProtectedRoute>
+            } />
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
             } />
@@ -104,6 +111,7 @@ const App = () => (
               <ProtectedRoute><PeRequireType><PeLpReportingPage /></PeRequireType></ProtectedRoute>
             } />
             <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
+            <Route path="/candidature/recovery/:token" element={<CandidatureRecovery />} />
             <Route path="/livrables" element={
               <ProtectedRoute><Livrables /></ProtectedRoute>
             } />
@@ -121,6 +129,8 @@ const App = () => (
             <Route path="/admin/organizations" element={<ProtectedRoute><RequireSuperAdmin><OrganizationsPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/organizations/:id" element={<ProtectedRoute><RequireSuperAdmin><OrganizationDetailPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/metering" element={<ProtectedRoute><RequireSuperAdmin><MeteringDashboard /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/admin/candidature-recovery" element={<ProtectedRoute><RequireSuperAdmin><CandidatureRecoveryAdminPage /></RequireSuperAdmin></ProtectedRoute>} />
+            <Route path="/admin/add-entrepreneur" element={<ProtectedRoute><RequireSuperAdmin><AddEntrepreneurAdminPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'directeur_pme', 'direction_pme', 'directeur_agence', 'analyste_credit']}><MembersPage /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

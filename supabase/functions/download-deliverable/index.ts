@@ -2206,8 +2206,43 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { data: ent } = await supabase.from("enterprises").select("name, user_id, coach_id").eq("id", enterpriseId).single();
-    if (!ent || (ent.user_id !== user.id && ent.coach_id !== user.id)) {
+    const { data: ent } = await supabase.from("enterprises").select("name, user_id, coach_id, organization_id").eq("id", enterpriseId).single();
+    if (!ent) {
+      return new Response(JSON.stringify({ error: "Not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Permission : entrepreneur (user_id), legacy coach_id, ou coach n-to-n via
+    // enterprise_coaches (is_active=true), ou membre admin/manager de l'org
+    // qui possède l'entreprise. Avant on ne regardait QUE coach_id (legacy
+    // single-coach) → les coachs assignés via enterprise_coaches (cas Nathalie)
+    // tombaient en 404 "Entreprise non trouvée".
+    const isOwner = ent.user_id === user.id;
+    const isLegacyCoach = ent.coach_id === user.id;
+    let isN2nCoach = false;
+    let isOrgManager = false;
+    if (!isOwner && !isLegacyCoach) {
+      const { data: assignment } = await supabase
+        .from("enterprise_coaches")
+        .select("id")
+        .eq("enterprise_id", enterpriseId)
+        .eq("coach_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      isN2nCoach = !!assignment;
+
+      if (!isN2nCoach && ent.organization_id) {
+        const { data: membership } = await supabase
+          .from("organization_members")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("organization_id", ent.organization_id)
+          .eq("is_active", true)
+          .maybeSingle();
+        isOrgManager = !!membership && ['owner', 'admin', 'manager'].includes(membership.role);
+      }
+    }
+
+    if (!isOwner && !isLegacyCoach && !isN2nCoach && !isOrgManager) {
       return new Response(JSON.stringify({ error: "Not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

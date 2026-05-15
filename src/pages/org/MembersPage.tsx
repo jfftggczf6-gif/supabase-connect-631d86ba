@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Loader2, UserPlus, Mail, Trash2, Clock } from 'lucide-react';
+import { Loader2, UserPlus, Mail, Trash2, Clock, Send } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 
 type Row =
@@ -37,6 +37,8 @@ type Row =
       date: string;
       expires_at: string;
       status: 'pending' | 'expired';
+      token: string;
+      personal_message: string | null;
     };
 
 export default function MembersPage() {
@@ -69,7 +71,7 @@ export default function MembersPage() {
         .order('joined_at'),
       supabase
         .from('organization_invitations')
-        .select('id, email, role, created_at, expires_at, accepted_at, revoked_at, invited_by')
+        .select('id, email, role, token, created_at, expires_at, accepted_at, revoked_at, invited_by, personal_message')
         .eq('organization_id', currentOrg.id)
         .is('accepted_at', null)
         .is('revoked_at', null)
@@ -162,6 +164,73 @@ export default function MembersPage() {
     fetchData();
   };
 
+  const handleResendInvitation = async (inv: { id: string; email: string; token: string; role: string; personal_message?: string | null }) => {
+    if (!currentOrg) return;
+    if (!confirm(`Renvoyer l'invitation à ${inv.email} ? Une nouvelle date d'expiration (7 jours) sera appliquée.`)) return;
+    setActingId(inv.id);
+    try {
+      // 1) Étendre l'expiration de 7 jours
+      const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: updErr } = await supabase
+        .from('organization_invitations')
+        .update({ expires_at: newExpiry })
+        .eq('id', inv.id);
+      if (updErr) throw updErr;
+
+      // 2) Renvoyer l'email d'invitation
+      // URL toujours en prod : un email envoyé depuis un preview Vercel ne doit
+      // jamais lier vers vercel.app (filtres anti-spam stricts + lien cassé pour
+      // le destinataire).
+      const appUrl = import.meta.env.VITE_PUBLIC_APP_URL || 'https://esono.tech';
+      const invitationUrl = `${appUrl}/invitation/${inv.token}`;
+      const roleLabel = humanizeRole(inv.role, currentOrg.type);
+      const textVersion = [
+        `Invitation renouvelée — ${currentOrg.name}`,
+        ``,
+        `Bonjour,`,
+        `Votre invitation à rejoindre ${currentOrg.name} en tant que ${roleLabel} a été renouvelée.`,
+        inv.personal_message ? `\n"${inv.personal_message}"\n` : '',
+        `Acceptez l'invitation : ${invitationUrl}`,
+        ``,
+        `Ce lien expire dans 7 jours.`,
+        `— L'équipe ESONO`,
+      ].filter(Boolean).join('\n');
+      const { error: emailErr } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: inv.email,
+          subject: `Rappel : invitation à rejoindre ${currentOrg.name} sur ESONO`,
+          text: textVersion,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Invitation renouvelée</h2>
+              <p>Bonjour,</p>
+              <p>Votre invitation à rejoindre <strong>${currentOrg.name}</strong> en tant que <strong>${roleLabel}</strong> a été renouvelée.</p>
+              ${inv.personal_message ? `<p><em>"${inv.personal_message}"</em></p>` : ''}
+              <p style="margin: 24px 0;">
+                <a href="${invitationUrl}" style="background: #1a2744; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                  Accepter l'invitation
+                </a>
+              </p>
+              <p style="color: #666; font-size: 12px;">Ce lien expire dans 7 jours.</p>
+            </div>
+          `,
+        },
+      });
+      if (emailErr) {
+        // Si l'envoi de l'email échoue, on copie le lien dans le presse-papier
+        try { await navigator.clipboard.writeText(invitationUrl); } catch { /* clipboard refusé */ }
+        toast.warning(`Date d'expiration mise à jour, mais email non envoyé. Lien copié — transmets-le à ${inv.email}.`, { duration: 12000 });
+      } else {
+        toast.success(`Invitation renvoyée à ${inv.email} (expire dans 7 jours)`);
+      }
+      fetchData();
+    } catch (err: any) {
+      toast.error(`Échec : ${err.message}`);
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const handleRevokeInvitation = async (inv: { id: string; email: string }) => {
     if (!confirm(`Révoquer l'invitation envoyée à ${inv.email} ?`)) return;
     setActingId(inv.id);
@@ -204,6 +273,8 @@ export default function MembersPage() {
       date: inv.created_at,
       expires_at: inv.expires_at,
       status: new Date(inv.expires_at).getTime() < now ? 'expired' : 'pending',
+      token: inv.token,
+      personal_message: inv.personal_message,
     }));
     // Members first (active, sorted by join date), then invitations (most recent first)
     return [...memberRows, ...invRows];
@@ -293,19 +364,36 @@ export default function MembersPage() {
                         {isSelf ? (
                           <span className="text-[11px] text-muted-foreground italic">vous</span>
                         ) : (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            disabled={acting}
-                            title={isMember ? 'Retirer ce membre' : 'Révoquer cette invitation'}
-                            onClick={() => isMember
-                              ? handleRemoveMember({ id: row.id, user_id: row.user_id, name: row.name })
-                              : handleRevokeInvitation({ id: row.id, email: row.email })
-                            }
-                          >
-                            {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                          </Button>
+                          <div className="flex items-center justify-end gap-0.5">
+                            {!isMember && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                disabled={acting}
+                                title={row.status === 'expired' ? "Renvoyer l'invitation (expirée)" : "Renvoyer l'invitation"}
+                                onClick={() => handleResendInvitation({
+                                  id: row.id, email: row.email, token: row.token,
+                                  role: row.role, personal_message: row.personal_message,
+                                })}
+                              >
+                                {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              </Button>
+                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              disabled={acting}
+                              title={isMember ? 'Retirer ce membre' : 'Révoquer cette invitation'}
+                              onClick={() => isMember
+                                ? handleRemoveMember({ id: row.id, user_id: row.user_id, name: row.name })
+                                : handleRevokeInvitation({ id: row.id, email: row.email })
+                              }
+                            >
+                              {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     )}

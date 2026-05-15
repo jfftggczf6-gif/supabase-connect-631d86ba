@@ -24,15 +24,51 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 const DEFAULT_MODULES = ["bmc", "sic", "inputs", "framework", "diagnostic", "plan_financier", "business_plan"];
 
+// Copie server-side (sans transit RAM par l'edge fn) avec retry exponentiel.
+// `destinationBucket` permet la copie cross-bucket (ex: candidature_uploads → documents).
+// 3 tentatives, backoff 500ms / 1500ms. "Already exists" = succès idempotent.
+async function copyWithRetry(
+  supabase: any,
+  fromBucket: string,
+  fromPath: string,
+  toPath: string,
+  maxAttempts = 3,
+): Promise<{ ok: boolean; error?: string }> {
+  let lastErr = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { error } = await supabase.storage
+        .from(fromBucket)
+        .copy(fromPath, toPath, { destinationBucket: "documents" });
+      if (!error) return { ok: true };
+      lastErr = error.message || String(error);
+      if (/already exists|duplicate|resource already/i.test(lastErr)) return { ok: true };
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
+    }
+    if (attempt < maxAttempts) {
+      await new Promise(r => setTimeout(r, 500 * (3 ** (attempt - 1))));
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
 async function createEnterpriseFromCandidature(
   candidature: any,
-  coachId: string,
+  coachId: string | null,
   programmeId: string,
   programmeName: string,
   supabase: any,
-): Promise<{ enterprise: any; tempPassword: string }> {
-  // 1. Create user account
+): Promise<{
+  enterprise: any;
+  tempPassword: string;
+  docs: { total: number; transferred: number; skipped: number; failed: string[] };
+}> {
+  // 1. Create user account (idempotent : si l'email existe déjà — typiquement
+  //    suite à un retry après un échec partiel — on récupère l'user existant
+  //    au lieu de planter avec "User already registered").
   const tempPassword = `ESONO-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  let userId: string;
   const { data: newUser, error: createUserErr } = await supabase.auth.admin.createUser({
     email: candidature.contact_email,
     password: tempPassword,
@@ -40,8 +76,20 @@ async function createEnterpriseFromCandidature(
     user_metadata: { full_name: candidature.contact_name },
   });
 
-  if (createUserErr) throw new Error(`Création compte: ${createUserErr.message}`);
-  const userId = newUser.user.id;
+  if (createUserErr) {
+    // Email déjà enregistré : on récupère l'user existant via listUsers
+    if (/already.*registered|email_exists|user.*already.*exist/i.test(createUserErr.message || "")) {
+      const { data: usersPage } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const existing = usersPage?.users?.find((u: any) => (u.email || "").toLowerCase() === candidature.contact_email.toLowerCase());
+      if (!existing) throw new Error(`Création compte: email déjà pris mais user introuvable`);
+      userId = existing.id;
+      console.log(`[update-candidature] User déjà existant réutilisé: ${userId}`);
+    } else {
+      throw new Error(`Création compte: ${createUserErr.message}`);
+    }
+  } else {
+    userId = newUser.user.id;
+  }
 
   // 2. Create profile + role
   await supabase.from("profiles").upsert({
@@ -60,36 +108,80 @@ async function createEnterpriseFromCandidature(
   const { data: progData } = await supabase.from("programmes").select("organization_id").eq("id", programmeId).single();
   const orgId = progData?.organization_id || candidature.organization_id || null;
 
-  // 4. Create enterprise (with organization_id)
-  const { data: enterprise, error: entErr } = await supabase.from("enterprises").insert({
-    user_id: userId,
-    coach_id: coachId,
-    organization_id: orgId,
-    name: candidature.company_name,
-    sector: candidature.form_data?.sector || null,
-    country: candidature.form_data?.country || candidature.form_data?.pays || null,
-    city: candidature.form_data?.city || candidature.form_data?.ville || null,
-    contact_name: candidature.contact_name,
-    contact_email: candidature.contact_email,
-    contact_phone: candidature.contact_phone,
-    employees_count: candidature.form_data?.effectif || candidature.form_data?.employees || 0,
-  }).select().single();
+  // 4. Create enterprise (idempotent : si une entreprise existe déjà pour ce
+  //    user dans cette org, on la réutilise au lieu d'en créer un doublon —
+  //    cas typique d'un retry après échec partiel).
+  let enterprise: any;
+  const { data: existingEnt } = await supabase
+    .from("enterprises")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
 
-  if (entErr) throw new Error(`Création entreprise: ${entErr.message}`);
+  if (existingEnt) {
+    enterprise = existingEnt;
+    console.log(`[update-candidature] Enterprise existante réutilisée: ${enterprise.name} (${enterprise.id})`);
 
-  // 4b. Create enterprise_coaches entry (N-à-N)
+    // Auto-mapping : si l'entreprise existait déjà avec des champs contact vides,
+    // on les remplit depuis la candidature (cas typique : enterprise créée à la
+    // main avant que la candidature soit liée). Ne touche QUE les champs null/vides.
+    const patch: Record<string, any> = {};
+    if (!enterprise.contact_email && candidature.contact_email) patch.contact_email = candidature.contact_email;
+    if (!enterprise.contact_name && candidature.contact_name) patch.contact_name = candidature.contact_name;
+    if (!enterprise.contact_phone && candidature.contact_phone) patch.contact_phone = candidature.contact_phone;
+    if (!enterprise.sector && candidature.form_data?.sector) patch.sector = candidature.form_data.sector;
+    if (!enterprise.country && (candidature.form_data?.country || candidature.form_data?.pays)) {
+      patch.country = candidature.form_data.country || candidature.form_data.pays;
+    }
+    if (!enterprise.city && (candidature.form_data?.city || candidature.form_data?.ville)) {
+      patch.city = candidature.form_data.city || candidature.form_data.ville;
+    }
+    if (Object.keys(patch).length > 0) {
+      await supabase.from("enterprises").update(patch).eq("id", enterprise.id);
+      Object.assign(enterprise, patch);
+      console.log(`[update-candidature] Champs vides patchés sur enterprise existante : ${Object.keys(patch).join(", ")}`);
+    }
+  } else {
+    const { data: created, error: entErr } = await supabase.from("enterprises").insert({
+      user_id: userId,
+      coach_id: coachId || null,
+      organization_id: orgId,
+      name: candidature.company_name,
+      sector: candidature.form_data?.sector || null,
+      country: candidature.form_data?.country || candidature.form_data?.pays || null,
+      city: candidature.form_data?.city || candidature.form_data?.ville || null,
+      contact_name: candidature.contact_name,
+      contact_email: candidature.contact_email,
+      contact_phone: candidature.contact_phone,
+      employees_count: candidature.form_data?.effectif || candidature.form_data?.employees || 0,
+    }).select().single();
+    if (entErr) throw new Error(`Création entreprise: ${entErr.message}`);
+    enterprise = created;
+  }
+
+  // 4b. Create enterprise_coaches entry (N-à-N) — try/catch car le builder
+  //     Supabase ne supporte pas .catch() chainé (n'est pas une vraie Promise).
   if (coachId) {
-    await supabase.from("enterprise_coaches").insert({
-      enterprise_id: enterprise.id, coach_id: coachId, role: 'principal',
-      assigned_by: coachId, organization_id: orgId, is_active: true,
-    }).catch(() => {}); // Ignore si déjà existe
+    try {
+      await supabase.from("enterprise_coaches").insert({
+        enterprise_id: enterprise.id, coach_id: coachId, role: 'principal',
+        assigned_by: coachId, organization_id: orgId, is_active: true,
+      });
+    } catch (e) {
+      console.warn(`[update-candidature] enterprise_coaches insert skipped:`, e);
+    }
   }
 
   // 4c. Rattacher l'entrepreneur à l'org
   if (orgId) {
-    await supabase.from("organization_members").upsert({
-      organization_id: orgId, user_id: userId, role: 'entrepreneur', is_active: true,
-    }, { onConflict: "organization_id,user_id" }).catch(() => {});
+    try {
+      await supabase.from("organization_members").upsert({
+        organization_id: orgId, user_id: userId, role: 'entrepreneur', is_active: true,
+      }, { onConflict: "organization_id,user_id" });
+    } catch (e) {
+      console.warn(`[update-candidature] organization_members upsert skipped:`, e);
+    }
   }
 
   // 5. Create default modules (with organization_id)
@@ -124,36 +216,69 @@ async function createEnterpriseFromCandidature(
 
   // 6. Transfer candidature documents to enterprise
   const docs = Array.isArray(candidature.documents) ? candidature.documents : [];
+  let transferredCount = 0;
+  let skippedCount = 0;
+  const failedDocs: string[] = [];
   if (docs.length > 0) {
     const RAILWAY_URL = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
     const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
     const parsedContents: string[] = [];
 
+    // Skip-if-exists : on liste les docs déjà transférés pour ne pas re-traiter
+    // ce qui a déjà été fait (cas retry après timeout / erreur partielle).
+    let alreadyTransferred = new Set<string>();
+    try {
+      const { data: existingFiles } = await supabase.storage
+        .from("documents")
+        .list(`${enterprise.id}/reconstruction/`, { limit: 1000 });
+      alreadyTransferred = new Set(
+        (existingFiles || []).map((f: any) => f.name.replace(/^\d+_/, ''))
+      );
+      if (alreadyTransferred.size > 0) {
+        console.log(`[transfer-doc] ${alreadyTransferred.size} doc(s) déjà transférés, skip lors de la boucle`);
+      }
+    } catch (e) {
+      console.warn(`[transfer-doc] list existing failed (non-blocking):`, e);
+    }
+
     for (const doc of docs) {
       if (!doc.storage_path) continue;
+      const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      // Skip si déjà transféré (idempotence sur retry)
+      if (alreadyTransferred.has(safeName)) {
+        skippedCount++;
+        continue;
+      }
+
+      const parts = doc.storage_path.split("/");
+      const bucket = parts[0];
+      const filePath = parts.slice(1).join("/");
+      const entPath = `${enterprise.id}/reconstruction/${Date.now()}_${safeName}`;
+
+      // Copie server-side avec retry (3 tentatives, backoff exponentiel).
+      // Pas de transit par la RAM de l'edge fn → robuste sur grosses batches.
+      const { ok, error: copyErr } = await copyWithRetry(supabase, bucket, filePath, entPath);
+      if (!ok) {
+        console.warn(`[transfer-doc] Copy failed after retries: ${doc.file_name} — ${copyErr}`);
+        failedDocs.push(doc.file_name);
+        continue;
+      }
+      transferredCount++;
+
+      // Parse via Railway — download séparé pour ne charger en RAM qu'au
+      // moment du parse (puis libéré). Best-effort : si parse échoue, le
+      // transfer reste validé.
       try {
-        // Download from candidature-documents bucket
-        const parts = doc.storage_path.split("/");
-        const bucket = parts[0];
-        const filePath = parts.slice(1).join("/");
-        const { data: fileData, error: dlErr } = await supabase.storage.from(bucket).download(filePath);
-        if (dlErr || !fileData) { console.warn(`[transfer-doc] Download failed: ${doc.file_name}`); continue; }
-
-        // Upload to enterprise documents bucket
-        const entPath = `${enterprise.id}/${doc.file_name}`;
-        await supabase.storage.from("documents").upload(entPath, fileData, { upsert: true });
-
-        // Parse via Railway for document_content
-        try {
-          const arrayBuf = await fileData.arrayBuffer();
-          const blob = new Blob([new Uint8Array(arrayBuf)]);
+        const { data: fileData } = await supabase.storage.from(bucket).download(filePath);
+        if (fileData) {
           const formData = new FormData();
-          formData.append("file", blob, doc.file_name);
+          formData.append("file", fileData, doc.file_name);
           const parseResp = await fetch(`${RAILWAY_URL}/parse`, {
             method: "POST",
             headers: { "Authorization": `Bearer ${PARSER_API_KEY}` },
             body: formData,
-            signal: AbortSignal.timeout(30_000),
+            signal: AbortSignal.timeout(10_000),
           });
           if (parseResp.ok) {
             const parsed = await parseResp.json();
@@ -161,15 +286,15 @@ async function createEnterpriseFromCandidature(
               parsedContents.push(`\n══════ ${doc.file_name} (${parsed.category || 'candidature'}) ══════\n${parsed.content}`);
             }
           }
-        } catch (parseErr: any) {
-          console.warn(`[transfer-doc] Parse failed for ${doc.file_name}:`, parseErr.message);
         }
-
-        console.log(`[transfer-doc] ✅ ${doc.file_name} → enterprise ${enterprise.name}`);
-      } catch (e: any) {
-        console.warn(`[transfer-doc] Error transferring ${doc.file_name}:`, e.message);
+      } catch (parseErr: any) {
+        console.warn(`[transfer-doc] Parse skipped for ${doc.file_name}:`, parseErr.message);
       }
+
+      console.log(`[transfer-doc] ✅ ${doc.file_name} → enterprise ${enterprise.name}`);
     }
+
+    console.log(`[transfer-doc] Résumé : ${transferredCount} nouveaux, ${skippedCount} skippés (déjà là), ${failedDocs.length} échecs`);
 
     // Save parsed content to enterprise
     if (parsedContents.length > 0) {
@@ -194,7 +319,16 @@ async function createEnterpriseFromCandidature(
     updated_at: new Date().toISOString(),
   }).eq("id", candidature.id);
 
-  return { enterprise, tempPassword };
+  return {
+    enterprise,
+    tempPassword,
+    docs: {
+      total: docs.length,
+      transferred: transferredCount,
+      skipped: skippedCount,
+      failed: failedDocs,
+    },
+  };
 }
 
 serve(async (req) => {
@@ -281,6 +415,58 @@ serve(async (req) => {
     const programme = candidature.programmes;
     if (isChef && programme?.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
 
+    // ═══════ RETRY DOC TRANSFER ═══════
+    // Réservé aux candidatures déjà sélectionnées dont le transfer initial a
+    // partiellement échoué (timeout, parser down, etc.). Re-lance l'étape 6 du
+    // pipeline createEnterpriseFromCandidature en mode idempotent : skip-if-exists
+    // sur chaque doc → ne transfère que ce qui manque.
+    if (action === "retry_doc_transfer") {
+      if (candidature.status !== "selected" || !candidature.enterprise_id) {
+        return jsonRes({ error: "Candidature non sélectionnée ou sans entreprise liée" }, 400);
+      }
+      try {
+        const { data: ent } = await supabase.from("enterprises").select("id, name").eq("id", candidature.enterprise_id).single();
+        if (!ent) return jsonRes({ error: "Entreprise liée introuvable" }, 404);
+
+        // Réutilise la même logique en construisant une candidature artificielle
+        // pour passer dans createEnterpriseFromCandidature. Mais c'est plus
+        // simple et plus sûr d'extraire juste la boucle de transfer ici.
+        const docs = Array.isArray(candidature.documents) ? candidature.documents : [];
+        if (docs.length === 0) return jsonRes({ success: true, transferred: 0, skipped: 0, message: "Aucun document à transférer" });
+
+        const { data: existingFiles } = await supabase.storage
+          .from("documents")
+          .list(`${ent.id}/reconstruction/`, { limit: 1000 });
+        const alreadyTransferred = new Set(
+          (existingFiles || []).map((f: any) => f.name.replace(/^\d+_/, ''))
+        );
+
+        let transferred = 0, skipped = 0;
+        const failed: string[] = [];
+        for (const doc of docs) {
+          if (!doc.storage_path) continue;
+          const safeName = doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          if (alreadyTransferred.has(safeName)) { skipped++; continue; }
+
+          const parts = doc.storage_path.split("/");
+          const bucket = parts[0];
+          const filePath = parts.slice(1).join("/");
+          const entPath = `${ent.id}/reconstruction/${Date.now()}_${safeName}`;
+
+          const { ok, error: copyErr } = await copyWithRetry(supabase, bucket, filePath, entPath);
+          if (ok) {
+            transferred++;
+          } else {
+            failed.push(doc.file_name);
+            console.warn(`[retry-transfer] ${doc.file_name} failed after retries:`, copyErr);
+          }
+        }
+        return jsonRes({ success: true, transferred, skipped, failed, total: docs.length });
+      } catch (e: any) {
+        return jsonRes({ error: `Retry transfer failed: ${e?.message || 'unknown'}` }, 500);
+      }
+    }
+
     // ═══════ MOVE ═══════
     if (action === "move") {
       if (!new_status) return jsonRes({ error: "new_status requis" }, 400);
@@ -290,72 +476,50 @@ serve(async (req) => {
         return jsonRes({ error: `Transition ${candidature.status} → ${new_status} non autorisée` }, 400);
       }
 
-      // If selecting with a coach → create enterprise
-      if (new_status === "selected" && coach_id) {
+      // Si transition vers "selected" : on crée l'entreprise EN SYNCHRONE.
+      // Auparavant on faisait ça en background via EdgeRuntime.waitUntil pour
+      // accélérer la réponse — mais les erreurs étaient avalées silencieusement
+      // (le user voyait "sélectionné" alors que l'entreprise n'avait jamais été
+      // créée, cas FOODSEN 12/05). On accepte 2-4s d'attente supplémentaire
+      // pour que le user voie l'erreur tout de suite si ça plante.
+      if (new_status === "selected") {
         try {
           const result = await createEnterpriseFromCandidature(
-            candidature, coach_id, programme.id, programme.name, supabase
+            candidature, coach_id || null, programme.id, programme.name, supabase
           );
-          console.log(`[update-candidature] ✅ Entreprise créée: ${result.enterprise.name} (${result.enterprise.id})`);
+          console.log(`[update-candidature] ✅ Enterprise créée: ${result.enterprise.name} (${result.enterprise.id})`);
 
-          // Send welcome email with credentials (non-blocking)
-          try {
-            const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-            if (RESEND_API_KEY && candidature.contact_email) {
-              const siteUrl = "https://esono.tech";
-              const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Segoe UI',system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1e293b">
-<div style="text-align:center;margin-bottom:24px">
-  <div style="display:inline-block;background:#1a2744;color:white;font-weight:bold;padding:12px 16px;border-radius:12px;font-size:18px">ES</div>
-  <h1 style="font-size:22px;margin:12px 0 4px">Bienvenue sur ESONO !</h1>
-  <p style="color:#64748b;font-size:14px">Votre candidature au programme <strong>${programme.name}</strong> a été retenue.</p>
-</div>
-<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:20px 0">
-  <p style="font-size:14px;margin:0 0 12px"><strong>Vos identifiants de connexion :</strong></p>
-  <p style="font-size:14px;margin:4px 0">📧 Email : <strong>${candidature.contact_email}</strong></p>
-  <p style="font-size:14px;margin:4px 0">🔑 Mot de passe : <strong>${result.tempPassword}</strong></p>
-  <p style="font-size:12px;color:#64748b;margin:12px 0 0">Changez votre mot de passe après votre première connexion.</p>
-</div>
-<div style="text-align:center;margin:24px 0">
-  <a href="${siteUrl}/login" style="display:inline-block;background:#1a2744;color:white;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Se connecter</a>
-</div>
-<p style="font-size:13px;color:#64748b;text-align:center">Un coach vous accompagnera tout au long du programme. Vous pourrez uploader vos documents et suivre votre progression directement sur la plateforme.</p>
-<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-<p style="font-size:11px;color:#94a3b8;text-align:center">ESONO — L'assistant IA des coachs d'entreprises en Afrique</p>
-</body></html>`;
-
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  from: "ESONO <noreply@esono.tech>",
-                  to: [candidature.contact_email],
-                  subject: `Bienvenue sur ESONO — Programme ${programme.name}`,
-                  html: emailHtml,
-                }),
-              }).then(r => r.json()).then(d => {
-                console.log(`[update-candidature] ✅ Welcome email sent to ${candidature.contact_email}`, d);
-              }).catch(e => {
-                console.warn(`[update-candidature] ⚠ Email failed:`, e.message);
-              });
-            }
-          } catch (emailErr: any) {
-            console.warn("[update-candidature] Email error (non-blocking):", emailErr.message);
+          // Status update + lien enterprise_id, après création réussie
+          const { error: moveErr } = await supabase
+            .from("candidatures")
+            .update({
+              status: "selected",
+              enterprise_id: result.enterprise.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", candidature_id);
+          if (moveErr) {
+            console.error(`[update-candidature] Status update échoué après création: ${moveErr.message}`);
+            return jsonRes({ error: `Entreprise créée mais update candidature impossible: ${moveErr.message}`, enterprise_id: result.enterprise.id }, 500);
           }
 
           return jsonRes({
             success: true,
             status: "selected",
-            enterprise_created: true,
             enterprise_id: result.enterprise.id,
-            temp_password: result.tempPassword,
+            enterprise_name: result.enterprise.name,
+            docs: result.docs,
           });
         } catch (e: any) {
-          console.error("[update-candidature] Enterprise creation failed:", e);
-          return jsonRes({ error: `Erreur création entreprise: ${e.message}` }, 500);
+          console.error(`[update-candidature] ❌ Enterprise creation failed for candidature ${candidature_id} (${candidature.company_name}):`, e?.message, e?.stack);
+          return jsonRes({
+            error: `Création entreprise impossible : ${e?.message || 'erreur inconnue'}`,
+            candidature_status_unchanged: true,
+          }, 500);
         }
       }
 
-      // Simple status move
+      // Simple status move (non-selected ou autres transitions)
       const { error: moveErr } = await supabase
         .from("candidatures")
         .update({ status: new_status, updated_at: new Date().toISOString() })
@@ -397,6 +561,7 @@ serve(async (req) => {
             enterprise_created: true,
             enterprise_id: result.enterprise.id,
             temp_password: result.tempPassword,
+            docs: result.docs,
           });
         } catch (e: any) {
           return jsonRes({ error: `Erreur création entreprise: ${e.message}` }, 500);

@@ -110,7 +110,13 @@ serve(async (req: Request) => {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const isOwningCoach = ent.coach_id === user.id || ent.user_id === user.id;
+      let isOwningCoach = ent.coach_id === user.id || ent.user_id === user.id;
+      if (!isOwningCoach) {
+        // Coach assigné via la table N-to-N enterprise_coaches (cas Nathalie)
+        const { data: a } = await adminClient.from("enterprise_coaches")
+          .select("id").eq("enterprise_id", ent.id).eq("coach_id", user.id).eq("is_active", true).maybeSingle();
+        isOwningCoach = !!a;
+      }
       const isPrivileged = !!isSA.data || ['owner', 'admin', 'manager'].includes(inviterRole || '');
       if (!isOwningCoach && !isPrivileged) {
         return new Response(JSON.stringify({ error: "Not allowed to invite entrepreneur for this enterprise" }), {
@@ -209,14 +215,29 @@ serve(async (req: Request) => {
     let emailSent = true;
     let emailError: string | undefined;
     try {
+      const inviterName = inviterProfile?.full_name || 'Un membre';
+      const orgName = org?.name || 'une organisation';
+      const roleLabel = roleLabels[role] || role;
+      const textVersion = [
+        `Invitation ESONO`,
+        ``,
+        `${inviterName} vous invite à rejoindre ${orgName} en tant que ${roleLabel}.`,
+        personal_message ? `\n"${personal_message}"\n` : '',
+        `Acceptez l'invitation : ${invitationUrl}`,
+        ``,
+        `Ce lien expire dans 7 jours.`,
+        `— L'équipe ESONO`,
+      ].filter(Boolean).join('\n');
+
       const emailRes = await adminClient.functions.invoke("send-email", {
         body: {
           to: email,
-          subject: `Vous êtes invité à rejoindre ${org?.name || 'une organisation'} sur ESONO`,
+          subject: `Vous êtes invité à rejoindre ${orgName} sur ESONO`,
+          text: textVersion,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>Invitation ESONO</h2>
-              <p>${inviterProfile?.full_name || 'Un membre'} vous invite à rejoindre <strong>${org?.name || 'une organisation'}</strong> en tant que <strong>${roleLabels[role] || role}</strong>.</p>
+              <p>${inviterName} vous invite à rejoindre <strong>${orgName}</strong> en tant que <strong>${roleLabel}</strong>.</p>
               ${personal_message ? `<p style="background: #f5f5f5; padding: 12px; border-radius: 8px; font-style: italic;">"${personal_message}"</p>` : ''}
               <p style="margin: 24px 0;">
                 <a href="${invitationUrl}" style="background: #1a2744; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">

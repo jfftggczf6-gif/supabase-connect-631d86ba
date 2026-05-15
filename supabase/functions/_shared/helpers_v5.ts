@@ -709,21 +709,25 @@ export function getFiscalParamsForPrompt(country: string): {
 }
 
 // ===== RAG: EMBEDDING HELPER =====
+// Voyage AI voyage-3 1024d — cohérent avec knowledge_base.embedding (migré
+// d'OpenAI 1536d le 2026-05-13) et knowledge_chunks. Si Voyage rate-limit ou
+// indispo, on retourne null → buildRAGContext fait fallback text-search.
 async function getQueryEmbedding(text: string): Promise<number[] | null> {
   try {
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiKey) return null;
+    const voyageKey = Deno.env.get("VOYAGE_API_KEY");
+    if (!voyageKey) return null;
 
-    const response = await fetch("https://api.openai.com/v1/embeddings", {
+    const response = await fetch("https://api.voyageai.com/v1/embeddings", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${openaiKey}`,
+        "Authorization": `Bearer ${voyageKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: text.substring(0, 2000),
-        dimensions: 1536,
+        model: "voyage-3",
+        input: [text.substring(0, 8000)],
+        input_type: "query",
+        output_dimension: 1024,
       }),
       signal: AbortSignal.timeout(5000),
     });

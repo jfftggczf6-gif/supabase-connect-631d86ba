@@ -12,12 +12,21 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not configured");
 
-    const { to, subject, html, from } = await req.json();
+    const { to, subject, html, text, from, reply_to } = await req.json();
     if (!to || !subject || !html) {
       return new Response(JSON.stringify({ error: "to, subject, html required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const payload: Record<string, unknown> = {
+      from: from || "ESONO <noreply@esono.tech>",
+      to: [to],
+      subject,
+      html,
+    };
+    if (text) payload.text = text;
+    if (reply_to) payload.reply_to = reply_to;
 
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -25,12 +34,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: from || "ESONO <noreply@esono.tech>",
-        to: [to],
-        subject,
-        html,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await resp.json();

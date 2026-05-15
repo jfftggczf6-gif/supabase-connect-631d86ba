@@ -125,8 +125,13 @@ export default function KnowledgeReviewPage() {
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error);
-      toast.success(`Enrichissement terminé : ${result.auto_ingested} auto-ingérés, ${result.pending_review} en attente`);
-      fetchData();
+      // L'edge fn dispatche vers Railway et retourne 202 immédiatement.
+      // L'enrichissement complet prend 2-5 min côté worker — l'UI ne peut pas
+      // attendre. On invite l'admin à recharger la page quand il veut.
+      toast.success(
+        result.message || 'Enrichissement lancé en arrière-plan. Recharge la page dans 2-5 minutes pour voir les nouveaux documents.',
+        { duration: 8000 },
+      );
     } catch (err: any) {
       toast.error(err.message);
     }

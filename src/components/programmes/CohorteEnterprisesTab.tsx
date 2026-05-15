@@ -14,6 +14,7 @@ import { Loader2, Plus, ChevronRight, Building2, MoreVertical, Pencil, UserCog, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { SECTORS } from '@/lib/sectors';
 
 const SUPPORTED_COUNTRIES = [
   "Afrique du Sud", "Bénin", "Burkina Faso", "Cameroun", "Congo",
@@ -45,6 +46,10 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
   const [newEntSector, setNewEntSector] = useState('');
   const [newEntCountry, setNewEntCountry] = useState('');
   const [newEntContactEmail, setNewEntContactEmail] = useState('');
+  // Si coché, envoie un email d'invitation à l'entrepreneur après création de
+  // l'entreprise. L'invitation porte enterprise_id pour que accept-invitation
+  // lie automatiquement l'entrepreneur à son enterprise + son organisation.
+  const [newEntSendInvitation, setNewEntSendInvitation] = useState(true);
   const [creatingEnt, setCreatingEnt] = useState(false);
 
   // Coaches sélectionnables : déjà inscrits (user_id) + invités en attente (invitation_id)
@@ -472,8 +477,42 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
         toast.success(`Entreprise "${inserted.name}" créée et ajoutée à la cohorte${coachSuffix}`);
       }
 
+      // Envoi invitation entrepreneur — accept-invitation lie automatiquement
+      // user_id, organization_members, user_roles, enterprise.user_id et redirige
+      // vers le bon dashboard.
+      if (newEntSendInvitation && newEntContactEmail.trim()) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (!token) throw new Error('Non authentifié');
+          const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invitation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              email: newEntContactEmail.trim(),
+              role: 'entrepreneur',
+              organization_id: currentOrg.id,
+              enterprise_id: inserted.id,
+              full_name: newEntName.trim(),
+            }),
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            toast.warning(`Entreprise OK mais invitation non envoyée : ${result.error}`);
+          } else if (result.email_sent === false && result.invitation_url) {
+            try { await navigator.clipboard.writeText(result.invitation_url); } catch { /* ignore */ }
+            toast.warning(`Invitation créée mais email non envoyé. Lien copié — transmets-le à ${newEntContactEmail}.`, { duration: 12000 });
+          } else {
+            toast.success(`📧 Invitation envoyée à ${newEntContactEmail}`);
+          }
+        } catch (invErr: any) {
+          toast.warning(`Entreprise OK mais invitation non envoyée : ${invErr.message}`);
+        }
+      }
+
       // Reset + refresh
       setNewEntName(''); setNewEntSector(''); setNewEntCountry(''); setNewEntContactEmail('');
+      setNewEntSendInvitation(true);
       setNewEntCoachUserIds(new Set());
       setNewEntCoachInvitationIds(new Set());
       setShowNewEnt(false);
@@ -652,13 +691,35 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Secteur</Label>
-                  <Input value={newEntSector} onChange={e => setNewEntSector(e.target.value)} placeholder="Agro-industrie, BTP..." />
+                  <select
+                    value={newEntSector}
+                    onChange={e => setNewEntSector(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    {SECTORS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Email contact entrepreneur</Label>
                   <Input type="email" value={newEntContactEmail} onChange={e => setNewEntContactEmail(e.target.value)} placeholder="contact@pme.ci" />
                 </div>
               </div>
+
+              {/* Toggle envoi invitation — actif seulement si email renseigné */}
+              <label className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 border ${newEntContactEmail.trim() ? 'bg-primary/5 border-primary/20 cursor-pointer' : 'bg-muted/30 border-muted-foreground/10 text-muted-foreground cursor-not-allowed'}`}>
+                <input
+                  type="checkbox"
+                  checked={newEntSendInvitation && !!newEntContactEmail.trim()}
+                  disabled={!newEntContactEmail.trim()}
+                  onChange={e => setNewEntSendInvitation(e.target.checked)}
+                  className="mt-0.5 rounded border-border"
+                />
+                <span className="leading-snug">
+                  Envoyer un email d'invitation à l'entrepreneur pour qu'il accède à son dossier.
+                  {!newEntContactEmail.trim() && <span className="block text-xs mt-0.5">— Renseigne d'abord un email.</span>}
+                </span>
+              </label>
               <div className="space-y-2 pt-1">
                 <Label className="text-xs">Coaches assignés (optionnel)</Label>
                 {availableCoaches.length === 0 ? (
@@ -795,11 +856,14 @@ export default function CohorteEnterprisesTab({ programmeId, programmeName }: Pr
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Secteur</Label>
-              <Input
+              <select
                 value={editForm.sector}
                 onChange={e => setEditForm(f => ({ ...f, sector: e.target.value }))}
-                placeholder="Agro-industrie, BTP..."
-              />
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Non défini —</option>
+                {SECTORS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Email contact entrepreneur</Label>

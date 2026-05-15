@@ -46,8 +46,25 @@ serve(async (req) => {
       });
     }
 
-    const { data: ent } = await supabase.from("enterprises").select("id, user_id, coach_id, country").eq("id", enterprise_id).single();
-    if (!ent || (ent.user_id !== user.id && ent.coach_id !== user.id)) {
+    const { data: ent } = await supabase.from("enterprises").select("id, user_id, coach_id, country, organization_id").eq("id", enterprise_id).single();
+    if (!ent) {
+      return new Response(JSON.stringify({ error: "Enterprise not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Permission : owner / legacy coach_id / coach n-to-n actif / org manager
+    let _allowed = ent.user_id === user.id || ent.coach_id === user.id;
+    if (!_allowed) {
+      const { data: a } = await supabase.from("enterprise_coaches")
+        .select("id").eq("enterprise_id", enterprise_id).eq("coach_id", user.id).eq("is_active", true).maybeSingle();
+      _allowed = !!a;
+    }
+    if (!_allowed && ent.organization_id) {
+      const { data: m } = await supabase.from("organization_members")
+        .select("role").eq("user_id", user.id).eq("organization_id", ent.organization_id).eq("is_active", true).maybeSingle();
+      _allowed = !!m && ['owner', 'admin', 'manager'].includes(m.role);
+    }
+    if (!_allowed) {
       return new Response(JSON.stringify({ error: "Enterprise not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -101,7 +101,18 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
       toast({ title: t('common.error'), description: data?.error || error?.message || t('common.error'), variant: 'destructive' });
       return;
     }
-    toast({ title: t('candidature.status_updated') });
+    // Si transition vers "selected" : signaler un échec partiel sur les
+    // documents (cas rare, mais self-service via bouton "Re-transférer").
+    const d = data?.docs;
+    if (d && d.total > 0 && d.failed?.length > 0) {
+      toast({
+        title: `${d.transferred}/${d.total} documents transférés`,
+        description: `${d.failed.length} en échec. Cliquez "Re-transférer documents" dans la fiche.`,
+        variant: 'destructive',
+      });
+    } else {
+      toast({ title: t('candidature.status_updated') });
+    }
     onRefresh();
   };
 
@@ -131,10 +142,10 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
 
     if (targetStatus === 'rejected') {
       setConfirmReject({ id: card.id, name: card.company_name });
-    } else if (targetStatus === 'selected') {
-      // Selection requires coach assignment — must go through drawer
-      toast({ title: t('candidature.assign_coach_required'), description: t('candidature.assign_coach_required_desc') });
     } else {
+      // Sélection sans coach autorisée — l'assignation peut se faire plus tard
+      // dans l'onglet Entreprises. Le drawer reste dispo pour assigner coach +
+      // sélectionner en un seul geste.
       moveCard(card.id, targetStatus);
     }
   };

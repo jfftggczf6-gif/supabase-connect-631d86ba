@@ -143,18 +143,34 @@ async function autoScreen(supabase: any, candidatureId: string, candidature: any
         field_label: k, file_name: v?.filename || v?.file_name || k, file_size: v?.file_size || 0,
       }));
 
-  // Extract document contents
+  // Extract document contents — parsing parallélisé par batches de 5 pour
+  // ne pas dépasser la limite d'execution edge function (400s Pro). Sans ça,
+  // 20+ docs × 30s timeout chacun pouvaient bloquer le re-screen.
   let documentContents = "";
-  if (docs.length > 0 && docs.some((d: any) => d.storage_path)) {
+  const docsWithPath = docs.filter((d: any) => d.storage_path);
+  if (docsWithPath.length > 0) {
     try {
+      const BATCH_SIZE = 5;
       const results: string[] = [];
-      for (const doc of docs) {
-        if (!doc.storage_path) continue;
-        const text = await parseDocFromStorage(supabase, doc.storage_path, doc.file_name || "document");
-        if (text.trim()) results.push(`══════ ${doc.field_label || doc.file_name || 'Document'} ══════\n${text.slice(0, 15000)}`);
+      for (let i = 0; i < docsWithPath.length; i += BATCH_SIZE) {
+        const batch = docsWithPath.slice(i, i + BATCH_SIZE);
+        const settled = await Promise.allSettled(
+          batch.map((doc: any) =>
+            parseDocFromStorage(supabase, doc.storage_path, doc.file_name || "document")
+              .then((text: string) => ({ doc, text }))
+          )
+        );
+        for (const r of settled) {
+          if (r.status === 'fulfilled' && r.value.text?.trim()) {
+            const { doc, text } = r.value;
+            results.push(`══════ ${doc.field_label || doc.file_name || 'Document'} ══════\n${text.slice(0, 15000)}`);
+          } else if (r.status === 'rejected') {
+            console.warn(`[auto-screen] doc parse rejected:`, r.reason?.message);
+          }
+        }
       }
       documentContents = results.join("\n\n");
-      console.log(`[auto-screen] Extracted ${documentContents.length} chars from ${docs.length} doc(s)`);
+      console.log(`[auto-screen] Extracted ${documentContents.length} chars from ${docsWithPath.length} doc(s) in ${Math.ceil(docsWithPath.length / BATCH_SIZE)} batch(es)`);
     } catch (e: any) {
       console.warn("[auto-screen] Document extraction failed:", e.message);
     }
@@ -273,6 +289,33 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // Handle signed upload URL request — used by PublicCandidatureForm to upload
+    // files via PUT on signed URL (bypass RLS). Sécurité : on vérifie que la
+    // candidature existe et n'est pas déjà acceptée/rejetée.
+    if (body.action === 'get_upload_url' && body.candidature_id && body.filename) {
+      const { data: cand } = await supabase
+        .from("candidatures")
+        .select("id, status")
+        .eq("id", body.candidature_id)
+        .maybeSingle();
+      if (!cand) return jsonRes({ error: "Candidature introuvable" }, 404);
+      if (cand.status && !['received', 'pre_selected'].includes(cand.status)) {
+        return jsonRes({ error: "Cette candidature n'accepte plus de fichiers" }, 400);
+      }
+      const safeName = String(body.filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${cand.id}/${Date.now()}_${safeName}`;
+      const { data: signed, error: signErr } = await supabase.storage
+        .from('candidature-documents')
+        .createSignedUploadUrl(storagePath);
+      if (signErr || !signed) return jsonRes({ error: signErr?.message || "Impossible de créer le lien d'upload" }, 500);
+      return jsonRes({
+        success: true,
+        signed_url: signed.signedUrl,
+        path: storagePath,
+        storage_path: `candidature-documents/${storagePath}`,
+      });
+    }
+
     // Handle document update (after initial submission) — re-trigger screening with docs
     if (body.action === 'update_documents' && body.candidature_id) {
       await supabase.from("candidatures").update({
@@ -317,20 +360,18 @@ serve(async (req) => {
 
     if (progErr || !prog) return jsonRes({ error: "Programme non trouvé" }, 404);
 
-    // Statut dérivé des dates (cohérent avec la logique côté front).
-    // brouillon (pas de dates) → fermé. Avant date début → pas encore ouvert.
-    // Après date fin → fermé.
-    const now = new Date();
-    if (!prog.start_date || !prog.end_date) {
-      return jsonRes({ error: "Ce formulaire n'est pas encore prêt à recevoir des candidatures" }, 400);
+    // Cohérent avec get-programme-form : le formulaire est fermé si le
+    // programme est terminé ('completed' ou 'lost'), si end_date est dépassée,
+    // OU si start_date n'est pas encore atteinte. Le status 'in_progress'
+    // n'empêche PAS la soumission (cycle programme ≠ cycle formulaire).
+    if (["completed", "lost"].includes(prog.status)) {
+      return jsonRes({ error: "Ce programme est terminé et n'accepte plus de candidatures" }, 400);
     }
-    if (new Date(prog.start_date) > now) {
-      return jsonRes({
-        error: `Les candidatures ne sont pas encore ouvertes. Ouverture le ${new Date(prog.start_date).toLocaleDateString('fr-FR')}.`,
-      }, 400);
-    }
-    if (new Date(prog.end_date + 'T23:59:59') < now) {
+    if (prog.end_date && new Date(prog.end_date) < new Date()) {
       return jsonRes({ error: "La date limite de candidature est dépassée" }, 400);
+    }
+    if (prog.start_date && new Date(prog.start_date) > new Date()) {
+      return jsonRes({ error: `Les candidatures ouvrent le ${new Date(prog.start_date).toLocaleDateString('fr-FR')}` }, 400);
     }
 
     // Check duplicate (same email + same programme)

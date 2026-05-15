@@ -45,7 +45,22 @@ Deno.serve(async (req: Request) => {
       supabase.from("profiles").select("*").eq("user_id", targetUserId).single(),
       supabase.from("user_roles").select("*").eq("user_id", targetUserId),
       supabase.from("organization_members").select("*, organizations:organization_id(name, slug)").eq("user_id", targetUserId),
-      supabase.from("enterprises").select("id, name, sector, country, contact_email, contact_name, contact_phone, created_at, score_ir, phase").or(`user_id.eq.${targetUserId},coach_id.eq.${targetUserId}`),
+      // Inclut : owner direct (user_id), coach legacy (coach_id), ET coach assigné
+      // via enterprise_coaches (n-to-n). On résout d'abord les enterprise_ids n-to-n
+      // puis on OR sur les 3 critères pour éviter un join.
+      (async () => {
+        const { data: nton } = await supabase
+          .from("enterprise_coaches")
+          .select("enterprise_id")
+          .eq("coach_id", targetUserId)
+          .eq("is_active", true);
+        const ntonIds = (nton || []).map((r: any) => r.enterprise_id);
+        const ntonFilter = ntonIds.length > 0 ? `,id.in.(${ntonIds.join(",")})` : "";
+        return supabase
+          .from("enterprises")
+          .select("id, name, sector, country, contact_email, contact_name, contact_phone, created_at, score_ir, phase")
+          .or(`user_id.eq.${targetUserId},coach_id.eq.${targetUserId}${ntonFilter}`);
+      })(),
       supabase.from("coaching_notes").select("id, enterprise_id, titre, input_type, raw_content, resume_ia, created_at").eq("coach_id", targetUserId).order("created_at", { ascending: false }).limit(500),
       supabase.from("coach_uploads").select("id, enterprise_id, filename, category, file_size, created_at").eq("coach_id", targetUserId).order("created_at", { ascending: false }).limit(500),
       supabase.from("activity_log").select("action, deliverable_type, metadata, created_at").eq("actor_id", targetUserId).order("created_at", { ascending: false }).limit(1000),
