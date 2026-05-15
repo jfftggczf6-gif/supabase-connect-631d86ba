@@ -653,7 +653,7 @@ export default function SuperAdminDashboard() {
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{owner?.full_name || owner?.email || e.user_id.slice(0, 8)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{owner?.full_name || owner?.email || (e.user_id ? e.user_id.slice(0, 8) : '—')}</TableCell>
                         <TableCell>
                           <Select
                             value={enterpriseCoachMap[e.id] || e.coach_id || 'none'}
@@ -666,7 +666,7 @@ export default function SuperAdminDashboard() {
                               <SelectItem value="none">{t('admin.no_coach_short')}</SelectItem>
                               {coaches.map(c => (
                                 <SelectItem key={c.user_id} value={c.user_id}>
-                                  {c.full_name || c.email || c.user_id.slice(0, 8)}
+                                  {c.full_name || c.email || (c.user_id ? c.user_id.slice(0, 8) : '—')}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -740,7 +740,7 @@ export default function SuperAdminDashboard() {
                     return (
                       <TableRow key={d.id}>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(d.created_at)}</TableCell>
-                        <TableCell className="font-medium">{ent?.name || d.enterprise_id.slice(0, 8)}</TableCell>
+                        <TableCell className="font-medium">{ent?.name || (d.enterprise_id ? d.enterprise_id.slice(0, 8) : '—')}</TableCell>
                         <TableCell><Badge variant="destructive" className="text-xs">{deliverableLabel(d.type)}</Badge></TableCell>
                         <TableCell className="text-sm text-destructive max-w-md truncate">{errorMsg}</TableCell>
                       </TableRow>
