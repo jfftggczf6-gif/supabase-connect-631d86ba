@@ -42,10 +42,13 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
   const peWorkspaceLabel = isPeAnalystOnly ? 'Pipeline PE' : 'Workspace PE';
   const isBanqueAccess = isSuperAdmin || ['owner', 'admin', 'directeur_pme', 'direction_pme', 'directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'].includes(orgRole || '');
   const isBaAccess = isSuperAdmin || ['owner', 'admin', 'managing_director', 'investment_manager', 'analyste', 'analyst', 'partner'].includes(orgRole || '');
+  /** Équipe BA : Partner only (managing_director / owner / super_admin). */
+  const isBaTeamAccess = isSuperAdmin || ['owner', 'admin', 'managing_director'].includes(orgRole || '');
   const isProgrammeAccess = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
   const showPipelinePe = segment === 'pe' && isPeAccess;
   const showPipelineBanque = segment === 'banque' && isBanqueAccess;
   const showPipelineBa = segment === 'banque_affaires' && isBaAccess;
+  const showBaTeam = segment === 'banque_affaires' && isBaTeamAccess;
   const showProgrammes = (!segment || segment === 'programme') && isProgrammeAccess;
   const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;
   const canManageMembers = ['owner', 'admin', 'manager'].includes(orgRole || '') || isSuperAdmin;
@@ -163,10 +166,20 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn('gap-1.5 text-xs', (location.pathname.startsWith('/ba') || location.pathname === '/dashboard') && 'bg-muted')}
+                className={cn('gap-1.5 text-xs', location.pathname.startsWith('/ba/pipeline') && 'bg-muted')}
                 onClick={() => navigate('/ba/pipeline')}
               >
                 <ClipboardList className="h-4 w-4" /> Pipeline mandats
+              </Button>
+            )}
+            {showBaTeam && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('gap-1.5 text-xs', location.pathname.startsWith('/ba/equipe') && 'bg-muted')}
+                onClick={() => navigate('/ba/equipe')}
+              >
+                <Users className="h-4 w-4" /> Équipe
               </Button>
             )}
             {showProgrammes && (
@@ -179,7 +192,7 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
                 <ClipboardList className="h-4 w-4" /> {t('nav.programmes')}
               </Button>
             )}
-            {!showPipelinePe && !showPipelineBanque && !showPipelineBa && !showProgrammes && location.pathname !== '/dashboard' && (
+            {!showPipelinePe && !showPipelineBanque && !showPipelineBa && !showBaTeam && !showProgrammes && location.pathname !== '/dashboard' && (
               <Button
                 variant="ghost"
                 size="sm"
