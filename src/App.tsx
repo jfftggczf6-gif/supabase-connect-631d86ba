@@ -48,6 +48,7 @@ import PeLpReportingPage from "./pages/pe/PeLpReportingPage";
 import DossierWorkspacePage from "./pages/banque/DossierWorkspacePage";
 import BanquePipelinePage from "./pages/banque/BanquePipelinePage";
 import BaPipelinePage from "./pages/ba/BaPipelinePage";
+import BaWorkspacePage from "./pages/ba/BaWorkspacePage";
 import EquipePage from "./pages/ba/EquipePage";
 import NotFound from "./pages/NotFound";
 
@@ -155,6 +156,13 @@ const App = () => (
               <ProtectedRoute>
                 <RequireRole roles={['owner','admin','manager','conseiller_pme','analyste_credit','directeur_pme','direction_pme','directeur_agence']}>
                   <DossierWorkspacePage />
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/ba" element={
+              <ProtectedRoute>
+                <RequireRole roles={['owner','admin','managing_director']}>
+                  <BaWorkspacePage />
                 </RequireRole>
               </ProtectedRoute>
             } />
