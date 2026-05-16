@@ -7,6 +7,12 @@ const corsHeaders = {
 };
 
 const VALID_SOURCES = ['reseau_pe', 'inbound', 'dfi', 'banque', 'mandat_ba', 'conference', 'autre'];
+const VALID_STAGES = [
+  // PE
+  'sourcing', 'pre_screening', 'analyse', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'lost', 'exit_prep', 'exited',
+  // BA (mandats)
+  'recus', 'im', 'interets', 'nego', 'close',
+];
 const ALLOWED_ROLES = ['owner', 'admin', 'managing_director', 'investment_manager', 'analyst'];
 
 serve(async (req: Request) => {
@@ -40,6 +46,7 @@ serve(async (req: Request) => {
       currency,
       source,
       source_detail,
+      stage,
       lead_analyst_id,
       lead_im_id,
     } = body;
@@ -47,6 +54,9 @@ serve(async (req: Request) => {
     if (!organization_id) throw new Error("organization_id required");
     if (source && !VALID_SOURCES.includes(source)) {
       throw new Error(`Invalid source. Must be one of: ${VALID_SOURCES.join(', ')}`);
+    }
+    if (stage && !VALID_STAGES.includes(stage)) {
+      throw new Error(`Invalid stage. Must be one of: ${VALID_STAGES.join(', ')}`);
     }
 
     // 1. Vérifier que user est membre actif avec rôle autorisé
@@ -96,6 +106,7 @@ serve(async (req: Request) => {
         currency: currency ?? 'XOF',  // override par trigger si enterprise_id présent
         source: source ?? 'autre',
         source_detail: source_detail ?? null,
+        ...(stage ? { stage } : {}),  // sinon default 'sourcing' (PE)
         lead_analyst_id: lead_analyst_id ?? user.id,
         lead_im_id: lead_im_id ?? null,
         created_by: user.id,

@@ -5,7 +5,9 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 
 type OrgRole =
   | 'owner' | 'admin' | 'manager' | 'coach' | 'analyst' | 'entrepreneur'
-  // Rôles banque
+  // Rôles PE / BA
+  | 'managing_director' | 'investment_manager' | 'analyste'
+  // Rôles banque crédit
   | 'conseiller_pme' | 'analyste_credit' | 'directeur_agence' | 'direction_pme' | 'directeur_pme' | 'partner';
 
 interface RequireRoleProps {
