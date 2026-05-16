@@ -16,8 +16,11 @@
  *  INVITE_PERMISSIONS dans send-invitation). MD ne peut pas inviter MD. */
 export type BaInviteRole = 'analyst' | 'investment_manager' | 'managing_director';
 
-/** Statut d'un membre dans l'org. */
-export type MemberStatus = 'active' | 'invited';
+/** Statut d'un membre dans l'org.
+ *  - active   : membre actif (organization_members.is_active = true)
+ *  - disabled : membre désactivé (is_active = false) — réversible
+ *  - invited  : invitation envoyée non encore acceptée */
+export type MemberStatus = 'active' | 'disabled' | 'invited';
 
 /** Ligne de la liste membres (vue Partner). */
 export interface BaTeamMember {

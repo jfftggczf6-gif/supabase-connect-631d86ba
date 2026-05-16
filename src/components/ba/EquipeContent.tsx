@@ -10,9 +10,11 @@ import {
 } from '@/components/ui/table';
 import { Plus, Loader2 } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useBaTeamMembers } from '@/hooks/useBaTeamMembers';
 import InviteMemberDialog from '@/components/ba/InviteMemberDialog';
 import ImAnalystBindings from '@/components/ba/ImAnalystBindings';
+import MemberActionsMenu from '@/components/ba/MemberActionsMenu';
 import type { BaTeamMember } from '@/types/equipe-ba';
 
 function timeAgo(iso: string | null): string {
@@ -29,14 +31,28 @@ function timeAgo(iso: string | null): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
-function MemberRow({ member }: { member: BaTeamMember }) {
+interface MemberRowProps {
+  member: BaTeamMember;
+  organizationId: string;
+  currentUserId: string;
+  currentUserOrgRole: string | null | undefined;
+  onChanged: () => void;
+}
+
+function MemberRow({ member, organizationId, currentUserId, currentUserOrgRole, onChanged }: MemberRowProps) {
+  const isDisabled = member.status === 'disabled';
   return (
-    <TableRow>
+    <TableRow className={isDisabled ? 'opacity-60' : ''}>
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           <span>{member.full_name || '—'}</span>
           {member.status === 'invited' && (
             <Badge variant="outline" className="text-[10px]">Invité</Badge>
+          )}
+          {member.status === 'disabled' && (
+            <Badge variant="outline" className="text-[10px] border-muted-foreground/40 text-muted-foreground">
+              Désactivé
+            </Badge>
           )}
         </div>
       </TableCell>
@@ -50,16 +66,27 @@ function MemberRow({ member }: { member: BaTeamMember }) {
       <TableCell className="text-right text-xs text-muted-foreground">
         {member.status === 'invited' ? `Invité ${timeAgo(member.invited_at)}` : timeAgo(member.last_activity_at)}
       </TableCell>
+      <TableCell className="text-right">
+        <MemberActionsMenu
+          member={member}
+          organizationId={organizationId}
+          currentUserId={currentUserId}
+          currentUserOrgRole={currentUserOrgRole}
+          onChanged={onChanged}
+        />
+      </TableCell>
     </TableRow>
   );
 }
 
 export default function EquipeContent() {
   const { currentOrg, currentRole: orgRole } = useOrganization();
+  const { user } = useAuth();
   const { members, loading, reload } = useBaTeamMembers(currentOrg?.id);
   const [showInvite, setShowInvite] = useState(false);
 
   const activeCount = useMemo(() => members.filter(m => m.status === 'active').length, [members]);
+  const disabledCount = useMemo(() => members.filter(m => m.status === 'disabled').length, [members]);
   const invitedCount = useMemo(() => members.filter(m => m.status === 'invited').length, [members]);
 
   if (loading) {
@@ -72,6 +99,9 @@ export default function EquipeContent() {
         <div className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">{activeCount}</span>{' '}
           membre{activeCount > 1 ? 's' : ''} actif{activeCount > 1 ? 's' : ''}
+          {disabledCount > 0 && (
+            <> · {disabledCount} désactivé{disabledCount > 1 ? 's' : ''}</>
+          )}
           {invitedCount > 0 && (
             <> · {invitedCount} invitation{invitedCount > 1 ? 's' : ''} en cours</>
           )}
@@ -90,17 +120,27 @@ export default function EquipeContent() {
               <TableHead>Email</TableHead>
               <TableHead className="text-right">Mandats</TableHead>
               <TableHead className="text-right">Dernière activité</TableHead>
+              <TableHead className="text-right w-12">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {members.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground italic py-6">
+                <TableCell colSpan={6} className="text-center text-muted-foreground italic py-6">
                   Aucun membre
                 </TableCell>
               </TableRow>
             ) : (
-              members.map(m => <MemberRow key={m.user_id} member={m} />)
+              members.map(m => (
+                <MemberRow
+                  key={m.user_id}
+                  member={m}
+                  organizationId={currentOrg!.id}
+                  currentUserId={user?.id || ''}
+                  currentUserOrgRole={orgRole}
+                  onChanged={reload}
+                />
+              ))
             )}
           </TableBody>
         </Table>

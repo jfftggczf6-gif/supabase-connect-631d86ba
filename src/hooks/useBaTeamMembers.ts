@@ -48,12 +48,13 @@ export function useBaTeamMembers(organizationId: string | undefined): State {
     setError(null);
 
     try {
-      // 1. Membres actifs + invités (acceptés mais inactifs ignorés).
+      // 1. Membres actifs ET désactivés — on retire le filtre is_active pour
+      //    afficher les comptes désactivés avec un Badge "Désactivé" et
+      //    permettre leur réactivation depuis le dropdown actions.
       const { data: orgMembers, error: omErr } = await supabase
         .from('organization_members')
         .select('user_id, role, is_active, created_at')
-        .eq('organization_id', organizationId)
-        .eq('is_active', true);
+        .eq('organization_id', organizationId);
       if (omErr) throw omErr;
 
       const userIds = (orgMembers || []).map((m: any) => m.user_id);
@@ -122,7 +123,7 @@ export function useBaTeamMembers(organizationId: string | undefined): State {
           email: prof?.email ?? '',
           role: m.role,
           role_label: roleLabelFor(m.role),
-          status: 'active',
+          status: m.is_active ? 'active' : 'disabled',
           mandates_count: mandatesByUser.get(m.user_id) ?? 0,
           last_activity_at: lastActByUser.get(m.user_id) ?? null,
           invited_at: null,
