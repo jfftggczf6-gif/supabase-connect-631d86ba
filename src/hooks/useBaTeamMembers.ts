@@ -53,7 +53,7 @@ export function useBaTeamMembers(organizationId: string | undefined): State {
       //    permettre leur réactivation depuis le dropdown actions.
       const { data: orgMembers, error: omErr } = await supabase
         .from('organization_members')
-        .select('user_id, role, is_active, created_at')
+        .select('user_id, role, is_active, joined_at')
         .eq('organization_id', organizationId);
       if (omErr) throw omErr;
 
@@ -127,7 +127,7 @@ export function useBaTeamMembers(organizationId: string | undefined): State {
           mandates_count: mandatesByUser.get(m.user_id) ?? 0,
           last_activity_at: lastActByUser.get(m.user_id) ?? null,
           invited_at: null,
-          joined_at: m.created_at ?? null,
+          joined_at: m.joined_at ?? null,
           invitation_id: null,
         };
       });
