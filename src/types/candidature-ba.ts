@@ -43,13 +43,18 @@ export interface BaProgramme {
   start_date: string | null;
   end_date: string | null;
   status: ProgrammeRunStatus;
-  /** Discriminant BA. */
+  /** Discriminant BA. ATTENTION : DB default = 'appel_candidatures',
+   *  donc on doit passer explicitement type='banque_affaires' au create. */
   type: 'banque_affaires';
+  // Note pause : submit-candidature refuse les status 'completed' et 'lost'.
+  // Pour V1, "pause" mappe vers status='lost' (réversible via toggle UI).
 }
 
 // ─── Candidature (vue UI Partner) ─────────────────────────────────
-/** Statuts UI alignés brief. Mapping DB via DB_TO_UI_STATUS. */
-export type CandidatureStatus = 'new' | 'reviewing' | 'accepted' | 'rejected' | 'converted';
+/** Statuts UI alignés brief. Mapping DB via DB_TO_UI_STATUS.
+ *  Note : 'converted' (brief) n'existe PAS en DB — on track la conversion
+ *  via la présence d'un pe_deals lié à la candidature (jointure côté UI). */
+export type CandidatureStatus = 'new' | 'reviewing' | 'accepted' | 'rejected';
 
 export interface CandidatureRow {
   id: string;
@@ -103,13 +108,15 @@ export interface SubmitCandidatureInput {
   form_data: Record<string, unknown>;
 }
 
-/** Statut DB tel que stocké dans candidatures.status. */
+/** Statut DB tel que stocké dans candidatures.status.
+ *  CHECK constraint : received | in_review | pre_selected | rejected | selected | waitlisted */
 export type CandidatureStatusDb =
   | 'received'
+  | 'in_review'
   | 'pre_selected'
-  | 'selected'
   | 'rejected'
-  | 'converted';
+  | 'selected'
+  | 'waitlisted';
 
 export interface ListCandidaturesInput {
   programme_id: string;
@@ -117,26 +124,29 @@ export interface ListCandidaturesInput {
   search?: string;
 }
 
+/** Body update-candidature (action='change_status'). L'EF supporte aussi
+ *  l'action 'bulk_status' via candidature_ids[] + new_status. */
 export interface UpdateCandidatureInput {
   candidature_id: string;
-  status: CandidatureStatusDb;
+  action: 'change_status';
+  new_status: CandidatureStatusDb;
 }
 
 // ─── Mapping bidirectionnel statut DB ↔ UI ────────────────────────
 export const DB_TO_UI_STATUS: Record<CandidatureStatusDb, CandidatureStatus> = {
   received: 'new',
-  pre_selected: 'reviewing',
+  in_review: 'reviewing',
+  pre_selected: 'reviewing',  // sémantique proche, brief n'utilise pas la nuance
+  waitlisted: 'reviewing',
   selected: 'accepted',
   rejected: 'rejected',
-  converted: 'converted',
 };
 
 export const UI_TO_DB_STATUS: Record<CandidatureStatus, CandidatureStatusDb> = {
   new: 'received',
-  reviewing: 'pre_selected',
+  reviewing: 'in_review',
   accepted: 'selected',
   rejected: 'rejected',
-  converted: 'converted',
 };
 
 // ─── Labels d'affichage ───────────────────────────────────────────
@@ -145,8 +155,11 @@ export const STATUS_LABEL: Record<CandidatureStatus, string> = {
   reviewing: 'En revue',
   accepted: 'Acceptée',
   rejected: 'Refusée',
-  converted: 'Convertie',
 };
+
+/** Badge optionnel à afficher quand un mandat a déjà été créé à partir
+ *  de la candidature (jointure pe_deals.candidature_id côté UI). */
+export const CONVERTED_BADGE_LABEL = 'Convertie';
 
 /** 10 champs par défaut (brief #5) — seedés à la création d'un programme BA. */
 export const DEFAULT_FORM_FIELDS: FormField[] = [
