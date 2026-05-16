@@ -84,8 +84,26 @@ export default function InviteMemberDialog({
       },
     });
     setSubmitting(false);
-    if (error || (data as any)?.error) {
-      toast.error((data as any)?.error || error?.message || 'Envoi invitation échoué');
+
+    // supabase-js wrap les 4xx/5xx en FunctionsHttpError dont le body
+    // n'est PAS automatiquement exposé. On le récupère via error.context
+    // (Response), ou on lit data?.error si la réponse est 2xx mais flaggée.
+    let realError: string | null = null;
+    if (error) {
+      const ctx = (error as any)?.context;
+      if (ctx && typeof ctx.json === 'function') {
+        try {
+          const body = await ctx.json();
+          realError = body?.error ?? null;
+        } catch { /* body non-JSON, ignore */ }
+      }
+      if (!realError) realError = error.message;
+    } else if ((data as any)?.error) {
+      realError = (data as any).error;
+    }
+
+    if (realError) {
+      toast.error(realError);
       return;
     }
     toast.success('Invitation envoyée');

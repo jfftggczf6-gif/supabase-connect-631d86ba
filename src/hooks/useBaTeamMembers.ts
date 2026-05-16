@@ -127,6 +127,8 @@ export function useBaTeamMembers(organizationId: string | undefined): State {
           mandates_count: mandatesByUser.get(m.user_id) ?? 0,
           last_activity_at: lastActByUser.get(m.user_id) ?? null,
           invited_at: null,
+          joined_at: m.created_at ?? null,
+          invitation_id: null,
         };
       });
 
@@ -141,9 +143,15 @@ export function useBaTeamMembers(organizationId: string | undefined): State {
         mandates_count: 0,
         last_activity_at: null,
         invited_at: i.created_at,
+        joined_at: i.created_at,
+        invitation_id: i.id,
       }));
 
-      setMembers([...activeMembers, ...invitedMembers]);
+      // Tri par date desc (joined_at) — les plus récents en haut.
+      const all = [...activeMembers, ...invitedMembers].sort((a, b) =>
+        (b.joined_at ?? '').localeCompare(a.joined_at ?? '')
+      );
+      setMembers(all);
     } catch (e: any) {
       setError(e?.message ?? 'Erreur chargement équipe');
     } finally {

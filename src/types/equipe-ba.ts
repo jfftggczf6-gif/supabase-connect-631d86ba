@@ -38,6 +38,10 @@ export interface BaTeamMember {
   last_activity_at: string | null;
   /** Si status='invited', date de l'invitation (lecture invitations.created_at). */
   invited_at: string | null;
+  /** Date d'arrivée dans l'org (organization_members.created_at) ou created_at invitation. */
+  joined_at: string | null;
+  /** Si status='invited', id de l'invitation (sert à révoquer). */
+  invitation_id: string | null;
 }
 
 /** Body pour send-invitation (EF existante, shape stricte). */
