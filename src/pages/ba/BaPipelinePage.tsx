@@ -162,6 +162,7 @@ export default function BaPipelinePage() {
             // Pour l'instant pas de page detail BA, on pointe vers le deal PE générique
             window.location.href = `/pe/deals/${m.id}`;
           }}
+          onMandatMoved={load}
         />
       ) : (
         <MandatTable

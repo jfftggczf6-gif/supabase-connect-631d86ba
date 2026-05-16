@@ -8,27 +8,28 @@ const corsHeaders = {
 
 // Stages canoniques Phase B' : analyse + ic1 + ic_finale ont été renommés.
 // Phase G : ajout des stages de sortie (exit_prep, exited).
+// BA : pipeline mandats (recus → im → interets → nego → close).
 const VALID_STAGES = [
-  'sourcing',
-  'pre_screening',
-  'note_ic1',
-  'dd',
-  'note_ic_finale',
-  'closing',
-  'portfolio',
-  'exit_prep',
-  'exited',
-  'lost',
+  // PE
+  'sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited', 'lost',
+  // BA (mandats)
+  'recus', 'im', 'interets', 'nego', 'close',
 ];
+
+// Stages BA accessibles par rôle (aligné preset pipeline_views_per_role).
+const BA_STAGES_ANALYST = ['recus', 'im', 'interets'];
+const BA_STAGES_SENIOR  = ['recus', 'im', 'interets', 'nego'];
+const BA_STAGES_PARTNER = ['recus', 'im', 'interets', 'nego', 'close'];
 
 // Stages autorisés selon rôle (lost est toujours autorisé).
 const STAGES_BY_ROLE: Record<string, string[]> = {
-  analyste:           ['sourcing', 'pre_screening'],
-  analyst:            ['sourcing', 'pre_screening'],
-  investment_manager: ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'exit_prep'],
-  managing_director:  ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited'],
-  admin:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited'],
-  owner:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited'],
+  analyste:           ['sourcing', 'pre_screening', ...BA_STAGES_ANALYST],
+  analyst:            ['sourcing', 'pre_screening', ...BA_STAGES_ANALYST],
+  investment_manager: ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'exit_prep', ...BA_STAGES_SENIOR],
+  managing_director:  ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited', ...BA_STAGES_PARTNER],
+  admin:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited', ...BA_STAGES_PARTNER],
+  owner:              ['sourcing', 'pre_screening', 'note_ic1', 'dd', 'note_ic_finale', 'closing', 'portfolio', 'exit_prep', 'exited', ...BA_STAGES_PARTNER],
+  partner:            BA_STAGES_PARTNER,
 };
 
 // Seuils de validation requis pour chaque transition critique.

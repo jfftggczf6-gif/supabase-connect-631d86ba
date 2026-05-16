@@ -67,10 +67,15 @@ export default function Dashboard() {
     return <Navigate to="/pe" replace />;
   }
 
-  // Org Banque / Banque d'affaires → pipeline crédit
-  if (currentOrg.type === 'banque' || currentOrg.type === 'banque_affaires') {
+  // Org Banque (crédit) → pipeline crédit
+  if (currentOrg.type === 'banque') {
     if (orgRole === 'entrepreneur') return <EntrepreneurDashboard />;
     return <Navigate to="/banque/pipeline" replace />;
+  }
+
+  // Org Banque d'affaires (BA / mandats) → pipeline mandats
+  if (currentOrg.type === 'banque_affaires') {
+    return <Navigate to="/ba/pipeline" replace />;
   }
 
   // ─── Org Programme (par défaut) — dispatch par rôle ───────────────────────
