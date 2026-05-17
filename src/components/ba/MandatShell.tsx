@@ -20,6 +20,10 @@ import NotesRdvSection from './sections/NotesRdvSection';
 import BenchmarksSection from './sections/BenchmarksSection';
 import PreScreeningBaSection from './sections/PreScreeningBaSection';
 import MemoBaSection, { MEMO_SECTION_CODES } from './sections/MemoBaSection';
+import ValuationBaSection from './sections/ValuationBaSection';
+import TeaserBaSection from './sections/TeaserBaSection';
+import FundMatchingSection from './sections/FundMatchingSection';
+import DealTrackingSection from './sections/DealTrackingSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -123,6 +127,7 @@ function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | un
           status: stats.funds_contacted > 0 ? 'draft' : 'not_started',
           caption: stats.funds_contacted > 0 ? `${stats.funds_contacted} fonds contactés` : undefined,
         },
+        { code: 'deal_tracking', label: 'Suivi diffusion', status: 'not_started' },
       ],
     },
   ];
@@ -151,23 +156,13 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
     case 'memo':
       return <MemoBaSection dealId={dealId} />;
     case 'valuation':
-      return <PlaceholderSection
-        featureName="valuation_ba"
-        title="Valorisation"
-        description="DCF 7 ans + multiples comparables sectoriels + ANCC. Sensitivity matrix 5x5 (WACC × croissance terminale). Fourchette de prix BEAR / BASE / BULL. Export PDF + XLSX."
-      />;
+      return <ValuationBaSection dealId={dealId} />;
     case 'teaser':
-      return <PlaceholderSection
-        featureName="generate_teaser"
-        title="Teaser anonymisé"
-        description="One-pager généré depuis l'IM. Nom de code automatique. Détection IA des mentions identifiantes (warnings). Workflow Analyste → Partner approuve → diffusable."
-      />;
+      return <TeaserBaSection dealId={dealId} />;
     case 'fund_matching':
-      return <PlaceholderSection
-        featureName="fund_matching"
-        title="Fonds & matching"
-        description="Matching anonyme deal ↔ fonds. Score d'adéquation, statuts par fonds (non_contacté → teaser_envoyé → intéressé → NDA → IM_partagé → IOI), relances auto."
-      />;
+      return <FundMatchingSection dealId={dealId} />;
+    case 'deal_tracking':
+      return <DealTrackingSection dealId={dealId} />;
     default:
       // Sections du memo (memo:1, memo:2, ...) → PeSingleSectionView via wrapper
       if (typeof code === 'string' && code.startsWith('memo:')) {
