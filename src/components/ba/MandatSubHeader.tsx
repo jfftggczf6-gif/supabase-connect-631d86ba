@@ -40,7 +40,7 @@ export default function MandatSubHeader({ mandat }: Props) {
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0 shrink-0"
-          onClick={() => navigate('/ba/pipeline')}
+          onClick={() => navigate('/ba')}
           aria-label="Retour au pipeline"
         >
           <ArrowLeft className="h-4 w-4" />

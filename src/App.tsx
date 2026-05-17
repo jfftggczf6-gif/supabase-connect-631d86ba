@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import AiJobsLiveToast from "@/components/AiJobsLiveToast";
@@ -47,7 +47,6 @@ import PeTeamPage from "./pages/pe/PeTeamPage";
 import PeLpReportingPage from "./pages/pe/PeLpReportingPage";
 import DossierWorkspacePage from "./pages/banque/DossierWorkspacePage";
 import BanquePipelinePage from "./pages/banque/BanquePipelinePage";
-import BaPipelinePage from "./pages/ba/BaPipelinePage";
 import BaWorkspacePage from "./pages/ba/BaWorkspacePage";
 import EquipePage from "./pages/ba/EquipePage";
 import MandatDetailPage from "./pages/ba/MandatDetailPage";
@@ -163,18 +162,13 @@ const App = () => (
             } />
             <Route path="/ba" element={
               <ProtectedRoute>
-                <RequireRole roles={['owner','admin','managing_director']}>
+                <RequireRole roles={['owner','admin','managing_director','investment_manager','analyste','analyst','partner']}>
                   <BaWorkspacePage />
                 </RequireRole>
               </ProtectedRoute>
             } />
-            <Route path="/ba/pipeline" element={
-              <ProtectedRoute>
-                <RequireRole roles={['owner','admin','managing_director','investment_manager','analyste','analyst','partner']}>
-                  <BaPipelinePage />
-                </RequireRole>
-              </ProtectedRoute>
-            } />
+            {/* Rétro-compat : ancienne route /ba/pipeline → /ba?tab=mandats */}
+            <Route path="/ba/pipeline" element={<Navigate to="/ba?tab=mandats" replace />} />
             <Route path="/ba/equipe" element={
               <ProtectedRoute>
                 <RequireRole roles={['owner','admin','managing_director']}>
