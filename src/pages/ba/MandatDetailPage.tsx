@@ -49,7 +49,7 @@ export default function MandatDetailPage() {
 
   return (
     <DashboardLayout title={title} fullscreen>
-      <MandatShell bundle={bundle} role={role} />
+      <MandatShell bundle={bundle} role={role} organizationId={currentOrg?.id || ''} />
     </DashboardLayout>
   );
 }

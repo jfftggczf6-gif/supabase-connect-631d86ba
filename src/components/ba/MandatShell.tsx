@@ -8,12 +8,15 @@ import { useSearchParams } from 'react-router-dom';
 import MandatSubHeader from './MandatSubHeader';
 import MandatSideNav from './MandatSideNav';
 import PlaceholderSection from './sections/PlaceholderSection';
+import UploadDocumentsSection from './sections/UploadDocumentsSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
   bundle: MandatDetailBundle;
   /** Rôle utilisateur pour filtrage Diffusion. */
   role: string | null | undefined;
+  /** Organization courante (sert aux sections enfants qui font des inserts). */
+  organizationId: string;
 }
 
 const PARTNER_ROLES = ['managing_director', 'owner', 'admin', 'partner'];
@@ -108,15 +111,11 @@ function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | un
   return groups.filter(g => !g.visibleForRoles || g.visibleForRoles.includes(role || ''));
 }
 
-/** Map section → composant rendu. V1 : tous placeholders sauf candidatures (TBD plus tard). */
-function renderSection(code: SectionCode): React.ReactNode {
+/** Map section → composant rendu. */
+function renderSection(code: SectionCode, dealId: string, organizationId: string): React.ReactNode {
   switch (code) {
     case 'upload_documents':
-      return <PlaceholderSection
-        featureName="upload_documents"
-        title="Documents du mandant"
-        description="Zone d'upload drag & drop des liasses SYSCOHADA, relevés bancaires, statuts, RCCM, pitch deck. Parsing IA automatique, extraction des données chiffrées et checklist des documents manquants."
-      />;
+      return <UploadDocumentsSection dealId={dealId} organizationId={organizationId} />;
     case 'info_analyste':
       return <PlaceholderSection
         featureName="info_analyste"
@@ -176,7 +175,7 @@ function renderSection(code: SectionCode): React.ReactNode {
   }
 }
 
-export default function MandatShell({ bundle, role }: Props) {
+export default function MandatShell({ bundle, role, organizationId }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const groups = useMemo(() => buildSidebarGroups(bundle, role), [bundle, role]);
 
@@ -211,7 +210,7 @@ export default function MandatShell({ bundle, role }: Props) {
           onSelect={handleSelect}
         />
         <main className="flex-1 overflow-y-auto p-4">
-          {renderSection(active)}
+          {renderSection(active, bundle.mandat.id, organizationId)}
         </main>
       </div>
     </div>
