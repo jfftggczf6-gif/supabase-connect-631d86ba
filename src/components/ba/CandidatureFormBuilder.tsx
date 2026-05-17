@@ -28,7 +28,12 @@ const TYPE_LABEL: Record<FieldType, string> = {
   email: 'Email',
   select: 'Liste déroulante',
   date: 'Date',
+  file: 'Upload fichier(s)',
+  checkbox: 'Cases à cocher',
+  radio: 'Boutons radio',
 };
+
+const TYPES_WITH_OPTIONS: FieldType[] = ['select', 'checkbox', 'radio'];
 
 export default function CandidatureFormBuilder({ programme, onBack, onSaved }: Props) {
   const [draft, setDraft] = useState<FormConfig>({
@@ -204,7 +209,7 @@ export default function CandidatureFormBuilder({ programme, onBack, onSaved }: P
                       Requis
                     </label>
                   </div>
-                  {f.type === 'select' && (
+                  {TYPES_WITH_OPTIONS.includes(f.type) && (
                     <div className="pl-7">
                       <Input
                         value={(f.options ?? []).join(', ')}
@@ -213,6 +218,23 @@ export default function CandidatureFormBuilder({ programme, onBack, onSaved }: P
                         })}
                         placeholder="Option 1, Option 2, Option 3"
                         className="h-7 text-xs"
+                      />
+                    </div>
+                  )}
+                  {f.type === 'file' && (
+                    <div className="pl-7 flex items-center gap-3 flex-wrap">
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <Checkbox
+                          checked={!!f.multiple}
+                          onCheckedChange={(v) => updateField(f.id, { multiple: v === true })}
+                        />
+                        Plusieurs fichiers
+                      </label>
+                      <Input
+                        value={f.accept ?? ''}
+                        onChange={e => updateField(f.id, { accept: e.target.value || undefined })}
+                        placeholder="Extensions (ex: .pdf,.docx)"
+                        className="h-7 text-xs w-48"
                       />
                     </div>
                   )}

@@ -9,7 +9,9 @@
 //                   update-candidature, extract-form-fields, extract-programme-criteria.
 
 // ─── Form config (programmes.form_fields jsonb) ─────────────────────
-export type FieldType = 'text' | 'textarea' | 'number' | 'email' | 'select' | 'date';
+export type FieldType =
+  | 'text' | 'textarea' | 'number' | 'email' | 'select' | 'date'
+  | 'file' | 'checkbox' | 'radio';
 
 export interface FormField {
   /** id local (Date.now() pour les nouveaux champs ajoutés côté UI). */
@@ -17,8 +19,26 @@ export interface FormField {
   label: string;
   type: FieldType;
   required: boolean;
-  /** Si type='select' : liste des options. */
+  /** Si type='select'/'checkbox'/'radio' : liste des options. */
   options?: string[];
+  /** Si type='file' : autoriser plusieurs fichiers (sinon 1 seul). */
+  multiple?: boolean;
+  /** Si type='file' : extensions acceptées (ex: '.pdf,.docx'). */
+  accept?: string;
+}
+
+/** Métadonnées d'un document uploadé (stocké dans candidatures.documents jsonb). */
+export interface CandidatureDocument {
+  /** Nom du champ FormField source (ex: 'Documents'). */
+  field_label: string;
+  /** Nom de fichier original. */
+  file_name: string;
+  /** Path dans storage Supabase ('candidature-documents/{uuid}/{file}'). */
+  storage_path: string;
+  /** MIME type (optionnel). */
+  mime_type?: string;
+  /** Taille en bytes (optionnel). */
+  size_bytes?: number;
 }
 
 export interface FormConfig {
@@ -70,6 +90,8 @@ export interface CandidatureRow {
   /** 0-100, calculé par screen-candidatures (IA). */
   screening_score: number | null;
   screening_data: ScreeningData | null;
+  /** Documents uploadés (jsonb sur candidatures.documents). */
+  documents: CandidatureDocument[];
   created_at: string;
   // Champs dérivés de form_data (extraction côté UI pour affichage tableau).
   sector: string | null;
@@ -254,4 +276,7 @@ export const DEFAULT_FORM_FIELDS: FormField[] = [
   { id: 8, label: 'Référent / Contact', type: 'text', required: true },
   { id: 9, label: 'Email de contact', type: 'email', required: true },
   { id: 10, label: 'Téléphone', type: 'text', required: false },
+  { id: 11, label: 'Documents (pitch deck, liasse comptable, business plan)',
+    type: 'file', required: false, multiple: true,
+    accept: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx' },
 ];
