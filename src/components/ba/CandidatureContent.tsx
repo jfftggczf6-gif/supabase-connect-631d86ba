@@ -66,7 +66,9 @@ export default function CandidatureContent() {
     ? `${window.location.origin}/candidature/${programme.form_slug}`
     : '';
 
-  const isPaused = programme?.status === 'lost';
+  // Pause = status='closed' : submit-candidature refuse déjà les soumissions
+  // sur ce status, donc le formulaire public devient inaccessible (brief #6).
+  const isPaused = programme?.status === 'closed';
   const isActive = programme?.status === 'in_progress' || programme?.status === 'draft';
 
   const changeCandStatus = async (cand: CandidatureRow, uiStatus: CandidatureStatus) => {
@@ -117,7 +119,7 @@ export default function CandidatureContent() {
   const handleTogglePause = async () => {
     if (!programme) return;
     setToggling(true);
-    const newStatus = isPaused ? 'in_progress' : 'lost';
+    const newStatus = isPaused ? 'in_progress' : 'closed';
     const { data, error } = await supabase.functions.invoke('manage-programme', {
       body: { action: 'update', id: programme.id, status: newStatus },
     });

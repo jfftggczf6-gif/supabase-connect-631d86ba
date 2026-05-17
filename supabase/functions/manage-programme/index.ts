@@ -114,6 +114,16 @@ serve(async (req) => {
     if (action === "create") {
       if (!isAdmin && !isChefProg) return jsonRes({ error: "Accès refusé" }, 403);
 
+      // Auto-génération form_slug si absent : slugify(name) + 4 chars random.
+      const slugify = (s: string) => s
+        .toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40);
+      const randomSuffix = Math.random().toString(36).slice(2, 6);
+      const autoSlug = body.name ? `${slugify(body.name)}-${randomSuffix}` : `programme-${randomSuffix}`;
+
       const insertData: Record<string, any> = {
         name: body.name,
         description: body.description || null,
@@ -133,7 +143,10 @@ serve(async (req) => {
         criteria_id: body.criteria_id || null,
         created_by: user.id,
         chef_programme_id: isChefProg ? user.id : (body.chef_programme_id || user.id),
-        status: "draft",
+        // Defaults rétro-compatibles : si body ne fournit pas, comportement legacy.
+        type: body.type || 'appel_candidatures',
+        status: body.status || "draft",
+        form_slug: body.form_slug || autoSlug,
       };
 
       if (!insertData.name) return jsonRes({ error: "Le nom du programme est requis" }, 400);
