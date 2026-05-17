@@ -10,6 +10,7 @@ import MandatSideNav from './MandatSideNav';
 import PlaceholderSection from './sections/PlaceholderSection';
 import UploadDocumentsSection from './sections/UploadDocumentsSection';
 import InfoAnalysteSection from './sections/InfoAnalysteSection';
+import NotesRdvSection from './sections/NotesRdvSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -62,6 +63,13 @@ function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | un
         { code: 'info_analyste',    label: 'Info entreprise', status: 'not_started' },
         { code: 'benchmarks',       label: 'Benchmarks sectoriels', status: 'not_started' },
         { code: 'sources',          label: 'Sources & références', status: 'not_started' },
+      ],
+    },
+    {
+      code: 'suivi',
+      label: 'Suivi mandat',
+      items: [
+        { code: 'notes', label: 'Notes & RDV', status: 'not_started' },
       ],
     },
     {
@@ -119,6 +127,8 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
       return <UploadDocumentsSection dealId={dealId} organizationId={organizationId} />;
     case 'info_analyste':
       return <InfoAnalysteSection dealId={dealId} />;
+    case 'notes':
+      return <NotesRdvSection dealId={dealId} />;
     case 'benchmarks':
       return <PlaceholderSection
         featureName="benchmarks_sectoriels"
