@@ -43,12 +43,12 @@ serve(async (req) => {
     if (progErr || !prog) return jsonRes({ error: "Programme non trouvé" }, 404);
 
     // Le formulaire est fermé si :
-    //   - le programme est terminé (status='completed') ou perdu ('lost')
+    //   - le programme est terminé (status='completed'), perdu ('lost'),
+    //     OU en pause ('closed' — utilisé par BA pour pause/réactiver)
     //   - OU la date de fin de candidatures est dépassée
-    // Note : les anciens status 'open'/'closed' ne sont plus contraignants —
-    // le cycle programme et le cycle formulaire sont découplés.
+    //   - OU la date de début n'est pas encore arrivée
     const today = new Date();
-    const isProgrammeFinished = ["completed", "lost"].includes(prog.status);
+    const isProgrammeFinished = ["completed", "lost", "closed"].includes(prog.status);
     const isExpired = prog.end_date && new Date(prog.end_date) < today;
     const isNotYetOpen = prog.start_date && new Date(prog.start_date) > today;
 
@@ -58,7 +58,7 @@ serve(async (req) => {
         name: prog.name,
         organization: prog.organization,
         reason: isProgrammeFinished
-          ? "Programme terminé"
+          ? (prog.status === "closed" ? "Candidatures en pause" : "Programme terminé")
           : isExpired
             ? "Date limite dépassée"
             : `Candidatures ouvertes à partir du ${new Date(prog.start_date!).toLocaleDateString('fr-FR')}`,
