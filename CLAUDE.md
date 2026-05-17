@@ -36,6 +36,33 @@ Ne t'arrête qu'en cas de :
 
 Pour tout le reste : avance, corrige, commite, continue.
 
+## Règles de design front-end
+
+### Wireframe obligatoire
+Avant de coder TOUT composant React, lis d'abord le wireframe :
+- Fichier : `src/wireframes/wireframe_ba.tsx` (ou le chemin que Philippe donne)
+- Cherche le composant par nom (grep le nom de l'écran wireframe du brief)
+- Le wireframe est la SPEC VISUELLE — chaque champ, chaque bouton,
+  chaque colonne, chaque badge doit correspondre exactement
+
+### Design PE comme référence
+Le module BA réutilise le même design que le PE. Avant de créer
+un nouveau composant, vérifie s'il existe déjà dans `src/components/pe/` :
+- `PePipelinePage` → référence pour pipeline BA (kanban + table)
+- `PeDealDetailPage` + `PeDealSidebar` → référence pour `MandatShell` / `MandatSideNav`
+- `PeCandidatureFormEditorPage` → référence pour `CandidatureFormBuilder`
+- `MemoSectionsViewer` + `PeSingleSectionView` → référence pour `MemoEditorPage`
+
+Copie le STYLE (couleurs, espacements, badges, tableaux) du PE.
+Ne JAMAIS inventer un nouveau style si le PE en a déjà un.
+
+### Checklist avant chaque composant front
+1. Lire le wireframe (`src/wireframes/wireframe_ba.tsx`) — grep le nom de l'écran
+2. Lire le composant PE équivalent s'il existe
+3. Coder en suivant le wireframe pour la STRUCTURE
+4. Coder en suivant le PE pour le STYLE
+5. Vérifier visuellement (Playwright + login) que le résultat matche le wireframe
+
 ## Environnement
 - **Supabase** : flgxbwmxwdfzeuufcxti (staging-pe-demo)
 - **Front** : Vercel preview URL (deploy manuel — `vercel deploy --yes`)
