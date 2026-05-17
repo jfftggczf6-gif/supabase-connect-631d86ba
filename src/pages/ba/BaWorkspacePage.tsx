@@ -60,6 +60,10 @@ export default function BaWorkspacePage() {
           })}
         </TabsList>
 
+        <TabsContent value="synthese" className="mt-4">
+          <SyntheseContent />
+        </TabsContent>
+
         <TabsContent value="mandats" className="mt-4">
           <BaPipelineContent />
         </TabsContent>
