@@ -11,18 +11,21 @@ export type SectionStatus = 'not_started' | 'empty' | 'draft' | 'submitted' | 'c
 
 /** Code unique de chaque item navigable dans la sidebar.
  *  Sert de query param ?section=<code> + de discriminant pour le routing interne. */
+// Aligné EXACTEMENT sur le wireframe BA fourni (sidebar 6 groupes).
+// Note : "Informations de l'analyste" = page NOTES (notes_rdv_ba), pas un
+// formulaire structuré. Brief #8 info_analyste et brief #8.5 notes_rdv_ba
+// décrivent en réalité la même page côté UI.
 export type SectionCode =
   // Groupe Données
   | 'upload_documents'
-  | 'info_analyste'
+  | 'info_analyste'      // = Notes & RDV (NotesRdvSection)
   | 'benchmarks'
   | 'sources'
-  // Groupe Suivi mandat
-  | 'notes'
   // Groupe Pré-screening
   | 'pre_screening'
-  // Groupe Mémo (12 sections — détaillées dans living_document)
+  // Groupe Mémo investissement (sections dynamiques memo:1 à memo:12)
   | 'memo'
+  | `memo:${number}`
   // Groupe Valorisation
   | 'valuation'
   // Groupe Teaser
@@ -31,7 +34,7 @@ export type SectionCode =
   | 'fund_matching'
   | 'deal_tracking';
 
-export type GroupCode = 'donnees' | 'suivi' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
+export type GroupCode = 'donnees' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
 
 export interface SidebarItem {
   code: SectionCode;
