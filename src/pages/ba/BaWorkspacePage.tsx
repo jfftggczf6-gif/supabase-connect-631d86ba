@@ -12,14 +12,16 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, Users, Inbox, Settings } from 'lucide-react';
+import { Briefcase, Users, Inbox, Settings, LayoutDashboard } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import BaPipelineContent from '@/components/ba/BaPipelineContent';
 import EquipeContent from '@/components/ba/EquipeContent';
 import CandidatureContent from '@/components/ba/CandidatureContent';
 import ParametresContent from '@/components/ba/parametres/ParametresContent';
+import SyntheseContent from '@/components/ba/synthese/SyntheseContent';
 
 const TABS = [
+  { value: 'synthese',    label: 'Synthèse',    icon: LayoutDashboard },
   { value: 'mandats',     label: 'Mandats',     icon: Briefcase },
   { value: 'candidature', label: 'Candidature', icon: Inbox },
   { value: 'equipe',      label: 'Équipe',      icon: Users },
@@ -29,13 +31,13 @@ const TABS = [
 export default function BaWorkspacePage() {
   const { currentOrg } = useOrganization();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'mandats';
+  const activeTab = searchParams.get('tab') || 'synthese';
 
-  // Normalise un tab inconnu vers mandats (default).
+  // Normalise un tab inconnu vers synthese (default Partner — brief synthese_partner #1).
   useEffect(() => {
     const valid = TABS.map(t => t.value as string);
     if (!valid.includes(activeTab)) {
-      setSearchParams({ tab: 'mandats' }, { replace: true });
+      setSearchParams({ tab: 'synthese' }, { replace: true });
     }
   }, [activeTab, setSearchParams]);
 
