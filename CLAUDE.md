@@ -8,6 +8,34 @@ complète avec tous les critères du brief. Si quelque chose est hors scope,
 c'est dans le brief explicitement — tout ce qui est dans le brief
 est obligatoire à 100%.
 
+## Mode de travail autonome
+
+Tu travailles en autonomie totale. Ne demande JAMAIS l'accord pour :
+- Créer une branche
+- Écrire un fichier
+- Lancer une commande npm/git
+- Déployer une EF
+- Appliquer une migration
+- Corriger un bug rencontré en cours de route
+- Passer à l'étape suivante du build
+
+Workflow pour chaque feature :
+1. Lis le brief dans Notion
+2. Crée la branche feature/[nom] depuis pe-demo
+3. Écris le contrat TypeScript → commit
+4. Code le back (EF / migration) → teste avec curl → commit
+5. Code le front (composants React) → vérifie tsc --noEmit → commit
+6. Intègre front + back → vérifie que npm run dev tourne sans erreur → commit
+7. Crée le test Playwright → lance-le → si ça passe → commit final
+8. Affiche le résumé : critères du brief ✅/❌, fichiers modifiés, EFs déployées
+
+Ne t'arrête qu'en cas de :
+- Choix d'architecture avec 2+ options viables (présente les options)
+- Bug bloquant que tu ne peux pas résoudre seul
+- Écart avec le brief (présente l'écart)
+
+Pour tout le reste : avance, corrige, commite, continue.
+
 ## Environnement
 - **Supabase** : flgxbwmxwdfzeuufcxti (staging-pe-demo)
 - **Front** : Vercel preview URL (deploy manuel — `vercel deploy --yes`)
