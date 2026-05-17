@@ -14,10 +14,11 @@ import { Check, X, Loader2, ArrowRight, Download, FileText } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  ELIGIBILITY_LABEL, STATUS_LABEL, UI_TO_DB_STATUS,
+  STATUS_LABEL, UI_TO_DB_STATUS,
   computeEligibility,
-  type CandidatureRow, type CandidatureStatus, type EligibilityLevel,
+  type CandidatureRow, type CandidatureStatus,
 } from '@/types/candidature-ba';
+import EligibilityBadge from './EligibilityBadge';
 
 interface Props {
   open: boolean;
@@ -40,18 +41,6 @@ function StatusBadge({ s }: { s: CandidatureStatus }) {
   return <Badge variant="outline" className={cls}>{STATUS_LABEL[s]}</Badge>;
 }
 
-function EligibilityBadge({ level }: { level: EligibilityLevel }) {
-  const cls =
-    level === 'green' ? 'bg-emerald-100 text-emerald-700'
-    : level === 'orange' ? 'bg-amber-100 text-amber-700'
-    : 'bg-rose-100 text-rose-700';
-  const icon = level === 'green' ? '🟢' : level === 'orange' ? '🟠' : '🔴';
-  return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cls}`}>
-      {icon} {ELIGIBILITY_LABEL[level]}
-    </span>
-  );
-}
 
 export default function CandidatureDetailDialog({
   open, onOpenChange, candidature, organizationId, currentUserId, alreadyConverted, onChanged,
@@ -138,7 +127,7 @@ export default function CandidatureDetailDialog({
             {alreadyConverted && (
               <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">Convertie</Badge>
             )}
-            <span className="ml-auto"><EligibilityBadge level={computeEligibility(candidature.form_data).level} /></span>
+            <span className="ml-auto"><EligibilityBadge level={computeEligibility(candidature.form_data).level} size="md" /></span>
           </DialogTitle>
         </DialogHeader>
 

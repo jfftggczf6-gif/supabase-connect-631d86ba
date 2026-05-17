@@ -22,23 +22,11 @@ import { useBaCandidatures } from '@/hooks/useBaCandidatures';
 import CandidatureFormBuilder from './CandidatureFormBuilder';
 import CandidatureDetailDialog from './CandidatureDetailDialog';
 import {
-  DEFAULT_FORM_FIELDS, ELIGIBILITY_LABEL, STATUS_LABEL, UI_TO_DB_STATUS,
+  DEFAULT_FORM_FIELDS, STATUS_LABEL, UI_TO_DB_STATUS,
   computeEligibility,
-  type CandidatureRow, type CandidatureStatus, type EligibilityLevel,
+  type CandidatureRow, type CandidatureStatus,
 } from '@/types/candidature-ba';
-
-function EligibilityBadge({ level }: { level: EligibilityLevel }) {
-  const cls =
-    level === 'green' ? 'bg-emerald-100 text-emerald-700'
-    : level === 'orange' ? 'bg-amber-100 text-amber-700'
-    : 'bg-rose-100 text-rose-700';
-  const icon = level === 'green' ? '🟢' : level === 'orange' ? '🟠' : '🔴';
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>
-      {icon} {ELIGIBILITY_LABEL[level]}
-    </span>
-  );
-}
+import EligibilityBadge from './EligibilityBadge';
 
 function StatusTag({ s }: { s: CandidatureStatus }) {
   const cls =
