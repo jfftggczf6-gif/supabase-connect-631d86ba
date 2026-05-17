@@ -22,17 +22,22 @@ import { useBaCandidatures } from '@/hooks/useBaCandidatures';
 import CandidatureFormBuilder from './CandidatureFormBuilder';
 import CandidatureDetailDialog from './CandidatureDetailDialog';
 import {
-  DEFAULT_FORM_FIELDS, STATUS_LABEL, UI_TO_DB_STATUS,
-  type CandidatureRow, type CandidatureStatus,
+  DEFAULT_FORM_FIELDS, ELIGIBILITY_LABEL, STATUS_LABEL, UI_TO_DB_STATUS,
+  computeEligibility,
+  type CandidatureRow, type CandidatureStatus, type EligibilityLevel,
 } from '@/types/candidature-ba';
 
-function ScoreBadge({ score }: { score: number | null }) {
-  if (score == null) return <span className="text-xs text-muted-foreground">—</span>;
+function EligibilityBadge({ level }: { level: EligibilityLevel }) {
   const cls =
-    score >= 80 ? 'bg-emerald-100 text-emerald-700'
-    : score >= 60 ? 'bg-amber-100 text-amber-700'
+    level === 'green' ? 'bg-emerald-100 text-emerald-700'
+    : level === 'orange' ? 'bg-amber-100 text-amber-700'
     : 'bg-rose-100 text-rose-700';
-  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${cls}`}>{score}</span>;
+  const icon = level === 'green' ? '🟢' : level === 'orange' ? '🟠' : '🔴';
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>
+      {icon} {ELIGIBILITY_LABEL[level]}
+    </span>
+  );
 }
 
 function StatusTag({ s }: { s: CandidatureStatus }) {
@@ -270,7 +275,7 @@ export default function CandidatureContent() {
               <TableHead>Secteur</TableHead>
               <TableHead>Ticket</TableHead>
               <TableHead>Reçue</TableHead>
-              <TableHead className="text-center">Score IA</TableHead>
+              <TableHead className="text-center">Éligibilité</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -303,7 +308,9 @@ export default function CandidatureContent() {
                   <TableCell className="text-[11px] text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                   </TableCell>
-                  <TableCell className="text-center"><ScoreBadge score={c.screening_score} /></TableCell>
+                  <TableCell className="text-center">
+                    <EligibilityBadge level={computeEligibility(c.form_data).level} />
+                  </TableCell>
                   <TableCell className="space-x-1">
                     <StatusTag s={c.status} />
                     {converted && <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">Convertie</Badge>}

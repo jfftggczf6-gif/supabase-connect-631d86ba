@@ -161,6 +161,85 @@ export const STATUS_LABEL: Record<CandidatureStatus, string> = {
  *  de la candidature (jointure pe_deals.candidature_id côté UI). */
 export const CONVERTED_BADGE_LABEL = 'Convertie';
 
+// ─── Éligibilité BA (remplace le score IA numérique) ────────────────
+/** Niveau d'éligibilité calculé côté UI à partir des form_data.
+ *  Plus pertinent pour BA qu'un score IA :
+ *  - green  : 5/5 critères OK
+ *  - orange : 3-4/5 critères OK
+ *  - red    : 0-2/5 critères OK */
+export type EligibilityLevel = 'green' | 'orange' | 'red';
+
+export interface EligibilityResult {
+  level: EligibilityLevel;
+  criteriaPassed: number;
+  criteria: { label: string; ok: boolean }[];
+}
+
+const UEMOA_COUNTRIES = [
+  "Côte d'Ivoire", "Sénégal", "Burkina Faso", "Togo", "Mali",
+  "Guinée-Bissau", "Bénin", "Niger",
+];
+
+function extractFirstNumber(s: unknown): number | null {
+  if (typeof s !== 'string') return s == null ? null : Number(s) || null;
+  const m = s.match(/(\d+(?:[.,]\d+)?)/);
+  return m ? Number(m[1].replace(',', '.')) : null;
+}
+
+/** Calcule l'éligibilité d'une candidature BA depuis ses form_data.
+ *  Pattern matching tolérant : si le Partner a personnalisé les labels du
+ *  form_fields, on cherche par regex (secteur/pays/ticket/...). */
+export function computeEligibility(formData: Record<string, unknown>): EligibilityResult {
+  const keys = Object.keys(formData);
+  const findByPattern = (pattern: RegExp): unknown => {
+    const key = keys.find(k => pattern.test(k));
+    return key ? formData[key] : null;
+  };
+
+  const sector = findByPattern(/secteur/i);
+  const country = findByPattern(/pays|country/i);
+  const ticket = findByPattern(/ticket/i);
+  const createdYear = findByPattern(/cr[eé]ation|founded|year|ann[eé]e/i);
+  const email = findByPattern(/email/i);
+
+  const currentYear = new Date().getFullYear();
+  const yearNum = extractFirstNumber(createdYear);
+  const ticketNum = extractFirstNumber(ticket);
+
+  const criteria = [
+    { label: 'Secteur renseigné', ok: !!sector && String(sector).trim().length > 0 },
+    {
+      label: 'Pays UEMOA / CEDEAO francophone',
+      ok: !!country && UEMOA_COUNTRIES.some(c =>
+        String(country).toLowerCase().includes(c.toLowerCase().slice(0, 5))
+      ),
+    },
+    {
+      label: 'Ticket dans la fourchette (2-25 M USD)',
+      ok: ticketNum != null && ticketNum >= 2 && ticketNum <= 25,
+    },
+    {
+      label: 'Ancienneté société ≥ 3 ans',
+      ok: yearNum != null && yearNum > 1900 && (currentYear - yearNum) >= 3,
+    },
+    {
+      label: 'Email de contact fourni',
+      ok: !!email && String(email).includes('@'),
+    },
+  ];
+
+  const passed = criteria.filter(c => c.ok).length;
+  const level: EligibilityLevel = passed === 5 ? 'green' : passed >= 3 ? 'orange' : 'red';
+
+  return { level, criteriaPassed: passed, criteria };
+}
+
+export const ELIGIBILITY_LABEL: Record<EligibilityLevel, string> = {
+  green: 'Éligible',
+  orange: 'Partiel',
+  red: 'Hors thèse',
+};
+
 /** 10 champs par défaut (brief #5) — seedés à la création d'un programme BA. */
 export const DEFAULT_FORM_FIELDS: FormField[] = [
   { id: 1, label: 'Raison sociale', type: 'text', required: true },
