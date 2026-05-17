@@ -1,6 +1,13 @@
 # ESONO BIS Studio — CLAUDE.md
 # Branche : pe-demo · Environnement : STAGING
 
+## Règle n°1
+Ne JAMAIS simplifier une feature. Ne JAMAIS dire "V1", "MVP",
+"pour commencer", "on ajoutera plus tard". Chaque feature est livrée
+complète avec tous les critères du brief. Si quelque chose est hors scope,
+c'est dans le brief explicitement — tout ce qui est dans le brief
+est obligatoire à 100%.
+
 ## Environnement
 - **Supabase** : flgxbwmxwdfzeuufcxti (staging-pe-demo)
 - **Front** : Vercel preview URL (deploy manuel — `vercel deploy --yes`)

@@ -50,7 +50,9 @@ export interface FormConfig {
 }
 
 // ─── Programme BA (sous-ensemble row programmes) ─────────────────────
-export type ProgrammeRunStatus = 'draft' | 'in_progress' | 'paused' | 'completed' | 'lost';
+// 1 programme BA = 1 appel à candidatures. Une org BA peut en avoir N en
+// parallèle (multi-appels, ex: "Tech UEMOA 2026" + "Restruct Agro SN").
+export type ProgrammeRunStatus = 'draft' | 'in_progress' | 'closed' | 'completed' | 'lost';
 
 export interface BaProgramme {
   id: string;
@@ -62,12 +64,17 @@ export interface BaProgramme {
   form_fields: FormField[];
   start_date: string | null;
   end_date: string | null;
+  /** in_progress = actif · closed = en pause (submit-candidature refuse) */
   status: ProgrammeRunStatus;
-  /** Discriminant BA. ATTENTION : DB default = 'appel_candidatures',
-   *  donc on doit passer explicitement type='banque_affaires' au create. */
+  /** Discriminant BA. DB default = 'appel_candidatures', on passe explicitement
+   *  type='banque_affaires' au create. */
   type: 'banque_affaires';
-  // Note pause : submit-candidature refuse les status 'completed' et 'lost'.
-  // Pour V1, "pause" mappe vers status='lost' (réversible via toggle UI).
+  /** Pays ciblés (programmes.country_filter jsonb). Optionnel : [] = tous. */
+  country_filter: string[];
+  /** Secteurs ciblés (programmes.sector_filter jsonb). Optionnel : [] = tous. */
+  sector_filter: string[];
+  /** Pour tri liste appels. */
+  created_at: string;
 }
 
 // ─── Candidature (vue UI Partner) ─────────────────────────────────

@@ -1,29 +1,30 @@
 // src/components/ba/CandidatureContent.tsx
 // Contenu pur de l'onglet Candidature BA (sans DashboardLayout).
-// Assemble les 4 blocs principaux : Diffusion · KPIs · Tableau · Modale.
+// MULTI-APPELS : N programmes BA en parallèle, sélecteur dropdown + bouton
+// "+ Nouvel appel". Persistance de la sélection via URL ?appel=<id>.
+// Assemble les 4 blocs : Diffusion · KPIs · Tableau · Modale.
 // Form Builder en sous-page si view='builder'.
-//
-// État vide : "aucun appel" + bouton "Créer l'appel" qui appelle manage-programme
-// action='create' avec type='banque_affaires' + 10 champs par défaut.
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Settings, Copy, Pause, Play, Loader2, ArrowRight, Check, X } from 'lucide-react';
+import { Settings, Copy, Pause, Play, Loader2, ArrowRight, Check, X, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useBaProgramme } from '@/hooks/useBaProgramme';
+import { useBaProgrammes } from '@/hooks/useBaProgrammes';
 import { useBaCandidatures } from '@/hooks/useBaCandidatures';
 import CandidatureFormBuilder from './CandidatureFormBuilder';
 import CandidatureDetailDialog from './CandidatureDetailDialog';
+import CreateAppelDialog from './CreateAppelDialog';
+import AppelSelector from './AppelSelector';
 import {
-  DEFAULT_FORM_FIELDS, STATUS_LABEL, UI_TO_DB_STATUS,
-  computeEligibility,
+  STATUS_LABEL, UI_TO_DB_STATUS, computeEligibility,
   type CandidatureRow, type CandidatureStatus,
 } from '@/types/candidature-ba';
 import EligibilityBadge from './EligibilityBadge';
@@ -40,14 +41,39 @@ function StatusTag({ s }: { s: CandidatureStatus }) {
 export default function CandidatureContent() {
   const { currentOrg } = useOrganization();
   const { user } = useAuth();
-  const { programme, loading: progLoading, reload: reloadProgramme } = useBaProgramme(currentOrg?.id);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { programmes, loading: progLoading, reload: reloadProgrammes } = useBaProgrammes(currentOrg?.id);
+
+  // ─── Sélection appel : URL ?appel=<id> · fallback au plus récent ─────
+  const urlAppelId = searchParams.get('appel');
+  const selectedId = useMemo(() => {
+    if (urlAppelId && programmes.some(p => p.id === urlAppelId)) return urlAppelId;
+    return programmes[0]?.id ?? null;
+  }, [urlAppelId, programmes]);
+
+  // Si l'URL est obsolète (appel supprimé / autre org), nettoyer.
+  useEffect(() => {
+    if (urlAppelId && programmes.length > 0 && !programmes.some(p => p.id === urlAppelId)) {
+      setSearchParams(prev => { prev.delete('appel'); return prev; }, { replace: true });
+    }
+  }, [urlAppelId, programmes, setSearchParams]);
+
+  const selectAppel = (id: string) => {
+    setSearchParams(prev => { prev.set('appel', id); return prev; }, { replace: true });
+  };
+
+  const programme = useMemo(
+    () => programmes.find(p => p.id === selectedId) ?? null,
+    [programmes, selectedId],
+  );
+
   const {
     candidatures, counts, convertedIds, loading: candLoading, reload: reloadCands,
   } = useBaCandidatures(programme?.id, currentOrg?.id);
 
   const [view, setView] = useState<'list' | 'builder'>('list');
   const [openId, setOpenId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   const openCandidature = useMemo(
@@ -80,35 +106,6 @@ export default function CandidatureContent() {
     reloadCands();
   };
 
-  const handleCreateProgramme = async () => {
-    if (!currentOrg) return;
-    setCreating(true);
-    const { data, error } = await supabase.functions.invoke('manage-programme', {
-      body: {
-        action: 'create',
-        organization_id: currentOrg.id,
-        name: 'Appel à candidatures BA',
-        description: 'Vous êtes une PME africaine en croissance recherchant un financement ? Candidatez à notre appel.',
-        type: 'banque_affaires',
-        form_fields: DEFAULT_FORM_FIELDS,
-        status: 'in_progress',
-      },
-    });
-    setCreating(false);
-    if (error || (data as any)?.error) {
-      let real: string | null = (data as any)?.error || null;
-      if (!real && error) {
-        const ctx = (error as any)?.context;
-        if (ctx?.json) { try { real = (await ctx.json())?.error ?? null; } catch {} }
-        if (!real) real = error.message;
-      }
-      toast.error(real || 'Création échouée');
-      return;
-    }
-    toast.success("Appel à candidatures créé");
-    reloadProgramme();
-  };
-
   const handleTogglePause = async () => {
     if (!programme) return;
     setToggling(true);
@@ -122,46 +119,74 @@ export default function CandidatureContent() {
       return;
     }
     toast.success(isPaused ? 'Appel réactivé' : 'Appel mis en pause');
-    reloadProgramme();
+    reloadProgrammes();
   };
 
   if (progLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
-  // ─── État vide : aucun programme BA ────────────────────────────
-  if (!programme) {
+  // ─── État vide : aucun appel ───────────────────────────────────
+  if (programmes.length === 0) {
     return (
-      <Card className="p-12 text-center">
-        <h3 className="text-base font-semibold mb-2">Aucun appel à candidatures</h3>
-        <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-          Créez votre premier appel pour commencer à recevoir des candidatures.
-          Un formulaire avec 10 champs par défaut sera initialisé — tu pourras le personnaliser ensuite.
-        </p>
-        <Button onClick={handleCreateProgramme} disabled={creating}>
-          {creating ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Création…</> : "Créer l'appel"}
-        </Button>
-      </Card>
+      <>
+        <Card className="p-12 text-center">
+          <h3 className="text-base font-semibold mb-2">Aucun appel à candidatures</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+            Créez votre premier appel pour commencer à recevoir des candidatures.
+            Un formulaire avec 11 champs par défaut sera initialisé — tu pourras le
+            personnaliser ensuite via "Gérer le formulaire".
+          </p>
+          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Créer mon premier appel
+          </Button>
+        </Card>
+        {currentOrg && (
+          <CreateAppelDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            organizationId={currentOrg.id}
+            onCreated={(id) => { reloadProgrammes(); selectAppel(id); }}
+          />
+        )}
+      </>
     );
   }
 
   // ─── Form builder en sous-page ─────────────────────────────────
-  if (view === 'builder') {
+  if (view === 'builder' && programme) {
     return (
       <CandidatureFormBuilder
         programme={programme}
         onBack={() => setView('list')}
-        onSaved={() => { reloadProgramme(); setView('list'); }}
+        onSaved={() => { reloadProgrammes(); setView('list'); }}
       />
     );
+  }
+
+  if (!programme) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
   // ─── Vue liste ─────────────────────────────────────────────────
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-        <div className="text-sm text-muted-foreground">
-          Gérez l'appel à candidatures, sa diffusion et les réponses reçues.
+      {/* Header : sélecteur appel + actions */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <AppelSelector
+            programmes={programmes}
+            selectedId={selectedId}
+            onSelect={selectAppel}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 h-9"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" /> Nouvel appel
+          </Button>
         </div>
         <Button onClick={() => setView('builder')} className="gap-2">
           <Settings className="h-4 w-4" /> Gérer le formulaire
@@ -216,6 +241,16 @@ export default function CandidatureContent() {
             </div>
           </div>
         </div>
+        {(programme.country_filter.length > 0 || programme.sector_filter.length > 0) && (
+          <div className="flex flex-wrap gap-1.5 mb-3 pb-3 border-b">
+            {programme.country_filter.map(c => (
+              <Badge key={`c-${c}`} variant="secondary" className="text-[10px]">{c}</Badge>
+            ))}
+            {programme.sector_filter.map(s => (
+              <Badge key={`s-${s}`} variant="outline" className="text-[10px]">{s}</Badge>
+            ))}
+          </div>
+        )}
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -346,6 +381,16 @@ export default function CandidatureContent() {
           currentUserId={user.id}
           alreadyConverted={openCandidature ? convertedIds.has(openCandidature.id) : false}
           onChanged={reloadCands}
+        />
+      )}
+
+      {/* Dialog création nouvel appel */}
+      {currentOrg && (
+        <CreateAppelDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          organizationId={currentOrg.id}
+          onCreated={(id) => { reloadProgrammes(); selectAppel(id); }}
         />
       )}
     </>
