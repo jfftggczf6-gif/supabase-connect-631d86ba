@@ -1,25 +1,27 @@
 // src/pages/ba/BaWorkspacePage.tsx
 // Workspace BA (Partner only) avec onglets internes — pattern aligné PeWorkspacePage.
-// Tabs : Mandats (kanban+table) · Équipe (membres+bindings).
-// Synthèse / Candidature / Paramètres = hors scope brief, à ajouter plus tard.
+// Tabs : Mandats (kanban+table) · Candidature · Équipe (membres+bindings).
 //
 // Routes :
-//   /ba?tab=mandats  ← défaut Partner
-//   /ba?tab=equipe   ← onglet équipe
+//   /ba?tab=mandats      ← défaut Partner
+//   /ba?tab=candidature  ← appel à candidatures
+//   /ba?tab=equipe       ← onglet équipe
 //
 // Analyste & Senior n'arrivent pas ici (redirigés par DashboardLayout vers /ba/pipeline).
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, Users } from 'lucide-react';
+import { Briefcase, Users, Inbox } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import BaPipelineContent from '@/components/ba/BaPipelineContent';
 import EquipeContent from '@/components/ba/EquipeContent';
+import CandidatureContent from '@/components/ba/CandidatureContent';
 
 const TABS = [
-  { value: 'mandats', label: 'Mandats', icon: Briefcase },
-  { value: 'equipe',  label: 'Équipe',  icon: Users },
+  { value: 'mandats',     label: 'Mandats',     icon: Briefcase },
+  { value: 'candidature', label: 'Candidature', icon: Inbox },
+  { value: 'equipe',      label: 'Équipe',      icon: Users },
 ] as const;
 
 export default function BaWorkspacePage() {
@@ -56,6 +58,10 @@ export default function BaWorkspacePage() {
 
         <TabsContent value="mandats" className="mt-4">
           <BaPipelineContent />
+        </TabsContent>
+
+        <TabsContent value="candidature" className="mt-4">
+          <CandidatureContent />
         </TabsContent>
 
         <TabsContent value="equipe" className="mt-4">
