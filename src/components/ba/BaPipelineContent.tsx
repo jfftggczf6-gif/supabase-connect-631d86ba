@@ -151,7 +151,7 @@ export default function BaPipelineContent() {
           role={role}
           myUserId={user?.id}
           onMandatClick={(m) => {
-            window.location.href = `/pe/deals/${m.id}`;
+            window.location.href = `/ba/deals/${m.id}`;
           }}
           onMandatMoved={load}
         />
@@ -160,7 +160,7 @@ export default function BaPipelineContent() {
           mandats={mandats}
           role={role}
           myUserId={user?.id}
-          onMandatClick={(m) => { window.location.href = `/pe/deals/${m.id}`; }}
+          onMandatClick={(m) => { window.location.href = `/ba/deals/${m.id}`; }}
         />
       )}
 
