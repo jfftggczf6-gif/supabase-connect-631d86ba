@@ -55,7 +55,7 @@ export default function MiniKanban({ mandats }: Props) {
           variant="ghost"
           size="sm"
           className="h-7 text-xs gap-1"
-          onClick={() => navigate('/ba/pipeline')}
+          onClick={() => navigate('/ba?tab=mandats')}
         >
           Pipeline complet <ArrowRight className="h-3 w-3" />
         </Button>

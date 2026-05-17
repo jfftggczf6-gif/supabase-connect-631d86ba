@@ -42,14 +42,14 @@ export default function DashboardLayout({ children, title, subtitle, fullscreen 
   const peWorkspaceLabel = isPeAnalystOnly ? 'Pipeline PE' : 'Workspace PE';
   const isBanqueAccess = isSuperAdmin || ['owner', 'admin', 'directeur_pme', 'direction_pme', 'directeur_agence', 'analyste_credit', 'conseiller_pme', 'partner'].includes(orgRole || '');
   const isBaAccess = isSuperAdmin || ['owner', 'admin', 'managing_director', 'investment_manager', 'analyste', 'analyst', 'partner'].includes(orgRole || '');
-  /** Partner BA (workspace avec tabs Mandats + Équipe). Aligné PE workspace. */
+  /** Partner BA (voit tous les tabs). Aligné PE workspace. */
   const isBaPartner = isSuperAdmin || ['owner', 'admin', 'managing_director'].includes(orgRole || '');
   const isProgrammeAccess = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
   const showPipelinePe = segment === 'pe' && isPeAccess;
   const showPipelineBanque = segment === 'banque' && isBanqueAccess;
   const showPipelineBa = segment === 'banque_affaires' && isBaAccess;
-  /** Route + label adaptatifs : Partner → workspace tabs · autres → kanban standalone. */
-  const baEntryRoute = isBaPartner ? '/ba' : '/ba/pipeline';
+  /** Route unique BA pour tous les rôles. BaWorkspacePage gère le filtrage tabs. */
+  const baEntryRoute = '/ba';
   const baEntryLabel = isBaPartner ? 'Workspace BA' : 'Pipeline mandats';
   const showProgrammes = (!segment || segment === 'programme') && isProgrammeAccess;
   const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;

@@ -73,12 +73,11 @@ export default function Dashboard() {
     return <Navigate to="/banque/pipeline" replace />;
   }
 
-  // Org Banque d'affaires (BA / mandats) :
-  //   Partner (MD/owner/admin) → workspace avec tabs Mandats + Équipe
-  //   Analyst / Senior         → kanban standalone
+  // Org Banque d'affaires : tous les rôles vont sur /ba.
+  // BaWorkspacePage gère le filtrage des tabs selon le rôle
+  // (Partner voit 5 tabs, Senior/Analyste voient juste Mandats).
   if (currentOrg.type === 'banque_affaires') {
-    const isPartner = ['managing_director', 'owner', 'admin'].includes(orgRole || '');
-    return <Navigate to={isPartner ? '/ba' : '/ba/pipeline'} replace />;
+    return <Navigate to="/ba" replace />;
   }
 
   // ─── Org Programme (par défaut) — dispatch par rôle ───────────────────────

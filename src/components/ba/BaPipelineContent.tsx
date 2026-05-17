@@ -1,6 +1,6 @@
 // src/components/ba/BaPipelineContent.tsx
 // Contenu pur du pipeline mandats BA (sans DashboardLayout) — réutilisable
-// dans BaPipelinePage (standalone) et BaWorkspacePage (tab Mandats).
+// dans le tab Mandats de BaWorkspacePage (route /ba?tab=mandats).
 //
 // Adapte la vue selon le rôle :
 //   - analyst : voit ses mandats (autres grisés), KPIs perso
