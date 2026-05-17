@@ -427,4 +427,56 @@ Rapport : ✅ passe / ❌ bloque / ⚠️ surveiller
 - Ne pas casser les données PE existantes
 - Tester en local avant push, deploy manuel Vercel après push
 
-*Branche pe-demo · Staging · Couvre Programme + PE + BA (en construction) · Maj 14/05/2026*
+---
+
+## Règles de test
+
+Stack installé : **Vitest** (unit) + **Playwright** (E2E) + **Storybook** (visual) + **MSW** (mock API).
+
+### Workflow obligatoire
+
+| Quand | Quoi | Commande |
+|---|---|---|
+| Après chaque **hook** créé (`src/hooks/use*.ts`) | Test unitaire Vitest dans `tests/unit/hooks/` | `npm run test:unit:watch` |
+| Après chaque **page ou composant** majeur (`src/pages/` ou `src/components/ba/`) | Story Storybook (`Component.stories.tsx`) | `npm run storybook` |
+| Après chaque **feature complète** | Test E2E Playwright dans `tests/e2e/` | `npm run test:e2e` |
+| Avant chaque commit | `tsc --noEmit` pour valider les types | `npm run test:types` |
+| Avant chaque PR/merge majeur | Full suite | `npm run test:all` |
+
+### Conventions
+
+- **Mocks API** : tous les tests Vitest passent par MSW (`tests/mocks/handlers.ts` + `tests/mocks/server.ts`). Pas de fetch réel vers Supabase.
+- **Fixtures BA** : données test réutilisables dans `tests/fixtures/ba-data.ts` (3 mandats, 5 candidatures, 3 membres, 1 programme).
+- **E2E Playwright** : peut utiliser le vrai back staging OU MSW selon le test. Par défaut → vrai back (URL `http://localhost:8080`).
+- **Storybook** : composants UI purs (Cards, Badges, Dialogs) doivent avoir une story. Les pages assembleuses (`*Page.tsx`) ne sont pas obligées.
+
+### Scripts package.json
+
+```
+npm run test:types        # tsc --noEmit (rapide, à lancer avant commit)
+npm run test:unit         # vitest run (jsdom + MSW)
+npm run test:unit:watch   # vitest en mode watch
+npm run test:e2e          # playwright test (chromium)
+npm run test:e2e:ui       # playwright avec UI interactive
+npm run test:storybook    # run les stories comme tests browser
+npm run test:all          # types + unit + e2e (suite complète)
+npm run storybook         # dev server stories (port 6006)
+```
+
+### Structure dossiers
+
+```
+tests/
+├── e2e/           ← Playwright (flows complets, ex: form public → soumission)
+├── unit/          ← Vitest (hooks, utils, helpers)
+│   └── setup.ts   ← Setup global MSW + jest-dom matchers
+├── mocks/
+│   ├── handlers.ts  ← Mocks EFs Supabase (create-pe-deal, manage-programme, etc.)
+│   └── server.ts    ← setupServer pour Vitest (Node)
+└── fixtures/
+    └── ba-data.ts   ← Données test BA (mandats, candidatures, membres, programme)
+```
+
+---
+
+*Branche pe-demo · Staging · Couvre Programme + PE + BA (en construction) · Maj 17/05/2026*
