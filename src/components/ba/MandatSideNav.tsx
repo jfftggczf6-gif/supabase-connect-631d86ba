@@ -4,7 +4,7 @@
 
 import { cn } from '@/lib/utils';
 import {
-  Database, FileSearch, FileText, Calculator, Eye, Send,
+  Database, FileSearch, FileText, Calculator, Eye, Send, MessageSquare,
   Circle, CircleDashed, CircleDot, CircleAlert, CircleCheck, MinusCircle,
 } from 'lucide-react';
 import type {
@@ -28,6 +28,7 @@ const STATUS_META: Record<SectionStatus, { Icon: typeof Circle; cls: string; lab
 
 const GROUP_ICONS: Record<string, typeof Database> = {
   donnees: Database,
+  suivi: MessageSquare,
   pre_screening: FileSearch,
   memo: FileText,
   valuation: Calculator,

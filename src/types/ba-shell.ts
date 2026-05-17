@@ -17,6 +17,8 @@ export type SectionCode =
   | 'info_analyste'
   | 'benchmarks'
   | 'sources'
+  // Groupe Suivi mandat
+  | 'notes'
   // Groupe Pré-screening
   | 'pre_screening'
   // Groupe Mémo (12 sections — détaillées dans living_document)
@@ -29,7 +31,7 @@ export type SectionCode =
   | 'fund_matching'
   | 'deal_tracking';
 
-export type GroupCode = 'donnees' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
+export type GroupCode = 'donnees' | 'suivi' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
 
 export interface SidebarItem {
   code: SectionCode;
