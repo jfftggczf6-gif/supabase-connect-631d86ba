@@ -9,6 +9,7 @@ import MandatSubHeader from './MandatSubHeader';
 import MandatSideNav from './MandatSideNav';
 import PlaceholderSection from './sections/PlaceholderSection';
 import UploadDocumentsSection from './sections/UploadDocumentsSection';
+import InfoAnalysteSection from './sections/InfoAnalysteSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -117,11 +118,7 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
     case 'upload_documents':
       return <UploadDocumentsSection dealId={dealId} organizationId={organizationId} />;
     case 'info_analyste':
-      return <PlaceholderSection
-        featureName="info_analyste"
-        title="Informations entreprise"
-        description="Formulaire structuré : identité, actionnariat, management clé, activité détaillée, données financières synthétiques. Pré-rempli par l'IA depuis les documents parsés."
-      />;
+      return <InfoAnalysteSection dealId={dealId} />;
     case 'benchmarks':
       return <PlaceholderSection
         featureName="benchmarks_sectoriels"
