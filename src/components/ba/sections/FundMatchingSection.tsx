@@ -21,7 +21,8 @@ interface Props {
 interface FundRow {
   id: string;
   name: string;
-  type_financement: string | null;
+  /** text[] en DB — on join pour affichage. */
+  type_financement: string[] | null;
   pays_eligibles: string[] | null;
   ticket_min: number | null;
   ticket_max: number | null;
@@ -88,7 +89,7 @@ export default function FundMatchingSection({ dealId }: Props) {
         return {
           id: p.id,
           name: p.name,
-          type_financement: p.type_financement ?? null,
+          type_financement: Array.isArray(p.type_financement) ? p.type_financement : null,
           pays_eligibles: Array.isArray(p.pays_eligibles) ? p.pays_eligibles : null,
           ticket_min: p.ticket_min ?? null,
           ticket_max: p.ticket_max ?? null,
@@ -148,7 +149,9 @@ export default function FundMatchingSection({ dealId }: Props) {
               {funds.map(f => (
                 <tr key={f.id} className="border-b last:border-b-0 hover:bg-muted/20">
                   <td className="py-2.5 px-3 font-medium">{f.name}</td>
-                  <td className="py-2.5 px-2 text-muted-foreground">{f.type_financement || '—'}</td>
+                  <td className="py-2.5 px-2 text-muted-foreground">
+                    {f.type_financement?.length ? f.type_financement.join(' · ') : '—'}
+                  </td>
                   <td className="py-2.5 px-2 text-muted-foreground">
                     {f.pays_eligibles?.slice(0, 3).join(', ')}
                     {f.pays_eligibles && f.pays_eligibles.length > 3 && ` +${f.pays_eligibles.length - 3}`}
