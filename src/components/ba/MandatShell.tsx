@@ -19,6 +19,7 @@ import UploadDocumentsSection from './sections/UploadDocumentsSection';
 import NotesRdvSection from './sections/NotesRdvSection';
 import BenchmarksSection from './sections/BenchmarksSection';
 import PreScreeningBaSection from './sections/PreScreeningBaSection';
+import MemoBaSection, { MEMO_SECTION_CODES } from './sections/MemoBaSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -148,11 +149,7 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
     case 'pre_screening':
       return <PreScreeningBaSection dealId={dealId} />;
     case 'memo':
-      return <PlaceholderSection
-        featureName="generate_im_vendeur + living_document"
-        title="Mémo investissement vendeur"
-        description="12 sections IM en ton vendeur, workflow draft → submitted → correction → validated. Génération IA, regénération section par section, snapshots versionnés, export PDF / DOCX / PPTX."
-      />;
+      return <MemoBaSection dealId={dealId} />;
     case 'valuation':
       return <PlaceholderSection
         featureName="valuation_ba"
@@ -172,15 +169,12 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
         description="Matching anonyme deal ↔ fonds. Score d'adéquation, statuts par fonds (non_contacté → teaser_envoyé → intéressé → NDA → IM_partagé → IOI), relances auto."
       />;
     default:
-      // Sections du memo (memo:1, memo:2, ...)
+      // Sections du memo (memo:1, memo:2, ...) → PeSingleSectionView via wrapper
       if (typeof code === 'string' && code.startsWith('memo:')) {
         const num = parseInt(code.slice(5), 10);
-        const section = MEMO_SECTIONS.find(s => s.num === num);
-        return <PlaceholderSection
-          featureName="generate_im_vendeur"
-          title={`§${num} ${section?.label || 'Section IM'}`}
-          description={`Cette section sera éditable individuellement quand la feature generate_im_vendeur sera livrée. Workflow draft → submitted → correction → validated.`}
-        />;
+        const sectionCode = MEMO_SECTION_CODES[num];
+        if (!sectionCode) return null;
+        return <MemoBaSection dealId={dealId} sectionCode={sectionCode} />;
       }
       return null;
   }
