@@ -59,7 +59,7 @@ export default function TeaserBaSection({ dealId }: Props) {
 
     const { data: deliv } = await supabase
       .from('deliverables')
-      .select('id, content_md, created_at, metadata')
+      .select('id, html_content, data, created_at, validation_status')
       .eq('enterprise_id', entId)
       .eq('type', 'onepager')
       .order('created_at', { ascending: false })
@@ -67,13 +67,17 @@ export default function TeaserBaSection({ dealId }: Props) {
       .maybeSingle();
 
     if (deliv) {
-      const meta = ((deliv as any).metadata ?? {}) as any;
+      const dataJson = ((deliv as any).data ?? {}) as any;
+      // Convertit le statut DB (draft/pending_validation/validated) vers le statut UI.
+      const vs = (deliv as any).validation_status;
+      const status: 'draft' | 'submitted' | 'approved' =
+        vs === 'validated' ? 'approved' : vs === 'pending_validation' ? 'submitted' : 'draft';
       setTeaser({
         id: (deliv as any).id,
-        content_md: (deliv as any).content_md ?? null,
-        code_name: meta.code_name ?? null,
-        warnings: Array.isArray(meta.warnings) ? meta.warnings : [],
-        status: meta.status ?? 'draft',
+        content_md: (deliv as any).html_content ?? null,
+        code_name: dataJson.code_name ?? null,
+        warnings: Array.isArray(dataJson.warnings) ? dataJson.warnings : [],
+        status,
         created_at: (deliv as any).created_at,
       });
     } else {
