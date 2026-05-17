@@ -14,8 +14,9 @@ import { Check, X, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  STATUS_LABEL, UI_TO_DB_STATUS,
-  type CandidatureRow, type CandidatureStatus,
+  ELIGIBILITY_LABEL, STATUS_LABEL, UI_TO_DB_STATUS,
+  computeEligibility,
+  type CandidatureRow, type CandidatureStatus, type EligibilityLevel,
 } from '@/types/candidature-ba';
 
 interface Props {
@@ -39,13 +40,17 @@ function StatusBadge({ s }: { s: CandidatureStatus }) {
   return <Badge variant="outline" className={cls}>{STATUS_LABEL[s]}</Badge>;
 }
 
-function ScoreBadge({ score }: { score: number | null }) {
-  if (score == null) return <span className="text-xs text-muted-foreground">—</span>;
+function EligibilityBadge({ level }: { level: EligibilityLevel }) {
   const cls =
-    score >= 80 ? 'bg-emerald-100 text-emerald-700'
-    : score >= 60 ? 'bg-amber-100 text-amber-700'
+    level === 'green' ? 'bg-emerald-100 text-emerald-700'
+    : level === 'orange' ? 'bg-amber-100 text-amber-700'
     : 'bg-rose-100 text-rose-700';
-  return <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cls}`}>Score IA {score}</span>;
+  const icon = level === 'green' ? '🟢' : level === 'orange' ? '🟠' : '🔴';
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cls}`}>
+      {icon} {ELIGIBILITY_LABEL[level]}
+    </span>
+  );
 }
 
 export default function CandidatureDetailDialog({
@@ -119,13 +124,9 @@ export default function CandidatureDetailDialog({
     onOpenChange(false);
   };
 
-  const criteria = candidature.screening_data?.criteria ?? [
-    { label: 'Secteur autorisé', ok: !!candidature.sector },
-    { label: 'Géographie éligible', ok: !!candidature.country },
-    { label: 'Ticket dans la fourchette', ok: !!candidature.ticket },
-    { label: 'Score IA ≥ 60', ok: (candidature.screening_score ?? 0) >= 60 },
-    { label: 'Email contact fourni', ok: !!candidature.contact_email },
-  ];
+  // Critères d'éligibilité calculés depuis form_data (rule-based, pas IA).
+  const eligibility = computeEligibility(candidature.form_data);
+  const criteria = eligibility.criteria;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -137,7 +138,7 @@ export default function CandidatureDetailDialog({
             {alreadyConverted && (
               <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">Convertie</Badge>
             )}
-            <span className="ml-auto"><ScoreBadge score={candidature.screening_score} /></span>
+            <span className="ml-auto"><EligibilityBadge level={computeEligibility(candidature.form_data).level} /></span>
           </DialogTitle>
         </DialogHeader>
 
@@ -172,7 +173,9 @@ export default function CandidatureDetailDialog({
           </Card>
 
           <Card className="p-3 bg-violet-50/40 border-l-4 border-l-violet-500">
-            <div className="text-[11px] font-semibold uppercase text-violet-700 mb-2">Pré-screening IA</div>
+            <div className="text-[11px] font-semibold uppercase text-violet-700 mb-2">
+              Pré-screening éligibilité · {eligibility.criteriaPassed}/5 critères
+            </div>
             <div className="space-y-1.5">
               {criteria.map((c, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
