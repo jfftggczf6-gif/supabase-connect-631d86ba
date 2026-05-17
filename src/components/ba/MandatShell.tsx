@@ -17,6 +17,7 @@ import MandatSideNav from './MandatSideNav';
 import PlaceholderSection from './sections/PlaceholderSection';
 import UploadDocumentsSection from './sections/UploadDocumentsSection';
 import NotesRdvSection from './sections/NotesRdvSection';
+import BenchmarksSection from './sections/BenchmarksSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -136,11 +137,7 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
       // Le brief #8 info_analyste décrivait à tort un formulaire structuré séparé.
       return <NotesRdvSection dealId={dealId} />;
     case 'benchmarks':
-      return <PlaceholderSection
-        featureName="benchmarks_sectoriels"
-        title="Benchmarks sectoriels UEMOA"
-        description="Positionnement automatique du deal vs médiane sectorielle : marge brute, EBITDA, BFR/CA, croissance, dette/EBITDA. Données IFC, BCEAO, FMI."
-      />;
+      return <BenchmarksSection dealId={dealId} />;
     case 'sources':
       return <PlaceholderSection
         featureName="sources_references"
