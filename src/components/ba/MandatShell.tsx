@@ -18,6 +18,7 @@ import PlaceholderSection from './sections/PlaceholderSection';
 import UploadDocumentsSection from './sections/UploadDocumentsSection';
 import NotesRdvSection from './sections/NotesRdvSection';
 import BenchmarksSection from './sections/BenchmarksSection';
+import PreScreeningBaSection from './sections/PreScreeningBaSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -145,11 +146,7 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
         description="Vue lecture seule de toutes les sources mobilisées : documents fournis, citations IM, entretiens réalisés."
       />;
     case 'pre_screening':
-      return <PlaceholderSection
-        featureName="pre_screening_ba"
-        title="Pré-screening 360°"
-        description="Génération IA en 30-60s : 11 blocs (activité, actionnariat, KPIs, scénarios BEAR/BASE/BULL, red flags SYSCOHADA, recommandation GO/CONDITIONNEL/NO-GO)."
-      />;
+      return <PreScreeningBaSection dealId={dealId} />;
     case 'memo':
       return <PlaceholderSection
         featureName="generate_im_vendeur + living_document"
