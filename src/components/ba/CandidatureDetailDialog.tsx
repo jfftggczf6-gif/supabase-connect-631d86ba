@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Loader2, ArrowRight } from 'lucide-react';
+import { Check, X, Loader2, ArrowRight, Download, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -171,6 +171,49 @@ export default function CandidatureDetailDialog({
               </strong></div>
             </div>
           </Card>
+
+          {candidature.documents.length > 0 && (
+            <Card className="p-3">
+              <div className="text-[11px] font-semibold uppercase text-muted-foreground mb-2">
+                Documents joints ({candidature.documents.length})
+              </div>
+              <div className="space-y-1.5">
+                {candidature.documents.map((d, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs p-1.5 rounded hover:bg-muted/40">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex-1 truncate">
+                      <span className="text-muted-foreground">{d.field_label} · </span>
+                      <span className="font-medium">{d.file_name}</span>
+                    </span>
+                    {d.size_bytes && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {(d.size_bytes / 1024 / 1024).toFixed(1)} Mo
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={async () => {
+                        // Storage path includes bucket prefix : 'candidature-documents/{path}'
+                        const path = d.storage_path.replace(/^candidature-documents\//, '');
+                        const { data, error } = await supabase.storage
+                          .from('candidature-documents')
+                          .createSignedUrl(path, 300);
+                        if (error || !data?.signedUrl) {
+                          toast.error('Lien expiré ou inaccessible');
+                          return;
+                        }
+                        window.open(data.signedUrl, '_blank');
+                      }}
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           <Card className="p-3 bg-violet-50/40 border-l-4 border-l-violet-500">
             <div className="text-[11px] font-semibold uppercase text-violet-700 mb-2">

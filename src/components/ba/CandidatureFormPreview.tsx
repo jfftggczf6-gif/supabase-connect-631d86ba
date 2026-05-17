@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Upload } from 'lucide-react';
 import type { FormConfig } from '@/types/candidature-ba';
 
 interface Props {
@@ -49,6 +50,23 @@ export default function CandidatureFormPreview({ config }: Props) {
                 </SelectContent>
               </Select>
             )}
+            {f.type === 'file' && (
+              <div className="border-2 border-dashed rounded-md p-3 text-center text-xs text-muted-foreground bg-white">
+                <Upload className="h-4 w-4 mx-auto mb-1 opacity-50" />
+                <div>Glisser-déposer{f.multiple ? ' un ou plusieurs' : ' un'} fichier{f.multiple ? 's' : ''}</div>
+                {f.accept && <div className="text-[10px] mt-1 opacity-70">{f.accept}</div>}
+              </div>
+            )}
+            {f.type === 'checkbox' && (f.options ?? []).map(o => (
+              <label key={o} className="flex items-center gap-2 text-xs">
+                <input type="checkbox" disabled /> {o}
+              </label>
+            ))}
+            {f.type === 'radio' && (f.options ?? []).map(o => (
+              <label key={o} className="flex items-center gap-2 text-xs">
+                <input type="radio" disabled /> {o}
+              </label>
+            ))}
           </div>
         ))}
       </div>

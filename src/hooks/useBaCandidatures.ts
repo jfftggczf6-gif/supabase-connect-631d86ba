@@ -64,7 +64,7 @@ export function useBaCandidatures(
       // 1. Candidatures du programme
       const { data: rows, error: qErr } = await supabase
         .from('candidatures')
-        .select('id, programme_id, organization_id, company_name, contact_name, contact_email, contact_phone, form_data, status, screening_score, screening_data, submitted_at')
+        .select('id, programme_id, organization_id, company_name, contact_name, contact_email, contact_phone, form_data, status, screening_score, screening_data, documents, submitted_at')
         .eq('programme_id', programmeId)
         .eq('organization_id', organizationId)
         .order('submitted_at', { ascending: false });
@@ -102,6 +102,7 @@ export function useBaCandidatures(
           status: DB_TO_UI_STATUS[r.status as CandidatureStatusDb] ?? 'new',
           screening_score: r.screening_score ?? null,
           screening_data: r.screening_data ?? null,
+          documents: Array.isArray(r.documents) ? r.documents : [],
           created_at: r.submitted_at,
           sector: derived.sector,
           country: derived.country,
