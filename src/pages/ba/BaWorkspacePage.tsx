@@ -12,16 +12,18 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, Users, Inbox } from 'lucide-react';
+import { Briefcase, Users, Inbox, Settings } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import BaPipelineContent from '@/components/ba/BaPipelineContent';
 import EquipeContent from '@/components/ba/EquipeContent';
 import CandidatureContent from '@/components/ba/CandidatureContent';
+import ParametresContent from '@/components/ba/parametres/ParametresContent';
 
 const TABS = [
   { value: 'mandats',     label: 'Mandats',     icon: Briefcase },
   { value: 'candidature', label: 'Candidature', icon: Inbox },
   { value: 'equipe',      label: 'Équipe',      icon: Users },
+  { value: 'parametres',  label: 'Paramètres',  icon: Settings },
 ] as const;
 
 export default function BaWorkspacePage() {
@@ -66,6 +68,10 @@ export default function BaWorkspacePage() {
 
         <TabsContent value="equipe" className="mt-4">
           <EquipeContent />
+        </TabsContent>
+
+        <TabsContent value="parametres" className="mt-4">
+          <ParametresContent />
         </TabsContent>
       </Tabs>
     </DashboardLayout>
