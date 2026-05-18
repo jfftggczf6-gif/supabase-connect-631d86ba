@@ -1,67 +1,109 @@
 # ESONO BIS Studio — CLAUDE.md
 # Branche : pe-demo · Environnement : STAGING
 
-## Règle n°1
-Ne JAMAIS simplifier une feature. Ne JAMAIS dire "V1", "MVP",
-"pour commencer", "on ajoutera plus tard". Chaque feature est livrée
-complète avec tous les critères du brief. Si quelque chose est hors scope,
-c'est dans le brief explicitement — tout ce qui est dans le brief
-est obligatoire à 100%.
+## Règle n°1 — Jamais de MVP
+Ne JAMAIS simplifier une feature. Ne JAMAIS dire "V1", "MVP", "pour commencer",
+"on ajoutera plus tard". Chaque feature est livrée complète avec tous les
+critères du brief. Si c'est hors scope, c'est dans le brief explicitement.
 
-## Mode de travail autonome
-
-Tu travailles en autonomie totale. Ne demande JAMAIS l'accord pour :
-- Créer une branche
-- Écrire un fichier
-- Lancer une commande npm/git
-- Déployer une EF
-- Appliquer une migration
-- Corriger un bug rencontré en cours de route
-- Passer à l'étape suivante du build
-
-Workflow pour chaque feature :
-1. Lis le brief dans Notion
-2. Crée la branche feature/[nom] depuis pe-demo
-3. Écris le contrat TypeScript → commit
-4. Code le back (EF / migration) → teste avec curl → commit
-5. Code le front (composants React) → vérifie tsc --noEmit → commit
-6. Intègre front + back → vérifie que npm run dev tourne sans erreur → commit
-7. Crée le test Playwright → lance-le → si ça passe → commit final
-8. Affiche le résumé : critères du brief ✅/❌, fichiers modifiés, EFs déployées
-
-Ne t'arrête qu'en cas de :
-- Choix d'architecture avec 2+ options viables (présente les options)
-- Bug bloquant que tu ne peux pas résoudre seul
-- Écart avec le brief (présente l'écart)
-
-Pour tout le reste : avance, corrige, commite, continue.
-
-## Règles de design front-end
-
-### Wireframe obligatoire
+## Règle n°2 — Wireframe obligatoire
 Avant de coder TOUT composant React, lis d'abord le wireframe :
-- Fichier : `src/wireframes/wireframe_ba.tsx` (ou le chemin que Philippe donne)
-- Cherche le composant par nom (grep le nom de l'écran wireframe du brief)
-- Le wireframe est la SPEC VISUELLE — chaque champ, chaque bouton,
-  chaque colonne, chaque badge doit correspondre exactement
+`src/wireframes/wireframe_ba.tsx` (grep le nom du composant).
+Le wireframe est la SPEC VISUELLE — chaque champ, bouton, colonne, badge
+doit correspondre exactement.
 
-### Design PE comme référence
-Le module BA réutilise le même design que le PE. Avant de créer
-un nouveau composant, vérifie s'il existe déjà dans `src/components/pe/` :
-- `PePipelinePage` → référence pour pipeline BA (kanban + table)
-- `PeDealDetailPage` + `PeDealSidebar` → référence pour `MandatShell` / `MandatSideNav`
-- `PeCandidatureFormEditorPage` → référence pour `CandidatureFormBuilder`
-- `MemoSectionsViewer` + `PeSingleSectionView` → référence pour `MemoEditorPage`
-
-Copie le STYLE (couleurs, espacements, badges, tableaux) du PE.
+## Règle n°3 — Design PE comme référence
+Le module BA réutilise le même design que le PE. Avant de créer un composant,
+vérifie s'il existe dans `src/components/pe/`. Copie le STYLE du PE
+(couleurs, espacements, badges, tableaux).
 Ne JAMAIS inventer un nouveau style si le PE en a déjà un.
 
-### Checklist avant chaque composant front
-1. Lire le wireframe (`src/wireframes/wireframe_ba.tsx`) — grep le nom de l'écran
-2. Lire le composant PE équivalent s'il existe
-3. Coder en suivant le wireframe pour la STRUCTURE
-4. Coder en suivant le PE pour le STYLE
-5. Vérifier visuellement (Playwright + login) que le résultat matche le wireframe
+Composants PE de référence :
+- `PePipelinePage` → pipeline BA (kanban + table)
+- `PeDealDetailPage` + `PeDealSidebar` → `MandatShell` / `MandatSideNav`
+- `PreScreening360Dashboard` → pré-screening 360 BA
+- `MemoSectionsViewer` + `PeSingleSectionView` → memo IM vendeur
+- `PeValuationView` → valorisation BA
+
+## Règle n°4 — Réutiliser les EFs existantes
+Réutiliser les EFs PE/Programme. Ne JAMAIS créer une nouvelle EF si une
+existante fait le même travail. Pour le ton BA, passer un paramètre
+`tone: 'pe' | 'ba'` dans le body (option A — cf. décisions architecture).
+Les tests détectent les régressions.
+
+## Règle n°5 — Autonomie
+Travailler en autonomie totale. Ne demander l'accord que pour :
+- Choix d'architecture avec 2+ options viables
+- Bug bloquant irrésoluble
+- Écart avec le brief
+
+Pour tout le reste : avancer, corriger, commiter, continuer.
+
+Workflow pour chaque feature :
+1. Lire le brief dans Notion
+2. Lire le wireframe (Règle n°2)
+3. Lire le composant PE équivalent (Règle n°3)
+4. Créer branche `feature/[nom]` depuis pe-demo
+5. Contrat TypeScript → commit
+6. Back (EF / migration) → test curl → commit
+7. Front → `tsc --noEmit` → commit
+8. Intégration → `npm run dev` sans erreur → commit
+9. Test Playwright dans `tests/e2e/` → commit final
+10. Résumé : critères brief ✅/❌, fichiers modifiés, EFs déployées
+11. Mise à jour Notion : statut brief → terminé, section Livraison avec critères cochés, entrée Journal
+
+## Règle n°6 — Tests obligatoires
+- Après chaque modif front : `tsc --noEmit`
+- Après chaque EF : curl test sur staging
+- Après chaque feature complète : test Playwright dans `tests/e2e/`
+- Avant chaque commit : `npm run test:types`
+- Avant chaque PR/merge majeur : `npm run test:all`
+
+## Décisions architecture BA (actées)
+
+### Ton vendeur PE ↔ BA (Option A)
+**Param `tone: 'pe' | 'ba'`** dans le body des EFs existantes. Le worker
+Railway utilise un prompt conditionnel selon le tone.
+**PAS de nouvelles EFs BA dédiées.** Les tests détectent toute régression PE.
+
+EFs à patcher (worker Railway `esono-ai-worker`) :
+- `generate-pe-pre-screening` → tone='ba' = ton vendeur, focus equity story
+- `generate-ic1-memo` → tone='ba' = IM vendeur 12 sections (pas IC1)
+- `regenerate-pe-section` → tone='ba' = regénération en ton vendeur
+- `analyze-pe-deal-note` → tone='ba' = notes RDV mandant
+- `generate-pe-valuation` → tone='ba' = valorisation BA
+
+### Viewers BA (enrichir en place)
+**ENRICHIR les composants PE existants** pour matcher le wireframe BA.
+**PAS de composants `BaXxxView` séparés.** Les gaps sont cosmétiques :
+- Ajouter KPI cards (CA/EBITDA/Marge/Dette + Ticket violet)
+- Snapshot financier 3 ans en tableau stylé
+- Utilisation fonds avec progress bars
+- Scénarios BEAR/BASE/BULL en 3 cards
+- Qualité dossier en grid 4 cols
+- Benchmark tableau quartile enrichi
+- Recommandation en card violette verdict + 3 conditions
+
+### Candidature BA — décisions
+- Multi-appels en parallèle (programmes BA multiples)
+- Badge éligibilité 🟢🟠🔴 rule-based (pas score IA numérique)
+- Critères éligibilité hardcodés (sera configurable dans `parametres_ba`)
+- Upload fichiers dans le formulaire (`type='file'` au form builder)
+- Conversion manuelle : Partner clique → Créer mandat → `create-pe-deal` + `update-candidature`
+
+## Notion — process
+
+Le **Journal des modifications BA** dans Notion contient TOUS les hors-scope,
+TOUS les bugs, TOUTES les améliorations futures. Ne PAS créer de nouveau
+backlog — tout va dans le Journal existant.
+
+Les briefs sont dans la base **Briefs BA**, triés par Ordre de build.
+Lire le brief correspondant AVANT de coder chaque feature.
+
+À chaque feature livrée : 3 mises à jour Notion obligatoires :
+1. Entrée Journal des modifications
+2. Brief : Statut → "terminé"
+3. Brief : section Livraison ajoutée avec chaque critère coché un par un
 
 ## Environnement
 - **Supabase** : flgxbwmxwdfzeuufcxti (staging-pe-demo)
