@@ -23,7 +23,12 @@ function normalizeCorrections(raw: unknown): NoteCorrection[] {
     id: (c as any).id || `c-${Date.now()}-${i}`,
     section_code: (c as any).section_code || (c as any).section || `§${i + 1}`,
     section_title: (c as any).section_title || 'Section IM',
-    description: (c as any).description || (c as any).text || (typeof c === 'string' ? c : 'Correction'),
+    description: (c as any).info || (c as any).description || (c as any).text || (typeof c === 'string' ? c : 'Correction'),
+    type: (c as any).type || null,
+    field_path: (c as any).field_path || null,
+    action: (c as any).action || null,
+    value: (c as any).value ?? null,
+    priorite: (c as any).priorite || null,
   }));
 }
 

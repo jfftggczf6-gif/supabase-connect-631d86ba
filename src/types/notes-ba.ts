@@ -24,11 +24,21 @@ export interface BaDealNote {
 
 export interface NoteCorrection {
   id: string;                       // stable, ex: 'c-{timestamp}-{rand}'
-  /** Code section IM concernée : '§8', '§3', ... */
+  /** Code section IM concernée : 'financials_pnl', 'top_management', ... */
   section_code: string;
   section_title: string;
-  /** Description courte de la correction proposée. */
+  /** Description courte humaine, ex: "CA 2024 corrigé à 13.2 Mrd FCFA" */
   description: string;
+  /** Type sémantique : correction_chiffre / info_qualitative / info_rh / etc. */
+  type?: string | null;
+  /** Chemin JSON dans content_json (ex: "pnl.ca") */
+  field_path?: string | null;
+  /** 'remplacer' | 'enrichir' */
+  action?: string | null;
+  /** Valeur de remplacement (chiffre ou string) */
+  value?: number | string | null;
+  /** 'haute' | 'moyenne' | 'basse' */
+  priorite?: string | null;
 }
 
 export interface NewNoteInput {
