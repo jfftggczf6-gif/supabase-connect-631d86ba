@@ -150,10 +150,21 @@ export default function PeValuationView({ dealId }: Props) {
     );
   }
 
-  const { dcf_inputs, dcf_projections, dcf_terminal, dcf_outputs,
-          multiples_comparables, multiples_outputs,
-          ancc_assets, ancc_liabilities, ancc_outputs,
+  const { dcf_inputs, dcf_terminal, dcf_outputs,
+          multiples_outputs,
+          ancc_outputs,
           synthesis, ai_justification, currency } = data;
+  // Tolérance shape : worker peut renvoyer wrapper { transactions: [...] / items: [...] } ou array direct
+  const toArr = (x: any, keys: string[] = ['transactions', 'comparables', 'items', 'list', 'rows', 'assets', 'liabilities', 'projections']): any[] => {
+    if (Array.isArray(x)) return x;
+    if (!x || typeof x !== 'object') return [];
+    for (const k of keys) if (Array.isArray(x[k])) return x[k];
+    return [];
+  };
+  const multiples_comparables: Comparable[] = toArr((data as any).multiples_comparables);
+  const ancc_assets: any[] = toArr((data as any).ancc_assets);
+  const ancc_liabilities: any[] = toArr((data as any).ancc_liabilities);
+  const dcf_projections: any[] = toArr((data as any).dcf_projections, ['projections', 'years', 'items', 'rows']) as any;
 
   return (
     <div className="space-y-4">
