@@ -73,16 +73,23 @@ EFs à patcher (worker Railway `esono-ai-worker`) :
 - `analyze-pe-deal-note` → tone='ba' = notes RDV mandant
 - `generate-pe-valuation` → tone='ba' = valorisation BA
 
-### Viewers BA (enrichir en place)
-**ENRICHIR les composants PE existants** pour matcher le wireframe BA.
-**PAS de composants `BaXxxView` séparés.** Les gaps sont cosmétiques :
-- Ajouter KPI cards (CA/EBITDA/Marge/Dette + Ticket violet)
-- Snapshot financier 3 ans en tableau stylé
-- Utilisation fonds avec progress bars
-- Scénarios BEAR/BASE/BULL en 3 cards
-- Qualité dossier en grid 4 cols
-- Benchmark tableau quartile enrichi
-- Recommandation en card violette verdict + 3 conditions
+### Catégories viewers BA
+
+**CATÉGORIE 1 — Mêmes composants PE, juste tone='ba' :**
+- info_analyste · pre_screening · IM vendeur (memo) · valuation · living_document · notes_rdv · benchmarks
+- ✅ Aucune modification visuelle des composants PE
+- ✅ Le param `tone:'ba'` dans le body des EFs change le contenu généré
+- ✅ Le front BA passe `tone:'ba'` quand l'org est de type banque_affaires
+- Le visuel viendra "naturellement" via le contenu adapté au ton vendeur
+
+**CATÉGORIE 2 — Composants BA dédiés (vrais composants nouveaux) :**
+- `generate_teaser` → wireframe `src/wireframes/wireframe_teaser_ba.html`
+  (8 sections, warnings anonymisation, workflow approbation, comparaison IM↔Teaser)
+- `fund_matching` → wireframe page 2 du même fichier (scoring, pipeline dots, timeline par fonds)
+- `deal_tracking` → timeline + handoff BA→PE
+
+Pour la catégorie 2, le wireframe de référence OBLIGATOIRE est dans
+`src/wireframes/wireframe_teaser_ba.html`. Lire AVANT de coder.
 
 ### Candidature BA — décisions
 - Multi-appels en parallèle (programmes BA multiples)

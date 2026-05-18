@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe Teaser BA — ESONO Final</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, system-ui, 'Inter', sans-serif; }
+body { background: #f8f8f6; padding: 20px; color: #1a1a1a; }
+.page { background: #fff; border-radius: 8px; border: 1px solid #e8e6e1; overflow: hidden; max-width: 1140px; margin: 0 auto 32px; }
+.page-label { background: #534AB7; color: #fff; padding: 8px 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.5px; }
+.header { padding: 14px 20px; border-bottom: 1px solid #e8e6e1; display: flex; justify-content: space-between; align-items: center; }
+.header h2 { font-size: 16px; font-weight: 600; }
+.header .meta { font-size: 11px; color: #888; margin-top: 3px; }
+.badge { font-size: 10px; padding: 3px 8px; border-radius: 4px; display: inline-block; font-weight: 500; }
+.b-warn { background: #fef3cd; color: #856404; }
+.b-ok { background: #e8f5e9; color: #2e7d32; }
+.b-info { background: #f0eef9; color: #534AB7; }
+.b-muted { background: #f5f5f3; color: #888; }
+.btn { font-size: 11px; padding: 5px 12px; border-radius: 5px; border: 1px solid #ddd; cursor: pointer; background: #fff; color: #333; }
+.btn-p { background: #534AB7; color: #fff; border: none; }
+.btn-sm { font-size: 10px; padding: 3px 8px; }
+.btn-sm-p { font-size: 10px; padding: 3px 8px; background: #534AB7; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.layout { display: flex; min-height: 700px; }
+.sidebar { width: 210px; border-right: 1px solid #e8e6e1; padding: 14px; flex-shrink: 0; background: #fafaf8; }
+.content { flex: 1; padding: 20px; }
+.slabel { font-size: 9px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.8px; margin: 14px 0 6px; }
+.slabel:first-child { margin-top: 0; }
+.codebox { border: 1.5px solid #534AB7; border-radius: 6px; padding: 10px; text-align: center; }
+.codebox .name { font-size: 15px; font-weight: 700; color: #534AB7; letter-spacing: 1px; }
+.codebox .sub { font-size: 10px; color: #aaa; margin-top: 2px; }
+.codebox .edit { font-size: 10px; color: #534AB7; cursor: pointer; margin-top: 3px; }
+.step { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 4px; margin-bottom: 2px; font-size: 11px; }
+.s-done { color: #555; }
+.s-cur { background: #fef3cd; color: #856404; font-weight: 500; }
+.s-todo { color: #ccc; }
+.src { font-size: 10px; color: #999; padding: 1px 0; }
+.ver { font-size: 10px; padding: 5px 6px; border-radius: 4px; background: #fff; border: 1px solid #e8e6e1; margin-bottom: 2px; cursor: pointer; }
+.ver.active { border-color: #534AB7; color: #534AB7; font-weight: 600; }
+.dist { font-size: 10px; display: flex; justify-content: space-between; padding: 4px 6px; background: #fff; border-radius: 4px; margin-bottom: 2px; border: 1px solid #e8e6e1; }
+.warn-box { background: #fffef5; border: 1px solid #e8e2c8; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+.warn-title { font-size: 12px; font-weight: 600; color: #856404; margin-bottom: 8px; }
+.warn-item { padding: 8px 10px; background: #fff; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: flex-start; border: 1px solid #f0ead0; }
+.warn-item .label { font-size: 11px; font-weight: 500; color: #6b5900; }
+.warn-item .detail { font-size: 11px; color: #888; margin-top: 2px; }
+.warn-item .suggest { font-size: 10px; color: #534AB7; margin-top: 2px; }
+.doc { border: 1px solid #e8e6e1; border-radius: 6px; overflow: hidden; }
+.doc-cover { background: #534AB7; padding: 24px; text-align: center; color: #fff; }
+.doc-cover .conf { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; }
+.doc-cover .code { font-size: 22px; font-weight: 700; margin: 8px 0 3px; letter-spacing: 2px; }
+.doc-cover .type { font-size: 12px; opacity: 0.85; }
+.doc-cover .tags { margin-top: 10px; display: flex; justify-content: center; gap: 16px; font-size: 11px; opacity: 0.7; }
+.doc-body { padding: 20px; }
+.section { margin-bottom: 20px; }
+.section:last-child { margin-bottom: 0; }
+.stitle { font-size: 12px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #e8e6e1; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+.stitle .num { background: #534AB7; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
+.text { font-size: 12px; color: #555; line-height: 1.7; }
+.hl { background: #f0eef9; padding: 1px 3px; border-radius: 2px; color: #534AB7; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.kpi { background: #f8f8f6; border-radius: 5px; padding: 10px; border: 1px solid #e8e6e1; }
+.kpi .v { font-size: 16px; font-weight: 600; }
+.kpi .l { font-size: 10px; color: #999; margin-top: 2px; }
+.kpi-a { background: #f0eef9; border-color: #d5d0ec; }
+.kpi-a .v { color: #534AB7; }
+table.fin { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0; }
+table.fin th { text-align: left; padding: 6px 8px; background: #f8f8f6; font-weight: 500; color: #999; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #e8e6e1; }
+table.fin td { padding: 6px 8px; border-bottom: 1px solid #f0efe8; }
+.up { color: #2e7d32; }
+.check { font-size: 12px; padding: 5px 0; display: flex; align-items: flex-start; gap: 6px; }
+.check .ic { flex-shrink: 0; margin-top: 1px; font-size: 11px; }
+.tag { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 3px; margin: 1px; font-weight: 500; }
+.t-p { background: #f0eef9; color: #534AB7; }
+.t-g { background: #e8f5e9; color: #2e7d32; }
+.t-m { background: #f8f8f6; color: #888; }
+.esg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.esg-item { padding: 8px; background: #f8f8f6; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 6px; border: 1px solid #e8e6e1; }
+.score-box { display: inline-block; border: 1.5px solid #534AB7; border-radius: 8px; padding: 10px 24px; text-align: center; }
+.score-box .val { font-size: 26px; font-weight: 700; color: #534AB7; }
+.score-box .lab { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+.score-box .sub { font-size: 10px; color: #aaa; margin-top: 2px; }
+.doc-footer { text-align: center; padding: 14px 20px; border-top: 1px solid #e8e6e1; background: #fafaf8; }
+.doc-footer p { font-size: 9px; color: #bbb; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #e8e6e1; border-radius: 6px; overflow: hidden; margin: 14px 0; }
+.compare-col { padding: 10px; font-size: 11px; }
+.compare-col:first-child { background: #fdf6f6; border-right: 1px solid #e8e6e1; }
+.compare-col:last-child { background: #f6fdf7; }
+.compare-row { padding: 3px 0; display: flex; align-items: center; gap: 4px; }
+.cr-label { font-size: 10px; font-weight: 600; margin-bottom: 6px; }
+.actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid #e8e6e1; }
+</style>
+</head>
+<body>
+
+<div class="page">
+<div class="page-label">WIREFRAME FINAL — Teaser Anonyme BA · generate_teaser · ordre 14 · 8 sections</div>
+<div class="header">
+<div>
+<div style="display:flex;align-items:center;gap:6px;">
+<h2>Teaser — PharmaCi Industries SA</h2>
+<span class="badge b-warn">2 warnings</span>
+<span class="badge b-muted">v2 — 16 mai</span>
+</div>
+<div class="meta">DEAL-2026-001 · Santé · Côte d'Ivoire · 10M XOF</div>
+</div>
+<div style="display:flex;gap:6px;">
+<button class="btn">Regénérer</button>
+<button class="btn">Aperçu PDF</button>
+<button class="btn btn-p">Exporter PDF</button>
+</div>
+</div>
+
+<div class="layout">
+<div class="sidebar">
+<p class="slabel">Nom de code</p>
+<div class="codebox">
+<div class="name">PROJET BAOBAB</div>
+<div class="sub">Attribué automatiquement</div>
+<div class="edit">Changer le nom</div>
+</div>
+
+<p class="slabel">Workflow</p>
+<div class="step s-done">✓ Généré par IA</div>
+<div class="step s-cur">⚠ 2 warnings à résoudre</div>
+<div class="step s-todo">○ Soumis au Partner</div>
+<div class="step s-todo">○ Approuvé → diffusable</div>
+
+<p class="slabel">Sections IM utilisées</p>
+<div class="src">§1 Résumé exécutif ✓</div>
+<div class="src">§2 Actionnariat ✓</div>
+<div class="src">§3 Management ✓</div>
+<div class="src">§4 Description activité ✓</div>
+<div class="src">§5 Marché & concurrence ✓</div>
+<div class="src">§8 Analyse financière ✓</div>
+<div class="src">§10 Thèse investissement ✓</div>
+<div class="src">§11 Risques & ESG ✓</div>
+
+<p class="slabel">Versions</p>
+<div class="ver active">v2 — 16 mai (actuelle)</div>
+<div class="ver">v1 — 12 mai</div>
+
+<p class="slabel">Distribution</p>
+<div class="dist"><span>Adiwale</span><span class="badge b-ok" style="font-size:9px;">Envoyé</span></div>
+<div class="dist"><span>AfricInvest</span><span class="badge b-ok" style="font-size:9px;">Envoyé</span></div>
+<div class="dist"><span>Cauris</span><span class="badge b-muted" style="font-size:9px;">En attente</span></div>
+</div>
+
+<div class="content">
+<div class="warn-box">
+<div class="warn-title">⚠ 2 mentions identifiantes — résoudre avant soumission</div>
+<div class="warn-item">
+<div>
+<div class="label">Zone géographique trop précise</div>
+<div class="detail">"...usine située dans la <b>zone industrielle de Yopougon, Abidjan</b>"</div>
+<div class="suggest">→ "zone industrielle d'une métropole ouest-africaine"</div>
+</div>
+<div style="display:flex;gap:4px;flex-shrink:0;margin-left:10px;"><button class="btn-sm-p">Appliquer</button><button class="btn btn-sm">Modifier</button><button class="btn btn-sm">Ignorer</button></div>
+</div>
+<div class="warn-item">
+<div>
+<div class="label">Client nommé</div>
+<div class="detail">"...principal client est le <b>CHU de Cocody</b>"</div>
+<div class="suggest">→ "réseau hospitalier public"</div>
+</div>
+<div style="display:flex;gap:4px;flex-shrink:0;margin-left:10px;"><button class="btn-sm-p">Appliquer</button><button class="btn btn-sm">Modifier</button><button class="btn btn-sm">Ignorer</button></div>
+</div>
+</div>
+
+<div class="doc">
+<div class="doc-cover">
+<div class="conf">Confidentiel — Cissé Advisory</div>
+<div class="code">PROJET BAOBAB</div>
+<div class="type">Teaser — Opportunité d'investissement</div>
+<div class="tags"><span>Santé / Pharmaceutique</span><span>·</span><span>Afrique de l'Ouest</span><span>·</span><span>8 — 12 M USD</span><span>·</span><span>Cession majoritaire</span></div>
+</div>
+
+<div class="doc-body">
+<div class="section">
+<div class="stitle"><span class="num">1</span> Présentation</div>
+<div class="grid-3">
+<div class="kpi"><div class="l">Secteur</div><div class="v">Santé / Pharma</div></div>
+<div class="kpi"><div class="l">Géographie</div><div class="v">Afrique de l'Ouest</div></div>
+<div class="kpi"><div class="l">Création</div><div class="v">2008 (18 ans)</div></div>
+<div class="kpi"><div class="l">Effectifs</div><div class="v">~250</div></div>
+<div class="kpi kpi-a"><div class="l">Ticket indicatif</div><div class="v" style="font-size:18px;">8 — 12 M USD</div></div>
+<div class="kpi"><div class="l">Opération</div><div class="v">Cession majoritaire</div></div>
+</div>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">2</span> Résumé de l'opportunité</div>
+<p class="text">Société leader dans la fabrication et distribution de produits pharmaceutiques en Afrique de l'Ouest, avec une présence dans <span class="hl">3 pays UEMOA</span>. Portefeuille de <span class="hl">+120 références</span> couvrant les marchés hospitalier et officinal, avec capacité de production locale certifiée aux normes internationales.</p>
+<p class="text" style="margin-top:6px;">Le fondateur souhaite céder sa participation majoritaire à un investisseur capable d'accompagner la prochaine phase : expansion régionale, nouvelles gammes, structuration industrielle.</p>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">3</span> Marché & positionnement</div>
+<p class="text" style="margin-bottom:8px;">Marché pharmaceutique Afrique de l'Ouest estimé à <span class="hl">~5 Mrd USD</span>, croissance 8-10%/an.</p>
+<div class="grid-3">
+<div class="kpi"><div class="l">Taille marché</div><div class="v">~5 Mrd USD</div></div>
+<div class="kpi"><div class="l">Croissance</div><div class="v up">+8-10% / an</div></div>
+<div class="kpi"><div class="l">Position</div><div class="v">Top 3</div></div>
+</div>
+<p class="text" style="margin-top:6px;">Différenciation par la <b>production locale</b> (vs import) et les <b>certifications GMP</b>. Marché fragmenté avec opportunités de consolidation.</p>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">4</span> Équipe & management</div>
+<div class="grid-3">
+<div class="kpi"><div class="l">Dirigeant</div><div class="v">Fondateur, 15+ ans</div></div>
+<div class="kpi"><div class="l">Direction</div><div class="v">5 cadres clés</div></div>
+<div class="kpi"><div class="l">Effectif</div><div class="v">~250 pers.</div></div>
+</div>
+<p class="text" style="margin-top:6px;">Direction industrielle (ex-multinationale pharma), commerciale (réseau 3 pays), financière (audit Big 4). Transition 12-18 mois prévue.</p>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">5</span> Performance financière</div>
+<div class="grid-4">
+<div class="kpi"><div class="l">CA 2025</div><div class="v">~15 Mrd FCFA</div></div>
+<div class="kpi"><div class="l">Croiss. 3 ans</div><div class="v up">+18% / an</div></div>
+<div class="kpi"><div class="l">Marge EBITDA</div><div class="v">~12%</div></div>
+<div class="kpi kpi-a"><div class="l">EBITDA 2025</div><div class="v">~1.8 Mrd</div></div>
+</div>
+<table class="fin">
+<thead><tr><th></th><th>2023</th><th>2024</th><th>2025</th><th>Δ</th></tr></thead>
+<tbody>
+<tr><td><b>Chiffre d'affaires</b></td><td>10.8 Mrd</td><td>12.7 Mrd</td><td>~15.0 Mrd</td><td class="up">+18%</td></tr>
+<tr><td><b>EBITDA</b></td><td>1.1 Mrd</td><td>1.4 Mrd</td><td>~1.8 Mrd</td><td class="up">+28%</td></tr>
+<tr><td><b>Marge EBITDA</b></td><td>10.2%</td><td>11.0%</td><td>~12.0%</td><td class="up">+1.8pp</td></tr>
+<tr><td><b>BFR / CA</b></td><td>22%</td><td>20%</td><td>~18%</td><td class="up">-4pp</td></tr>
+<tr><td><b>Dette nette / EBITDA</b></td><td>1.8x</td><td>1.5x</td><td>~1.2x</td><td class="up">-0.6x</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">6</span> Equity story</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Leader marché en croissance</b> — Top 3 distributeurs pharma UEMOA, marché +8-10%/an</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Production locale certifiée</b> — Usine GMP, barrière à l'entrée vs importateurs</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Pipeline 12 molécules</b> — Relais de croissance 2026-2028</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Management stable</b> — 15+ ans expertise sectorielle</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Rentabilité croissante</b> — EBITDA 10% → 12% en 3 ans, BFR optimisé</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Expansion régionale</b> — 3 pays, extensible à 6 UEMOA</div>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">7</span> Impact & ESG</div>
+<div class="esg">
+<div class="esg-item">🏥 <b>Santé</b> — Accès médicaments pour +2M patients/an</div>
+<div class="esg-item">👥 <b>Emplois</b> — 250 directs, 60% femmes</div>
+<div class="esg-item">🌱 <b>Environnement</b> — Déchets pharma normes OMS</div>
+<div class="esg-item">🎯 <b>ODD</b> — ODD 3, ODD 8, ODD 9</div>
+</div>
+<div style="margin-top:6px;">
+<span class="tag t-g">ODD 3</span>
+<span class="tag t-p">ODD 8</span>
+<span class="tag t-p">ODD 9</span>
+<span class="tag t-m">IFC PS</span>
+</div>
+</div>
+
+<div class="section">
+<div class="stitle"><span class="num">8</span> Adéquation investisseur</div>
+<div class="grid-2">
+<div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Secteur</b> — Santé / Pharma → dans la thèse</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Géographie</b> — Côte d'Ivoire → zone éligible</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Ticket</b> — 8-12M → dans [5-25M]</div>
+</div>
+<div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Ancienneté</b> — 18 ans → ≥ 3 ans</div>
+<div class="check"><span class="ic" style="color:#534AB7;">✓</span><b>Rentabilité</b> — 12% → au-dessus médiane</div>
+<div class="check"><span class="ic" style="color:#856404;">⚠</span><b>Documentation</b> — 5/7 fournis</div>
+</div>
+</div>
+<div style="margin-top:10px;text-align:center;">
+<div class="score-box"><div class="lab">Score d'adéquation</div><div class="val">92%</div><div class="sub">5/6 critères remplis</div></div>
+</div>
+</div>
+</div>
+
+<div class="doc-footer">
+<p>Pour plus d'informations — <b>Cissé Advisory</b> — contact@cisse-advisory.com</p>
+<p style="margin-top:3px;">Document strictement confidentiel. Reproduction interdite.</p>
+<p style="margin-top:3px;font-size:8px;color:#ddd;">ID: BAOBAB-v2-20260516 · Watermark destinataire tracé</p>
+</div>
+</div>
+
+<div style="margin-top:14px;">
+<div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;cursor:pointer;">▼ Comparaison IM ↔ Teaser</div>
+<div class="compare">
+<div class="compare-col">
+<div class="cr-label" style="color:#c62828;">IM original (confidentiel)</div>
+<div class="compare-row"><span style="color:#c62828;">✗</span> PharmaCi Industries SA</div>
+<div class="compare-row"><span style="color:#c62828;">✗</span> Zone industrielle de Yopougon</div>
+<div class="compare-row"><span style="color:#c62828;">✗</span> CHU de Cocody, Clinique Farah</div>
+<div class="compare-row"><span style="color:#c62828;">✗</span> CA 14,97 Mrd FCFA</div>
+<div class="compare-row"><span style="color:#c62828;">✗</span> Dr Amadou Koné, PDG</div>
+</div>
+<div class="compare-col">
+<div class="cr-label" style="color:#2e7d32;">Teaser anonymisé</div>
+<div class="compare-row"><span style="color:#2e7d32;">✓</span> PROJET BAOBAB</div>
+<div class="compare-row"><span style="color:#2e7d32;">✓</span> Métropole Afrique de l'Ouest</div>
+<div class="compare-row"><span style="color:#2e7d32;">✓</span> Réseau hospitalier public</div>
+<div class="compare-row"><span style="color:#2e7d32;">✓</span> ~15 Mrd FCFA</div>
+<div class="compare-row"><span style="color:#2e7d32;">✓</span> Fondateur, 15+ ans exp.</div>
+</div>
+</div>
+</div>
+
+<div class="actions">
+<div>
+<button class="btn">Envoyer à 1 fonds</button>
+<button class="btn" style="margin-left:4px;">Copier le lien</button>
+</div>
+<div style="display:flex;gap:6px;">
+<button class="btn">Renvoyer à l'Analyste</button>
+<button class="btn btn-p">Approuver pour diffusion</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div style="text-align:center;padding:16px;color:#bbb;font-size:10px;">ESONO — Wireframe Teaser Anonyme BA — Final — Mai 2026</div>
+</body>
+</html>
