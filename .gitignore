@@ -36,3 +36,5 @@ playwright-report/
 *storybook.log
 storybook-static
 # Note : src/wireframes/ EST commité — c'est la spec visuelle de référence.
+.notion-updates-sprint-ba-phase2.md
+supabase/.temp/
