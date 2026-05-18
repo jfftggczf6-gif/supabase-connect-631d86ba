@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Loader2, Wand2, TrendingUp, BarChart3, Layers, Scale, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import PeExportButton from './PeExportButton';
+import { useTone } from '@/hooks/useTone';
 
 interface Props {
   dealId: string;
@@ -93,6 +94,7 @@ export default function PeValuationView({ dealId }: Props) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [data, setData] = useState<ValuationRow | null>(null);
+  const tone = useTone(); // 'ba' si org banque_affaires
 
   const reload = useCallback(async () => {
     setLoading(true);

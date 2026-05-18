@@ -11,6 +11,8 @@ import { dispatchAndForget } from "../_shared/railway-dispatch.ts";
 
 interface RequestBody {
   deal_id: string;
+  /** 'pe' (défaut) = IC1 factuel · 'ba' = IM vendeur Equity story */
+  tone?: 'pe' | 'ba';
 }
 
 serve(async (req: Request) => {
@@ -44,6 +46,7 @@ serve(async (req: Request) => {
       payload: {
         deal_id: body.deal_id,
         user_id: user.id,
+        tone: body.tone ?? 'pe',
       },
       userId: user.id,
       organizationId: deal.organization_id,

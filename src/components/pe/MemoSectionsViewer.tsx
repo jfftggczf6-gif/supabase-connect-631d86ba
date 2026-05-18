@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import ScoreCircle from '@/components/dashboard/viewers/atoms/pe/ScoreCircle';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
+import { useTone } from '@/hooks/useTone';
 import PeExportButton from './PeExportButton';
 import PeNextStepCta from './PeNextStepCta';
 import MemoNarrativeView from './MemoNarrativeView';
@@ -81,6 +82,7 @@ export default function MemoSectionsViewer({ dealId, withToc = false, title, dea
   const [regenerating, setRegenerating] = useState(false);
   const [viewMode, setViewMode] = useState<'data' | 'narrative'>('data');
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const tone = useTone(); // 'ba' si org banque_affaires → IM vendeur, sinon IC1
 
   async function handleRegenerate() {
     if (regenerating) return;

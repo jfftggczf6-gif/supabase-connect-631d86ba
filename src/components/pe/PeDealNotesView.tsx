@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useTone } from '@/hooks/useTone';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,7 @@ function setByPath(obj: any, path: string, value: any, action: 'remplacer' | 'en
 
 export default function PeDealNotesView({ dealId, organizationId }: Props) {
   const { session: authSession } = useAuth();
+  const tone = useTone();
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -168,6 +170,7 @@ export default function PeDealNotesView({ dealId, organizationId }: Props) {
             date_rdv: dateRdv || null,
             file_name: file?.name || null,
             deal_id: dealId,
+            tone,
           }),
         },
       );
