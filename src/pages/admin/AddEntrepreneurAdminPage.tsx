@@ -276,7 +276,21 @@ export default function AddEntrepreneurAdminPage() {
         });
         const result = await resp.json();
         if (!resp.ok) {
-          toast.warning(`Action effectuée mais invitation non envoyée : ${result.error}`);
+          // Cas "déjà membre" → on propose un magic link à la place.
+          if (result.error === 'This email is already a member') {
+            toast.warning(
+              `${email} est déjà membre de cette organisation. Tu peux lui renvoyer un lien d'accès direct (sans mot de passe).`,
+              {
+                duration: 15000,
+                action: {
+                  label: '📧 Renvoyer le lien',
+                  onClick: () => resendAccessLink(email.trim(), orgId, token),
+                },
+              },
+            );
+          } else {
+            toast.warning(`Action effectuée mais invitation non envoyée : ${result.error}`);
+          }
         } else if (result.email_sent === false && result.invitation_url) {
           try { await navigator.clipboard.writeText(result.invitation_url); } catch { /* ignore */ }
           toast.warning(`Invitation créée mais email non envoyé. Lien copié — transmets-le à ${email}.`, { duration: 12000 });
@@ -296,6 +310,35 @@ export default function AddEntrepreneurAdminPage() {
       toast.error(e.message || 'Erreur action entrepreneur');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /** Renvoie un magic link à un membre déjà actif (cas "already a member"). */
+  const resendAccessLink = async (targetEmail: string, organizationId: string, token: string) => {
+    const tid = toast.loading(`Envoi du lien d'accès à ${targetEmail}…`);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-access-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ email: targetEmail, organization_id: organizationId }),
+      });
+      const result = await resp.json();
+      toast.dismiss(tid);
+      if (!resp.ok) {
+        toast.error(`Échec renvoi lien : ${result.error}`);
+        return;
+      }
+      if (result.email_sent) {
+        toast.success(`✅ Lien d'accès envoyé à ${targetEmail} (valable 1h)`);
+      } else if (result.link_url) {
+        try { await navigator.clipboard.writeText(result.link_url); } catch { /* ignore */ }
+        toast.warning(`Email non envoyé mais lien copié — transmets-le à ${targetEmail} (valable 1h).`, { duration: 15000 });
+      } else {
+        toast.warning(`Lien généré sans confirmation d'envoi.`);
+      }
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? 'Erreur réseau renvoi lien');
     }
   };
 
