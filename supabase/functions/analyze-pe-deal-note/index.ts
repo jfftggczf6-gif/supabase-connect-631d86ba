@@ -51,6 +51,7 @@ serve(async (req) => {
         date_rdv: body.date_rdv,
         file_name: body.file_name,
         deal_id: body.deal_id,
+        tone: body.tone ?? 'pe',
       },
       userId: user.id,
       organizationId: orgRow?.organization_id ?? null,

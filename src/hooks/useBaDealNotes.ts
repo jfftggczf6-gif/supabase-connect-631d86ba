@@ -120,6 +120,7 @@ export function useBaDealNotes(
             raw_content: input.raw_content,
             date_rdv: input.date_rdv,
             deal_id: dealId,
+            tone: 'ba', // hook BA → ton vendeur (mandant à séduire)
           },
         });
         if (!aiErr && ai && !(ai as any).error) {

@@ -8,6 +8,8 @@ import { dispatchAndPoll } from "../_shared/railway-dispatch.ts";
 interface RequestBody {
   deal_id: string;
   section_code: string;
+  /** 'pe' (défaut) = section IC1 · 'ba' = section IM vendeur Equity story */
+  tone?: 'pe' | 'ba';
 }
 
 serve(async (req: Request) => {
@@ -45,6 +47,7 @@ serve(async (req: Request) => {
         deal_id: body.deal_id,
         section_code: body.section_code,
         user_id: user.id,
+        tone: body.tone ?? 'pe',
       },
       userId: user.id,
       organizationId: deal.organization_id,

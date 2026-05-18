@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { useTone } from '@/hooks/useTone';
 import {
   canEdit, canRegenerate, canSubmit, canValidate, canRequestRevision, canResetToDraft,
   getRoleSnapshot, STATUS_LABELS, STATUS_COLORS, type SectionStatus,
@@ -99,6 +100,7 @@ export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
   const { user } = useAuth();
   const { role, isSuperAdmin } = useCurrentRole();
   const roleCtx = { role, isSuperAdmin };
+  const tone = useTone(); // 'ba' si org banque_affaires
 
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<any>(null);

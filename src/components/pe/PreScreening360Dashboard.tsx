@@ -8,6 +8,7 @@ import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/Classific
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import { useTone } from '@/hooks/useTone';
 
 interface Props {
   dealId: string;
@@ -64,6 +65,7 @@ export default function PreScreening360Dashboard({ dealId, dealStage, onNavigate
   const [sections, setSections] = useState<Record<string, any>>({});
   const [deal, setDeal] = useState<any>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const tone = useTone(); // 'ba' si org banque_affaires, sinon 'pe'
 
   async function handleRegenerate() {
     if (regenerating) return;
@@ -76,7 +78,7 @@ export default function PreScreening360Dashboard({ dealId, dealStage, onNavigate
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ deal_id: dealId }),
+          body: JSON.stringify({ deal_id: dealId, tone }),
         },
       );
       const result = await resp.json();

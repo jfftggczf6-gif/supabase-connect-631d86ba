@@ -18,6 +18,7 @@ import PlaceholderSection from './sections/PlaceholderSection';
 import UploadDocumentsSection from './sections/UploadDocumentsSection';
 import NotesRdvSection from './sections/NotesRdvSection';
 import BenchmarksSection from './sections/BenchmarksSection';
+import SourcesSection from './sections/SourcesSection';
 import PreScreeningBaSection from './sections/PreScreeningBaSection';
 import MemoBaSection, { MEMO_SECTION_CODES } from './sections/MemoBaSection';
 import ValuationBaSection from './sections/ValuationBaSection';
@@ -146,11 +147,7 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
     case 'benchmarks':
       return <BenchmarksSection dealId={dealId} />;
     case 'sources':
-      return <PlaceholderSection
-        featureName="sources_references"
-        title="Sources & références"
-        description="Vue lecture seule de toutes les sources mobilisées : documents fournis, citations IM, entretiens réalisés."
-      />;
+      return <SourcesSection dealId={dealId} />;
     case 'pre_screening':
       return <PreScreeningBaSection dealId={dealId} />;
     case 'memo':
