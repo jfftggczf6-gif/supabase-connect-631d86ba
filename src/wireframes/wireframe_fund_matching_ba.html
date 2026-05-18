@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe Fund Matching BA — ESONO</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, system-ui, 'Inter', sans-serif; }
+body { background: #f8f8f6; padding: 20px; color: #1a1a1a; }
+.page { background: #fff; border-radius: 8px; border: 1px solid #e8e6e1; overflow: hidden; max-width: 1140px; margin: 0 auto 32px; }
+.page-label { background: #534AB7; color: #fff; padding: 8px 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.5px; }
+.header { padding: 14px 20px; border-bottom: 1px solid #e8e6e1; display: flex; justify-content: space-between; align-items: center; }
+.header h2 { font-size: 16px; font-weight: 600; }
+.header .meta { font-size: 11px; color: #888; margin-top: 3px; }
+.badge { font-size: 10px; padding: 3px 8px; border-radius: 4px; display: inline-block; font-weight: 500; }
+.b-p { background: #f0eef9; color: #534AB7; }
+.b-g { background: #e8f5e9; color: #2e7d32; }
+.b-o { background: #fef3cd; color: #856404; }
+.b-r { background: #fce4ec; color: #c62828; }
+.b-b { background: #e3f2fd; color: #1565c0; }
+.b-m { background: #f5f5f3; color: #888; }
+.btn { font-size: 11px; padding: 5px 12px; border-radius: 5px; border: 1px solid #ddd; cursor: pointer; background: #fff; color: #333; }
+.btn-p { background: #534AB7; color: #fff; border: none; }
+.btn-sm { font-size: 10px; padding: 3px 8px; }
+
+/* KPIs */
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 16px 20px; border-bottom: 1px solid #e8e6e1; }
+.kpi { background: #f8f8f6; border-radius: 6px; padding: 10px; border: 1px solid #e8e6e1; }
+.kpi .num { font-size: 20px; font-weight: 600; }
+.kpi .lab { font-size: 10px; color: #888; margin-top: 2px; }
+
+/* Funnel */
+.funnel { display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #e8e6e1; gap: 4px; }
+.funnel-step { flex: 1; text-align: center; padding: 8px 4px; border-radius: 4px; font-size: 10px; position: relative; }
+.funnel-step .count { font-size: 16px; font-weight: 600; display: block; }
+.funnel-step .label { display: block; margin-top: 2px; }
+.f-active { background: #f0eef9; }
+.f-done { background: #e8f5e9; }
+.f-todo { background: #f5f5f3; color: #bbb; }
+.funnel-arrow { color: #ccc; font-size: 14px; flex-shrink: 0; }
+
+/* Table */
+.content { padding: 16px 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; padding: 8px 6px; font-weight: 500; color: #999; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #e8e6e1; }
+td { padding: 10px 6px; border-bottom: 1px solid #f0efe8; vertical-align: top; }
+.fund-name { font-weight: 600; font-size: 12px; }
+.fund-meta { font-size: 10px; color: #999; margin-top: 2px; }
+
+/* Score bar */
+.score-bar { width: 50px; height: 5px; background: #eee; border-radius: 3px; display: inline-block; vertical-align: middle; margin-right: 4px; }
+.score-fill { height: 100%; border-radius: 3px; }
+
+/* Pipeline dots */
+.dots { display: flex; gap: 2px; }
+.dot { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 600; }
+.d-g { background: #2e7d32; }
+.d-o { background: #f59e0b; }
+.d-x { background: #e0e0e0; color: #999; }
+
+/* Relance alert */
+.relance { background: #fce4ec; color: #c62828; font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+
+/* Row declined */
+.declined { opacity: 0.4; }
+
+/* Panels */
+.panel { background: #f8f8f6; border: 1px solid #e8e6e1; border-radius: 6px; padding: 16px; margin-top: 16px; }
+.panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.panel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.panel-card { background: #fff; border: 1px solid #e8e6e1; padding: 8px; border-radius: 5px; }
+.panel-card .l { font-size: 10px; color: #999; }
+.panel-card .v { font-size: 12px; font-weight: 500; margin-top: 2px; }
+
+/* Timeline */
+.timeline { display: flex; gap: 2px; margin: 10px 0; }
+.tl { flex: 1; text-align: center; padding: 5px 2px; border-radius: 3px; font-size: 9px; }
+.tl-g { background: #e8f5e9; color: #2e7d32; }
+.tl-o { background: #fef3cd; color: #856404; font-weight: 600; }
+.tl-x { background: #f5f5f3; color: #ccc; }
+
+/* Notes */
+.note-box { background: #fff; border: 1px solid #e8e6e1; border-radius: 5px; padding: 8px; font-size: 11px; color: #555; margin-top: 8px; }
+
+/* IOI Comparison */
+.ioi-compare { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.ioi-card { border: 1px solid #e8e6e1; border-radius: 6px; padding: 12px; text-align: center; }
+.ioi-card.best { border-color: #534AB7; background: #f0eef9; }
+.ioi-card .fund { font-size: 12px; font-weight: 600; }
+.ioi-card .amount { font-size: 20px; font-weight: 700; color: #534AB7; margin: 6px 0; }
+.ioi-card .detail { font-size: 10px; color: #888; }
+.ioi-card .tag { margin-top: 6px; }
+
+/* Handoff */
+.handoff { background: #f0eef9; border: 1px solid #d5d0ec; border-radius: 6px; padding: 14px; margin-top: 16px; }
+.handoff h3 { font-size: 13px; font-weight: 600; color: #534AB7; margin-bottom: 8px; }
+
+/* Sections */
+.section-label { font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 10px; padding-top: 16px; border-top: 1px solid #e8e6e1; }
+.section-label:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+<div class="page-label">WIREFRAME FINAL — Fund Matching BA · fund_matching + deal_tracking · ordre 15-16</div>
+
+<!-- HEADER -->
+<div class="header">
+<div>
+<div style="display:flex;align-items:center;gap:6px;">
+<h2>Fonds & Matching — PROJET BAOBAB</h2>
+<span class="badge b-p">5 fonds contactés</span>
+</div>
+<div class="meta">DEAL-2026-001 · PharmaCi Industries SA · Santé · 10M XOF</div>
+</div>
+<div style="display:flex;gap:6px;">
+<button class="btn">+ Ajouter un fonds</button>
+<button class="btn">📧 Envoyer teaser</button>
+<button class="btn btn-p">→ Handoff PE</button>
+</div>
+</div>
+
+<!-- KPIs -->
+<div class="kpis">
+<div class="kpi"><div class="lab">Matchés</div><div class="num">8</div></div>
+<div class="kpi"><div class="lab">Contactés</div><div class="num" style="color:#534AB7;">5</div></div>
+<div class="kpi"><div class="lab">Intéressés</div><div class="num" style="color:#f59e0b;">3</div></div>
+<div class="kpi"><div class="lab">NDA signées</div><div class="num" style="color:#2e7d32;">2</div></div>
+<div class="kpi"><div class="lab">IOI reçues</div><div class="num" style="color:#1565c0;">1</div></div>
+<div class="kpi"><div class="lab">Déclinés</div><div class="num" style="color:#999;">1</div></div>
+</div>
+
+<!-- FUNNEL VISUEL -->
+<div class="funnel">
+<div class="funnel-step f-done"><span class="count">8</span><span class="label">Matchés</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-done"><span class="count">5</span><span class="label">Teaser envoyé</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-done"><span class="count">3</span><span class="label">Intéressés</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-done"><span class="count">2</span><span class="label">NDA signée</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-done"><span class="count">2</span><span class="label">IM partagé</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-active"><span class="count">1</span><span class="label">Mgmt meeting</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-active"><span class="count">1</span><span class="label">IOI reçue</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-todo"><span class="count">0</span><span class="label">LOI</span></div>
+<span class="funnel-arrow">→</span>
+<div class="funnel-step f-todo"><span class="count">0</span><span class="label">Closing</span></div>
+</div>
+
+<div class="content">
+
+<!-- SECTION 1: TABLEAU FONDS -->
+<div class="section-label">Tableau des fonds</div>
+<table>
+<thead>
+<tr>
+<th>Fonds</th>
+<th>Score</th>
+<th>Pipeline</th>
+<th>Statut</th>
+<th>Dernière action</th>
+<th>Relance</th>
+<th style="text-align:right;">Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<div class="fund-name">I&P Afrique Entrepreneurs II</div>
+<div class="fund-meta">PE Impact · 0.3-3M EUR · UEMOA · Investisseurs & Partenaires</div>
+</td>
+<td><span class="score-bar"><span class="score-fill" style="width:92%;background:#2e7d32;"></span></span> 92%</td>
+<td>
+<div class="dots">
+<div class="dot d-g" title="Teaser">T</div>
+<div class="dot d-g" title="Intéressé">I</div>
+<div class="dot d-g" title="NDA">N</div>
+<div class="dot d-g" title="IM">M</div>
+<div class="dot d-g" title="Meeting">R</div>
+<div class="dot d-o" title="IOI">O</div>
+<div class="dot d-x" title="LOI">L</div>
+<div class="dot d-x" title="Close">C</div>
+</div>
+</td>
+<td><span class="badge b-b">IOI reçue</span></td>
+<td style="font-size:11px;color:#888;">IOI 9.5M USD cash<br>il y a 2j</td>
+<td>—</td>
+<td style="text-align:right;"><button class="btn btn-sm">Détail</button></td>
+</tr>
+<tr>
+<td>
+<div class="fund-name">Adiwale Fund I</div>
+<div class="fund-meta">PE Growth · 2-10M EUR · Afrique Ouest · Adiwale Partners</div>
+</td>
+<td><span class="score-bar"><span class="score-fill" style="width:85%;background:#2e7d32;"></span></span> 85%</td>
+<td>
+<div class="dots">
+<div class="dot d-g">T</div>
+<div class="dot d-g">I</div>
+<div class="dot d-g">N</div>
+<div class="dot d-o">M</div>
+<div class="dot d-x">R</div>
+<div class="dot d-x">O</div>
+<div class="dot d-x">L</div>
+<div class="dot d-x">C</div>
+</div>
+</td>
+<td><span class="badge b-g">IM partagé</span></td>
+<td style="font-size:11px;color:#888;">IM envoyé<br>il y a 5j</td>
+<td><span class="relance">⏰ J+5</span></td>
+<td style="text-align:right;"><button class="btn btn-sm">Détail</button></td>
+</tr>
+<tr>
+<td>
+<div class="fund-name">AfricInvest IV</div>
+<div class="fund-meta">PE Généraliste · 5-25M USD · Pan-Afrique</div>
+</td>
+<td><span class="score-bar"><span class="score-fill" style="width:85%;background:#2e7d32;"></span></span> 85%</td>
+<td>
+<div class="dots">
+<div class="dot d-g">T</div>
+<div class="dot d-g">I</div>
+<div class="dot d-o">N</div>
+<div class="dot d-x">M</div>
+<div class="dot d-x">R</div>
+<div class="dot d-x">O</div>
+<div class="dot d-x">L</div>
+<div class="dot d-x">C</div>
+</div>
+</td>
+<td><span class="badge b-o">NDA en cours</span></td>
+<td style="font-size:11px;color:#888;">NDA envoyée<br>il y a 8j</td>
+<td><span class="relance">⏰ J+8</span></td>
+<td style="text-align:right;"><button class="btn btn-sm">Relancer</button></td>
+</tr>
+<tr>
+<td>
+<div class="fund-name">Helios Investment Partners IV</div>
+<div class="fund-meta">PE · 10-75M USD · Pan-Afrique</div>
+</td>
+<td><span class="score-bar"><span class="score-fill" style="width:78%;background:#f59e0b;"></span></span> 78%</td>
+<td>
+<div class="dots">
+<div class="dot d-g">T</div>
+<div class="dot d-o">I</div>
+<div class="dot d-x">N</div>
+<div class="dot d-x">M</div>
+<div class="dot d-x">R</div>
+<div class="dot d-x">O</div>
+<div class="dot d-x">L</div>
+<div class="dot d-x">C</div>
+</div>
+</td>
+<td><span class="badge b-p">Intéressé</span></td>
+<td style="font-size:11px;color:#888;">Réponse positive<br>il y a 3j</td>
+<td>—</td>
+<td style="text-align:right;"><button class="btn btn-sm">Envoyer NDA</button></td>
+</tr>
+<tr class="declined">
+<td>
+<div class="fund-name">IFC AGRI3 Fund</div>
+<div class="fund-meta">DFI · 3-15M USD · Pan-Afrique · IFC</div>
+</td>
+<td><span class="score-bar"><span class="score-fill" style="width:71%;background:#f59e0b;"></span></span> 71%</td>
+<td>
+<div class="dots">
+<div class="dot d-g">T</div>
+<div class="dot d-x">I</div>
+<div class="dot d-x">N</div>
+<div class="dot d-x">M</div>
+<div class="dot d-x">R</div>
+<div class="dot d-x">O</div>
+<div class="dot d-x">L</div>
+<div class="dot d-x">C</div>
+</div>
+</td>
+<td><span class="badge b-m">Décliné</span></td>
+<td style="font-size:11px;color:#888;">Pas de fit sectoriel<br>il y a 6j</td>
+<td>—</td>
+<td style="text-align:right;">—</td>
+</tr>
+</tbody>
+</table>
+
+<!-- SECTION 2: PANEL DÉTAIL D'UN FONDS -->
+<div class="section-label">Détail fonds — I&P Afrique Entrepreneurs II</div>
+<div class="panel">
+<h3>I&P Afrique Entrepreneurs II — Score 92%</h3>
+<div class="panel-grid">
+<div class="panel-card"><div class="l">Organisme</div><div class="v">Investisseurs & Partenaires</div></div>
+<div class="panel-card"><div class="l">Type</div><div class="v">PE Impact</div></div>
+<div class="panel-card"><div class="l">Ticket</div><div class="v">0.3 — 3M EUR</div></div>
+<div class="panel-card"><div class="l">Secteurs</div><div class="v">✓ Santé (dans thèse)</div></div>
+<div class="panel-card"><div class="l">Géographie</div><div class="v">✓ Côte d'Ivoire (UEMOA)</div></div>
+<div class="panel-card"><div class="l">Contact</div><div class="v">j.kamara@ip.com</div></div>
+</div>
+
+<div style="margin-top:12px;font-size:11px;font-weight:500;color:#888;">Score détaillé — Critères remplis vs manquants</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+<div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ Secteur Santé — dans la thèse I&P</div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ Géographie UEMOA — zone éligible</div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ CA > 300K EUR — seuil rempli</div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ EBITDA positif</div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ Historique ≥ 3 ans</div>
+</div>
+<div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ Impact social documenté</div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ ODD 3 aligné</div>
+<div style="font-size:11px;padding:4px 0;color:#856404;">⚠ Ticket 10M > max 3M (hors fourchette)</div>
+<div style="font-size:11px;padding:4px 0;color:#2e7d32;">✓ États financiers certifiés</div>
+</div>
+</div>
+
+<div style="margin-top:12px;font-size:11px;font-weight:500;color:#888;">Timeline des interactions</div>
+<div class="timeline">
+<div class="tl tl-g">Teaser envoyé<br><span style="font-size:8px;">3 mai</span></div>
+<div class="tl tl-g">Intéressé<br><span style="font-size:8px;">5 mai</span></div>
+<div class="tl tl-g">NDA signée<br><span style="font-size:8px;">7 mai</span></div>
+<div class="tl tl-g">IM envoyé<br><span style="font-size:8px;">10 mai</span></div>
+<div class="tl tl-g">Mgmt meeting<br><span style="font-size:8px;">14 mai</span></div>
+<div class="tl tl-o">IOI reçue<br><span style="font-size:8px;">16 mai</span></div>
+<div class="tl tl-x">LOI</div>
+<div class="tl tl-x">Closing</div>
+</div>
+
+<div style="margin-top:12px;font-size:11px;font-weight:500;color:#888;">IOI reçue</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;">
+<div class="panel-card"><div class="l">Montant</div><div class="v" style="color:#534AB7;font-size:16px;">9.5M USD</div></div>
+<div class="panel-card"><div class="l">Structure</div><div class="v">100% cash</div></div>
+<div class="panel-card"><div class="l">Conditions</div><div class="v">DD fin + jur 4 sem.</div></div>
+<div class="panel-card"><div class="l">Exclusivité</div><div class="v">Demandée 60j</div></div>
+</div>
+
+<div style="margin-top:12px;font-size:11px;font-weight:500;color:#888;">Documents partagés via data room</div>
+<div style="margin-top:6px;">
+<div style="font-size:11px;padding:4px 0;">📄 Teaser PROJET BAOBAB v2 — partagé 3 mai</div>
+<div style="font-size:11px;padding:4px 0;">📄 IM Vendeur PharmaCi v3 — partagé 10 mai (après NDA)</div>
+<div style="font-size:11px;padding:4px 0;">📄 Liasses SYSCOHADA N, N-1, N-2 — partagé 10 mai</div>
+<div style="font-size:11px;padding:4px 0;">📄 Valorisation DCF + multiples — partagé 12 mai</div>
+</div>
+
+<div style="margin-top:12px;font-size:11px;font-weight:500;color:#888;">Notes privées</div>
+<div class="note-box">J. Kamara très intéressé. Veut rencontrer le DG en personne à Abidjan. IOI à 9.5M cash, pas d'earn-out. Conditions : DD fin + jur en 4 semaines. Exclusivité 60j demandée — à négocier à 45j max.</div>
+
+<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;">
+<button class="btn">📧 Envoyer un document</button>
+<button class="btn">✏️ Ajouter une note</button>
+<button class="btn btn-p">→ Négocier LOI</button>
+</div>
+</div>
+
+<!-- SECTION 3: COMPARAISON IOI (quand plusieurs offres) -->
+<div class="section-label">Comparaison des offres (IOI reçues)</div>
+<div class="ioi-compare">
+<div class="ioi-card best">
+<div class="fund">I&P Afrique Entrepreneurs</div>
+<div class="amount">9.5M USD</div>
+<div class="detail">100% cash · DD 4 sem · Exclu 60j</div>
+<div class="detail" style="margin-top:4px;">Score adéquation : 92%</div>
+<div class="tag"><span class="badge b-p">Meilleure offre</span></div>
+</div>
+<div class="ioi-card" style="opacity:0.6;">
+<div class="fund" style="color:#888;">Adiwale Partners</div>
+<div class="amount" style="color:#888;font-size:14px;">En attente</div>
+<div class="detail">IM partagé il y a 5j</div>
+<div class="detail" style="margin-top:4px;">Score adéquation : 85%</div>
+<div class="tag"><span class="badge b-o">IOI attendue</span></div>
+</div>
+<div class="ioi-card" style="opacity:0.6;">
+<div class="fund" style="color:#888;">AfricInvest</div>
+<div class="amount" style="color:#888;font-size:14px;">NDA en cours</div>
+<div class="detail">NDA envoyée il y a 8j</div>
+<div class="detail" style="margin-top:4px;">Score adéquation : 85%</div>
+<div class="tag"><span class="badge b-o">En amont</span></div>
+</div>
+</div>
+
+<!-- SECTION 4: RELANCES SUGGÉRÉES -->
+<div class="section-label">Relances suggérées</div>
+<div style="background:#fffef5;border:1px solid #e8e2c8;border-radius:6px;padding:12px;">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0ead0;">
+<div>
+<div style="font-size:12px;font-weight:500;">Adiwale Partners</div>
+<div style="font-size:11px;color:#888;">IM envoyé il y a 5 jours — pas de retour</div>
+</div>
+<div style="display:flex;gap:4px;">
+<button class="btn btn-sm">📧 Relancer</button>
+<button class="btn btn-sm">📞 Appeler</button>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+<div>
+<div style="font-size:12px;font-weight:500;">AfricInvest</div>
+<div style="font-size:11px;color:#888;">NDA envoyée il y a 8 jours — pas de signature</div>
+</div>
+<div style="display:flex;gap:4px;">
+<button class="btn btn-sm">📧 Relancer NDA</button>
+<button class="btn btn-sm">📞 Appeler</button>
+</div>
+</div>
+</div>
+
+<!-- SECTION 5: HANDOFF BA → PE -->
+<div class="section-label">Handoff BA → PE</div>
+<div class="handoff">
+<h3>→ Transférer vers le module PE pour la due diligence</h3>
+<div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">Quand un fonds confirme son intention d'investir (LOI signée), le dossier est transféré vers le module PE du fonds pour le suivi de la due diligence et du closing.</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+<div class="panel-card"><div class="l">Fonds repreneur</div><div class="v">I&P Afrique Entrepreneurs</div></div>
+<div class="panel-card"><div class="l">Ticket</div><div class="v">9.5M USD</div></div>
+<div class="panel-card"><div class="l">Prochaine étape</div><div class="v">DD financière + juridique</div></div>
+</div>
+<div style="font-size:11px;color:#888;margin-bottom:10px;">Le handoff transfère : enterprise + deal + documents + memo + valuation vers l'espace PE du fonds.</div>
+<div style="display:flex;gap:6px;justify-content:flex-end;">
+<button class="btn">Annuler</button>
+<button class="btn btn-p">Confirmer le handoff → PE</button>
+</div>
+</div>
+
+<!-- SECTION 6: TAUX DE CONVERSION -->
+<div class="section-label">Métriques de conversion</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+<div class="panel-card" style="text-align:center;">
+<div class="l">Teaser → Intérêt</div>
+<div class="v" style="font-size:16px;color:#534AB7;">60%</div>
+<div style="font-size:9px;color:#999;">3 sur 5</div>
+</div>
+<div class="panel-card" style="text-align:center;">
+<div class="l">Intérêt → NDA</div>
+<div class="v" style="font-size:16px;color:#534AB7;">67%</div>
+<div style="font-size:9px;color:#999;">2 sur 3</div>
+</div>
+<div class="panel-card" style="text-align:center;">
+<div class="l">NDA → IOI</div>
+<div class="v" style="font-size:16px;color:#534AB7;">50%</div>
+<div style="font-size:9px;color:#999;">1 sur 2</div>
+</div>
+<div class="panel-card" style="text-align:center;">
+<div class="l">Global teaser → IOI</div>
+<div class="v" style="font-size:16px;color:#534AB7;">20%</div>
+<div style="font-size:9px;color:#999;">1 sur 5</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<div style="text-align:center;padding:16px;color:#bbb;font-size:10px;">
+ESONO — Wireframe Fund Matching BA · Complet · Mai 2026
+</div>
+</body>
+</html>
