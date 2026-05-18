@@ -16,6 +16,7 @@
 
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
+import MemoBaProgressBar from './MemoBaProgressBar';
 
 interface Props {
   dealId: string;
@@ -50,9 +51,10 @@ export default function MemoBaSection({ dealId, sectionCode, dealStage }: Props)
     );
   }
 
-  // Vue d'ensemble : les 12 sections
+  // Vue d'ensemble : progress_tracker + auto_update_suggestions + les 12 sections
   return (
     <div className="max-w-5xl mx-auto">
+      <MemoBaProgressBar dealId={dealId} />
       <MemoSectionsViewer dealId={dealId} dealStage={dealStage} withToc />
     </div>
   );
