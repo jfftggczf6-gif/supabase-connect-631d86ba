@@ -105,7 +105,7 @@ export function useMandatDetail(
           const { data: sections } = await supabase
             .from('memo_sections')
             .select('status')
-            .eq('memo_version_id', verId);
+            .eq('version_id', verId);
           const arr = (sections || []) as any[];
           if (arr.length) sections_total = arr.length;
           for (const s of arr) {
