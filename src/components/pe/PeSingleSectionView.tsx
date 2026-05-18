@@ -219,7 +219,7 @@ export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/regenerate-pe-section`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ deal_id: dealId, section_code: sectionCode }),
+        body: JSON.stringify({ deal_id: dealId, section_code: sectionCode, tone }),
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || 'Échec régénération');

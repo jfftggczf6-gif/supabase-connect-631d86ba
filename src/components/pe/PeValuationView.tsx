@@ -114,7 +114,7 @@ export default function PeValuationView({ dealId }: Props) {
     if (data && !confirm('Une valuation existe déjà. La régénérer remplacera l\'analyse actuelle et synchronisera la section thèse du memo. Continuer ?')) return;
     setGenerating(true);
     const { error, data: resp } = await supabase.functions.invoke('generate-pe-valuation', {
-      body: { deal_id: dealId },
+      body: { deal_id: dealId, tone },
     });
     setGenerating(false);
     if (error || (resp as any)?.error) {

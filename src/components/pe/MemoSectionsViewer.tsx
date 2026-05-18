@@ -95,7 +95,7 @@ export default function MemoSectionsViewer({ dealId, withToc = false, title, dea
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ deal_id: dealId }),
+          body: JSON.stringify({ deal_id: dealId, tone }),
         },
       );
       const result = await resp.json();
