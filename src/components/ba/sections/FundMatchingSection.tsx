@@ -677,8 +677,21 @@ export default function FundMatchingSection({ dealId }: Props) {
 
   const handleAction = async (fundId: string, action: 'send_teaser' | 'send_nda' | 'relance') => {
     if (action === 'send_teaser') {
-      await updateOutreach(fundId, { status: 'teaser_sent', last_action_label: 'Teaser envoyé' });
-      toast.success('Teaser envoyé (statut mis à jour)');
+      // Vrai envoi email via send-teaser-to-fund (Resend + watermark + tracking)
+      try {
+        const { data, error } = await supabase.functions.invoke('send-teaser-to-fund', {
+          body: { deal_id: dealId, funding_program_id: fundId },
+        });
+        if (error || (data as any)?.error) {
+          throw new Error((data as any)?.error || error?.message || 'Échec envoi');
+        }
+        toast.success(`Teaser envoyé à ${(data as any)?.fund}`, {
+          description: `Destinataire : ${(data as any)?.recipient}`,
+        });
+        await load();
+      } catch (e: any) {
+        toast.error(`Envoi teaser échoué : ${e?.message ?? 'Erreur'}`);
+      }
     } else if (action === 'send_nda') {
       await updateOutreach(fundId, { status: 'nda_pending', last_action_label: 'NDA envoyée' });
       toast.success('NDA envoyée (statut mis à jour)');
