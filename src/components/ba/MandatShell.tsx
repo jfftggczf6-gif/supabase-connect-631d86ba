@@ -197,7 +197,7 @@ export default function MandatShell({ bundle, role, organizationId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <MandatSubHeader mandat={bundle.mandat} />
+      <MandatSubHeader mandat={bundle.mandat} stats={bundle.stats} onNavigate={handleSelect} />
       <div className="flex flex-1 overflow-hidden">
         <MandatSideNav
           groups={groups}

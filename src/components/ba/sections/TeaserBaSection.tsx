@@ -268,7 +268,6 @@ function WarningBox({ warnings, onApply, onIgnore }: {
             </div>
             <div className="flex gap-1 shrink-0">
               <Button size="sm" className="h-6 text-[10px] px-2" onClick={() => onApply(w.id)}>Appliquer</Button>
-              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2">Modifier</Button>
               <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => onIgnore(w.id)}>Ignorer</Button>
             </div>
           </div>
@@ -545,6 +544,28 @@ export default function TeaserBaSection({ dealId }: Props) {
           version_label: `v1 — ${new Date((deliv as any).created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`,
           created_at: (deliv as any).created_at,
         };
+        // Distribution dynamique : lit pe_fund_outreach.status >= teaser_sent
+        // pour ce deal et joint funding_programs pour les noms.
+        const { data: outreach } = await supabase
+          .from('pe_fund_outreach')
+          .select('status, last_action_at, funding_program_id')
+          .eq('deal_id', dealId)
+          .in('status', ['teaser_sent', 'interested', 'nda_pending', 'nda_signed', 'im_shared', 'meeting_held', 'ioi_received', 'loi_signed', 'closed']);
+        let distribution: TeaserRow['distribution'] = [];
+        if (outreach && outreach.length > 0) {
+          const ids = outreach.map((o: any) => o.funding_program_id);
+          const { data: progs } = await supabase
+            .from('funding_programs')
+            .select('id, name')
+            .in('id', ids);
+          const nameMap = new Map(((progs || []) as any[]).map(p => [p.id, p.name]));
+          distribution = outreach.map((o: any) => ({
+            fund_name: nameMap.get(o.funding_program_id) ?? 'Fonds',
+            status: ['ioi_received', 'loi_signed', 'closed'].includes(o.status) ? 'sent' : 'pending',
+            sent_at: o.last_action_at ?? null,
+          }));
+        }
+        row.distribution = distribution;
         setTeaser(row);
         setPayload(teaserPayload || (info ? mockPayload(info.name, info.sector, info.country, info.ticket) : null));
       } else if (info) {

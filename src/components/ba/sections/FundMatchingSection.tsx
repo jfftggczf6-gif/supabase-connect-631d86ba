@@ -19,8 +19,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Loader2, Plus, Send, ArrowRight, AlertCircle, Phone,
-  Mail, Edit3, ChevronRight, Sparkles,
+  Loader2, ArrowRight, AlertCircle, Phone,
+  Mail, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -300,7 +300,7 @@ function FundTable({ funds, selected, onSelect, onAction }: {
   );
 }
 
-function FundDetailPanel({ fund }: { fund: FundRow }) {
+function FundDetailPanel({ fund, onNegotiateLoi }: { fund: FundRow; onNegotiateLoi?: (fundId: string) => void }) {
   const o = fund.outreach;
   const status = o?.status ?? 'matched';
   return (
@@ -375,13 +375,17 @@ function FundDetailPanel({ fund }: { fund: FundRow }) {
           </>
         )}
 
-        <div className="flex gap-1.5 justify-end mt-3">
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"><Mail className="h-3 w-3" /> Envoyer un document</Button>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"><Edit3 className="h-3 w-3" /> Ajouter une note</Button>
-          {(status === 'ioi_received' || status === 'meeting_held') && (
-            <Button size="sm" className="h-7 text-[10px] gap-1"><ArrowRight className="h-3 w-3" /> Négocier LOI</Button>
-          )}
-        </div>
+        {(status === 'ioi_received' || status === 'meeting_held') && (
+          <div className="flex gap-1.5 justify-end mt-3">
+            <Button
+              size="sm"
+              className="h-7 text-[10px] gap-1"
+              onClick={() => onNegotiateLoi?.(fund.program.id)}
+            >
+              <ArrowRight className="h-3 w-3" /> Marquer LOI signée
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -827,14 +831,9 @@ export default function FundMatchingSection({ dealId }: Props) {
             {matchingLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             Matching IA
           </Button>
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
-            <Plus className="h-3 w-3" /> Ajouter un fonds
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
-            <Send className="h-3 w-3" /> Envoyer teaser
-          </Button>
-          <Button size="sm" className="h-8 text-xs gap-1" onClick={handleHandoff}>
-            <ArrowRight className="h-3 w-3" /> Handoff PE
+          <Button size="sm" className="h-8 text-xs gap-1" onClick={handleHandoff} disabled={handoffLoading}>
+            {handoffLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+            Handoff PE
           </Button>
         </div>
       </div>
@@ -842,7 +841,15 @@ export default function FundMatchingSection({ dealId }: Props) {
       <KpisRow k={kpis} />
       <Funnel k={kpis} />
       <FundTable funds={funds} selected={selectedFundId} onSelect={setSelectedFundId} onAction={handleAction} />
-      {selectedFund && <FundDetailPanel fund={selectedFund} />}
+      {selectedFund && (
+        <FundDetailPanel
+          fund={selectedFund}
+          onNegotiateLoi={async (fid) => {
+            await updateOutreach(fid, { status: 'loi_signed', last_action_label: 'LOI signée' });
+            toast.success('LOI marquée signée — handoff PE désormais possible');
+          }}
+        />
+      )}
       <IoiCompare funds={funds} />
       <RelancesPanel funds={funds} onRelance={(id) => handleAction(id, 'relance')} />
       <HandoffPanel funds={funds} dealId={dealId} onHandoff={handleHandoff} />

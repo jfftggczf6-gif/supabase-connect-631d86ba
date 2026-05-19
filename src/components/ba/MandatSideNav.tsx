@@ -17,11 +17,13 @@ interface Props {
   onSelect: (code: SectionCode) => void;
 }
 
+// Icônes alignées brief P7 audit 19/05 : ⊙ = section remplie pas validée,
+// ✅ = validée, ○ = vide/non commencé.
 const STATUS_META: Record<SectionStatus, { Icon: typeof Circle; cls: string; label: string }> = {
   not_started: { Icon: Circle,       cls: 'text-muted-foreground/40', label: 'Non commencé' },
-  empty:       { Icon: CircleDashed, cls: 'text-muted-foreground',    label: 'Vide' },
-  draft:       { Icon: CircleDot,    cls: 'text-blue-500',            label: 'Brouillon' },
-  submitted:   { Icon: CircleDot,    cls: 'text-amber-500',           label: 'Soumis' },
+  empty:       { Icon: Circle,       cls: 'text-muted-foreground/40', label: 'Vide' },
+  draft:       { Icon: CircleDot,    cls: 'text-violet-500',          label: 'Brouillon' },
+  submitted:   { Icon: CircleDot,    cls: 'text-amber-500',           label: 'Soumis (à valider)' },
   correction:  { Icon: CircleAlert,  cls: 'text-orange-600',          label: 'À corriger' },
   validated:   { Icon: CircleCheck,  cls: 'text-emerald-600',         label: 'Validé' },
 };
@@ -54,7 +56,7 @@ export default function MandatSideNav({ groups, active, onSelect }: Props) {
           const GroupIcon = GROUP_ICONS[group.code] || Database;
           return (
             <div key={group.code} className="mb-1">
-              <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
                 <GroupIcon className="h-3 w-3" />
                 {group.label}
               </div>
@@ -70,8 +72,9 @@ export default function MandatSideNav({ groups, active, onSelect }: Props) {
                         className={cn(
                           'w-full text-left px-3 py-1.5 flex items-start gap-2 text-xs transition-colors',
                           'hover:bg-muted/60',
-                          isActive && 'bg-background border-l-2 border-primary font-semibold',
-                          !isActive && 'border-l-2 border-transparent',
+                          // Border-left violet 3px sur l'item actif (aligné PE)
+                          isActive && 'bg-violet-50 border-l-[3px] border-violet-600 font-semibold text-violet-900',
+                          !isActive && 'border-l-[3px] border-transparent',
                           item.disabled && 'opacity-50 cursor-not-allowed',
                         )}
                         aria-current={isActive ? 'page' : undefined}
