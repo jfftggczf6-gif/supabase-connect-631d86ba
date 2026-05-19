@@ -718,8 +718,52 @@ export default function FundMatchingSection({ dealId }: Props) {
     }
   };
 
-  const handleHandoff = () => {
-    toast.info('Handoff PE — workflow à intégrer avec EF create-pe-deal-from-ba');
+  const [handoffLoading, setHandoffLoading] = useState(false);
+  const handleHandoff = async () => {
+    // Identifie le fonds le plus avancé (LOI signed / closed / IOI / meeting)
+    const handoffEligible = funds.find(
+      f => f.outreach && ['loi_signed', 'closed', 'ioi_received', 'meeting_held'].includes(f.outreach.status),
+    );
+    if (!handoffEligible) {
+      toast.error('Aucun fonds éligible — attends LOI signée ou IOI reçue');
+      return;
+    }
+    // Charge orgs PE accessibles via supabase (RLS retournera celles que l'user voit)
+    const { data: peOrgs } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('type', 'pe')
+      .limit(10);
+    if (!peOrgs || peOrgs.length === 0) {
+      toast.error('Aucune org PE disponible pour handoff');
+      return;
+    }
+    const targetOrg = peOrgs[0]; // Par défaut première org PE — UI peut afficher modal sélection
+    if (!confirm(`Handoff vers ${targetOrg.name} ?\n\nCela créera un deal PE dans leur espace avec : enterprise + documents + memo (12 sections) + valuation. Le mandat BA passera en stage 'close'.`)) {
+      return;
+    }
+    setHandoffLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-pe-deal-from-ba', {
+        body: {
+          ba_deal_id: dealId,
+          funding_program_id: handoffEligible.program.id,
+          target_pe_org_id: targetOrg.id,
+        },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || 'Échec handoff');
+      }
+      const r = data as any;
+      toast.success(`Handoff réussi → ${r?.target_org_name}`, {
+        description: `Deal PE ${r?.new_deal_ref} créé · ${r?.items_copied?.documents} docs · ${r?.items_copied?.memo_sections} sections · ${r?.items_copied?.valuation ? 'valuation' : 'pas de valuation'}`,
+      });
+      await load();
+    } catch (e: any) {
+      toast.error(`Handoff échoué : ${e?.message ?? 'Erreur'}`);
+    } finally {
+      setHandoffLoading(false);
+    }
   };
 
   const [matchingLoading, setMatchingLoading] = useState(false);
