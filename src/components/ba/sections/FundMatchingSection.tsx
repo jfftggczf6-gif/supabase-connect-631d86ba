@@ -484,9 +484,15 @@ function RelancesPanel({ funds, onRelance }: { funds: FundRow[]; onRelance: (id:
               <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2" onClick={() => onRelance(f.program.id)}>
                 <Mail className="h-3 w-3" /> Relancer
               </Button>
-              <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2">
-                <Phone className="h-3 w-3" /> Appeler
-              </Button>
+              {f.program.contact_email && (
+                <Button
+                  size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2" asChild
+                >
+                  <a href={`mailto:${f.program.contact_email}?subject=Suivi%20${encodeURIComponent(f.program.name)}`}>
+                    <Phone className="h-3 w-3" /> Contacter
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         ))}

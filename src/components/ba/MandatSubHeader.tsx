@@ -2,6 +2,7 @@
 // SubHeader du MandatShell : back button + nom deal + secteur + pays + ticket + stage tag.
 // Brief mandat_detail_layout critère #2.
 
+import { useState } from 'react';
 import { ArrowLeft, Building2, MapPin, Coins, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Mandat } from '@/types/ba';
 import type { MandatDetailBundle } from '@/types/ba-shell';
 import BaNextStepCta from './BaNextStepCta';
+import MandatManageDialog from './MandatManageDialog';
 
 interface Props {
   mandat: Mandat;
@@ -35,6 +37,7 @@ function formatTicket(ticket: number | null, currency: string | null): string {
 
 export default function MandatSubHeader({ mandat, stats, onNavigate }: Props) {
   const navigate = useNavigate();
+  const [manageOpen, setManageOpen] = useState(false);
   const stage = STAGE_LABELS[mandat.stage] || { label: mandat.stage, cls: 'bg-muted text-muted-foreground' };
 
   return (
@@ -89,12 +92,18 @@ export default function MandatSubHeader({ mandat, stats, onNavigate }: Props) {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => onNavigate?.('parametres_mandat')}
+            onClick={() => setManageOpen(true)}
           >
             <Settings className="h-3.5 w-3.5" /> Gérer le mandat
           </Button>
         </div>
       </div>
+
+      <MandatManageDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        mandat={mandat}
+      />
     </div>
   );
 }
