@@ -277,9 +277,9 @@ function FundTable({ funds, selected, onSelect, onAction }: {
                       Envoyer teaser
                     </Button>
                   )}
-                  {status === 'interested' && (
+                  {(status === 'interested' || status === 'nda_pending' || status === 'teaser_sent') && (
                     <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={(e) => { e.stopPropagation(); onAction(f.program.id, 'send_nda'); }}>
-                      Envoyer NDA
+                      NDA reçue → IM
                     </Button>
                   )}
                   {needsRelance && (
@@ -693,8 +693,22 @@ export default function FundMatchingSection({ dealId }: Props) {
         toast.error(`Envoi teaser échoué : ${e?.message ?? 'Erreur'}`);
       }
     } else if (action === 'send_nda') {
-      await updateOutreach(fundId, { status: 'nda_pending', last_action_label: 'NDA envoyée' });
-      toast.success('NDA envoyée (statut mis à jour)');
+      // 'send_nda' UI = "NDA reçue & Partager IM" — l'analyste confirme avoir reçu
+      // le NDA signé, déclenche le partage data room sécurisé + envoi IM
+      try {
+        const { data, error } = await supabase.functions.invoke('share-im-after-nda', {
+          body: { deal_id: dealId, funding_program_id: fundId },
+        });
+        if (error || (data as any)?.error) {
+          throw new Error((data as any)?.error || error?.message || 'Échec partage IM');
+        }
+        toast.success(`IM partagé via Data Room`, {
+          description: `Lien sécurisé → ${(data as any)?.recipient} (expire le ${new Date((data as any)?.expires_at).toLocaleDateString('fr-FR')})`,
+        });
+        await load();
+      } catch (e: any) {
+        toast.error(`Partage IM échoué : ${e?.message ?? 'Erreur'}`);
+      }
     } else if (action === 'relance') {
       await updateOutreach(fundId, {
         status: funds.find(f => f.program.id === fundId)?.outreach?.status ?? 'matched',
