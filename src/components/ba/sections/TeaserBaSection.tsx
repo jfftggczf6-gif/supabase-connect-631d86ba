@@ -526,7 +526,7 @@ export default function TeaserBaSection({ dealId }: Props) {
         .from('deliverables')
         .select('id, html_content, data, created_at, validation_status')
         .eq('enterprise_id', entId)
-        .eq('type', 'onepager')
+        .eq('type', 'teaser_anonymise')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -565,11 +565,12 @@ export default function TeaserBaSection({ dealId }: Props) {
       const entId = (enterprise as any)?.enterprise_id;
       if (!entId) throw new Error('Pas d\'enterprise rattachée');
 
-      const { data, error } = await supabase.functions.invoke('generate-onepager', {
-        body: { enterprise_id: entId, anonymous: true, code_name: pickCodeName() },
+      const { data, error } = await supabase.functions.invoke('generate-teaser-ba', {
+        body: { deal_id: dealId, code_name: payload?.code_name || pickCodeName() },
       });
       if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || 'Échec génération');
-      toast.success('Teaser généré');
+      const wc = (data as any)?.warnings_count;
+      toast.success(`Teaser généré${wc !== undefined ? ` — ${wc} warning${wc > 1 ? 's' : ''} à résoudre` : ''}`);
       await load();
     } catch (e: any) {
       toast.error(e?.message ?? 'Erreur');
