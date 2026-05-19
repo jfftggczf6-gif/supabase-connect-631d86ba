@@ -160,8 +160,13 @@ serve(async (req: Request) => {
 
     const callerOrgName = (deal as any).organizations?.name || "Banque d'affaires";
 
-    // 2. Teaser deliverable
-    const { data: deliv } = await userClient
+    // 2. Teaser deliverable — service role car RLS deliverables exclut managing_director BA
+    //    L'autorisation a déjà été vérifiée via userClient.from('pe_deals') (RLS BA OK).
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: deliv } = await adminClient
       .from("deliverables")
       .select("id, data")
       .eq("enterprise_id", deal.enterprise_id)
@@ -207,8 +212,9 @@ serve(async (req: Request) => {
 
     const subject = `${teaserPayload.code_name || "Opportunité d'investissement"} — ${teaserPayload?.sections?.presentation?.secteur || "Secteur"}`;
 
-    // 7. Invoke send-email (Resend)
-    const sendResp = await userClient.functions.invoke("send-email", {
+    // 7. Invoke send-email (Resend) via adminClient (service role) car
+    //    send-email a verify_jwt=true et le JWT propagé du caller peut être rejeté.
+    const sendResp = await adminClient.functions.invoke("send-email", {
       body: {
         to: recipientEmail,
         subject,
@@ -217,14 +223,19 @@ serve(async (req: Request) => {
       },
     });
     if (sendResp.error) {
-      return errorResponse(`send-email failed: ${sendResp.error.message}`, 500);
+      // Récupère le vrai message d'erreur de send-email
+      let detail = sendResp.error.message;
+      try {
+        const ctx: any = (sendResp.error as any).context;
+        if (ctx && typeof ctx.json === 'function') {
+          const body = await ctx.json();
+          detail = body?.error?.message || body?.error || JSON.stringify(body);
+        }
+      } catch (_) { /* keep default */ }
+      return errorResponse(`send-email failed: ${detail}`, 500);
     }
 
-    // 8. UPDATE pe_fund_outreach (status='teaser_sent')
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // 8. UPDATE pe_fund_outreach (status='teaser_sent') — réutilise adminClient
     const { data: existing } = await adminClient
       .from("pe_fund_outreach")
       .select("id")
