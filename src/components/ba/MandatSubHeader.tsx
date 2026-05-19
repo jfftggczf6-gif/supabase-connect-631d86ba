@@ -2,14 +2,18 @@
 // SubHeader du MandatShell : back button + nom deal + secteur + pays + ticket + stage tag.
 // Brief mandat_detail_layout critère #2.
 
-import { ArrowLeft, Building2, MapPin, Coins } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Coins, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import type { Mandat } from '@/types/ba';
+import type { MandatDetailBundle } from '@/types/ba-shell';
+import BaNextStepCta from './BaNextStepCta';
 
 interface Props {
   mandat: Mandat;
+  stats?: MandatDetailBundle['stats'];
+  onNavigate?: (section: string) => void;
 }
 
 const STAGE_LABELS: Record<string, { label: string; cls: string }> = {
@@ -29,7 +33,7 @@ function formatTicket(ticket: number | null, currency: string | null): string {
   return `${ticket} ${cur}`;
 }
 
-export default function MandatSubHeader({ mandat }: Props) {
+export default function MandatSubHeader({ mandat, stats, onNavigate }: Props) {
   const navigate = useNavigate();
   const stage = STAGE_LABELS[mandat.stage] || { label: mandat.stage, cls: 'bg-muted text-muted-foreground' };
 
@@ -74,6 +78,21 @@ export default function MandatSubHeader({ mandat }: Props) {
               <Coins className="h-3 w-3" /> {formatTicket(mandat.ticket_demande, mandat.currency)}
             </span>
           </div>
+        </div>
+
+        {/* Actions header alignées PE : bouton génération contextuelle + Gérer le mandat */}
+        <div className="flex items-center gap-2 shrink-0">
+          {stats && (
+            <BaNextStepCta dealId={mandat.id} stats={stats} onNavigate={onNavigate} />
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => onNavigate?.('parametres_mandat')}
+          >
+            <Settings className="h-3.5 w-3.5" /> Gérer le mandat
+          </Button>
         </div>
       </div>
     </div>
