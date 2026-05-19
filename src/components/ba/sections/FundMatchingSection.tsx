@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Loader2, Plus, Send, ArrowRight, AlertCircle, Phone,
-  Mail, Edit3, ChevronRight,
+  Mail, Edit3, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -695,6 +695,30 @@ export default function FundMatchingSection({ dealId }: Props) {
     toast.info('Handoff PE — workflow à intégrer avec EF create-pe-deal-from-ba');
   };
 
+  const [matchingLoading, setMatchingLoading] = useState(false);
+  const handleAiMatching = async () => {
+    if (matchingLoading) return;
+    setMatchingLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('match-deal-funds', {
+        body: { deal_id: dealId },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || 'Échec matching IA');
+      }
+      const r = data as any;
+      toast.success(
+        `Matching IA terminé — top score ${r?.top_score}% (${r?.top_fund || 'n/a'})`,
+        { description: `${r?.matches_created || 0} créés, ${r?.matches_updated || 0} mis à jour` },
+      );
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erreur matching IA');
+    } finally {
+      setMatchingLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
@@ -728,6 +752,10 @@ export default function FundMatchingSection({ dealId }: Props) {
           </div>
         </div>
         <div className="flex gap-1.5">
+          <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleAiMatching} disabled={matchingLoading}>
+            {matchingLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            Matching IA
+          </Button>
           <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
             <Plus className="h-3 w-3" /> Ajouter un fonds
           </Button>
