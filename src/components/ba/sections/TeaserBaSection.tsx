@@ -11,6 +11,7 @@
 // Catégorie 2 : composant BA dédié (pas un wrapper PE).
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -488,6 +489,7 @@ function ComparisonView({ comparison }: { comparison: TeaserPayload['comparison'
 
 // ─── Composant principal ────────────────────────────────────────────────────
 export default function TeaserBaSection({ dealId }: Props) {
+  const [, setSearchParams] = useSearchParams();
   const [teaser, setTeaser] = useState<TeaserRow | null>(null);
   const [payload, setPayload] = useState<TeaserPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -722,18 +724,56 @@ export default function TeaserBaSection({ dealId }: Props) {
           {/* Actions */}
           <div className="flex items-center justify-between mt-4 pt-3.5 border-t">
             <div className="flex gap-1.5">
-              <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
+              <Button
+                size="sm" variant="outline" className="h-8 text-xs gap-1"
+                onClick={() => setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; })}
+              >
                 <Send className="h-3 w-3" /> Envoyer à 1 fonds
               </Button>
-              <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
+              <Button
+                size="sm" variant="outline" className="h-8 text-xs gap-1"
+                onClick={async () => {
+                  const url = `${window.location.origin}/ba/deals/${dealId}?section=teaser`;
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast.success('Lien interne copié', { description: url });
+                  } catch {
+                    toast.error('Impossible de copier');
+                  }
+                }}
+              >
                 <Link2 className="h-3 w-3" /> Copier le lien
               </Button>
             </div>
             <div className="flex gap-1.5">
-              <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
+              <Button
+                size="sm" variant="outline" className="h-8 text-xs gap-1"
+                disabled={!teaser}
+                onClick={async () => {
+                  if (!teaser) return;
+                  const { error } = await supabase
+                    .from('deliverables')
+                    .update({ validation_status: 'pending_validation' })
+                    .eq('id', teaser.id);
+                  if (error) toast.error(error.message);
+                  else { toast.info('Teaser renvoyé à l\'analyste'); await load(); }
+                }}
+              >
                 <RotateCcw className="h-3 w-3" /> Renvoyer à l'Analyste
               </Button>
-              <Button size="sm" className="h-8 text-xs gap-1">
+              <Button
+                size="sm" className="h-8 text-xs gap-1"
+                disabled={!teaser}
+                onClick={async () => {
+                  if (!teaser) return;
+                  const { error } = await supabase
+                    .from('deliverables')
+                    .update({ validation_status: 'validated' })
+                    .eq('id', teaser.id);
+                  if (error) toast.error(error.message);
+                  else { toast.success('Teaser approuvé pour diffusion'); await load(); }
+                }}
+              >
                 <CheckCircle2 className="h-3 w-3" /> Approuver pour diffusion
               </Button>
             </div>

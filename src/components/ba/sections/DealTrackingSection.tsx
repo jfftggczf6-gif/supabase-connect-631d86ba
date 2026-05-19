@@ -10,6 +10,7 @@
 // Complémentaire à FundMatchingSection (qui est la vue FONDS).
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,7 @@ function daysSince(iso: string | null): number | null {
 }
 
 export default function DealTrackingSection({ dealId }: Props) {
+  const [, setSearchParams] = useSearchParams();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [activity, setActivity] = useState<OutreachActivity[]>([]);
@@ -254,18 +256,24 @@ export default function DealTrackingSection({ dealId }: Props) {
             variant="outline"
             className="justify-start gap-2"
             disabled={!kpis.canHandoff}
-            onClick={() => toast.info(kpis.canHandoff
-              ? 'Levée d\'anonymat — workflow à intégrer (révélation identité aux fonds en LOI)'
-              : 'Action disponible quand une LOI est signée')}
+            onClick={() => {
+              if (!kpis.canHandoff) return;
+              // Navigue vers fund_matching où l'action handoff complète est implémentée
+              setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; });
+              toast.info('Levée d\'anonymat : ouvre Fonds & matching → fonds en LOI');
+            }}
           >
             <EyeOff className="h-4 w-4" /> Lever l'anonymat
           </Button>
           <Button
             className="justify-start gap-2"
             disabled={!kpis.canHandoff}
-            onClick={() => toast.info(kpis.canHandoff
-              ? 'Handoff BA → PE — workflow à intégrer avec create-pe-deal-from-ba (cross-org)'
-              : 'Handoff possible uniquement après LOI signée')}
+            onClick={() => {
+              if (!kpis.canHandoff) return;
+              // Le bouton 'Handoff PE' dans fund_matching ouvre confirm + invoke create-pe-deal-from-ba
+              setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; });
+              toast.info('Clique sur "Handoff PE" en haut de Fonds & matching');
+            }}
           >
             <ArrowRight className="h-4 w-4" /> Transférer au PE
           </Button>
