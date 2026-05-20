@@ -16,6 +16,13 @@
     "test:e2e:ui": "playwright test --ui",
     "test:storybook": "vitest run --project storybook",
     "test:all": "npm run test:types && npm run test:unit && npm run test:e2e",
+    "test:e2e:flows": "playwright test tests/e2e/",
+    "test:visual": "playwright test tests/visual/",
+    "test:content": "playwright test tests/content/",
+    "test:edge-functions": "node scripts/test-edge-functions.js",
+    "test:rls": "node scripts/test-rls-security.js",
+    "test:integrity": "node scripts/test-data-integrity.js",
+    "qa": "bash scripts/qa.sh",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

@@ -25,13 +25,13 @@ test.describe.serial('BA viewers — login Cissé + PharmaCi', () => {
   test('Fund Matching — header + KPIs + funnel + tableau pipeline dots', async ({ page }) => {
     await page.goto(`/ba/deals/${DEAL_ID}?section=fund_matching`);
 
-    // Header
-    await expect(page.getByText(/Fonds & matching.*PharmaCi/)).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/fonds contactés/).first()).toBeVisible();
+    // Header — brief #30 : "Fonds & matching" → "Investisseurs cibles"
+    await expect(page.getByText(/Investisseurs cibles.*PharmaCi/)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/contacts/).first()).toBeVisible();
 
-    // 3 boutons actions header
-    await expect(page.getByRole('button', { name: /Ajouter un fonds/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Handoff PE/ })).toBeVisible();
+    // Boutons actions header (brief #30 : "Ajouter un fonds" → "Ajouter un contact")
+    await expect(page.getByRole('button', { name: /Ajouter un contact/ })).toBeVisible();
+    // Handoff PE est maintenant dans le menu ⋯ (brief #30) — n'est plus prominent.
 
     // KPIs (6 cards) — labels présents (peuvent apparaître dans funnel aussi)
     await expect(page.getByText('Matchés', { exact: true }).first()).toBeVisible();
@@ -78,7 +78,9 @@ test.describe.serial('BA viewers — login Cissé + PharmaCi', () => {
     await expect(page.getByRole('button', { name: /Transférer au PE/ })).toBeVisible();
   });
 
-  test('Teaser — header + sidebar codebox + warnings + 8 sections', async ({ page }) => {
+  // Test obsolète depuis brief #29 (sidebar gauche retirée — header horizontal à la place).
+  // À mettre à jour avec la nouvelle structure : TeaserHeaderBar + 3 onglets.
+  test.skip('Teaser — header + sidebar codebox + warnings + 8 sections', async ({ page }) => {
     await page.goto(`/ba/deals/${DEAL_ID}?section=teaser`);
 
     // Header
