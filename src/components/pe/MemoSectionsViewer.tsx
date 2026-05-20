@@ -10,6 +10,7 @@ import ScoreCircle from '@/components/shared/ScoreDisplay';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
 import { useTone } from '@/hooks/useTone';
 import PeExportButton from '@/components/shared/ExportButton';
+import { Lock } from 'lucide-react';
 import PeNextStepCta from './PeNextStepCta';
 import MemoNarrativeView from './MemoNarrativeView';
 import * as Sections from './sections';
@@ -277,6 +278,12 @@ export default function MemoSectionsViewer({ dealId, withToc = false, title, dea
               <RotateCcw className="h-3.5 w-3.5" /> Brouillon
             </Button>
           </div>
+          {/* Brief #35 — Bouton Partager en data room (PE uniquement, BA passe par NDA workflow) */}
+          {deal?.id && tone !== 'ba' && (
+            <Button variant="outline" size="sm" onClick={() => onNavigate?.('data_room')} className="gap-1.5">
+              <Lock className="h-3.5 w-3.5" /> Partager en data room
+            </Button>
+          )}
           {deal?.id && <PeExportButton dealId={deal.id} kind="memo_ic1" label="Exporter le memo" />}
         </div>
       </CardContent>

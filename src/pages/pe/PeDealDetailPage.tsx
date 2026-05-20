@@ -23,6 +23,7 @@ import PeDealDocumentsUploader from '@/components/pe/PeDealDocumentsUploader';
 import DealHistoryTimeline from '@/components/pe/DealHistoryTimeline';
 import PeBenchmarkSourcesView from '@/components/pe/PeBenchmarkSourcesView';
 import PeDealNotesView from '@/components/pe/PeDealNotesView';
+import PeDataRoomSection from '@/components/pe/PeDataRoomSection';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
 import DueDiligenceSection from '@/components/pe/DueDiligenceSection';
 import PeValuationView from '@/components/pe/PeValuationView';
@@ -300,6 +301,10 @@ export default function PeDealDetailPage() {
     }
     if (selectedItem === 'exit_prep') {
       return currentOrg ? <ExitPrepSection dealId={deal.id} organizationId={currentOrg.id} /> : null;
+    }
+    if (selectedItem === 'data_room') {
+      // Brief #35 — Data Room PE (co-investisseurs / LPs / conseillers externes)
+      return <PeDataRoomSection dealId={deal.id} />;
     }
     return <div className="text-muted-foreground">Sélectionne un item dans le menu.</div>;
   };

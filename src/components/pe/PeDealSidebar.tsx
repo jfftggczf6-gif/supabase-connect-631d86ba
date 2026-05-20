@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Home, FolderOpen, History, FileEdit, ShieldCheck, Search,
-  BookMarked, Calculator, FileSignature, Sparkles, Activity, DoorOpen, PenLine,
+  BookMarked, Calculator, FileSignature, Sparkles, Activity, DoorOpen, PenLine, Lock,
 } from 'lucide-react';
 import DealSideNav, {
   type SharedSidebarGroup, type SharedSidebarItem, type SharedSectionStatus,
@@ -255,6 +255,17 @@ export default function PeDealSidebar({
       decisionItems.push({ code: 'closing', label: 'Closing', status: 'not_started', icon: FileSignature });
     }
     groups.push({ code: 'decision', label: 'Décision', items: decisionItems });
+  }
+
+  // ── DATA ROOM ── (brief #35) — toujours dispo dès qu'un memo existe
+  if (showAnalysis) {
+    groups.push({
+      code: 'partage',
+      label: 'Partage',
+      items: [
+        { code: 'data_room', label: 'Data Room', status: 'not_started', icon: Lock },
+      ],
+    });
   }
 
   // ── PORTEFEUILLE ──
