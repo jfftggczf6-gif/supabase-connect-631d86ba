@@ -145,6 +145,9 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
     setParsedDocs([]);
     setParsingSummary(null);
 
+    // AbortController pour bouton "Arrêter" — vérifié pendant le poll Railway
+    abortRef.current = new AbortController();
+
     try {
       // 0. Ensure valid auth session
       const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -223,42 +226,99 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
 
       console.log('Document content cached:', finalContent.length, 'chars from', docs.length, 'files');
 
-      // === STEP 4: Reconstruction (reads cache — fast) ===
-      setProgressLabel('Reconstruction IA en cours…');
+      // === STEP 4: Dispatch reconstruction vers Railway worker (~2s) ===
+      // Migration prod 2026-05-20 : l'EF retourne immédiatement un job_id,
+      // le worker Railway tourne sans timeout proxy Supabase (150s).
+      setProgressLabel('Dispatch IA en cours…');
       setProgress(82);
-      const abortController = new AbortController();
-      abortRef.current = abortController;
-      const timeoutId = setTimeout(() => abortController.abort(), 180000);
-      const response = await fetch(
+      const dispatchResp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reconstruct-from-traces`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ enterprise_id: enterpriseId }),
-          signal: abortController.signal,
         }
       );
-      clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Erreur' }));
-        throw new Error(err.error || 'Erreur de reconstruction');
+      if (!dispatchResp.ok) {
+        const err = await dispatchResp.json().catch(() => ({ error: 'Erreur' }));
+        throw new Error(err.error || 'Erreur de dispatch');
       }
 
-      const data = await response.json();
-      const resultData = data.data || data;
+      const { job_id: jobId } = await dispatchResp.json();
+      if (!jobId) throw new Error('Pas de job_id retourné');
+
+      // === STEP 5: Poll ai_jobs toutes les 2s ===
+      setProgressLabel('Reconstruction IA en cours… (peut prendre 1-5 min)');
+      const POLL_INTERVAL_MS = 2000;
+      const MAX_WAIT_MS = 15 * 60 * 1000; // 15 min hard limit
+      const startedAt = Date.now();
+      let resultData: any = null;
+      let pollProgress = 82;
+
+      while (Date.now() - startedAt < MAX_WAIT_MS) {
+        // Token refresh sur poll long (au cas où la session expire)
+        if (abortRef.current?.signal.aborted) throw new Error('Reconstruction annulée');
+
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+
+        const { data: job, error: pollErr } = await supabase
+          .from('ai_jobs')
+          .select('status, result, error_message, error_kind, started_at, finished_at')
+          .eq('id', jobId)
+          .maybeSingle();
+
+        if (pollErr) {
+          console.warn('[reconstruct] poll error (continue):', pollErr.message);
+          continue;
+        }
+        if (!job) {
+          console.warn('[reconstruct] job introuvable, continue poll');
+          continue;
+        }
+
+        // Progress visual : on monte de 82% jusqu'à 95% pendant le poll
+        if (pollProgress < 95) {
+          pollProgress = Math.min(95, pollProgress + 0.5);
+          setProgress(Math.round(pollProgress));
+        }
+        if ((job as any).started_at && pollProgress < 90) {
+          setProgressLabel('Claude analyse les documents… (~1-3 min)');
+        }
+
+        const status = (job as any).status;
+        if (status === 'ready') {
+          const r = (job as any).result || {};
+          resultData = r.data || r;
+          break;
+        }
+        if (status === 'error') {
+          throw new Error((job as any).error_message || 'Reconstruction échouée côté worker');
+        }
+        // sinon: status 'pending' ou 'running' → continue
+      }
+
+      if (!resultData) {
+        throw new Error('Reconstruction trop longue (>15 min). Réessayez avec moins de fichiers.');
+      }
+
       const confidence = resultData.score_confiance || 0;
 
-      // Auto-detect operating mode based on confidence score
-      const autoMode = confidence >= 70 ? 'due_diligence' : 'reconstruction';
-      const modeUpdates: Record<string, unknown> = { operating_mode: autoMode };
-      if (autoMode === 'due_diligence') {
-        modeUpdates.data_room_enabled = true;
-        modeUpdates.data_room_slug = crypto.randomUUID().substring(0, 12);
+      // Le worker gère déjà operating_mode + data_room_enabled, mais le slug
+      // doit être set côté front (worker n'a pas crypto.randomUUID dispo).
+      if (confidence >= 70) {
+        const { data: ent } = await supabase
+          .from('enterprises')
+          .select('data_room_slug')
+          .eq('id', enterpriseId)
+          .maybeSingle();
+        if (!(ent as any)?.data_room_slug) {
+          await supabase
+            .from('enterprises')
+            .update({ data_room_slug: crypto.randomUUID().substring(0, 12) })
+            .eq('id', enterpriseId);
+        }
       }
-      await supabase.from('enterprises').update(modeUpdates).eq('id', enterpriseId);
-
-      setProgress(95);
 
       setProgress(100);
       setProgressLabel('Terminé !');
@@ -270,7 +330,7 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
 
     } catch (err: any) {
       const message = err.name === 'AbortError'
-        ? 'La reconstruction a pris trop de temps. Essayez avec moins de fichiers.'
+        ? 'Reconstruction annulée.'
         : (err.message || 'Erreur');
       toast.error(message);
     } finally {

@@ -1,184 +1,90 @@
-// v4 — restore corsHeaders 2026-03-19
+// v5 (dispatch Railway) — 2026-05-20
+// reconstruct-from-traces : router fin → dispatch vers esono-ai-worker prod
+// (agent reconstruct-enterprise). L'EF retourne immédiatement { job_id }
+// et le front poll ai_jobs.status toutes les 2s.
+//
+// Motivation : avec >120K chars de document_content cumulé, Claude prenait
+// >150s → proxy Supabase coupait la connection → "Failed to fetch" côté
+// browser. Railway worker n'a pas ce timeout (wall-clock illimité).
+//
+// Pattern identique aux 14 agents PE/BA déjà migrés (auto-enrich-knowledge,
+// generate-ic1-memo, screen-candidatures, match-deal-funds, etc.).
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import {
-  corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  getDocumentContentForAgent,
-} from "../_shared/helpers_v5.ts";
-import { normalizeReconstruction } from "../_shared/normalizers.ts";
-import { validateAndEnrich } from "../_shared/post-validator.ts";
-import { getSectorKnowledgePrompt, getExtractionKnowledgePrompt } from "../_shared/financial-knowledge.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, verifyAndGetContext } from "../_shared/helpers_v5.ts";
 
-const SYSTEM_PROMPT = `Tu es un expert-comptable et analyste financier senior spécialisé dans la reconstitution de données financières de PME africaines (normes SYSCOHADA 2017).
-
-TON RÔLE : À partir de fragments documentaires hétérogènes (relevés bancaires, factures, photos de reçus, tableurs partiels, notes manuscrites, extraits comptables), tu dois RECONSTITUER un jeu de données financières cohérent et exploitable.
-
-MÉTHODOLOGIE DE RECONSTRUCTION :
-1. Identifier chaque fragment documentaire et son type (relevé, facture, bilan partiel, etc.)
-2. Extraire toutes les données chiffrées disponibles
-3. Recouper les données entre sources pour valider la cohérence
-4. Quand une donnée manque, formuler une hypothèse raisonnable basée sur :
-   - Les benchmarks sectoriels fournis
-   - Les ratios SYSCOHADA standards
-   - Les autres données disponibles dans le dossier
-5. Documenter CHAQUE hypothèse et son fondement
-
-RÈGLES ABSOLUES :
-- Toutes les valeurs monétaires en FCFA (pas d'abréviation : 50000000 et non 50M)
-- Exercice fiscal : janvier-décembre (ajuster si les documents montrent un autre cycle)
-- Distinguer clairement "donnée extraite" vs "hypothèse estimée"
-- Score de confiance global basé sur le ratio données réelles / hypothèses
-- Si un document est illisible ou vide, l'indiquer clairement
-
-IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
-
-const OUTPUT_SCHEMA = `{
-  "score_confiance": <0-100, basé sur ratio données réelles vs hypothèses>,
-  "score": <0-100, qualité globale des données reconstituées>,
-
-  "compte_resultat": {
-    "chiffre_affaires": <number>,
-    "achats_matieres": <number>,
-    "charges_personnel": <number>,
-    "charges_externes": <number>,
-    "dotations_amortissements": <number>,
-    "impots_taxes": <number>,
-    "resultat_exploitation": <number>,
-    "charges_financieres": <number>,
-    "resultat_net": <number>,
-    "source": "reconstruction"
-  },
-
-  "bilan": {
-    "immobilisations": <number>,
-    "stocks": <number>,
-    "creances_clients": <number>,
-    "tresorerie_actif": <number>,
-    "total_actif": <number — DOIT être = immobilisations + stocks + creances_clients + tresorerie_actif>,
-    "capitaux_propres": <number>,
-    "dettes_financieres": <number>,
-    "dettes_fournisseurs": <number>,
-    "total_passif": <number — DOIT être = capitaux_propres + dettes_financieres + dettes_fournisseurs>
-  },
-
-  "effectifs": {
-    "total": <number>,
-    "cadres": <number>,
-    "employes": <number>,
-    "temporaires": <number>
-  },
-
-  "kpis": {
-    "marge_brute_pct": <number>,
-    "marge_nette_pct": <number>,
-    "ratio_endettement_pct": <number>,
-    "bfr_jours": <number>,
-    "ca_par_employe": <number>
-  },
-
-  "reconstruction_report": {
-    "source_documents": ["string — liste des documents identifiés et utilisés"],
-    "hypotheses": ["string — chaque hypothèse formulée avec justification"],
-    "donnees_manquantes": ["string — données impossibles à reconstituer"],
-    "note_analyste": "string — résumé en 3-4 phrases de la qualité du dossier"
-  },
-
-  "_confidence": {
-    "chiffre_affaires": { "level": <0-100>, "source": "string — d'où vient cette valeur" },
-    "achats_matieres": { "level": <0-100>, "source": "string" },
-    "charges_personnel": { "level": <0-100>, "source": "string" },
-    "charges_externes": { "level": <0-100>, "source": "string" },
-    "tresorerie": { "level": <0-100>, "source": "string" },
-    "capitaux_propres": { "level": <0-100>, "source": "string" },
-    "resultat_net": { "level": <0-100>, "source": "string" },
-    "effectif_total": { "level": <0-100>, "source": "string" }
-  }
-}`;
+function jsonRes(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const RAILWAY_AI_URL = Deno.env.get("RAILWAY_AI_URL");
+    const RAILWAY_AI_KEY = Deno.env.get("RAILWAY_AI_KEY");
+    if (!RAILWAY_AI_URL || !RAILWAY_AI_KEY) {
+      return jsonRes({ error: "Worker non configuré (RAILWAY_AI_URL/RAILWAY_AI_KEY)" }, 500);
+    }
+
+    // 1. Auth + récup enterprise (helpers_v5 fait check owner/coach/org)
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
 
     if (!ctx.documentContent || ctx.documentContent.trim().length < 50) {
-      throw { status: 400, message: "Aucun contenu documentaire. Veuillez d'abord uploader et analyser des documents." };
+      return jsonRes({
+        error: "Aucun contenu documentaire. Veuillez d'abord uploader et analyser des documents.",
+      }, 400);
     }
 
-    // Use agent-prioritized document content
-    const docContent = getDocumentContentForAgent(ent, "reconstruct", 260_000);
-    console.log("[reconstruct] Docs cache length:", ctx.documentContent.length, "→ prompt length:", docContent.length);
+    // 2. Insert ai_jobs (status: pending)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Build RAG context for sector benchmarks (protected)
-    let ragContext = "";
-    try {
-      ragContext = await buildRAGContext(
-        ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "secteur"], "inputs_data", ctx.enterprise_id
-      );
-    } catch (e) {
-      console.warn("[reconstruct] RAG context failed, continuing without:", e);
+    const { data: job, error: jobErr } = await adminClient
+      .from("ai_jobs")
+      .insert({
+        agent_name: "reconstruct-enterprise",
+        payload: { enterprise_id: ctx.enterprise_id },
+        status: "pending",
+        user_id: ctx.user.id,
+        organization_id: (ent as any).organization_id ?? null,
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) {
+      return jsonRes({ error: `INSERT ai_jobs: ${jobErr?.message ?? "unknown"}` }, 500);
     }
 
-    const prompt = `ENTREPRISE : ${ent.name}
-SECTEUR : ${ent.sector || "Non spécifié"}
-PAYS : ${ent.country || ''}
-EFFECTIFS DÉCLARÉS : ${ent.employees_count || "Non spécifié"}
-FORME JURIDIQUE : ${ent.legal_form || "Non spécifié"}
-DESCRIPTION : ${ent.description || "Non spécifié"}
-
-══════ DOCUMENTS DISPONIBLES ══════
-${docContent}
-
-══════ INVARIANTS COMPTABLES & BENCHMARKS ══════
-${getExtractionKnowledgePrompt()}
-
-${getSectorKnowledgePrompt(ent.sector || "services_b2b")}
-
-${ragContext}
-
-══════ INSTRUCTIONS ══════
-Analyse TOUS les documents ci-dessus. Reconstitue un compte de résultat, un bilan et les KPIs.
-Pour chaque valeur, indique dans reconstruction_report.hypotheses si c'est une donnée extraite ou une estimation.
-Le score_confiance reflète le % de données réellement extraites vs estimées.
-
-CONTRAINTE ABSOLUE BILAN :
-- total_actif DOIT être EXACTEMENT = immobilisations + stocks + creances_clients + tresorerie_actif
-- total_passif DOIT être EXACTEMENT = capitaux_propres + dettes_financieres + dettes_fournisseurs
-- total_actif DOIT être EXACTEMENT = total_passif (équilibre comptable obligatoire)
-- Si tu ne trouves pas un sous-poste, mets 0 et ajuste capitaux_propres pour équilibrer
-- JAMAIS retourner un bilan où total_actif ≠ total_passif
-
-CONFIDENCE PAR CHAMP :
-Pour CHAQUE valeur financière, évalue ta confiance (0-100) dans le champ _confidence :
-- 80-100 : donnée directement extraite d'un document fiable (bilan certifié, relevé bancaire officiel)
-- 60-79 : donnée extraite d'un document non certifié (facture, tableau Excel, photo)
-- 40-59 : donnée estimée à partir de données partielles + benchmarks sectoriels
-- 20-39 : donnée largement estimée, peu de base documentaire
-- 0-19 : hypothèse pure, aucune base documentaire
-Indique la source de chaque valeur (nom du document ou "estimation benchmark").
-
-Réponds en JSON selon ce schéma :
-${OUTPUT_SCHEMA}`;
-
-    const rawData = await callAI(SYSTEM_PROMPT, prompt, 8192, undefined, undefined, { functionName: "reconstruct-from-traces", enterpriseId: ctx.enterprise_id });
-    const normalizedData = normalizeReconstruction(rawData);
-
-    if (normalizedData.compte_resultat && !normalizedData.compte_resultat.source) {
-      normalizedData.compte_resultat.source = "reconstruction";
-    }
-
-    const validatedData = validateAndEnrich(normalizedData, ent.country, ent.sector);
-
-    await saveDeliverable(ctx.supabase, ctx.enterprise_id, "inputs_data", validatedData, "inputs");
-
-    return new Response(JSON.stringify({ success: true, data: normalizedData, score: normalizedData.score || normalizedData.score_confiance || 0 }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // 3. Dispatch fire-and-forget vers Railway worker
+    fetch(`${RAILWAY_AI_URL}/run-agent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Worker-API-Key": RAILWAY_AI_KEY,
+      },
+      body: JSON.stringify({
+        agent_name: "reconstruct-enterprise",
+        job_id: job.id,
+        payload: { enterprise_id: ctx.enterprise_id },
+      }),
+    }).catch((e) => {
+      console.error("[reconstruct-from-traces] Worker dispatch failed:", e);
     });
+
+    // 4. Retour immédiat
+    return jsonRes({
+      accepted: true,
+      job_id: job.id,
+      message: "Reconstruction lancée sur le worker Railway. Le front va poller ai_jobs pour récupérer le résultat.",
+    }, 202);
   } catch (e: any) {
     console.error("reconstruct-from-traces error:", e);
-    return new Response(JSON.stringify({ error: e.message || "Erreur" }), {
-      status: e.status || 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes({ error: e.message || "Erreur" }, e.status || 500);
   }
 });
