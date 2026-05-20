@@ -157,7 +157,7 @@ export default function DealTrackingSection({ dealId }: Props) {
         <h2 className="text-base font-semibold">Suivi diffusion — vue mandat</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
           Timeline d'avancement du mandat + activité tous fonds confondus.
-          Pour le détail par fonds, voir <strong>Fonds & matching</strong>.
+          Pour le détail par contact, voir <strong>Investisseurs cibles</strong>.
         </p>
       </header>
 
@@ -221,7 +221,7 @@ export default function DealTrackingSection({ dealId }: Props) {
         <h3 className="text-sm font-semibold mb-3">Activité récente — tous fonds</h3>
         {activity.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
-            Aucun outreach démarré. Va sur <strong>Fonds & matching</strong> pour envoyer un teaser.
+            Aucun outreach démarré. Va sur <strong>Investisseurs cibles</strong> pour envoyer un teaser.
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -260,7 +260,7 @@ export default function DealTrackingSection({ dealId }: Props) {
               if (!kpis.canHandoff) return;
               // Navigue vers fund_matching où l'action handoff complète est implémentée
               setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; });
-              toast.info('Levée d\'anonymat : ouvre Fonds & matching → fonds en LOI');
+              toast.info('Levée d\'anonymat : ouvre Investisseurs cibles → contacts en LOI');
             }}
           >
             <EyeOff className="h-4 w-4" /> Lever l'anonymat
@@ -272,7 +272,7 @@ export default function DealTrackingSection({ dealId }: Props) {
               if (!kpis.canHandoff) return;
               // Le bouton 'Handoff PE' dans fund_matching ouvre confirm + invoke create-pe-deal-from-ba
               setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; });
-              toast.info('Clique sur "Handoff PE" en haut de Fonds & matching');
+              toast.info('Clique sur le menu "⋯" en haut de Investisseurs cibles puis "Handoff PE"');
             }}
           >
             <ArrowRight className="h-4 w-4" /> Transférer au PE

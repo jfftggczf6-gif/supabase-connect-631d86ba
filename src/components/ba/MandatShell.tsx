@@ -6,7 +6,7 @@
 //   Mémo investissement : §1 à §12 (sections dynamiques)
 //   Valorisation : Valorisation
 //   Teaser : Teaser
-//   Diffusion (Partner only) : Fonds & matching
+//   Diffusion (Partner only) : Investisseurs cibles (+ Suivi diffusion + Data Room)
 //
 // Routing interne par query param ?section=<code>.
 
