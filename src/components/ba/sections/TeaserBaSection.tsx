@@ -151,7 +151,11 @@ function mockPayload(enterpriseName: string, sector: string | null, country: str
 }
 
 // ─── Sidebar : codebox + workflow + sources + versions + distribution ──────
-function TeaserSidebar({ teaser, payload, onRegenCodeName, onSubmitToPartner }: {
+// Brief P7 #29 (2026-05-20) — sidebar retirée, Nom de code + Workflow
+// remontés horizontalement au-dessus des Tabs. Versions accessible via
+// l'onglet Historique (memo), distribution via l'onglet Diffusion (teaser),
+// sources IM intégrées dans la note d'analyste/le memo lui-même.
+function TeaserHeaderBar({ teaser, payload, onRegenCodeName, onSubmitToPartner }: {
   teaser: TeaserRow | null;
   payload: TeaserPayload;
   onRegenCodeName: () => void;
@@ -171,80 +175,39 @@ function TeaserSidebar({ teaser, payload, onRegenCodeName, onSubmitToPartner }: 
       icon: status === 'validated' ? '✓' : '○' },
   ];
 
-  const sectionLabels = [
-    '§1 Résumé exécutif',
-    '§2 Actionnariat',
-    '§3 Management',
-    '§4 Description activité',
-    '§5 Marché & concurrence',
-    '§8 Analyse financière',
-    '§10 Thèse investissement',
-    '§11 Risques & ESG',
-  ];
-
   return (
-    <aside className="w-[210px] shrink-0 border-r bg-muted/20 p-3.5 overflow-y-auto">
-      {/* Codebox */}
-      <div className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">Nom de code</div>
-      <div className="border-2 border-violet-500 rounded-md p-2.5 text-center mb-3.5">
-        <div className="text-[15px] font-bold tracking-wider text-violet-600">{payload.code_name}</div>
-        <div className="text-[10px] text-muted-foreground mt-0.5">Attribué automatiquement</div>
-        <button onClick={onRegenCodeName} className="text-[10px] text-violet-600 hover:underline mt-1">
-          Changer le nom
+    <div className="px-5 py-3 border-b bg-muted/20 flex items-center gap-4 flex-wrap">
+      {/* Codebox compact à gauche */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground">Nom de code</div>
+        <div className="border-2 border-violet-500 rounded-md px-2.5 py-1">
+          <div className="text-[13px] font-bold tracking-wider text-violet-600">{payload.code_name}</div>
+        </div>
+        <button onClick={onRegenCodeName} className="text-[10px] text-violet-600 hover:underline">
+          Changer
         </button>
       </div>
 
-      {/* Workflow */}
-      <div className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">Workflow</div>
-      <div className="space-y-0.5 mb-3.5">
+      {/* Workflow horizontal à droite */}
+      <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
         {workflowSteps.map((s, i) => (
-          <div key={i} className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] ${
-            s.state === 'done' ? 'text-foreground/70' :
-            s.state === 'current' ? 'bg-amber-100 text-amber-800 font-medium' :
-            'text-muted-foreground/50'
+          <div key={i} className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] ${
+            s.state === 'done' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+            s.state === 'current' ? 'bg-amber-100 text-amber-800 font-medium border border-amber-200' :
+            'bg-muted/30 text-muted-foreground/60 border border-transparent'
           }`}>
             <span>{s.icon}</span>
-            <span className="truncate">{s.label}</span>
+            <span>{s.label}</span>
+            {i < workflowSteps.length - 1 && <span className="text-muted-foreground/30 ml-1">→</span>}
           </div>
         ))}
+        {status === 'draft' && warningsCount === 0 && (
+          <Button size="sm" onClick={onSubmitToPartner} className="h-7 text-[11px] ml-2">
+            Soumettre au Partner
+          </Button>
+        )}
       </div>
-
-      {/* Sources IM utilisées */}
-      <div className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">Sections IM utilisées</div>
-      <div className="space-y-0.5 mb-3.5">
-        {sectionLabels.map((s, i) => (
-          <div key={i} className="text-[10px] text-muted-foreground py-0.5 truncate">{s} ✓</div>
-        ))}
-      </div>
-
-      {/* Versions */}
-      <div className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">Versions</div>
-      <div className="space-y-0.5 mb-3.5">
-        <div className="border border-violet-300 rounded p-1.5 text-[10px] text-violet-600 font-semibold">
-          {teaser?.version_label ?? 'v1 — actuelle'}
-        </div>
-      </div>
-
-      {/* Distribution */}
-      <div className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">Distribution</div>
-      {teaser?.distribution?.length ? (
-        teaser.distribution.map((d, i) => (
-          <div key={i} className="flex items-center justify-between border rounded p-1.5 text-[10px] mb-0.5">
-            <span>{d.fund_name}</span>
-            <Badge variant="outline" className="text-[9px]">{d.status === 'sent' ? 'Envoyé' : 'En attente'}</Badge>
-          </div>
-        ))
-      ) : (
-        <div className="text-[10px] text-muted-foreground italic">Aucun envoi</div>
-      )}
-
-      {/* Bouton soumission Partner */}
-      {status === 'draft' && warningsCount === 0 && (
-        <Button size="sm" onClick={onSubmitToPartner} className="w-full mt-3 text-[11px] h-7">
-          Soumettre au Partner
-        </Button>
-      )}
-    </aside>
+    </div>
   );
 }
 
@@ -694,15 +657,17 @@ export default function TeaserBaSection({ dealId }: Props) {
         </div>
       </div>
 
-      {/* LAYOUT : sidebar + content (onglets brief #29) */}
-      <div className="flex min-h-[700px]">
-        <TeaserSidebar
-          teaser={teaser}
-          payload={payload}
-          onRegenCodeName={handleRegenCodeName}
-          onSubmitToPartner={handleSubmitToPartner}
-        />
-        <div className="flex-1 p-5 bg-muted/10 overflow-y-auto">
+      {/* Brief P7 #29 — header horizontal codebox + workflow (sidebar retirée) */}
+      <TeaserHeaderBar
+        teaser={teaser}
+        payload={payload}
+        onRegenCodeName={handleRegenCodeName}
+        onSubmitToPartner={handleSubmitToPartner}
+      />
+
+      {/* LAYOUT : pleine largeur, onglets seulement (sidebar retirée) */}
+      <div className="min-h-[700px]">
+        <div className="p-5 bg-muted/10 overflow-y-auto">
           <Tabs defaultValue="document">
             <TabsList className="mb-4">
               <TabsTrigger value="document" className="gap-1.5">
@@ -810,7 +775,7 @@ export default function TeaserBaSection({ dealId }: Props) {
                     size="sm" className="h-8 text-xs gap-1"
                     onClick={() => setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; })}
                   >
-                    <Send className="h-3 w-3" /> Envoyer à un fonds
+                    <Send className="h-3 w-3" /> Envoyer à un contact
                   </Button>
                 </div>
 

@@ -15,6 +15,7 @@ import MandatManageDialog from './MandatManageDialog';
 interface Props {
   mandat: Mandat;
   stats?: MandatDetailBundle['stats'];
+  organizationId?: string;
   onNavigate?: (section: string) => void;
 }
 
@@ -35,7 +36,7 @@ function formatTicket(ticket: number | null, currency: string | null): string {
   return `${ticket} ${cur}`;
 }
 
-export default function MandatSubHeader({ mandat, stats, onNavigate }: Props) {
+export default function MandatSubHeader({ mandat, stats, organizationId, onNavigate }: Props) {
   const navigate = useNavigate();
   const [manageOpen, setManageOpen] = useState(false);
   const stage = STAGE_LABELS[mandat.stage] || { label: mandat.stage, cls: 'bg-muted text-muted-foreground' };
@@ -103,6 +104,7 @@ export default function MandatSubHeader({ mandat, stats, onNavigate }: Props) {
         open={manageOpen}
         onOpenChange={setManageOpen}
         mandat={mandat}
+        organizationId={organizationId}
       />
     </div>
   );

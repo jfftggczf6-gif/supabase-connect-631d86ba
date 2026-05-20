@@ -1,6 +1,6 @@
 // MandatManageDialog — modal "Gérer le mandat" : panel détails éditables
 // + actions rapides (voir pipeline, marquer perdu/close).
-// Brief P7 AUDIT 19/05 + P7 panel éditable.
+// Brief P7 AUDIT 19/05 + P7 panel éditable (stage + équipe ajoutés 20/05).
 
 import { useEffect, useState } from 'react';
 import {
@@ -26,6 +26,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mandat: Mandat;
+  organizationId?: string;
   onUpdated?: () => void;
 }
 
@@ -33,10 +34,18 @@ const STAGE_LABELS: Record<string, string> = {
   recus: 'Reçus', im: 'IM produit', interets: 'Intérêts fonds',
   nego: 'Négociation', close: 'Closé', lost: 'Perdu',
 };
+const STAGE_VALUES = Object.keys(STAGE_LABELS);
 
 const CURRENCIES = ['USD', 'EUR', 'XOF', 'XAF', 'MAD', 'NGN', 'KES', 'GHS'];
 
-export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdated }: Props) {
+interface TeamMember {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+}
+
+export default function MandatManageDialog({ open, onOpenChange, mandat, organizationId, onUpdated }: Props) {
   const navigate = useNavigate();
   const [updating, setUpdating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,6 +56,12 @@ export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdat
   const [country, setCountry] = useState(mandat.country || '');
   const [ticket, setTicket] = useState(mandat.ticket_demande ? String(mandat.ticket_demande / 1_000_000) : '');
   const [currency, setCurrency] = useState(mandat.currency || 'USD');
+  const [stage, setStage] = useState<string>(mandat.stage || 'recus');
+  const [analystId, setAnalystId] = useState<string>(mandat.lead_analyst_id || 'none');
+  const [imId, setImId] = useState<string>(mandat.lead_im_id || 'none');
+
+  // Équipe BA (analystes + IMs + partners + admin pour SELECT)
+  const [team, setTeam] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +70,40 @@ export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdat
     setCountry(mandat.country || '');
     setTicket(mandat.ticket_demande ? String(mandat.ticket_demande / 1_000_000) : '');
     setCurrency(mandat.currency || 'USD');
+    setStage(mandat.stage || 'recus');
+    setAnalystId(mandat.lead_analyst_id || 'none');
+    setImId(mandat.lead_im_id || 'none');
   }, [open, mandat]);
+
+  // Charge l'équipe quand le dialog s'ouvre
+  useEffect(() => {
+    if (!open || !organizationId) return;
+    (async () => {
+      const { data: orgMembers } = await supabase
+        .from('organization_members')
+        .select('user_id, role, is_active')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .in('role', ['analyst', 'investment_manager', 'partner', 'managing_director', 'admin', 'owner']);
+      const userIds = (orgMembers || []).map((m: any) => m.user_id);
+      if (userIds.length === 0) { setTeam([]); return; }
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
+      const profMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      const members: TeamMember[] = (orgMembers || []).map((m: any) => ({
+        user_id: m.user_id,
+        role: m.role,
+        full_name: profMap.get(m.user_id)?.full_name ?? null,
+        email: profMap.get(m.user_id)?.email ?? null,
+      }));
+      setTeam(members);
+    })();
+  }, [open, organizationId]);
+
+  const analystCandidates = team.filter(m => ['analyst', 'partner', 'managing_director', 'admin', 'owner'].includes(m.role));
+  const imCandidates = team.filter(m => ['investment_manager', 'partner', 'managing_director', 'admin', 'owner'].includes(m.role));
 
   const updateStage = async (newStage: 'lost' | 'close') => {
     const labels = { lost: 'perdu', close: 'closé' };
@@ -93,17 +141,28 @@ export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdat
         if (entErr) throw new Error(`Enterprise: ${entErr.message}`);
       }
 
-      // 2. Update deal (ticket_demande, currency)
+      // 2. Update deal (ticket_demande, currency, stage, équipe)
       const ticketNum = ticket.trim() ? parseFloat(ticket) * 1_000_000 : null;
+      const dealUpdates: Record<string, unknown> = {
+        ticket_demande: ticketNum,
+        currency: currency,
+        lead_analyst_id: analystId === 'none' ? null : analystId,
+        lead_im_id: imId === 'none' ? null : imId,
+        updated_at: new Date().toISOString(),
+      };
       const { error: dealErr } = await supabase
         .from('pe_deals')
-        .update({
-          ticket_demande: ticketNum,
-          currency: currency,
-          updated_at: new Date().toISOString(),
-        })
+        .update(dealUpdates)
         .eq('id', mandat.id);
       if (dealErr) throw new Error(`Deal: ${dealErr.message}`);
+
+      // 3. Stage transition via EF (audit pe_deal_history + règles métier)
+      if (stage !== mandat.stage) {
+        const { error: stageErr } = await supabase.functions.invoke('update-pe-deal-stage', {
+          body: { deal_id: mandat.id, new_stage: stage },
+        });
+        if (stageErr) throw new Error(`Stage transition: ${stageErr.message}`);
+      }
 
       toast.success('Mandat mis à jour');
       onUpdated?.();
@@ -165,6 +224,49 @@ export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdat
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Stage (Select libre vers tous les stages BA) */}
+            <div>
+              <Label className="text-xs">Stage</Label>
+              <Select value={stage} onValueChange={setStage}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STAGE_VALUES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Équipe : analyste + IM (depuis organization_members) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Analyste lead</Label>
+                <Select value={analystId} onValueChange={setAnalystId}>
+                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Non assigné</SelectItem>
+                    {analystCandidates.map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.full_name || m.email || m.user_id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">IM lead</Label>
+                <Select value={imId} onValueChange={setImId}>
+                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Non assigné</SelectItem>
+                    {imCandidates.map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.full_name || m.email || m.user_id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
