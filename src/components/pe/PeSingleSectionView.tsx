@@ -211,6 +211,7 @@ export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
   };
 
   // ─── Regenerate ──────────────────────────────────────────────────────────
+  // EF migrée vers dispatchAndForget (2026-05-20) — on poll ai_jobs.
   const handleRegenerate = async () => {
     setRegenOpen(false);
     setRegenerating(true);
@@ -222,9 +223,34 @@ export default function PeSingleSectionView({ dealId, sectionCode }: Props) {
         body: JSON.stringify({ deal_id: dealId, section_code: sectionCode, tone }),
       });
       const result = await resp.json();
-      if (!resp.ok) throw new Error(result.error || 'Échec régénération');
-      toast.success(`Section "${SECTION_LABELS[sectionCode]}" régénérée par l'IA`);
-      await loadSection();
+      if (!resp.ok) throw new Error(result.error || 'Échec dispatch régénération');
+
+      if (result.job_id) {
+        toast.info(`Régénération "${SECTION_LABELS[sectionCode]}" en cours…`);
+        const startedAt = Date.now();
+        const MAX_WAIT_MS = 5 * 60 * 1000;
+        while (Date.now() - startedAt < MAX_WAIT_MS) {
+          await new Promise(res => setTimeout(res, 2500));
+          const { data: job } = await supabase
+            .from('ai_jobs')
+            .select('status, error_message')
+            .eq('id', result.job_id)
+            .maybeSingle();
+          const status = (job as any)?.status;
+          if (status === 'ready') {
+            toast.success(`Section "${SECTION_LABELS[sectionCode]}" régénérée par l'IA`);
+            await loadSection();
+            break;
+          }
+          if (status === 'error') {
+            throw new Error((job as any)?.error_message || 'Worker régénération échoué');
+          }
+        }
+      } else {
+        // Compat ancien format synchrone
+        toast.success(`Section "${SECTION_LABELS[sectionCode]}" régénérée par l'IA`);
+        await loadSection();
+      }
     } catch (e: any) {
       toast.error(`Régénération échouée : ${e.message}`);
     } finally {

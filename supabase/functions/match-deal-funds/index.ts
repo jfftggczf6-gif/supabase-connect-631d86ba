@@ -8,7 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { dispatchAndPoll } from "../_shared/railway-dispatch.ts";
+import { dispatchAndForget } from "../_shared/railway-dispatch.ts";
 
 interface RequestBody {
   deal_id: string;
@@ -43,7 +43,8 @@ serve(async (req: Request) => {
     if (!deal) return errorResponse("Deal not found or not accessible", 404);
     if (!deal.enterprise_id) return errorResponse("Deal sans enterprise rattachée", 400);
 
-    const result = await dispatchAndPoll({
+    // Migration 2026-05-20 : forget pour éliminer risque 504 sur portfolio fonds étendus.
+    const result = await dispatchAndForget({
       agentName: "match-deal-funds",
       payload: {
         deal_id: body.deal_id,
@@ -63,14 +64,13 @@ serve(async (req: Request) => {
       });
     }
 
-    return jsonResponse({
-      success: true,
-      matches_created: result.result?.matches_created,
-      matches_updated: result.result?.matches_updated,
-      top_score: result.result?.top_score,
-      top_fund: result.result?.top_fund,
-      duration_ms: result.duration_ms,
+    return new Response(JSON.stringify({
+      accepted: true,
       job_id: result.job_id,
+      message: "Matching IA fonds lancé — résultats dans 30-120s (toast Realtime + reload tableau)",
+    }), {
+      status: 202,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     return errorResponse(err.message ?? "Internal error", 500);

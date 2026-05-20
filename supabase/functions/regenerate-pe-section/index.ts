@@ -3,7 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { dispatchAndPoll } from "../_shared/railway-dispatch.ts";
+import { dispatchAndForget } from "../_shared/railway-dispatch.ts";
 
 interface RequestBody {
   deal_id: string;
@@ -41,7 +41,8 @@ serve(async (req: Request) => {
       .maybeSingle();
     if (!deal) return errorResponse("Deal not found or not accessible", 404);
 
-    const result = await dispatchAndPoll({
+    // Migration 2026-05-20 : dispatchAndForget pour éliminer risque 504.
+    const result = await dispatchAndForget({
       agentName: "regenerate-pe-section",
       payload: {
         deal_id: body.deal_id,
@@ -60,12 +61,13 @@ serve(async (req: Request) => {
       });
     }
 
-    return jsonResponse({
-      success: true,
-      section_id: result.result?.section_id,
-      content_md_length: result.result?.content_md_length,
-      duration_ms: result.duration_ms,
+    return new Response(JSON.stringify({
+      accepted: true,
       job_id: result.job_id,
+      message: `Section ${body.section_code} relancée — résultat dans 20-60s via Realtime ai_jobs`,
+    }), {
+      status: 202,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     return errorResponse(err.message ?? "Internal error", 500);

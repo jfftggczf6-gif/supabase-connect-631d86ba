@@ -67,6 +67,9 @@ export default function PreScreening360Dashboard({ dealId, dealStage, onNavigate
   const [regenerating, setRegenerating] = useState(false);
   const tone = useTone(); // 'ba' si org banque_affaires, sinon 'pe'
 
+  // EF migrée vers dispatchAndForget (2026-05-20). On affiche le toast
+  // immédiatement et on relâche le bouton. AiJobsLiveToast suit la progression
+  // via Realtime ai_jobs ; l'utilisateur reload la page quand fini.
   async function handleRegenerate() {
     if (regenerating) return;
     if (!confirm('Régénérer le pré-screening 360° ? La version actuelle sera écrasée.')) return;
@@ -82,8 +85,12 @@ export default function PreScreening360Dashboard({ dealId, dealStage, onNavigate
         },
       );
       const result = await resp.json();
-      if (!resp.ok) throw new Error(result.error || 'Échec régénération');
-      toast.success('Pré-screening 360° relancé', { description: 'La nouvelle version sera disponible dans ~30s.' });
+      if (!resp.ok) throw new Error(result.error || 'Échec dispatch régénération');
+      toast.success('Pré-screening 360° lancé', {
+        description: result.job_id
+          ? 'Génération en arrière-plan (60-180s). Suivez la progression dans le toast en haut à droite.'
+          : 'La nouvelle version sera disponible dans ~30s.',
+      });
     } catch (e: any) {
       toast.error(`Régénération échouée : ${e.message}`);
     } finally {

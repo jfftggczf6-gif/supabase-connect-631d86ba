@@ -824,18 +824,47 @@ export default function FundMatchingSection({ dealId }: Props) {
     if (matchingLoading) return;
     setMatchingLoading(true);
     try {
+      // EF dispatchAndForget — retourne 202 + job_id immédiatement.
+      // Le AiJobsLiveToast suit la progression via Realtime ai_jobs.
+      // On poll le tableau funding_matches pour reload quand fini.
       const { data, error } = await supabase.functions.invoke('match-deal-funds', {
         body: { deal_id: dealId },
       });
       if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || 'Échec matching IA');
+        throw new Error((data as any)?.error || error?.message || 'Échec dispatch matching IA');
       }
       const r = data as any;
-      toast.success(
-        `Matching IA terminé — top score ${r?.top_score}% (${r?.top_fund || 'n/a'})`,
-        { description: `${r?.matches_created || 0} créés, ${r?.matches_updated || 0} mis à jour` },
-      );
-      await load();
+      if (r?.job_id) {
+        toast.success('Matching IA lancé', { description: 'Scoring des fonds en cours, résultat dans 30-120s.' });
+        // Poll ai_jobs jusqu'à status='ready' pour reload le tableau
+        const startedAt = Date.now();
+        const MAX_WAIT_MS = 5 * 60 * 1000;
+        while (Date.now() - startedAt < MAX_WAIT_MS) {
+          await new Promise(res => setTimeout(res, 3000));
+          const { data: job } = await supabase
+            .from('ai_jobs')
+            .select('status, result, error_message')
+            .eq('id', r.job_id)
+            .maybeSingle();
+          const status = (job as any)?.status;
+          if (status === 'ready') {
+            const jr = (job as any)?.result || {};
+            toast.success(
+              `Matching IA terminé — top score ${jr?.top_score}% (${jr?.top_fund || 'n/a'})`,
+              { description: `${jr?.matches_created || 0} créés, ${jr?.matches_updated || 0} mis à jour` },
+            );
+            await load();
+            break;
+          }
+          if (status === 'error') {
+            throw new Error((job as any)?.error_message || 'Worker matching échoué');
+          }
+        }
+      } else {
+        // Compat ancien format synchrone
+        toast.success(`Matching IA terminé — top score ${r?.top_score}% (${r?.top_fund || 'n/a'})`);
+        await load();
+      }
     } catch (e: any) {
       toast.error(e?.message ?? 'Erreur matching IA');
     } finally {

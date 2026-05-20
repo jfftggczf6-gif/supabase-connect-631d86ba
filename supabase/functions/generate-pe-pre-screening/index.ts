@@ -7,7 +7,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse, errorResponse } from "../_shared/helpers_v5.ts";
-import { dispatchAndPoll } from "../_shared/railway-dispatch.ts";
+import { dispatchAndForget } from "../_shared/railway-dispatch.ts";
 
 interface RequestBody {
   deal_id: string;
@@ -42,7 +42,10 @@ serve(async (req: Request) => {
       .maybeSingle();
     if (!deal) return errorResponse("Deal not found or not accessible", 404);
 
-    const result = await dispatchAndPoll({
+    // Migration 2026-05-20 : dispatchAndPoll → dispatchAndForget (retour 202
+    // immédiat). Le front écoute ai_jobs via AiJobsLiveToast/Realtime ;
+    // PreScreening360Dashboard reload sa version 30-60s après le toast.
+    const result = await dispatchAndForget({
       agentName: "generate-pe-pre-screening",
       payload: {
         deal_id: body.deal_id,
@@ -60,17 +63,13 @@ serve(async (req: Request) => {
       });
     }
 
-    const r = result.result ?? {};
-    return jsonResponse({
-      success: true,
-      memo_id: r.memo_id,
-      version_id: r.version_id,
-      overall_score: r.overall_score,
-      classification: r.classification,
-      sections_generated: r.sections_generated,
-      sections_failed: r.sections_failed,
-      duration_ms: result.duration_ms,
+    return new Response(JSON.stringify({
+      accepted: true,
       job_id: result.job_id,
+      message: "Pré-screening 360° lancé — résultat dans 60-180s via Realtime ai_jobs",
+    }), {
+      status: 202,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     return errorResponse(err.message ?? "Internal error", 500);
