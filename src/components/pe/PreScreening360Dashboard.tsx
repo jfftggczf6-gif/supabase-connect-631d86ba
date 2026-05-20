@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertTriangle, Edit3, RefreshCw, RotateCcw, ArrowRight, Sparkles } from 'lucide-react';
-import ScoreCircle from '@/components/dashboard/viewers/atoms/pe/ScoreCircle';
+import ScoreCircle from '@/components/shared/ScoreDisplay';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';

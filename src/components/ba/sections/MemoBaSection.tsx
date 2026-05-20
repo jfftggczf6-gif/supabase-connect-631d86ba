@@ -22,7 +22,7 @@ import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
 import MemoVersionsView from '@/components/pe/MemoVersionsView';
 import MemoBaProgressBar from './MemoBaProgressBar';
-import BaEmptyStateGenerate from '../BaEmptyStateGenerate';
+import EmptyStateGenerate from '@/components/shared/EmptyStateGenerate';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -102,7 +102,7 @@ export default function MemoBaSection({ dealId, sectionCode, dealStage }: Props)
 
   if (!hasContent) {
     return (
-      <BaEmptyStateGenerate
+      <EmptyStateGenerate
         dealId={dealId}
         edgeFunction="generate-ic1-memo"
         label="Générer l'IM vendeur"

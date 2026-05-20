@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
-import BaEmptyStateGenerate from '../BaEmptyStateGenerate';
+import EmptyStateGenerate from '@/components/shared/EmptyStateGenerate';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -43,7 +43,7 @@ export default function PreScreeningBaSection({ dealId }: Props) {
 
   if (!hasContent) {
     return (
-      <BaEmptyStateGenerate
+      <EmptyStateGenerate
         dealId={dealId}
         edgeFunction="generate-pe-pre-screening"
         label="Générer le pré-screening"

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Upload, FileText, Loader2, Search, FileEdit, ShieldCheck, FileSignature, Activity, DoorOpen } from 'lucide-react';
-import ScoreCircle from '@/components/dashboard/viewers/atoms/pe/ScoreCircle';
+import ScoreCircle from '@/components/shared/ScoreDisplay';
 import ClassificationTag from '@/components/dashboard/viewers/atoms/pe/ClassificationTag';
 import PeDealStatusBadge from '@/components/pe/PeDealStatusBadge';
 import { useFundCurrency } from '@/hooks/useFundCurrency';

@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import PeValuationView from '@/components/pe/PeValuationView';
-import BaEmptyStateGenerate from '../BaEmptyStateGenerate';
+import EmptyStateGenerate from '@/components/shared/EmptyStateGenerate';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -44,7 +44,7 @@ export default function ValuationBaSection({ dealId }: Props) {
 
   if (!hasContent) {
     return (
-      <BaEmptyStateGenerate
+      <EmptyStateGenerate
         dealId={dealId}
         edgeFunction="generate-pe-valuation"
         label="Générer la valorisation"
