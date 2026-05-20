@@ -33,6 +33,8 @@ interface Props {
   bundle: MandatDetailBundle;
   role: string | null | undefined;
   organizationId: string;
+  /** Brief P8 fix #4 — propagé au SubHeader pour rafraîchir les stats après dispatch génération. */
+  onReload?: () => void;
 }
 
 const PARTNER_ROLES = ['managing_director', 'owner', 'admin', 'partner'];
@@ -192,7 +194,7 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
   }
 }
 
-export default function MandatShell({ bundle, role, organizationId }: Props) {
+export default function MandatShell({ bundle, role, organizationId, onReload }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const groups = useMemo(() => buildSidebarGroups(bundle, role), [bundle, role]);
 
@@ -217,7 +219,7 @@ export default function MandatShell({ bundle, role, organizationId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <MandatSubHeader mandat={bundle.mandat} stats={bundle.stats} organizationId={organizationId} onNavigate={handleSelect} />
+      <MandatSubHeader mandat={bundle.mandat} stats={bundle.stats} organizationId={organizationId} onNavigate={handleSelect} onReload={onReload} />
       <div className="flex flex-1 overflow-hidden">
         <MandatSideNav
           groups={groups}

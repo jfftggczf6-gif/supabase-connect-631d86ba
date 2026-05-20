@@ -17,6 +17,8 @@ interface Props {
   stats?: MandatDetailBundle['stats'];
   organizationId?: string;
   onNavigate?: (section: string) => void;
+  /** Brief P8 fix #4 — appelé après dispatch génération pour rafraîchir les stats. */
+  onReload?: () => void;
 }
 
 const STAGE_LABELS: Record<string, { label: string; cls: string }> = {
@@ -36,7 +38,7 @@ function formatTicket(ticket: number | null, currency: string | null): string {
   return `${ticket} ${cur}`;
 }
 
-export default function MandatSubHeader({ mandat, stats, organizationId, onNavigate }: Props) {
+export default function MandatSubHeader({ mandat, stats, organizationId, onNavigate, onReload }: Props) {
   const navigate = useNavigate();
   const [manageOpen, setManageOpen] = useState(false);
   const stage = STAGE_LABELS[mandat.stage] || { label: mandat.stage, cls: 'bg-muted text-muted-foreground' };
@@ -54,7 +56,8 @@ export default function MandatSubHeader({ mandat, stats, organizationId, onNavig
           <ArrowLeft className="h-4 w-4" />
         </Button>
 
-        <div className="flex-1 min-w-0">
+        {/* Bloc infos deal — largeur naturelle (pas flex-1 pour laisser place au CTA centré) */}
+        <div className="min-w-0 max-w-md">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-lg font-semibold truncate">
               {mandat.enterprise_name || mandat.deal_ref}
@@ -84,11 +87,15 @@ export default function MandatSubHeader({ mandat, stats, organizationId, onNavig
           </div>
         </div>
 
-        {/* Actions header alignées PE : bouton génération contextuelle + Gérer le mandat */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* CTA contextuel ✨ CENTRÉ dans la barre — flex-1 + justify-center */}
+        <div className="flex-1 flex justify-center">
           {stats && (
-            <BaNextStepCta dealId={mandat.id} stats={stats} onNavigate={onNavigate} />
+            <BaNextStepCta dealId={mandat.id} stats={stats} onNavigate={onNavigate} onLaunched={onReload} />
           )}
+        </div>
+
+        {/* Bouton Gérer le mandat à DROITE */}
+        <div className="shrink-0">
           <Button
             variant="outline"
             size="sm"

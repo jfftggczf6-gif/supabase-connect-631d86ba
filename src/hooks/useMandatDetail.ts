@@ -171,6 +171,41 @@ export function useMandatDetail(
 
   useEffect(() => { load(); }, [load]);
 
+  // Brief P8 fix #4 — Realtime : quand un ai_job pour ce deal change de statut
+  // (running → ready/error), on recharge les stats automatiquement pour que
+  // BaNextStepCta passe à l'étape suivante SANS reload manuel.
+  useEffect(() => {
+    if (!dealId) return;
+    const channel = supabase
+      .channel(`mandat-detail-${dealId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ai_jobs', filter: `deal_id=eq.${dealId}` },
+        (payload) => {
+          const next = (payload.new as any)?.status;
+          if (next === 'ready' || next === 'error') {
+            // léger debounce : laisser le temps aux inserts memo_versions/pe_valuation
+            setTimeout(() => { load(); }, 800);
+          }
+        },
+      )
+      // Filets de sécurité : insertions directes (sans passer par ai_jobs)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'memo_versions' },
+        () => { load(); })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'pe_valuation', filter: `deal_id=eq.${dealId}` },
+        () => { load(); })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'pe_fund_outreach', filter: `deal_id=eq.${dealId}` },
+        () => { load(); })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'pe_deal_documents', filter: `deal_id=eq.${dealId}` },
+        () => { load(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [dealId, load]);
+
   return { bundle, loading, error, reload: load };
 }
 

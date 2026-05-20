@@ -30,8 +30,10 @@ interface Props {
   dealId: string;
 }
 
-// ─── Mock payload pour démo si aucun teaser n'existe encore ────────────────
-function mockPayload(enterpriseName: string, sector: string | null, country: string | null, ticket: number | null): TeaserPayload {
+// ─── Mock payload (legacy démo) — NON UTILISÉ depuis fix #26.
+// Conservé en référence pour les snapshots de wireframe. Si besoin, supprimer.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _mockPayload(enterpriseName: string, sector: string | null, country: string | null, ticket: number | null): TeaserPayload {
   const ticketStr = ticket
     ? `${(ticket * 0.8 / 1_000_000).toFixed(0)} — ${(ticket * 1.2 / 1_000_000).toFixed(0)} M USD`
     : '5 — 15 M USD';
@@ -533,10 +535,11 @@ export default function TeaserBaSection({ dealId }: Props) {
         }
         row.distribution = distribution;
         setTeaser(row);
-        setPayload(teaserPayload || (info ? mockPayload(info.name, info.sector, info.country, info.ticket) : null));
-      } else if (info) {
-        setPayload(mockPayload(info.name, info.sector, info.country, info.ticket));
+        // Brief P7 #26 — affiche l'état vide tant que data.teaser_payload n'est pas réel.
+        // Plus de mockPayload pour ne pas masquer l'état vide.
+        setPayload(teaserPayload);
       }
+      // Si pas de deliverable teaser → payload reste null → empty state s'affiche
     }
     setLoading(false);
   }, [dealId]);
@@ -781,7 +784,7 @@ export default function TeaserBaSection({ dealId }: Props) {
 
                 {(teaser?.distribution?.length ?? 0) === 0 ? (
                   <div className="text-center py-8 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
-                    Aucun envoi pour l'instant. Va dans Fund Matching pour cibler les fonds.
+                    Aucun envoi pour l'instant. Va dans Investisseurs cibles pour cibler les contacts.
                   </div>
                 ) : (
                   <div className="space-y-1.5">

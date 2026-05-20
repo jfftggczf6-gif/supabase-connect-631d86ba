@@ -13,9 +13,11 @@ interface Props {
   dealId: string;
   stats: MandatDetailBundle['stats'];
   onNavigate?: (item: string) => void;
+  /** Brief P8 fix #4 — appelé après dispatch EF pour rafraîchir les stats parent. */
+  onLaunched?: () => void;
 }
 
-export default function BaNextStepCta({ dealId, stats, onNavigate }: Props) {
+export default function BaNextStepCta({ dealId, stats, onNavigate, onLaunched }: Props) {
   const [launching, setLaunching] = useState(false);
   const next = getBaNextStep(stats);
   if (!next) return null;
@@ -36,9 +38,10 @@ export default function BaNextStepCta({ dealId, stats, onNavigate }: Props) {
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || 'Échec du lancement');
       toast.success(`${next.toastLabel} lancé`, {
-        description: 'Tu vas être redirigé vers la section concernée.',
+        description: 'Tu vas être redirigé. Le bouton se mettra à jour automatiquement à la fin de la génération.',
       });
       onNavigate?.(next.navigateTo);
+      onLaunched?.();
     } catch (e: any) {
       toast.error(`Lancement échoué : ${e.message}`);
     } finally {

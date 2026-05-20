@@ -15,7 +15,7 @@ export default function MandatDetailPage() {
   const { dealId } = useParams<{ dealId: string }>();
   const { currentOrg } = useOrganization();
   const { role } = useCurrentRole();
-  const { bundle, loading, error } = useMandatDetail(dealId, currentOrg?.id);
+  const { bundle, loading, error, reload } = useMandatDetail(dealId, currentOrg?.id);
 
   const title = bundle?.mandat?.enterprise_name || bundle?.mandat?.deal_ref || 'Mandat';
 
@@ -49,7 +49,7 @@ export default function MandatDetailPage() {
 
   return (
     <DashboardLayout title={title} fullscreen>
-      <MandatShell bundle={bundle} role={role} organizationId={currentOrg?.id || ''} />
+      <MandatShell bundle={bundle} role={role} organizationId={currentOrg?.id || ''} onReload={reload} />
     </DashboardLayout>
   );
 }
