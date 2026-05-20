@@ -29,6 +29,7 @@ import {
   Download, Trash2,
 } from 'lucide-react';
 import PeNextStepCta from '@/components/pe/PeNextStepCta';
+import { usePeDdRequirements } from '@/hooks/usePeDdRequirements';
 
 const PRE_SCREENING_STAGES = new Set(['sourcing', 'pre_screening']);
 
@@ -79,6 +80,7 @@ function isValidCategory(s: string | null): s is DocumentCategory {
 }
 
 export default function PeDealDocumentsUploader({ dealId, organizationId, onComplete, dealStage, onNavigate }: Props) {
+  const { rows: ddRequirements } = usePeDdRequirements(organizationId);
   const [files, setFiles] = useState<File[]>([]);
   const [existing, setExisting] = useState<DealDoc[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -222,8 +224,50 @@ export default function PeDealDocumentsUploader({ dealId, organizationId, onComp
   const totalSize = existing.reduce((s, d) => s + (d.size_bytes || 0), 0);
   const lastUpdate = existing[0]?.created_at;
 
+  // Brief #36 — Checklist DD dynamique (depuis pe_dd_requirements)
+  // Calcule "X/Y catégories DD reçues" basé sur les uploads + les requirements de l'org
+  const ddReceivedCategories = new Set(existing.map(d => d.category).filter(Boolean) as string[]);
+  const ddRequired = ddRequirements.filter(r => r.required);
+  const ddReceivedCount = ddRequired.filter(r => ddReceivedCategories.has(r.category)).length;
+
   return (
     <div className="space-y-4">
+      {/* Brief #36 — Checklist DD dynamique : statut X/Y catégories reçues */}
+      {ddRequirements.length > 0 && (
+        <Card className="p-4 border-violet-200 bg-violet-50/30">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div className="text-sm font-semibold flex items-center gap-2">
+              <FileText className="h-4 w-4 text-violet-600" />
+              Checklist Due Diligence — {ddReceivedCount}/{ddRequired.length} catégories requises
+            </div>
+            <Badge variant="outline" className="bg-violet-100 text-violet-700 border-violet-200 text-[10px]">
+              Configurable dans Paramètres &gt; Documents DD
+            </Badge>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+            {ddRequirements
+              .slice()
+              .sort((a, b) => a.display_order - b.display_order)
+              .map(r => {
+                const received = ddReceivedCategories.has(r.category);
+                return (
+                  <div key={r.id} className="flex items-center gap-1.5 text-[11px]">
+                    {received ? (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                    ) : (
+                      <div className="h-3 w-3 rounded-full border border-muted-foreground/40 shrink-0" />
+                    )}
+                    <span className={received ? 'text-foreground' : 'text-muted-foreground'}>
+                      {r.label}
+                      {!r.required && <span className="text-muted-foreground/60 ml-1">(opt.)</span>}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </Card>
+      )}
+
       {/* Stats pièces du dossier */}
       {existing.length > 0 && (
         <Card className="p-4">

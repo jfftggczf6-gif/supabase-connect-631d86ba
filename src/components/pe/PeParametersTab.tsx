@@ -1,7 +1,9 @@
 // PeParametersTab — onglet "Paramètres" du workspace MD
-// Permet au MD de configurer la thèse d'investissement du fonds :
-// devise par défaut, ticket min/max, secteurs cibles, pays cibles, stades, critères ESG.
-// Stocké dans organizations.settings.pe_thesis (JSONB).
+// Sous-onglets :
+//   - Thèse : thèse d'investissement (devise, ticket, secteurs/pays, stades, ESG)
+//   - Documents DD : checklist documents DD configurable (brief #36)
+// Stocké dans organizations.settings.pe_thesis (JSONB) pour la thèse,
+// dans pe_dd_requirements (table dédiée) pour la checklist DD.
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,12 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, X, Plus, Settings, Globe, Target, Coins, Leaf, RefreshCw } from 'lucide-react';
+import { Loader2, Save, X, Plus, Settings, Globe, Target, Coins, Leaf, RefreshCw, Sparkles, FileCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { useFxRates } from '@/hooks/useFxRates';
+import DdRequirementsSection from './parametres/DdRequirementsSection';
 
 interface Props {
   organizationId: string;
@@ -171,19 +175,11 @@ export default function PeParametersTab({ organizationId }: Props) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Settings className="h-5 w-5 text-violet-600" /> Paramètres du fonds
-          </h2>
-          <p className="text-xs text-muted-foreground">{orgName} — thèse d'investissement utilisée pour le scoring et les filtres</p>
-        </div>
-        {canEdit && (
-          <Button onClick={save} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Enregistrer
-          </Button>
-        )}
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Settings className="h-5 w-5 text-violet-600" /> Paramètres du fonds
+        </h2>
+        <p className="text-xs text-muted-foreground">{orgName} — thèse d'investissement + checklist Due Diligence configurable</p>
       </div>
 
       {!canEdit && (
@@ -193,6 +189,26 @@ export default function PeParametersTab({ organizationId }: Props) {
           </CardContent>
         </Card>
       )}
+
+      <Tabs defaultValue="these">
+        <TabsList className="grid grid-cols-2 max-w-md">
+          <TabsTrigger value="these" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" /> Thèse d'investissement
+          </TabsTrigger>
+          <TabsTrigger value="documents_dd" className="gap-1.5">
+            <FileCheck className="h-3.5 w-3.5" /> Documents DD
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="these" className="space-y-4 mt-4">
+          {canEdit && (
+            <div className="flex justify-end">
+              <Button onClick={save} disabled={saving} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Enregistrer la thèse
+              </Button>
+            </div>
+          )}
 
       {/* Section : Description & Devise */}
       <Card>
@@ -372,6 +388,12 @@ export default function PeParametersTab({ organizationId }: Props) {
           />
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="documents_dd" className="mt-4">
+          <DdRequirementsSection organizationId={organizationId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
