@@ -25,6 +25,7 @@ import ValuationBaSection from './sections/ValuationBaSection';
 import TeaserBaSection from './sections/TeaserBaSection';
 import FundMatchingSection from './sections/FundMatchingSection';
 import DealTrackingSection from './sections/DealTrackingSection';
+import DataRoomBaSection from './sections/DataRoomBaSection';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -124,11 +125,12 @@ function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | un
       items: [
         {
           code: 'fund_matching',
-          label: 'Fonds & matching',
+          label: 'Investisseurs cibles',
           status: stats.funds_contacted > 0 ? 'draft' : 'not_started',
-          caption: stats.funds_contacted > 0 ? `${stats.funds_contacted} fonds contactés` : undefined,
+          caption: stats.funds_contacted > 0 ? `${stats.funds_contacted} contacts` : undefined,
         },
         { code: 'deal_tracking', label: 'Suivi diffusion', status: 'not_started' },
+        { code: 'data_room',     label: 'Data Room',       status: 'not_started' },
       ],
     },
   ];
@@ -160,6 +162,8 @@ function renderSection(code: SectionCode, dealId: string, organizationId: string
       return <FundMatchingSection dealId={dealId} />;
     case 'deal_tracking':
       return <DealTrackingSection dealId={dealId} />;
+    case 'data_room':
+      return <DataRoomBaSection dealId={dealId} />;
     default:
       // Sections du memo (memo:1, memo:2, ...) → PeSingleSectionView via wrapper
       if (typeof code === 'string' && code.startsWith('memo:')) {

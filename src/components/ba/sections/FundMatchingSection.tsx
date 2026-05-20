@@ -18,9 +18,21 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Loader2, ArrowRight, AlertCircle, Phone,
-  Mail, ChevronRight, Sparkles,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import {
+  Loader2, ArrowRight, AlertCircle, Phone, MoreHorizontal, UserPlus,
+  Mail, ChevronRight, Sparkles, Trash2, Send,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -29,6 +41,26 @@ import {
   type OutreachKpis, type ConversionMetrics,
   OUTREACH_STEPS, STAGE_ORDER,
 } from '@/types/fund-matching';
+
+// Brief P7 #30 — contact libre (family office / industriel / DFI / autre)
+interface FreeContact {
+  id: string;
+  name: string;
+  email: string | null;
+  contact_type: 'fonds_pe' | 'family_office' | 'industriel' | 'dfi' | 'particulier' | 'autre';
+  status: 'a_contacter' | 'contacte' | 'teaser_envoye' | 'nda_signe' | 'interesse' | 'no_fit' | 'closed';
+  notes: string | null;
+}
+
+const CONTACT_TYPE_LABEL: Record<FreeContact['contact_type'], string> = {
+  fonds_pe: 'Fonds PE', family_office: 'Family Office', industriel: 'Industriel',
+  dfi: 'DFI', particulier: 'Particulier', autre: 'Autre',
+};
+
+const CONTACT_STATUS_LABEL: Record<FreeContact['status'], string> = {
+  a_contacter: 'À contacter', contacte: 'Contacté', teaser_envoye: 'Teaser envoyé',
+  nda_signe: 'NDA signé', interesse: 'Intéressé', no_fit: 'No fit', closed: 'Closé',
+};
 
 interface Props {
   dealId: string;
@@ -561,6 +593,8 @@ export default function FundMatchingSection({ dealId }: Props) {
   const [loading, setLoading] = useState(true);
   const [selectedFundId, setSelectedFundId] = useState<string | null>(null);
   const [dealInfo, setDealInfo] = useState<{ name: string; sector: string | null; country: string | null; ticket: number | null } | null>(null);
+  const [freeContacts, setFreeContacts] = useState<FreeContact[]>([]);
+  const [addContactOpen, setAddContactOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -638,6 +672,15 @@ export default function FundMatchingSection({ dealId }: Props) {
     rows.sort((a, b) => b.fit_score - a.fit_score);
 
     setFunds(rows);
+
+    // Charger les contacts libres (brief #30)
+    const { data: contactsData } = await supabase
+      .from('ba_deal_contacts')
+      .select('id, name, email, contact_type, status, notes')
+      .eq('deal_id', dealId)
+      .order('created_at', { ascending: false });
+    setFreeContacts((contactsData || []) as FreeContact[]);
+
     if (!selectedFundId && rows.length > 0) {
       // Sélectionner par défaut le fonds avec le statut le plus avancé (ou le mieux scoré)
       const sortedByAdvance = [...rows].sort((a, b) => {
@@ -823,9 +866,9 @@ export default function FundMatchingSection({ dealId }: Props) {
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Fonds & matching — {dealInfo?.name}</h2>
+            <h2 className="text-base font-semibold">Investisseurs cibles — {dealInfo?.name}</h2>
             <Badge variant="outline" className="text-[10px] bg-violet-100 text-violet-700 border-violet-200">
-              {kpis.contacted} fonds contactés
+              {kpis.contacted + freeContacts.length} contacts
             </Badge>
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -833,20 +876,57 @@ export default function FundMatchingSection({ dealId }: Props) {
           </div>
         </div>
         <div className="flex gap-1.5">
+          <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setAddContactOpen(true)}>
+            <UserPlus className="h-3 w-3" /> Ajouter un contact
+          </Button>
           <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleAiMatching} disabled={matchingLoading}>
             {matchingLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-            Matching IA
+            Matching IA (fonds PE)
           </Button>
-          <Button size="sm" className="h-8 text-xs gap-1" onClick={handleHandoff} disabled={handoffLoading}>
-            {handoffLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
-            Handoff PE
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-8 text-xs gap-1">
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleHandoff} disabled={handoffLoading}>
+                {handoffLoading ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5 mr-2" />}
+                Handoff PE (cross-org)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <KpisRow k={kpis} />
       <Funnel k={kpis} />
       <FundTable funds={funds} selected={selectedFundId} onSelect={setSelectedFundId} onAction={handleAction} />
+
+      <FreeContactsTable
+        contacts={freeContacts}
+        onSendTeaser={async (c) => {
+          if (!c.email) { toast.error('Email manquant — édite le contact'); return; }
+          await supabase.from('ba_deal_contacts')
+            .update({ status: 'teaser_envoye', updated_at: new Date().toISOString() })
+            .eq('id', c.id);
+          toast.success(`Teaser marqué envoyé à ${c.name}`);
+          load();
+        }}
+        onStatusChange={async (c, next) => {
+          await supabase.from('ba_deal_contacts')
+            .update({ status: next, updated_at: new Date().toISOString() })
+            .eq('id', c.id);
+          load();
+        }}
+        onDelete={async (c) => {
+          if (!confirm(`Retirer ${c.name} de la liste des contacts ?`)) return;
+          await supabase.from('ba_deal_contacts').delete().eq('id', c.id);
+          toast.success('Contact retiré');
+          load();
+        }}
+      />
+
       {selectedFund && (
         <FundDetailPanel
           fund={selectedFund}
@@ -858,8 +938,176 @@ export default function FundMatchingSection({ dealId }: Props) {
       )}
       <IoiCompare funds={funds} />
       <RelancesPanel funds={funds} onRelance={(id) => handleAction(id, 'relance')} />
-      <HandoffPanel funds={funds} dealId={dealId} onHandoff={handleHandoff} />
       <MetricsPanel m={metrics} />
+
+      <AddContactDialog
+        open={addContactOpen}
+        onOpenChange={setAddContactOpen}
+        dealId={dealId}
+        onAdded={() => { load(); setAddContactOpen(false); }}
+      />
     </div>
+  );
+}
+
+// ─── Brief P7 #30 — Tableau contacts libres ─────────────────────────────────
+function FreeContactsTable({
+  contacts, onSendTeaser, onStatusChange, onDelete,
+}: {
+  contacts: FreeContact[];
+  onSendTeaser: (c: FreeContact) => void;
+  onStatusChange: (c: FreeContact, next: FreeContact['status']) => void;
+  onDelete: (c: FreeContact) => void;
+}) {
+  if (contacts.length === 0) return null;
+  return (
+    <div className="px-5 py-4 border-t">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold">Contacts libres ({contacts.length})</h3>
+        <span className="text-[11px] text-muted-foreground">Family offices, industriels, DFI, etc.</span>
+      </div>
+      <div className="border rounded-lg overflow-hidden bg-card">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-medium">Nom</th>
+              <th className="px-3 py-2 font-medium">Type</th>
+              <th className="px-3 py-2 font-medium">Email</th>
+              <th className="px-3 py-2 font-medium">Statut</th>
+              <th className="px-3 py-2 font-medium">Notes</th>
+              <th className="px-3 py-2 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {contacts.map(c => (
+              <tr key={c.id} className="border-t hover:bg-muted/20">
+                <td className="px-3 py-2 font-medium">{c.name}</td>
+                <td className="px-3 py-2">
+                  <Badge variant="outline" className="text-[10px]">{CONTACT_TYPE_LABEL[c.contact_type]}</Badge>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {c.email ? <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a> : '—'}
+                </td>
+                <td className="px-3 py-2">
+                  <Select value={c.status} onValueChange={v => onStatusChange(c, v as FreeContact['status'])}>
+                    <SelectTrigger className="h-7 w-36 text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CONTACT_STATUS_LABEL).map(([v, l]) => (
+                        <SelectItem key={v} value={v}>{l}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground truncate max-w-[200px]">{c.notes ?? '—'}</td>
+                <td className="px-3 py-2 text-right">
+                  <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => onSendTeaser(c)}>
+                    <Send className="h-3 w-3" /> Teaser
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => onDelete(c)}>
+                    <Trash2 className="h-3 w-3 text-rose-500" />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Brief P7 #30 — Modal "Ajouter un contact" ──────────────────────────────
+function AddContactDialog({
+  open, onOpenChange, dealId, onAdded,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  dealId: string;
+  onAdded: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [type, setType] = useState<FreeContact['contact_type']>('family_office');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim()) { toast.error('Le nom est requis'); return; }
+    setSaving(true);
+    try {
+      const { data: deal } = await supabase
+        .from('pe_deals').select('organization_id').eq('id', dealId).maybeSingle();
+      const orgId = (deal as any)?.organization_id;
+      if (!orgId) throw new Error('Org introuvable');
+      const { data: user } = await supabase.auth.getUser();
+      const { error: insErr } = await supabase
+        .from('ba_deal_contacts')
+        .insert({
+          deal_id: dealId, organization_id: orgId,
+          name: name.trim(), email: email.trim() || null,
+          contact_type: type, notes: notes.trim() || null,
+          added_by: user.user?.id ?? null,
+        });
+      if (insErr) throw new Error(insErr.message);
+      toast.success(`${name} ajouté à la liste`);
+      setName(''); setEmail(''); setType('family_office'); setNotes('');
+      onAdded();
+    } catch (e: any) {
+      toast.error(`Échec : ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ajouter un investisseur cible</DialogTitle>
+          <DialogDescription>
+            Contact libre : family office, industriel, DFI, ou tout autre destinataire potentiel du teaser.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <Label className="text-xs">Nom *</Label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Mansa Capital" />
+          </div>
+          <div>
+            <Label className="text-xs">Email</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contact@mansa-capital.com" />
+          </div>
+          <div>
+            <Label className="text-xs">Type</Label>
+            <Select value={type} onValueChange={v => setType(v as FreeContact['contact_type'])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(CONTACT_TYPE_LABEL).map(([v, l]) => (
+                  <SelectItem key={v} value={v}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Notes</Label>
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Ex: Rencontré au sommet Africa CEO Forum, intéressé par retail Afrique de l'Ouest"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+            Ajouter
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

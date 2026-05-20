@@ -32,7 +32,8 @@ export type SectionCode =
   | 'teaser'
   // Groupe Diffusion (Partner only)
   | 'fund_matching'
-  | 'deal_tracking';
+  | 'deal_tracking'
+  | 'data_room';
 
 export type GroupCode = 'donnees' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
 

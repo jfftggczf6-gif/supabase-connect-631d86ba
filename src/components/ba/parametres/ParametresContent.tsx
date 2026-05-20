@@ -6,19 +6,21 @@
 import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Loader2, Building2, Globe, Target, Sparkles } from 'lucide-react';
+import { Loader2, Building2, Globe, Target, Sparkles, FileCheck } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useParametresBa } from '@/hooks/useParametresBa';
 import FundIdentitySection from './FundIdentitySection';
 import DeviseFormatsSection from './DeviseFormatsSection';
 import CriteresSection from './CriteresSection';
 import TheseSection from './TheseSection';
+import DocumentRequirementsSection from './DocumentRequirementsSection';
 
 const TABS = [
   { code: 'fonds',    label: 'Identité',    Icon: Building2 },
   { code: 'devise',   label: 'Devise',      Icon: Globe },
   { code: 'criteres', label: 'Critères',    Icon: Target },
   { code: 'these',    label: 'Thèse',       Icon: Sparkles },
+  { code: 'documents',label: 'Documents',   Icon: FileCheck },
 ] as const;
 
 export default function ParametresContent() {
@@ -43,7 +45,7 @@ export default function ParametresContent() {
       )}
 
       <Tabs value={active} onValueChange={setActive}>
-        <TabsList className="grid grid-cols-4 max-w-2xl mb-4">
+        <TabsList className="grid grid-cols-5 max-w-3xl mb-4">
           {TABS.map(t => {
             const Icon = t.Icon;
             return (
@@ -88,6 +90,10 @@ export default function ParametresContent() {
             saving={saving}
             onSave={(next) => saveSection('investment_thesis', next)}
           />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          {currentOrg && <DocumentRequirementsSection organizationId={currentOrg.id} />}
         </TabsContent>
       </Tabs>
     </>

@@ -43,6 +43,14 @@ serve(async (req) => {
       });
     }
 
+    // Brief P7 #31 — Check revocation (avant expiry)
+    if (share.revoked_at) {
+      return new Response(JSON.stringify({ error: "Cet accès a été révoqué" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Check expiry
     if (share.expires_at && new Date(share.expires_at) < new Date()) {
       return new Response(JSON.stringify({ error: "Ce lien a expiré" }), {
@@ -66,10 +74,11 @@ serve(async (req) => {
       }
     }
 
-    // Mark as viewed
+    // Mark as viewed (legacy) + access tracking (brief #31)
     if (!share.viewed_at) {
       await sb.from("data_room_shares").update({ viewed_at: new Date().toISOString() }).eq("id", share.id);
     }
+    await sb.rpc("touch_data_room_share", { p_share_id: share.id });
 
     // Get enterprise info
     const { data: enterprise } = await sb
@@ -99,11 +108,23 @@ serve(async (req) => {
       docsWithUrls.push({ ...doc, download_url: downloadUrl });
     }
 
+    // Brief P7 #31 — branding cabinet pour la page publique
+    let cabinetName: string | null = null;
+    if (share.organization_id) {
+      const { data: org } = await sb
+        .from("organizations")
+        .select("name")
+        .eq("id", share.organization_id)
+        .maybeSingle();
+      cabinetName = (org as any)?.name ?? null;
+    }
+
     return new Response(JSON.stringify({
       enterprise,
       investor_name: share.investor_name,
       can_download: share.can_download,
       documents: docsWithUrls,
+      cabinet_name: cabinetName,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

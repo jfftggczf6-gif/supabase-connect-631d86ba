@@ -12,12 +12,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, Sparkles, RefreshCw, FileDown, Eye,
-  Send, Link2, RotateCcw, CheckCircle2,
+  Send, Link2, RotateCcw, CheckCircle2, FileText, ShieldAlert,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -641,16 +642,21 @@ export default function TeaserBaSection({ dealId }: Props) {
 
   if (!payload) {
     return (
-      <Card className="p-12 text-center max-w-2xl mx-auto">
-        <Eye className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-        <h3 className="text-base font-semibold mb-1">Aucun teaser généré</h3>
-        <p className="text-xs text-muted-foreground mb-4 max-w-md mx-auto">
-          Le teaser est un one-pager anonymisé envoyé aux fonds AVANT la NDA.
-          Génération IA depuis le Memo IM.
-        </p>
-        <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
-          {generating ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération…</> : <><Sparkles className="h-3.5 w-3.5" /> Générer le teaser</>}
-        </Button>
+      <Card className="max-w-2xl mx-auto">
+        <CardContent className="p-0">
+          <div className="flex flex-col items-center justify-center gap-3 py-12 px-6 text-center">
+            <div className="h-12 w-12 rounded-full bg-violet-100 flex items-center justify-center">
+              <Sparkles className="h-6 w-6 text-violet-600" />
+            </div>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Le teaser est un one-pager anonymisé envoyé aux fonds AVANT la NDA. Génération IA depuis le Memo IM.
+            </p>
+            <Button onClick={handleGenerate} disabled={generating} size="lg" className="gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Générer le teaser
+            </Button>
+          </div>
+        </CardContent>
       </Card>
     );
   }
@@ -688,7 +694,7 @@ export default function TeaserBaSection({ dealId }: Props) {
         </div>
       </div>
 
-      {/* LAYOUT : sidebar + content */}
+      {/* LAYOUT : sidebar + content (onglets brief #29) */}
       <div className="flex min-h-[700px]">
         <TeaserSidebar
           teaser={teaser}
@@ -697,87 +703,164 @@ export default function TeaserBaSection({ dealId }: Props) {
           onSubmitToPartner={handleSubmitToPartner}
         />
         <div className="flex-1 p-5 bg-muted/10 overflow-y-auto">
-          <WarningBox
-            warnings={payload.warnings}
-            onApply={handleApplyWarning}
-            onIgnore={handleIgnoreWarning}
-          />
-          {/* Doc */}
-          <div className="border rounded overflow-hidden bg-white">
-            <DocCover payload={payload} />
-            <TeaserSections payload={payload} />
-            {/* Footer */}
-            <div className="text-center px-5 py-3.5 border-t bg-muted/20">
-              <p className="text-[9px] text-muted-foreground">
-                Pour plus d'informations — <strong>Cissé Advisory</strong> — contact@cisse-advisory.com
-              </p>
-              <p className="text-[9px] text-muted-foreground mt-0.5">Document strictement confidentiel. Reproduction interdite.</p>
-              <p className="text-[8px] text-muted-foreground/60 mt-0.5">
-                ID: {payload.code_name.replace(/\s/g, '-')}-{teaser?.version_label?.split(' ')[0] || 'v1'} · Watermark destinataire tracé
-              </p>
-            </div>
-          </div>
+          <Tabs defaultValue="document">
+            <TabsList className="mb-4">
+              <TabsTrigger value="document" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Document
+              </TabsTrigger>
+              <TabsTrigger value="anonymisation" className="gap-1.5">
+                <ShieldAlert className="h-3.5 w-3.5" /> Anonymisation
+                {payload.warnings.length > 0 && (
+                  <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-200">
+                    {payload.warnings.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="diffusion" className="gap-1.5">
+                <Send className="h-3.5 w-3.5" /> Diffusion
+                {(teaser?.distribution?.length ?? 0) > 0 && (
+                  <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1">
+                    {teaser?.distribution?.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Comparaison IM ↔ Teaser */}
-          <ComparisonView comparison={payload.comparison} />
+            {/* ─── Onglet Document ──────────────────────────────────────── */}
+            <TabsContent value="document">
+              <div className="border rounded overflow-hidden bg-white">
+                <DocCover payload={payload} />
+                <TeaserSections payload={payload} />
+                <div className="text-center px-5 py-3.5 border-t bg-muted/20">
+                  <p className="text-[9px] text-muted-foreground">
+                    Pour plus d'informations — <strong>Cissé Advisory</strong> — contact@cisse-advisory.com
+                  </p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Document strictement confidentiel. Reproduction interdite.</p>
+                  <p className="text-[8px] text-muted-foreground/60 mt-0.5">
+                    ID: {payload.code_name.replace(/\s/g, '-')}-{teaser?.version_label?.split(' ')[0] || 'v1'} · Watermark destinataire tracé
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-1.5 mt-4 pt-3.5 border-t">
+                <Button
+                  size="sm" variant="outline" className="h-8 text-xs gap-1"
+                  disabled={!teaser}
+                  onClick={async () => {
+                    if (!teaser) return;
+                    const { error } = await supabase
+                      .from('deliverables')
+                      .update({ validation_status: 'pending_validation' })
+                      .eq('id', teaser.id);
+                    if (error) toast.error(error.message);
+                    else { toast.info('Teaser renvoyé à l\'analyste'); await load(); }
+                  }}
+                >
+                  <RotateCcw className="h-3 w-3" /> Renvoyer à l'Analyste
+                </Button>
+                <Button
+                  size="sm" className="h-8 text-xs gap-1"
+                  disabled={!teaser}
+                  onClick={async () => {
+                    if (!teaser) return;
+                    const { error } = await supabase
+                      .from('deliverables')
+                      .update({ validation_status: 'validated' })
+                      .eq('id', teaser.id);
+                    if (error) toast.error(error.message);
+                    else { toast.success('Teaser approuvé pour diffusion'); await load(); }
+                  }}
+                >
+                  <CheckCircle2 className="h-3 w-3" /> Approuver pour diffusion
+                </Button>
+              </div>
+            </TabsContent>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between mt-4 pt-3.5 border-t">
-            <div className="flex gap-1.5">
-              <Button
-                size="sm" variant="outline" className="h-8 text-xs gap-1"
-                onClick={() => setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; })}
-              >
-                <Send className="h-3 w-3" /> Envoyer à 1 fonds
-              </Button>
-              <Button
-                size="sm" variant="outline" className="h-8 text-xs gap-1"
-                onClick={async () => {
-                  const url = `${window.location.origin}/ba/deals/${dealId}?section=teaser`;
-                  try {
-                    await navigator.clipboard.writeText(url);
-                    toast.success('Lien interne copié', { description: url });
-                  } catch {
-                    toast.error('Impossible de copier');
-                  }
-                }}
-              >
-                <Link2 className="h-3 w-3" /> Copier le lien
-              </Button>
-            </div>
-            <div className="flex gap-1.5">
-              <Button
-                size="sm" variant="outline" className="h-8 text-xs gap-1"
-                disabled={!teaser}
-                onClick={async () => {
-                  if (!teaser) return;
-                  const { error } = await supabase
-                    .from('deliverables')
-                    .update({ validation_status: 'pending_validation' })
-                    .eq('id', teaser.id);
-                  if (error) toast.error(error.message);
-                  else { toast.info('Teaser renvoyé à l\'analyste'); await load(); }
-                }}
-              >
-                <RotateCcw className="h-3 w-3" /> Renvoyer à l'Analyste
-              </Button>
-              <Button
-                size="sm" className="h-8 text-xs gap-1"
-                disabled={!teaser}
-                onClick={async () => {
-                  if (!teaser) return;
-                  const { error } = await supabase
-                    .from('deliverables')
-                    .update({ validation_status: 'validated' })
-                    .eq('id', teaser.id);
-                  if (error) toast.error(error.message);
-                  else { toast.success('Teaser approuvé pour diffusion'); await load(); }
-                }}
-              >
-                <CheckCircle2 className="h-3 w-3" /> Approuver pour diffusion
-              </Button>
-            </div>
-          </div>
+            {/* ─── Onglet Anonymisation ─────────────────────────────────── */}
+            <TabsContent value="anonymisation">
+              {payload.warnings.length === 0 ? (
+                <Card className="p-6 text-center text-sm text-muted-foreground bg-emerald-50 border-emerald-200">
+                  ✓ Aucune mention identifiante détectée — le teaser est prêt pour diffusion.
+                </Card>
+              ) : (
+                <WarningBox
+                  warnings={payload.warnings}
+                  onApply={handleApplyWarning}
+                  onIgnore={handleIgnoreWarning}
+                />
+              )}
+              <div className="mt-4">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Comparaison IM (interne) ↔ Teaser (anonymisé)
+                </div>
+                <ComparisonView comparison={payload.comparison} />
+              </div>
+            </TabsContent>
+
+            {/* ─── Onglet Diffusion ──────────────────────────────────────── */}
+            <TabsContent value="diffusion">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">Contacts ayant reçu le teaser</h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Lecture depuis pe_fund_outreach (status ≥ teaser_sent).
+                    </p>
+                  </div>
+                  <Button
+                    size="sm" className="h-8 text-xs gap-1"
+                    onClick={() => setSearchParams(prev => { prev.set('section', 'fund_matching'); return prev; })}
+                  >
+                    <Send className="h-3 w-3" /> Envoyer à un fonds
+                  </Button>
+                </div>
+
+                {(teaser?.distribution?.length ?? 0) === 0 ? (
+                  <div className="text-center py-8 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+                    Aucun envoi pour l'instant. Va dans Fund Matching pour cibler les fonds.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {teaser?.distribution?.map((d, i) => (
+                      <div key={i} className="flex items-center justify-between border rounded-lg p-3 bg-card">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">{d.fund_name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {d.status === 'sent' ? 'Teaser envoyé' : d.status === 'opened' ? 'Teaser ouvert' : d.status === 'replied' ? 'Réponse reçue' : 'En attente'}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={`text-[10px] ${
+                          d.status === 'replied' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          d.status === 'opened'  ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          d.status === 'sent'    ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {d.status === 'sent' ? 'Envoyé' : d.status === 'opened' ? 'Ouvert' : d.status === 'replied' ? 'Répondu' : 'Attente'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-4 mt-3">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Partage rapide</h4>
+                <Button
+                  size="sm" variant="outline" className="gap-1.5"
+                  onClick={async () => {
+                    const url = `${window.location.origin}/ba/deals/${dealId}?section=teaser`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      toast.success('Lien interne copié', { description: url });
+                    } catch {
+                      toast.error('Impossible de copier');
+                    }
+                  }}
+                >
+                  <Link2 className="h-3.5 w-3.5" /> Copier le lien interne
+                </Button>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

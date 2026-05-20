@@ -81,12 +81,13 @@ export function useMandatDetail(
       }
 
       // 2. Compteurs en parallèle (best effort — toute requête qui échoue → fallback empty)
-      const [docsRes, memoVersionRes, valuationRes, fundsRes] = await Promise.all([
+      const [docsRes, memoVersionRes, valuationRes, fundsRes, reqRes] = await Promise.all([
         supabase.from('pe_deal_documents').select('id', { count: 'exact', head: true }).eq('deal_id', dealId),
         // Memo : 1 deal = 1 investment_memo (potentiellement) → on récupère le memo_id puis les sections
         supabase.from('investment_memos').select('id').eq('deal_id', dealId).maybeSingle(),
         supabase.from('pe_valuation').select('id, created_at').eq('deal_id', dealId).maybeSingle(),
         supabase.from('pe_deal_history').select('id', { count: 'exact', head: true }).eq('deal_id', dealId).in('to_stage', ['interets', 'nego']),
+        supabase.from('ba_document_requirements').select('id', { count: 'exact', head: true }).eq('organization_id', organizationId).eq('required', true),
       ]);
 
       let sections_validated = 0, sections_draft = 0, sections_submitted = 0, sections_correction = 0, sections_total = 12;
@@ -128,9 +129,11 @@ export function useMandatDetail(
         .limit(1)
         .maybeSingle();
 
+      // Fallback sur la constante hardcodée si org n'a pas encore seed ses requirements
+      const dynamicExpected = (reqRes as any).count ?? 0;
       const stats: MandatStats = {
         docs_received: docsRes.count ?? 0,
-        docs_expected: EXPECTED_DOCUMENTS_V1.length,
+        docs_expected: dynamicExpected > 0 ? dynamicExpected : EXPECTED_DOCUMENTS_V1.length,
         sections_validated, sections_total, sections_draft, sections_submitted, sections_correction,
         pre_screening_status: psHistory ? 'draft' : 'not_started',
         valuation_status: deriveStatusFromRow(valuationRes.data as any),

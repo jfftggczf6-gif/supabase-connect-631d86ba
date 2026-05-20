@@ -8,6 +8,7 @@ import { parseFile, type DocumentCategory } from '@/lib/document-parser';
 import {
   matchChecklist, computeQuality,
   type BaDealDocument, type ChecklistMatch, type DossierQuality,
+  type ExpectedDocument,
 } from '@/types/upload-documents-ba';
 
 interface State {
@@ -19,7 +20,10 @@ interface State {
   reload: () => Promise<void>;
 }
 
-export function useBaDealDocuments(dealId: string | undefined): State {
+export function useBaDealDocuments(
+  dealId: string | undefined,
+  expectedRequirements?: ExpectedDocument[],
+): State {
   const [documents, setDocuments] = useState<BaDealDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export function useBaDealDocuments(dealId: string | undefined): State {
 
   useEffect(() => { load(); }, [load]);
 
-  const checklist = matchChecklist(documents);
+  const checklist = matchChecklist(documents, expectedRequirements);
   const quality = computeQuality(checklist);
 
   return { documents, checklist, quality, loading, error, reload: load };

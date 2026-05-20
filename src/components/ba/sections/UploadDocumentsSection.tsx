@@ -24,6 +24,7 @@ import {
 import { toast } from 'sonner';
 import { CATEGORY_LABELS } from '@/lib/document-parser';
 import { useBaDealDocuments, uploadAndParseBaDocument } from '@/hooks/useBaDealDocuments';
+import { useBaDocumentRequirements } from '@/hooks/useBaDocumentRequirements';
 import type { BaDealDocument, ExpectedDocument } from '@/types/upload-documents-ba';
 
 interface Props {
@@ -53,7 +54,11 @@ function QualityDot({ q }: { q: BaDealDocument['parse_quality'] }) {
 }
 
 export default function UploadDocumentsSection({ dealId, organizationId }: Props) {
-  const { documents, checklist, quality, loading, reload } = useBaDealDocuments(dealId);
+  const { requirements } = useBaDocumentRequirements(organizationId);
+  const { documents, checklist, quality, loading, reload } = useBaDealDocuments(
+    dealId,
+    requirements.length > 0 ? requirements : undefined,
+  );
   const [uploading, setUploading] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [dragOver, setDragOver] = useState(false);

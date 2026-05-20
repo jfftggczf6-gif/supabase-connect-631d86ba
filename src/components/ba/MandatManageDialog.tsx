@@ -1,15 +1,25 @@
-// MandatManageDialog — modal "Gérer le mandat" : infos read-only + actions
-// rapides (voir pipeline, marquer perdu/close).
-// Briefé P7 AUDIT 19/05 — implémente le bouton qui ne faisait rien.
+// MandatManageDialog — modal "Gérer le mandat" : panel détails éditables
+// + actions rapides (voir pipeline, marquer perdu/close).
+// Brief P7 AUDIT 19/05 + P7 panel éditable.
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, ExternalLink, XCircle, CheckCircle2 } from 'lucide-react';
+import {
+  Loader2, ExternalLink, XCircle, CheckCircle2, Save, Settings, Pencil,
+} from 'lucide-react';
 import type { Mandat } from '@/types/ba';
 
 interface Props {
@@ -24,9 +34,28 @@ const STAGE_LABELS: Record<string, string> = {
   nego: 'Négociation', close: 'Closé', lost: 'Perdu',
 };
 
+const CURRENCIES = ['USD', 'EUR', 'XOF', 'XAF', 'MAD', 'NGN', 'KES', 'GHS'];
+
 export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdated }: Props) {
   const navigate = useNavigate();
   const [updating, setUpdating] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Éditables — chargés à l'ouverture pour récupérer la valeur fresh
+  const [name, setName] = useState(mandat.enterprise_name || '');
+  const [sector, setSector] = useState(mandat.sector || '');
+  const [country, setCountry] = useState(mandat.country || '');
+  const [ticket, setTicket] = useState(mandat.ticket_demande ? String(mandat.ticket_demande / 1_000_000) : '');
+  const [currency, setCurrency] = useState(mandat.currency || 'USD');
+
+  useEffect(() => {
+    if (!open) return;
+    setName(mandat.enterprise_name || '');
+    setSector(mandat.sector || '');
+    setCountry(mandat.country || '');
+    setTicket(mandat.ticket_demande ? String(mandat.ticket_demande / 1_000_000) : '');
+    setCurrency(mandat.currency || 'USD');
+  }, [open, mandat]);
 
   const updateStage = async (newStage: 'lost' | 'close') => {
     const labels = { lost: 'perdu', close: 'closé' };
@@ -47,80 +76,147 @@ export default function MandatManageDialog({ open, onOpenChange, mandat, onUpdat
     }
   };
 
+  const handleSave = async () => {
+    if (!name.trim()) { toast.error('Le nom de la société est requis'); return; }
+    setSaving(true);
+    try {
+      // 1. Update enterprise (name, sector, country)
+      if (mandat.enterprise_id) {
+        const { error: entErr } = await supabase
+          .from('enterprises')
+          .update({
+            name: name.trim(),
+            sector: sector.trim() || null,
+            country: country.trim() || null,
+          })
+          .eq('id', mandat.enterprise_id);
+        if (entErr) throw new Error(`Enterprise: ${entErr.message}`);
+      }
+
+      // 2. Update deal (ticket_demande, currency)
+      const ticketNum = ticket.trim() ? parseFloat(ticket) * 1_000_000 : null;
+      const { error: dealErr } = await supabase
+        .from('pe_deals')
+        .update({
+          ticket_demande: ticketNum,
+          currency: currency,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', mandat.id);
+      if (dealErr) throw new Error(`Deal: ${dealErr.message}`);
+
+      toast.success('Mandat mis à jour');
+      onUpdated?.();
+    } catch (e: any) {
+      toast.error(`Sauvegarde échouée : ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Gérer le mandat</DialogTitle>
           <DialogDescription>
-            Informations et actions rapides sur ce mandat. Pour les détails complets, voir le pipeline.
+            Modifie les informations du mandat ou exécute une action rapide.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between border-b py-1.5">
-            <span className="text-muted-foreground">Société</span>
-            <span className="font-medium">{mandat.enterprise_name || '—'}</span>
-          </div>
-          <div className="flex justify-between border-b py-1.5">
-            <span className="text-muted-foreground">Référence</span>
-            <span className="font-mono text-xs">{mandat.deal_ref}</span>
-          </div>
-          <div className="flex justify-between border-b py-1.5">
-            <span className="text-muted-foreground">Stage</span>
-            <Badge variant="outline">{STAGE_LABELS[mandat.stage] || mandat.stage}</Badge>
-          </div>
-          {mandat.sector && (
-            <div className="flex justify-between border-b py-1.5">
-              <span className="text-muted-foreground">Secteur</span>
-              <span>{mandat.sector}</span>
-            </div>
-          )}
-          {mandat.country && (
-            <div className="flex justify-between border-b py-1.5">
-              <span className="text-muted-foreground">Pays</span>
-              <span>{mandat.country}</span>
-            </div>
-          )}
-          {mandat.ticket_demande && (
-            <div className="flex justify-between border-b py-1.5">
-              <span className="text-muted-foreground">Ticket</span>
-              <span className="font-medium">{(mandat.ticket_demande / 1_000_000).toFixed(1)} M {mandat.currency || 'USD'}</span>
-            </div>
-          )}
-        </div>
+        <Tabs defaultValue="details">
+          <TabsList className="grid grid-cols-2 mb-3">
+            <TabsTrigger value="details" className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Détails
+            </TabsTrigger>
+            <TabsTrigger value="actions" className="gap-1.5">
+              <Settings className="h-3.5 w-3.5" /> Actions
+            </TabsTrigger>
+          </TabsList>
 
-        <DialogFooter className="flex flex-col sm:flex-col gap-2">
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-2"
-            onClick={() => { onOpenChange(false); navigate('/ba?tab=mandats'); }}
-          >
-            <ExternalLink className="h-4 w-4" /> Voir dans le pipeline
-          </Button>
-          {mandat.stage !== 'close' && mandat.stage !== 'lost' && (
-            <>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                disabled={updating}
-                onClick={() => updateStage('close')}
-              >
-                {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-                Marquer comme closé
+          {/* ─── Onglet Détails (éditable) ──────────────────────────────── */}
+          <TabsContent value="details" className="space-y-3">
+            <div>
+              <Label className="text-xs">Société *</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: PharmaCi Industries SA" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Secteur</Label>
+                <Input value={sector} onChange={e => setSector(e.target.value)} placeholder="Pharma, Agro, Fintech…" />
+              </div>
+              <div>
+                <Label className="text-xs">Pays</Label>
+                <Input value={country} onChange={e => setCountry(e.target.value)} placeholder="Côte d'Ivoire, Sénégal…" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <Label className="text-xs">Ticket demandé (M)</Label>
+                <Input
+                  type="number" step="0.1" min="0"
+                  value={ticket} onChange={e => setTicket(e.target.value)}
+                  placeholder="5"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Devise</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t">
+              <span>Référence : <span className="font-mono">{mandat.deal_ref}</span></span>
+              <Badge variant="outline">{STAGE_LABELS[mandat.stage] || mandat.stage}</Badge>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+              <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Enregistrer
               </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                disabled={updating}
-                onClick={() => updateStage('lost')}
-              >
-                {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-rose-600" />}
-                Marquer comme perdu
-              </Button>
-            </>
-          )}
-        </DialogFooter>
+            </DialogFooter>
+          </TabsContent>
+
+          {/* ─── Onglet Actions ─────────────────────────────────────────── */}
+          <TabsContent value="actions" className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => { onOpenChange(false); navigate('/ba?tab=mandats'); }}
+            >
+              <ExternalLink className="h-4 w-4" /> Voir dans le pipeline
+            </Button>
+            {mandat.stage !== 'close' && mandat.stage !== 'lost' && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  disabled={updating}
+                  onClick={() => updateStage('close')}
+                >
+                  {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                  Marquer comme closé
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  disabled={updating}
+                  onClick={() => updateStage('lost')}
+                >
+                  {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-rose-600" />}
+                  Marquer comme perdu
+                </Button>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

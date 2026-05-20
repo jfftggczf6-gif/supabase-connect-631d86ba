@@ -14,9 +14,16 @@
 //
 // Le ton vendeur (BA vs PE) est à ajuster dans une session prompt-engineering.
 
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { FileText, History } from 'lucide-react';
 import MemoSectionsViewer from '@/components/pe/MemoSectionsViewer';
 import PeSingleSectionView from '@/components/pe/PeSingleSectionView';
+import MemoVersionsView from '@/components/pe/MemoVersionsView';
 import MemoBaProgressBar from './MemoBaProgressBar';
+import BaEmptyStateGenerate from '../BaEmptyStateGenerate';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   dealId: string;
@@ -42,6 +49,44 @@ export const MEMO_SECTION_CODES: Record<number, string> = {
 };
 
 export default function MemoBaSection({ dealId, sectionCode, dealStage }: Props) {
+  const [loading, setLoading] = useState(true);
+  const [hasContent, setHasContent] = useState(false);
+
+  const checkMemo = async () => {
+    setLoading(true);
+    const { data: memo } = await supabase
+      .from('investment_memos')
+      .select('id')
+      .eq('deal_id', dealId)
+      .maybeSingle();
+    if (!memo) {
+      setHasContent(false);
+      setLoading(false);
+      return;
+    }
+    const { data: versions } = await supabase
+      .from('memo_versions')
+      .select('id')
+      .eq('memo_id', (memo as any).id)
+      .neq('stage', 'pre_screening');
+    const versionIds = (versions || []).map((v: any) => v.id);
+    if (versionIds.length === 0) {
+      setHasContent(false);
+      setLoading(false);
+      return;
+    }
+    const { count } = await supabase
+      .from('memo_sections')
+      .select('id', { count: 'exact', head: true })
+      .in('version_id', versionIds);
+    setHasContent((count || 0) > 0);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (!sectionCode) checkMemo();
+  }, [dealId, sectionCode]);
+
   // Section individuelle (memo:N de la sidebar)
   if (sectionCode) {
     return (
@@ -51,11 +96,44 @@ export default function MemoBaSection({ dealId, sectionCode, dealStage }: Props)
     );
   }
 
+  if (loading) {
+    return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+
+  if (!hasContent) {
+    return (
+      <BaEmptyStateGenerate
+        dealId={dealId}
+        edgeFunction="generate-ic1-memo"
+        label="Générer l'IM vendeur"
+        description="L'IA produit un IM vendeur en 12 sections : equity story, gouvernance, services, marché, financials, thèse d'investissement. Living document — chaque section éditable et validable par l'analyste, l'IM et le MD."
+        toastLabel="IM vendeur"
+        onLaunched={checkMemo}
+      />
+    );
+  }
+
   // Vue d'ensemble : progress_tracker + auto_update_suggestions + les 12 sections
+  // + onglet Historique (brief P7 #28) — versions memo en lecture seule
   return (
     <div className="max-w-5xl mx-auto">
       <MemoBaProgressBar dealId={dealId} />
-      <MemoSectionsViewer dealId={dealId} dealStage={dealStage} withToc />
+      <Tabs defaultValue="memo">
+        <TabsList className="mb-4">
+          <TabsTrigger value="memo" className="gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> Memo IM
+          </TabsTrigger>
+          <TabsTrigger value="historique" className="gap-1.5">
+            <History className="h-3.5 w-3.5" /> Historique
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="memo">
+          <MemoSectionsViewer dealId={dealId} dealStage={dealStage} withToc />
+        </TabsContent>
+        <TabsContent value="historique">
+          <MemoVersionsView dealId={dealId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
