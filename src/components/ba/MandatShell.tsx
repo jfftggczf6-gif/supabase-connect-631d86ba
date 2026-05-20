@@ -26,6 +26,7 @@ import TeaserBaSection from './sections/TeaserBaSection';
 import FundMatchingSection from './sections/FundMatchingSection';
 import DealTrackingSection from './sections/DealTrackingSection';
 import DataRoomBaSection from './sections/DataRoomBaSection';
+import Mandat360Section from './sections/Mandat360Section';
 import type { MandatDetailBundle, SectionCode, SidebarGroup, SectionStatus } from '@/types/ba-shell';
 
 interface Props {
@@ -54,9 +55,11 @@ const MEMO_SECTIONS = [
 ];
 
 function defaultSectionForRole(role: string | null | undefined, _stats: MandatDetailBundle['stats']): SectionCode {
+  // Partner / MD / owner / admin atterrissent sur la Vue 360° (brief #32) — vue d'ensemble du mandat.
+  if (role && ['owner', 'admin', 'managing_director', 'partner'].includes(role)) return 'overview';
   if (role === 'investment_manager') return 'memo' as SectionCode;
   if (ANALYST_ROLES.includes(role || '')) return 'upload_documents';
-  return 'upload_documents';
+  return 'overview';
 }
 
 function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | undefined): SidebarGroup[] {
@@ -72,9 +75,20 @@ function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | un
     : stats.sections_correction > 0 ? 'correction'
     : stats.sections_draft > 0 ? 'draft'
     : 'not_started';
-  const memoCaption = `${stats.sections_validated}/${MEMO_SECTIONS.length} sections validées`;
+  // Caption enrichi : ajoute "X à valider" si Partner+ a des sections submitted en attente (brief #34)
+  const isPartner = role && ['owner', 'admin', 'managing_director', 'partner', 'investment_manager'].includes(role);
+  const memoCaption = stats.sections_submitted > 0 && isPartner
+    ? `${stats.sections_validated}/${MEMO_SECTIONS.length} validées · ${stats.sections_submitted} à valider`
+    : `${stats.sections_validated}/${MEMO_SECTIONS.length} sections validées`;
 
   const groups: SidebarGroup[] = [
+    {
+      code: 'vue_360',
+      label: 'Vue 360°',
+      items: [
+        { code: 'overview', label: "Vue d'ensemble", status: 'not_started' },
+      ],
+    },
     {
       code: 'donnees',
       label: 'Données',
@@ -138,8 +152,10 @@ function buildSidebarGroups(bundle: MandatDetailBundle, role: string | null | un
   return groups.filter(g => !g.visibleForRoles || g.visibleForRoles.includes(role || ''));
 }
 
-function renderSection(code: SectionCode, dealId: string, organizationId: string): React.ReactNode {
+function renderSection(code: SectionCode, dealId: string, organizationId: string, onNavigate?: (s: SectionCode) => void): React.ReactNode {
   switch (code) {
+    case 'overview':
+      return <Mandat360Section dealId={dealId} onSelectItem={(s) => onNavigate?.(s as SectionCode)} />;
     case 'upload_documents':
       return <UploadDocumentsSection dealId={dealId} organizationId={organizationId} />;
     case 'info_analyste':
@@ -207,9 +223,10 @@ export default function MandatShell({ bundle, role, organizationId }: Props) {
           groups={groups}
           active={active}
           onSelect={handleSelect}
+          stats={bundle.stats}
         />
         <main className="flex-1 overflow-y-auto p-4">
-          {renderSection(active, bundle.mandat.id, organizationId)}
+          {renderSection(active, bundle.mandat.id, organizationId, handleSelect)}
         </main>
       </div>
     </div>

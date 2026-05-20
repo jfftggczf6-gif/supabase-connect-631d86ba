@@ -16,6 +16,8 @@ export type SectionStatus = 'not_started' | 'empty' | 'draft' | 'submitted' | 'c
 // formulaire structuré. Brief #8 info_analyste et brief #8.5 notes_rdv_ba
 // décrivent en réalité la même page côté UI.
 export type SectionCode =
+  // Vue 360° compacte (brief #32)
+  | 'overview'
   // Groupe Données
   | 'upload_documents'
   | 'info_analyste'      // = Notes & RDV (NotesRdvSection)
@@ -35,7 +37,7 @@ export type SectionCode =
   | 'deal_tracking'
   | 'data_room';
 
-export type GroupCode = 'donnees' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
+export type GroupCode = 'vue_360' | 'donnees' | 'pre_screening' | 'memo' | 'valuation' | 'teaser' | 'diffusion';
 
 export interface SidebarItem {
   code: SectionCode;

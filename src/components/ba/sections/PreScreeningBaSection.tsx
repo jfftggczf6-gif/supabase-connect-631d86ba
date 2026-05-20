@@ -1,28 +1,59 @@
 // src/components/ba/sections/PreScreeningBaSection.tsx
-// Pre-screening 360° pour les mandats BA.
-//
-// Brief #11 pre_screening_ba (Ordre 11) — wireframe PreScreenPage (11 sections).
-//
-// Stratégie (cf. CLAUDE.md "Design PE comme référence") :
-// On RÉUTILISE le composant PE PreScreening360Dashboard qui :
-//   - appelle déjà generate-pe-pre-screening (EF Railway v7)
-//   - rend les 11 blocs (activité · actionnariat · management · KPIs · snapshot
-//     financier 3 ans · utilisation fonds · scénarios BEAR/BASE/BULL · adéquation
-//     thèse · red flags SYSCOHADA · qualité dossier · benchmark · recommandation)
-//   - intègre knowledge_benchmarks, IFC standards, scoring
-//   - gère regenerate / save brouillon
-//
-// Le wireframe BA et le composant PE sont à 95% équivalents en termes de structure.
-// Une variation de prompt "ton vendeur" sera intégrée dans une session prompt-engineering
-// dédiée (sans toucher au front).
+// Pre-screening 360° pour les mandats BA. Réutilise le composant PE
+// PreScreening360Dashboard (95% équivalent) + empty state BA dédié
+// (brief P7 #26 — bouton ✨ Générer centré).
 
+import { useEffect, useState } from 'react';
 import PreScreening360Dashboard from '@/components/pe/PreScreening360Dashboard';
+import BaEmptyStateGenerate from '../BaEmptyStateGenerate';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
 
 interface Props {
   dealId: string;
 }
 
 export default function PreScreeningBaSection({ dealId }: Props) {
+  const [loading, setLoading] = useState(true);
+  const [hasContent, setHasContent] = useState(false);
+
+  const check = async () => {
+    setLoading(true);
+    const { data: memo } = await supabase
+      .from('investment_memos')
+      .select('id')
+      .eq('deal_id', dealId)
+      .maybeSingle();
+    if (!memo) { setHasContent(false); setLoading(false); return; }
+    const { data: vers } = await supabase
+      .from('memo_versions')
+      .select('id')
+      .eq('memo_id', (memo as any).id)
+      .eq('stage', 'pre_screening')
+      .limit(1);
+    setHasContent(Array.isArray(vers) && vers.length > 0);
+    setLoading(false);
+  };
+
+  useEffect(() => { check(); }, [dealId]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+
+  if (!hasContent) {
+    return (
+      <BaEmptyStateGenerate
+        dealId={dealId}
+        edgeFunction="generate-pe-pre-screening"
+        label="Générer le pré-screening"
+        description="L'IA va analyser les documents du dossier et produire un pré-screening 360° (11 sections, score, red flags, recommandation)."
+        toastLabel="Pré-screening 360°"
+        onLaunched={check}
+      />
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto">
       <PreScreening360Dashboard dealId={dealId} />

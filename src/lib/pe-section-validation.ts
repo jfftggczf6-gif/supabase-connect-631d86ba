@@ -10,8 +10,9 @@ export interface RoleContext {
 
 const isAnalyst = (ctx: RoleContext) => ctx.role === 'analyste' || ctx.role === 'analyst';
 const isIm = (ctx: RoleContext) => ctx.role === 'investment_manager';
+// 'partner' = Partner BA, équivalent fonctionnel du MD côté PE (brief #34 : "Partner valide")
 const isMdOrAbove = (ctx: RoleContext) =>
-  ctx.role === 'managing_director' || ctx.role === 'admin' || ctx.role === 'owner' || !!ctx.isSuperAdmin;
+  ctx.role === 'managing_director' || ctx.role === 'partner' || ctx.role === 'admin' || ctx.role === 'owner' || !!ctx.isSuperAdmin;
 const isImOrAbove = (ctx: RoleContext) => isIm(ctx) || isMdOrAbove(ctx);
 
 /** L'utilisateur peut-il éditer le contenu de la section (markdown + content_json) ? */
