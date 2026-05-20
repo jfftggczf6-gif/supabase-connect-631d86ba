@@ -56,7 +56,7 @@ export default function ValuationBaSection({ dealId }: Props) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <PeValuationView dealId={dealId} />
     </div>
   );

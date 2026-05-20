@@ -214,7 +214,7 @@ export default function NotesRdvSection({ dealId }: Props) {
   const [addOpen, setAddOpen] = useState(false);
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4 max-w-6xl">
       <Card className="p-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />

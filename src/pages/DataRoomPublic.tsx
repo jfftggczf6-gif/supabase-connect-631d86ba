@@ -12,8 +12,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Loader2, FileText, Download, Shield, BarChart3, Briefcase, Users, Globe,
-  FolderOpen, Lock, AlertTriangle, Clock,
+  FolderOpen, Lock, AlertTriangle, Clock, BookOpen,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+
+// Brief #31 fix : 12 sections IM dans l'ordre standard
+const MEMO_SECTION_LABELS: Record<string, string> = {
+  executive_summary:       '§1 Résumé exécutif',
+  shareholding_governance: '§2 Actionnariat & gouvernance',
+  top_management:          '§3 Top management',
+  services:                '§4 Services',
+  competition_market:      '§5 Concurrence & marché',
+  unit_economics:          '§6 Units economics',
+  financials_pnl:          '§7 États financiers PnL',
+  financials_balance:      '§8 États financiers Bilan',
+  investment_thesis:       "§9 Thèse d'investissement",
+  support_requested:       '§10 Accompagnement demandé',
+  esg_risks:               '§11 ESG / Risques',
+  annexes:                 '§12 Annexes',
+};
+const MEMO_SECTION_ORDER = Object.keys(MEMO_SECTION_LABELS);
 
 const CATEGORY_META: Record<string, { label: string; icon: typeof FileText; color: string }> = {
   legal: { label: 'Juridique', icon: Shield, color: 'bg-violet-100 text-violet-700' },
@@ -155,8 +173,8 @@ export default function DataRoomPublic() {
     );
   }
 
-  // ────── OK : vue documents ────────────────────────────────────────────────
-  const { enterprise, investor_name, can_download, documents, cabinet_name } = data;
+  // ────── OK : vue IM + documents ───────────────────────────────────────────
+  const { enterprise, investor_name, can_download, documents, cabinet_name, memo, memo_sections } = data;
   const categories = Object.keys(CATEGORY_META);
   const grouped = categories.map(cat => ({
     ...CATEGORY_META[cat],
@@ -164,9 +182,16 @@ export default function DataRoomPublic() {
     docs: (documents || []).filter((d: any) => d.category === cat),
   })).filter(g => g.docs.length > 0);
 
+  // Brief #31 fix : tri sections memo dans l'ordre standard 12 sections
+  const sectionsByCode: Record<string, any> = {};
+  for (const s of (memo_sections || [])) sectionsByCode[s.section_code] = s;
+  const orderedSections = MEMO_SECTION_ORDER
+    .map(code => ({ code, label: MEMO_SECTION_LABELS[code], data: sectionsByCode[code] }))
+    .filter(x => x.data);
+
   return (
     <ShellHeader cabinetName={cabinet_name}>
-      <div className="container max-w-4xl py-8">
+      <div className="container max-w-6xl py-8">
         <div className="mb-8">
           <h1 className="font-display font-bold text-2xl mb-1">{enterprise?.name || 'Entreprise'}</h1>
           <p className="text-sm text-muted-foreground">
@@ -175,52 +200,101 @@ export default function DataRoomPublic() {
           </p>
           {investor_name && (
             <p className="text-xs text-muted-foreground mt-2">
-              Bienvenue {investor_name}. Voici les documents partagés avec vous.
+              Bienvenue {investor_name}. Voici l'Information Memorandum partagé avec vous.
             </p>
           )}
-          {!can_download && (
-            <Badge variant="outline" className="mt-3 text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-              Lecture seule — téléchargement désactivé
-            </Badge>
-          )}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {!can_download && (
+              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                Lecture seule — téléchargement désactivé
+              </Badge>
+            )}
+            {memo?.stage && (
+              <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-700 border-violet-200">
+                Memo {memo.stage === 'note_ic_finale' ? 'IC finale' : memo.stage === 'note_ic1' ? 'IC1' : memo.stage}
+              </Badge>
+            )}
+            {memo?.overall_score != null && (
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                Score {memo.overall_score}/100
+              </Badge>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {grouped.map(cat => {
-            const CatIcon = cat.icon;
-            return (
-              <Card key={cat.id} className="p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`h-8 w-8 rounded-lg ${cat.color} flex items-center justify-center`}>
-                    <CatIcon className="h-4 w-4" />
-                  </div>
-                  <h3 className="font-semibold text-sm">{cat.label}</h3>
-                  <Badge variant="outline" className="text-[10px]">{cat.docs.length}</Badge>
-                </div>
-                <div className="space-y-2">
-                  {cat.docs.map((doc: any) => (
-                    <div key={doc.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50">
-                      <FileText className="h-4 w-4 text-muted-foreground flex-none" />
-                      <span className="text-sm flex-1 truncate">{doc.label}</span>
-                      {can_download && doc.download_url && (
-                        <Button variant="ghost" size="sm" className="gap-1 text-xs" asChild>
-                          <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-3 w-3" /> Télécharger
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+        {/* IM 12 sections (Brief #31 fix) */}
+        {orderedSections.length > 0 && (
+          <div className="space-y-4 mb-8">
+            <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
+              <BookOpen className="h-4 w-4 text-violet-600" />
+              Information Memorandum
+              <Badge variant="outline" className="text-[10px]">{orderedSections.length} sections</Badge>
+            </div>
+            {orderedSections.map(s => (
+              <Card key={s.code} className="p-5">
+                <h3 className="font-semibold text-sm mb-3 text-violet-700">{s.label}</h3>
+                <div className="prose prose-sm max-w-none">
+                  {s.data.content_md ? (
+                    <ReactMarkdown>{s.data.content_md}</ReactMarkdown>
+                  ) : s.data.content_json ? (
+                    <pre className="text-[11px] whitespace-pre-wrap bg-muted/40 p-3 rounded">
+                      {JSON.stringify(s.data.content_json, null, 2)}
+                    </pre>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Section vide</p>
+                  )}
                 </div>
               </Card>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {grouped.length === 0 && (
+        {/* Documents data room (table data_room_documents) */}
+        {grouped.length > 0 && (
+          <div className="space-y-6">
+            <div className="text-sm font-semibold flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-violet-600" />
+              Documents complémentaires
+            </div>
+            {grouped.map(cat => {
+              const CatIcon = cat.icon;
+              return (
+                <Card key={cat.id} className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`h-8 w-8 rounded-lg ${cat.color} flex items-center justify-center`}>
+                      <CatIcon className="h-4 w-4" />
+                    </div>
+                    <h3 className="font-semibold text-sm">{cat.label}</h3>
+                    <Badge variant="outline" className="text-[10px]">{cat.docs.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {cat.docs.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-none" />
+                        <span className="text-sm flex-1 truncate">{doc.label}</span>
+                        {can_download && doc.download_url && (
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs" asChild>
+                            <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-3 w-3" /> Télécharger
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {orderedSections.length === 0 && grouped.length === 0 && (
           <Card className="p-8 text-center">
             <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">Aucun document partagé pour le moment.</p>
+            <p className="text-sm text-muted-foreground">Aucun contenu partagé pour le moment.</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              L'IM n'a peut-être pas encore été généré. Contactez {cabinet_name || 'le cabinet'}.
+            </p>
           </Card>
         )}
 

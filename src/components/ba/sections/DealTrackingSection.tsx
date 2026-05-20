@@ -152,7 +152,7 @@ export default function DealTrackingSection({ dealId }: Props) {
   };
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto">
       <header>
         <h2 className="text-base font-semibold">Suivi diffusion — vue mandat</h2>
         <p className="text-xs text-muted-foreground mt-0.5">

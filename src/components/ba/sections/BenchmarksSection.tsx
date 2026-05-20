@@ -84,7 +84,7 @@ export default function BenchmarksSection({ dealId }: Props) {
   }
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-6xl">
       <header>
         <h2 className="text-base font-semibold">Benchmark & analyse concurrentielle</h2>
         <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">

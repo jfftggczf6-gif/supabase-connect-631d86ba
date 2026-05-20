@@ -90,7 +90,7 @@ export default function MemoBaSection({ dealId, sectionCode, dealStage }: Props)
   // Section individuelle (memo:N de la sidebar)
   if (sectionCode) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <PeSingleSectionView dealId={dealId} sectionCode={sectionCode} />
       </div>
     );
@@ -116,7 +116,7 @@ export default function MemoBaSection({ dealId, sectionCode, dealStage }: Props)
   // Vue d'ensemble : progress_tracker + auto_update_suggestions + les 12 sections
   // + onglet Historique (brief P7 #28) — versions memo en lecture seule
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <MemoBaProgressBar dealId={dealId} />
       <Tabs defaultValue="memo">
         <TabsList className="mb-4">

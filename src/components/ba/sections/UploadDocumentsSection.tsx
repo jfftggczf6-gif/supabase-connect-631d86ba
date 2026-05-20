@@ -107,7 +107,7 @@ export default function UploadDocumentsSection({ dealId, organizationId }: Props
   };
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-6xl">
       {/* Score qualité dossier */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-2">

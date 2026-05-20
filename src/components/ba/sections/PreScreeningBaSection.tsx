@@ -55,7 +55,7 @@ export default function PreScreeningBaSection({ dealId }: Props) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <PreScreening360Dashboard dealId={dealId} />
     </div>
   );

@@ -132,7 +132,7 @@ export default function MemoBaProgressBar({ dealId }: Props) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-3 mb-4">
+    <div className="max-w-6xl mx-auto space-y-3 mb-4">
       {/* progress_tracker */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-2">

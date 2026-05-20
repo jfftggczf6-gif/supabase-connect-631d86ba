@@ -160,7 +160,7 @@ export default function SourcesSection({ dealId }: Props) {
   }
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4 max-w-6xl">
       <header>
         <h2 className="text-base font-semibold">Sources & références</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
