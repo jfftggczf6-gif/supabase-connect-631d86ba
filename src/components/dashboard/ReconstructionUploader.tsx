@@ -207,8 +207,10 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       const separator = `\n\n══════ DOCUMENTS AJOUTÉS LE ${new Date().toLocaleDateString('fr-FR')} ══════\n`;
       const mergedContent = existingContent + separator + newContent;
 
-      // Truncate if too long (keep the most recent 300K chars)
-      const MAX_CONTENT = 300_000;
+      // Truncate if too long (keep the most recent 600K chars)
+      // Bumped 300K → 600K (2026-05-20) après migration reconstruct vers Railway
+      // worker. Permet d'accumuler 15-20 docs au lieu de 9-10.
+      const MAX_CONTENT = 600_000;
       const finalContent = mergedContent.length > MAX_CONTENT
         ? mergedContent.slice(mergedContent.length - MAX_CONTENT)
         : mergedContent;

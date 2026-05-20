@@ -143,7 +143,11 @@ export async function parseFile(file: File): Promise<ParsedDocument> {
  * Sorts by category priority (financial docs first) then by quality.
  */
 export function buildDocumentContent(docs: ParsedDocument[]): string {
-  const MAX_TOTAL = 300_000;
+  // Bumped 300K → 600K (2026-05-20) après migration reconstruct-from-traces
+  // vers Railway worker (plus de timeout proxy 150s). Permet d'analyser 15-20
+  // documents au lieu de 9-10. Voir helpers_v5.getDocumentContentForAgent —
+  // chaque EF tronque indépendamment à sa propre limite (20K-260K).
+  const MAX_TOTAL = 600_000;
 
   const categoryOrder: string[] = [
     'etats_financiers',
