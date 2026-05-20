@@ -1,13 +1,15 @@
 // src/components/shared/DealSideNav.tsx
 // Sidebar partagée PE + BA — composant data-driven.
 //
-// Brief #37 [CROSS] Mutualiser sidebar PE + BA. Les 2 modules avaient des
-// implémentations séparées (PeDealSidebar 500+ lignes avec stage-gating ;
-// MandatSideNav 100 lignes data-driven). Ce composant est le commun :
-//   - Layout fixe 240px, border-r, scroll vertical
+// Brief #37 [CROSS] Mutualiser sidebar PE + BA. Avant : 2 implémentations
+// séparées (PeDealSidebar 466 lignes avec stage-gating ; MandatSideNav 100
+// lignes data-driven). Désormais, ce composant est le commun :
+//   - Layout fixe (largeur configurable), border-r, scroll vertical
 //   - Groupes navigables avec header violet + icône
-//   - Items avec status icon + label + caption + active border-left violet
-//   - Progress bar optionnelle en haut
+//   - Items avec icon (custom) ou status icon + label + caption + badge
+//   - Sub-items optionnels (indentés avec border-l)
+//   - Active : border-left violet + bg-violet-50
+//   - Slot topContent pour header entreprise / progress bar
 //
 // PE et BA construisent leurs groupes selon leur métier puis passent en props.
 
@@ -37,6 +39,13 @@ export interface SharedSidebarItem<TCode extends string = string> {
   caption?: string;
   /** Si true, le clic est bloqué. */
   disabled?: boolean;
+  /** Override de l'icône (sinon icône statut par défaut). PE utilise des icônes
+   *  catégorielles (Home, FolderOpen, ShieldCheck, ...). */
+  icon?: LucideIcon;
+  /** Badge optionnel à droite (ex: "2 ⏳", "5"). */
+  badge?: React.ReactNode;
+  /** Sous-items indentés (ex: 12 sections du memo PE). Rendus en compact. */
+  subItems?: SharedSidebarItem<TCode>[];
 }
 
 export interface SharedSidebarGroup<TCode extends string = string> {
@@ -58,6 +67,10 @@ interface Props<TCode extends string = string> {
   topContent?: React.ReactNode;
   /** Largeur custom (défaut 240px). */
   width?: string;
+  /** Style d'en-tête de groupe : 'subtle' (BA, défaut) ou 'highlighted' (PE — fond violet clair). */
+  groupHeaderStyle?: 'subtle' | 'highlighted';
+  /** Affiche-t-on l'icône de statut quand l'item a déjà une icône custom ? Défaut : non. */
+  showStatusAlongsideIcon?: boolean;
 }
 
 // ─── Icônes par défaut pour les groupes communs PE+BA ───────────────────────
@@ -70,10 +83,14 @@ const GROUP_ICONS_DEFAULT: Record<string, LucideIcon> = {
   teaser: Eye,
   diffusion: Send,
   // PE-specific
+  analyse: FileSearch,
+  decision: FileText,
   ic1: FileText,
   dd: FileSearch,
   closing: Briefcase,
+  portefeuille: Briefcase,
   portfolio: Briefcase,
+  sortie: Briefcase,
 };
 
 // ─── Métadonnée statut : icône + couleur ────────────────────────────────────
@@ -100,8 +117,59 @@ function StatusIcon({ status }: { status: SharedSectionStatus }) {
   );
 }
 
+/** Rend un item de menu (ligne cliquable) + ses sub-items s'il y en a. */
+function ItemButton<TCode extends string>({
+  item, active, onSelect, isSub, showStatusAlongsideIcon,
+}: {
+  item: SharedSidebarItem<TCode>;
+  active: TCode;
+  onSelect: (code: TCode) => void;
+  isSub?: boolean;
+  showStatusAlongsideIcon?: boolean;
+}) {
+  const isActive = item.code === active;
+  const CustomIcon = item.icon;
+
+  return (
+    <button
+      type="button"
+      disabled={item.disabled}
+      onClick={() => onSelect(item.code)}
+      className={cn(
+        'w-full flex items-start gap-2 text-left transition-colors border-l-[3px]',
+        isSub
+          ? 'px-2 py-1 text-[11px] rounded-none'
+          : 'px-3 py-1.5 text-[12px]',
+        isActive
+          ? 'border-violet-600 bg-violet-50 text-violet-900 font-semibold'
+          : 'border-transparent hover:bg-muted/40 text-foreground/80',
+        item.disabled && 'opacity-50 cursor-not-allowed',
+      )}
+    >
+      {CustomIcon ? (
+        <>
+          <CustomIcon className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          {showStatusAlongsideIcon && <StatusIcon status={item.status} />}
+        </>
+      ) : (
+        <StatusIcon status={item.status} />
+      )}
+      <span className="flex-1 min-w-0">
+        <span className="block truncate">{item.label}</span>
+        {item.caption && (
+          <span className="block text-[10px] text-muted-foreground truncate">{item.caption}</span>
+        )}
+      </span>
+      {item.badge != null && item.badge !== '' && (
+        <span className="text-[10px] shrink-0 mt-0.5">{item.badge}</span>
+      )}
+    </button>
+  );
+}
+
 export default function DealSideNav<TCode extends string = string>({
   groups, active, onSelect, topContent, width = 'w-[240px]',
+  groupHeaderStyle = 'subtle', showStatusAlongsideIcon,
 }: Props<TCode>) {
   return (
     <nav className={cn(width, 'shrink-0 border-r bg-muted/20 overflow-y-auto')} aria-label="Navigation deal">
@@ -111,38 +179,41 @@ export default function DealSideNav<TCode extends string = string>({
           const GroupIcon = group.icon || GROUP_ICONS_DEFAULT[group.code] || Database;
           return (
             <div key={group.code} className="mb-1">
-              <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+              <div className={cn(
+                'flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700',
+                groupHeaderStyle === 'highlighted'
+                  ? 'mx-2 px-2 py-1.5 mt-2 mb-1 bg-violet-100/60 rounded-md'
+                  : 'px-3 py-1.5',
+              )}>
                 <GroupIcon className="h-3 w-3" />
                 {group.label}
               </div>
               <ul>
-                {group.items.map(item => {
-                  const isActive = item.code === active;
-                  return (
-                    <li key={item.code}>
-                      <button
-                        type="button"
-                        disabled={item.disabled}
-                        onClick={() => onSelect(item.code)}
-                        className={cn(
-                          'w-full flex items-start gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',
-                          isActive
-                            ? 'border-l-[3px] border-violet-600 bg-violet-50 text-violet-900 font-semibold'
-                            : 'border-l-[3px] border-transparent hover:bg-muted/40 text-foreground/80',
-                          item.disabled && 'opacity-50 cursor-not-allowed',
-                        )}
-                      >
-                        <StatusIcon status={item.status} />
-                        <span className="flex-1 min-w-0">
-                          <span className="block truncate">{item.label}</span>
-                          {item.caption && (
-                            <span className="block text-[10px] text-muted-foreground truncate">{item.caption}</span>
-                          )}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
+                {group.items.map(item => (
+                  <li key={item.code}>
+                    <ItemButton
+                      item={item}
+                      active={active}
+                      onSelect={onSelect}
+                      showStatusAlongsideIcon={showStatusAlongsideIcon}
+                    />
+                    {item.subItems && item.subItems.length > 0 && (
+                      <ul className="ml-4 pl-3 border-l border-border/50">
+                        {item.subItems.map(sub => (
+                          <li key={sub.code}>
+                            <ItemButton
+                              item={sub}
+                              active={active}
+                              onSelect={onSelect}
+                              isSub
+                              showStatusAlongsideIcon={showStatusAlongsideIcon}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
               </ul>
             </div>
           );

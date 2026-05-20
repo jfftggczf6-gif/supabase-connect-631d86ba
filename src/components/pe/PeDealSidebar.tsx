@@ -1,11 +1,19 @@
+// src/components/pe/PeDealSidebar.tsx
+//
+// Brief #37 [CROSS] Mutualiser sidebar PE + BA — ce composant est désormais
+// un wrapper léger autour de `shared/DealSideNav`. Toute la logique métier PE
+// (stage-gating, role-gating, data fetching, sub-items memo, badges) reste
+// localisée ici ; le rendu visuel est délégué au shared.
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
 import {
-  Home, FolderOpen, History,
-  CheckCircle2, Circle, Loader2, FileEdit, ShieldCheck, Search, BookMarked,
-  Send, AlertCircle, Calculator, ZoomIn, FileSignature, Sparkles, Activity, DoorOpen, PenLine,
+  Home, FolderOpen, History, FileEdit, ShieldCheck, Search,
+  BookMarked, Calculator, FileSignature, Sparkles, Activity, DoorOpen, PenLine,
 } from 'lucide-react';
+import DealSideNav, {
+  type SharedSidebarGroup, type SharedSidebarItem, type SharedSectionStatus,
+} from '@/components/shared/DealSideNav';
 
 const SECTIONS = [
   { code: 'executive_summary',       label: 'Résumé exécutif' },
@@ -21,17 +29,6 @@ const SECTIONS = [
   { code: 'esg_risks',               label: 'ESG / Risques' },
   { code: 'annexes',                 label: 'Annexes' },
 ] as const;
-
-// Living document : un seul memo qui évolue à travers les stages.
-// La sidebar affiche UN item collapsible "Memo d'investissement" + un badge stage.
-const STAGE_BADGE_LABELS: Record<string, string> = {
-  pre_screening: 'Pré-screening',
-  note_ic1: 'IC1',
-  note_ic_finale: 'IC finale',
-  dd: 'DD',
-  closing: 'Closing',
-  portfolio: 'Portfolio',
-};
 
 type SectionWorkflowStatus = 'draft' | 'pending_validation' | 'validated' | 'needs_revision';
 
@@ -89,10 +86,23 @@ function canSeeExit(role?: string | null): boolean {
   return ROLES_EXIT.includes(role);
 }
 
-export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, dealStage, userRole, holdingMonths, enterpriseName, enterpriseCountry }: Props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// Mapping workflow status PE → SharedSectionStatus
+// ═══════════════════════════════════════════════════════════════════════════
+function workflowToShared(ws: SectionWorkflowStatus | undefined, filled: boolean): SharedSectionStatus {
+  if (!filled) return 'not_started';
+  if (!ws) return 'draft';
+  if (ws === 'validated') return 'validated';
+  if (ws === 'pending_validation') return 'pending_validation';
+  if (ws === 'needs_revision') return 'needs_revision';
+  return 'draft';
+}
+
+export default function PeDealSidebar({
+  dealId, selectedItem, onSelectItem, dealStage, userRole, holdingMonths,
+  enterpriseName, enterpriseCountry,
+}: Props) {
   const [activeVersion, setActiveVersion] = useState<ActiveMemoVersion | null>(null);
-  const [docCount, setDocCount] = useState(0);
-  const [versionCount, setVersionCount] = useState(0);
   const [hasValuation, setHasValuation] = useState(false);
   const [hasDdFindings, setHasDdFindings] = useState(false);
 
@@ -132,17 +142,9 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
       } else {
         setActiveVersion(null);
       }
-      setVersionCount(vers?.length ?? 0);
     } else {
       setActiveVersion(null);
-      setVersionCount(0);
     }
-
-    const { count } = await supabase
-      .from('pe_deal_documents')
-      .select('id', { count: 'exact', head: true })
-      .eq('deal_id', dealId);
-    setDocCount(count ?? 0);
 
     // Existence de livrables avancés (sert à débloquer la nav même si le stage
     // du deal n'a pas encore été avancé manuellement par l'IM/MD).
@@ -163,304 +165,146 @@ export default function PeDealSidebar({ dealId, selectedItem, onSelectItem, deal
 
   useEffect(() => { reload(); }, [dealId]);
 
-  const sectionStatusIcon = (code: string) => {
-    if (!activeVersion) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
-    if (activeVersion.status === 'generating') return <Loader2 className="h-3 w-3 animate-spin text-info" />;
-    if (activeVersion.status === 'rejected') return <Circle className="h-3 w-3 text-destructive" />;
-    if (!activeVersion.filledSections.has(code)) return <Circle className="h-3 w-3 text-muted-foreground/40" />;
-
-    // Section remplie : on affiche son statut workflow
-    const ws = activeVersion.sectionStatusMap[code] ?? 'draft';
-    if (ws === 'validated') return <CheckCircle2 className="h-3 w-3" style={{ color: 'var(--pe-ok)' }} />;
-    if (ws === 'pending_validation') return <Send className="h-3 w-3" style={{ color: 'var(--pe-info)' }} />;
-    if (ws === 'needs_revision') return <AlertCircle className="h-3 w-3" style={{ color: 'var(--pe-warning)' }} />;
-    return <CheckCircle2 className="h-3 w-3 text-muted-foreground" />;
-  };
-
-  const memoProgress = (): string | null => {
-    if (!activeVersion) return null;
-    return `${activeVersion.filledSections.size}/${SECTIONS.length}`;
-  };
-
-  const memoPendingCount = (): number => {
-    if (!activeVersion) return 0;
-    return Object.values(activeVersion.sectionStatusMap).filter(s => s === 'pending_validation').length;
-  };
-
-  const memoStageBadge = (): string | null => {
-    if (!activeVersion) return null;
-    return STAGE_BADGE_LABELS[activeVersion.stage] ?? activeVersion.stage;
-  };
-
-  // ItemRow aligné sur le pattern DashboardSidebar (programme/banque) :
-  // border-l-2 transparent, active = bg-primary/10 + text-primary + border-l-primary
-  const ItemRow = ({
-    active, onClick, icon: Icon, label, badge, disabled, rightExtra, status,
-  }: {
-    active: boolean;
-    onClick: () => void;
-    icon: any;
-    label: string;
-    badge?: string | number | null;
-    disabled?: boolean;
-    rightExtra?: React.ReactNode;
-    /** Statut module type programme : completed = check vert, in_progress = loader, sinon cercle vide */
-    status?: 'completed' | 'in_progress' | 'not_started';
-  }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        'w-full flex items-center gap-2.5 px-4 py-1.5 text-left text-xs transition-colors border-l-2',
-        active
-          ? 'bg-primary/10 text-primary font-medium border-l-primary'
-          : 'border-l-transparent hover:bg-muted/50 ' + (status === 'completed' ? 'text-foreground' : 'text-muted-foreground'),
-        disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent',
-      )}
-    >
-      <Icon className="h-4 w-4 flex-none" />
-      <span className="flex-1 text-left truncate">{label}</span>
-      {badge != null && badge !== '' && (
-        <span className="text-[10px] text-muted-foreground/70 flex-none">{badge}</span>
-      )}
-      {rightExtra}
-      {status === 'completed' ? (
-        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-none" />
-      ) : status === 'in_progress' ? (
-        <Loader2 className="h-3.5 w-3.5 text-primary animate-spin flex-none" />
-      ) : status === 'not_started' ? (
-        <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 flex-none" />
-      ) : null}
-    </button>
-  );
-
   // Calcul du % de progression — basé sur les sections du memo remplies / total
   const totalProgress = activeVersion
     ? Math.round((activeVersion.filledSections.size / SECTIONS.length) * 100)
     : 0;
 
+  // Compteur memo sections en attente de validation (pour badge)
+  const memoPendingCount = activeVersion
+    ? Object.values(activeVersion.sectionStatusMap).filter(s => s === 'pending_validation').length
+    : 0;
+
   // Gates "contenu existe" : la sidebar débloque les sections dès qu'un livrable
-  // a été généré, indépendamment du stage formel du deal (qui reste sous
-  // contrôle IM/MD via "Gérer le deal"). Un analyste peut ainsi lire et préparer
-  // l'IC1 sans que le pipeline soit forcé d'avancer.
+  // a été généré, indépendamment du stage formel du deal.
   const hasMemoEnriched =
     activeVersion?.stage === 'note_ic1' || activeVersion?.stage === 'note_ic_finale';
   const showAnalysis = isStageAtLeast(dealStage, 'pre_screening') || !!activeVersion;
   const showMemo = isStageAtLeast(dealStage, 'note_ic1') || hasMemoEnriched;
   const showValuation = isStageAtLeast(dealStage, 'note_ic1') || hasValuation;
   const showDecision = isStageAtLeast(dealStage, 'dd') || hasDdFindings;
+  const showPortfolio = isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole);
+  const showExit = ((isStageAtLeast(dealStage, 'exit_prep')) ||
+    (isStageAtLeast(dealStage, 'portfolio') && (holdingMonths ?? 0) >= 36)) &&
+    canSeeExit(userRole);
+  const showClosing = isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole);
+
+  // ─── Construction des groupes pour DealSideNav ─────────────────────────────
+  const groups: SharedSidebarGroup<string>[] = [];
+
+  // Groupe synthétique pour "Vue d'ensemble" (sans header — affiché tout en haut)
+  groups.push({
+    code: 'top',
+    label: '',
+    items: [
+      { code: 'overview', label: "Vue d'ensemble", status: 'not_started', icon: Home },
+    ],
+  });
+
+  // ── DONNÉES ──
+  groups.push({
+    code: 'donnees',
+    label: 'Données',
+    items: [
+      { code: 'documents', label: 'Upload document',   status: 'not_started', icon: FolderOpen },
+      { code: 'notes',     label: 'Notes analyste',    status: 'not_started', icon: PenLine },
+      { code: 'benchmark', label: 'Benchmark & sources', status: 'not_started', icon: BookMarked },
+      { code: 'history',   label: 'Historique',        status: 'not_started', icon: History },
+    ],
+  });
+
+  // ── ANALYSE ──
+  if (showAnalysis) {
+    const analyseItems: SharedSidebarItem<string>[] = [
+      { code: 'pre_screening', label: 'Pré-screening 360°', status: 'not_started', icon: FileEdit },
+    ];
+    if (showMemo) {
+      // Memo parent + 12 sub-items
+      const memoSubItems: SharedSidebarItem<string>[] = SECTIONS.map(s => {
+        const ws = activeVersion?.sectionStatusMap[s.code];
+        const filled = activeVersion?.filledSections.has(s.code) ?? false;
+        return {
+          code: `memo:${s.code}`,
+          label: s.label,
+          status: workflowToShared(ws, filled),
+        };
+      });
+      analyseItems.push({
+        code: 'memo',
+        label: "Memo d'investissement",
+        status: 'not_started',
+        icon: ShieldCheck,
+        badge: memoPendingCount > 0
+          ? <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{memoPendingCount} ⏳</span>
+          : undefined,
+        subItems: memoSubItems,
+      });
+    }
+    if (showValuation) {
+      analyseItems.push({ code: 'valuation', label: 'Valuation', status: 'not_started', icon: Calculator });
+    }
+    groups.push({ code: 'analyse', label: 'Analyse', items: analyseItems });
+  }
+
+  // ── DÉCISION ──
+  if (showDecision) {
+    const decisionItems: SharedSidebarItem<string>[] = [
+      { code: 'dd', label: 'Due Diligence', status: 'not_started', icon: Search },
+    ];
+    if (showClosing) {
+      decisionItems.push({ code: 'closing', label: 'Closing', status: 'not_started', icon: FileSignature });
+    }
+    groups.push({ code: 'decision', label: 'Décision', items: decisionItems });
+  }
+
+  // ── PORTEFEUILLE ──
+  if (showPortfolio) {
+    groups.push({
+      code: 'portefeuille',
+      label: 'Portefeuille',
+      items: [
+        { code: 'plan_100j',          label: 'Plan 100 jours', status: 'not_started', icon: Sparkles },
+        { code: 'monitoring',         label: 'Monitoring',     status: 'not_started', icon: Activity },
+        { code: 'valuation_history',  label: 'NAV History',    status: 'not_started', icon: History },
+      ],
+    });
+  }
+
+  // ── SORTIE ──
+  if (showExit) {
+    groups.push({
+      code: 'sortie',
+      label: 'Sortie',
+      items: [
+        { code: 'exit_prep', label: 'Exit & sortie', status: 'not_started', icon: DoorOpen },
+      ],
+    });
+  }
+
+  // Header entreprise (pattern programme aligné — préservé tel quel)
+  const headerNode = (enterpriseName || enterpriseCountry) ? (
+    <div className="px-4 py-4 border-b bg-violet-50/40">
+      {enterpriseName && (
+        <p className="font-bold text-sm text-foreground truncate">{enterpriseName}</p>
+      )}
+      <p className="text-xs text-muted-foreground truncate mt-0.5">
+        — · {enterpriseCountry || '—'}
+      </p>
+      <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+        <div className="h-full bg-violet-500 transition-all" style={{ width: `${totalProgress}%` }} />
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">{totalProgress}% complété</p>
+    </div>
+  ) : undefined;
 
   return (
-    <div className="w-64 shrink-0 border-r bg-card overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-      {/* Header entreprise — pattern aligné sur DashboardSidebar (volet programme) */}
-      {(enterpriseName || enterpriseCountry) && (
-        <div className="px-4 py-4 border-b bg-violet-50/40">
-          {enterpriseName && (
-            <p className="font-bold text-sm text-foreground truncate">{enterpriseName}</p>
-          )}
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            — · {enterpriseCountry || '—'}
-          </p>
-          <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-violet-500 transition-all" style={{ width: `${totalProgress}%` }} />
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">{totalProgress}% complété</p>
-        </div>
-      )}
-
-      <nav className="p-2 space-y-0.5">
-        {/* Vue d'ensemble — toujours en haut */}
-        <ItemRow
-          active={selectedItem === 'overview'}
-          onClick={() => onSelectItem('overview')}
-          icon={Home}
-          label="Vue d'ensemble"
-        />
-
-        {/* ── DONNÉES ── */}
-        <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-          <span className="flex-1 text-left">Données</span>
-        </div>
-        <ItemRow
-          active={selectedItem === 'documents'}
-          onClick={() => onSelectItem('documents')}
-          icon={FolderOpen}
-          label="Upload document"
-        />
-        <ItemRow
-          active={selectedItem === 'notes'}
-          onClick={() => onSelectItem('notes')}
-          icon={PenLine}
-          label="Notes analyste"
-        />
-        <ItemRow
-          active={selectedItem === 'benchmark'}
-          onClick={() => onSelectItem('benchmark')}
-          icon={BookMarked}
-          label="Benchmark & sources"
-        />
-        <ItemRow
-          active={selectedItem === 'history'}
-          onClick={() => onSelectItem('history')}
-          icon={History}
-          label="Historique"
-        />
-
-        {/* ── ANALYSE : visible dès qu'un memo existe ou stage ≥ pre_screening ── */}
-        {showAnalysis && (
-          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-            <span className="flex-1 text-left">Analyse</span>
-          </div>
-        )}
-
-        {/* Pré-screening 360° : visible dès qu'un memo existe ou stage ≥ pre_screening */}
-        {showAnalysis && (
-          <ItemRow
-            active={selectedItem === 'pre_screening'}
-            onClick={() => onSelectItem('pre_screening')}
-            icon={FileEdit}
-            label="Pré-screening 360°"
-          />
-        )}
-
-        {/* Memo d'investissement : visible dès qu'un memo IC1+ existe (ou stage ≥ note_ic1).
-            FIXE — toujours déplié (pas de collapse), aligné sur le pattern programme */}
-        {showMemo && (() => {
-          const pending = memoPendingCount();
-          return (
-            <div>
-              <button
-                onClick={() => onSelectItem('memo')}
-                className={cn(
-                  'w-full flex items-center gap-2.5 px-4 py-1.5 text-left text-xs transition-colors border-l-2',
-                  selectedItem === 'memo'
-                    ? 'bg-primary/10 text-primary font-medium border-l-primary'
-                    : 'border-l-transparent hover:bg-muted/50 text-foreground',
-                )}
-              >
-                <ShieldCheck className="h-4 w-4 flex-none" />
-                <span className="flex-1 truncate">Memo d'investissement</span>
-                {pending > 0 && (
-                  <span className="text-[10px] px-1 rounded font-medium bg-blue-50 text-blue-700">{pending} ⏳</span>
-                )}
-              </button>
-              {/* Sections — toujours visibles (pas de collapse) */}
-              <div className="ml-3 pl-3 border-l border-border/50 space-y-0.5 mt-0.5">
-                {SECTIONS.map((s) => {
-                  const itemKey = `memo:${s.code}`;
-                  return (
-                    <button
-                      key={s.code}
-                      onClick={() => onSelectItem(itemKey)}
-                      className={cn(
-                        'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs rounded transition-colors',
-                        selectedItem === itemKey
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'hover:bg-muted/50 text-muted-foreground',
-                      )}
-                    >
-                      <span className="truncate">{s.label}</span>
-                      {sectionStatusIcon(s.code)}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Valuation : visible dès qu'une valuation est ready ou stage ≥ note_ic1 */}
-        {showValuation && (
-          <ItemRow
-            active={selectedItem === 'valuation'}
-            onClick={() => onSelectItem('valuation')}
-            icon={Calculator}
-            label="Valuation"
-          />
-        )}
-
-        {/* ── DÉCISION : visible dès que des findings DD existent ou stage ≥ dd ── */}
-        {showDecision && (
-          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-            <span className="flex-1 text-left">Décision</span>
-          </div>
-        )}
-
-        {/* DD : visible dès qu'un finding existe ou stage ≥ dd */}
-        {showDecision && (
-          <ItemRow
-            active={selectedItem === 'dd'}
-            onClick={() => onSelectItem('dd')}
-            icon={Search}
-            label="Due Diligence"
-          />
-        )}
-
-        {/* Closing : visible dès stage ≥ closing, role IM/MD/admin/owner */}
-        {isStageAtLeast(dealStage, 'closing') && canSeePortfolioOps(userRole) && (
-          <ItemRow
-            active={selectedItem === 'closing'}
-            onClick={() => onSelectItem('closing')}
-            icon={FileSignature}
-            label="Closing"
-          />
-        )}
-
-        {/* ── PORTEFEUILLE (stage ≥ portfolio, role IM/MD/admin/owner) ── */}
-        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
-          <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-            <span className="flex-1 text-left">Portefeuille</span>
-          </div>
-        )}
-
-        {/* Plan 100 jours : stage ≥ portfolio, role IM/MD/admin/owner */}
-        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
-          <ItemRow
-            active={selectedItem === 'plan_100j'}
-            onClick={() => onSelectItem('plan_100j')}
-            icon={Sparkles}
-            label="Plan 100 jours"
-          />
-        )}
-
-        {/* Monitoring trimestriel : stage ≥ portfolio, role IM/MD/admin/owner */}
-        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
-          <ItemRow
-            active={selectedItem === 'monitoring'}
-            onClick={() => onSelectItem('monitoring')}
-            icon={Activity}
-            label="Monitoring"
-          />
-        )}
-
-        {/* NAV history : stage ≥ portfolio, role IM/MD/admin/owner */}
-        {isStageAtLeast(dealStage, 'portfolio') && canSeePortfolioOps(userRole) && (
-          <ItemRow
-            active={selectedItem === 'valuation_history'}
-            onClick={() => onSelectItem('valuation_history')}
-            icon={History}
-            label="NAV History"
-          />
-        )}
-
-        {/* ── SORTIE (stage ≥ exit_prep OU portfolio ≥ 36 mois, role MD/admin/owner) ── */}
-        {((isStageAtLeast(dealStage, 'exit_prep')) ||
-          (isStageAtLeast(dealStage, 'portfolio') && (holdingMonths ?? 0) >= 36)) &&
-          canSeeExit(userRole) && (
-          <>
-            <div className="w-full flex items-center gap-2 px-3 py-2 mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 bg-violet-100/60 rounded-md">
-              <span className="flex-1 text-left">Sortie</span>
-            </div>
-            <ItemRow
-              active={selectedItem === 'exit_prep'}
-              onClick={() => onSelectItem('exit_prep')}
-              icon={DoorOpen}
-              label="Exit & sortie"
-            />
-          </>
-        )}
-
-      </nav>
-    </div>
+    <DealSideNav<string>
+      groups={groups}
+      active={selectedItem}
+      onSelect={onSelectItem}
+      topContent={headerNode}
+      width="w-64"
+      groupHeaderStyle="highlighted"
+    />
   );
 }
