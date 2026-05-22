@@ -36,9 +36,9 @@ export type DeliverableType =
 export interface AgentContextOptions {
   /** Type de livrable que l'agent va produire — pilote la sélection des sources. */
   deliverableType: DeliverableType;
-  /** Pays de la cible (entreprise/deal) — utilisé pour benchmarks + guardrails + devise. */
+  /** Pays de l'entreprise (deal) — utilisé pour benchmarks + guardrails + devise. */
   country?: string | null;
-  /** Secteur de la cible — utilisé pour benchmarks sectoriels. */
+  /** Secteur de l'entreprise — utilisé pour benchmarks sectoriels. */
   sector?: string | null;
   /** ID entreprise — utilisé pour scoper les corrections historiques (feedback loop). */
   enterpriseId?: string | null;
@@ -69,7 +69,7 @@ export interface AgentContext {
    * `wrapWithGuardrails` après concat avec le prompt-tâche.
    */
   prefix: string;
-  /** Pays de la cible (utilisé pour injectGuardrails). */
+  /** Pays de l'entreprise (utilisé pour injectGuardrails). */
   country: string;
   /** Wrappe un prompt complet avec injectGuardrails(prompt, country). */
   wrapWithGuardrails: (fullPrompt: string) => string;

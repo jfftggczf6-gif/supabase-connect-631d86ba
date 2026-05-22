@@ -6,12 +6,14 @@
 import { useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   BarChart3, Briefcase, TrendingUp, Target, Loader2, AlertCircle,
-  ArrowUp, ArrowDown, Minus, Sparkles,
+  ArrowUp, ArrowDown, Minus, Sparkles, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBaBenchmarks } from '@/hooks/useBaBenchmarks';
+import { toast } from 'sonner';
 import { buildRatioRows, type RatioRow, type RatioStatus } from '@/types/benchmarks-ba';
 
 interface Props {
@@ -72,7 +74,7 @@ function PlaceholderCard({
 }
 
 export default function BenchmarksSection({ dealId }: Props) {
-  const { benchmark, loading, error } = useBaBenchmarks(dealId);
+  const { benchmark, loading, error, reload } = useBaBenchmarks(dealId);
 
   // Pour l'instant, pas de données financières du deal (elles arriveront via
   // memo §7/§8 quand generate_im_vendeur sera livré). Donc tous les ratios
@@ -85,11 +87,24 @@ export default function BenchmarksSection({ dealId }: Props) {
 
   return (
     <div className="space-y-4 max-w-6xl">
-      <header>
-        <h2 className="text-base font-semibold">Benchmark & analyse concurrentielle</h2>
-        <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-          Positionnement du mandat vs acteurs du secteur en Afrique de l'Ouest. Données agrégées depuis la base de connaissance ESONO (knowledge_benchmarks) et sources sectorielles.
-        </p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Benchmark & analyse concurrentielle</h2>
+          <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
+            Positionnement du mandat vs acteurs du secteur en Afrique de l'Ouest. Données agrégées depuis la base de connaissance ESONO (knowledge_benchmarks) et sources sectorielles.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 shrink-0"
+          onClick={async () => {
+            await reload();
+            toast.success('Benchmarks actualisés');
+          }}
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Actualiser
+        </Button>
       </header>
 
       {error && (

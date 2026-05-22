@@ -117,7 +117,7 @@ export const SECTION_SCHEMAS: Record<MemoSectionCode, string> = {
     { "label": "MOIC base",            "value": "<ex '2.8x'>",     "hint": "<ex 'IRR 22% · 5 ans'>",       "value_color": "ok",                "hint_color": "info" }
   ],
   "presentation": {
-    "heading": "Présentation de la cible",
+    "heading": "Présentation de l'entreprise",
     "paragraphs": [
       "<para 1 : qui est l'entreprise, ce qu'elle fait, fondateurs, employés, certifications. Citations [Source: ...]>",
       "<para 2 : marché cible, mégatrends, taille, croissance. Citations>"
@@ -394,7 +394,7 @@ export const SECTION_SCHEMAS: Record<MemoSectionCode, string> = {
   ],
   "positionnement": {
     "paragraphs": [
-      "<paragraphe synthèse positionnement de la cible>"
+      "<paragraphe synthèse positionnement de l'entreprise>"
     ]
   },
   "footer": {
