@@ -47,10 +47,58 @@ serve(async (req) => {
       .list(`${enterprise_id}/reconstruction/`);
     if (listErr) return errorResponse("Erreur lecture Storage: " + listErr.message, 500);
 
+    const allFiles = (storageFiles || []).filter(
+      (f: any) => f.name !== ".emptyFolderPlaceholder" && f.metadata
+    );
+
+    // 1b. AUTO-CLEANUP legacy duplicates (files left over from the Date.now() prefix era)
+    // Group by normalized name (strip ^\d+_). Within each group, keep the canonical one
+    // (preferring the variant without prefix; otherwise the most recently created).
+    // Delete the rest.
+    const stripLegacy = (n: string) => n.replace(/^\d+_/, "");
+    const groups = new Map<string, any[]>();
+    for (const f of allFiles) {
+      const key = stripLegacy(f.name);
+      const arr = groups.get(key) || [];
+      arr.push(f);
+      groups.set(key, arr);
+    }
+
+    const pathsToDelete: string[] = [];
+    for (const [normalized, variants] of groups.entries()) {
+      if (variants.length <= 1) continue;
+      // Prefer the variant whose name === normalized (= no prefix). Otherwise, the most recent.
+      let keeper = variants.find((v: any) => v.name === normalized);
+      if (!keeper) {
+        keeper = variants.reduce((latest: any, current: any) =>
+          new Date(current.created_at).getTime() > new Date(latest.created_at).getTime() ? current : latest
+        );
+      }
+      for (const v of variants) {
+        if (v.name !== keeper.name) {
+          pathsToDelete.push(`${enterprise_id}/reconstruction/${v.name}`);
+        }
+      }
+    }
+
+    let cleanedDuplicates = 0;
+    if (pathsToDelete.length > 0) {
+      const { error: cleanupErr } = await supabase.storage.from("documents").remove(pathsToDelete);
+      if (cleanupErr) {
+        console.error("[rebuild-document-content] cleanup failed:", cleanupErr.message);
+        // Non-fatal: proceed with current state, next call will retry
+      } else {
+        cleanedDuplicates = pathsToDelete.length;
+      }
+    }
+
+    // Refresh the list after cleanup
     const validNames = new Set(
-      (storageFiles || [])
-        .filter((f: any) => f.name !== ".emptyFolderPlaceholder" && f.metadata)
-        .map((f: any) => f.name)
+      cleanedDuplicates > 0
+        ? allFiles
+            .filter((f: any) => !pathsToDelete.includes(`${enterprise_id}/reconstruction/${f.name}`))
+            .map((f: any) => f.name)
+        : allFiles.map((f: any) => f.name)
     );
 
     // 2. Intersect with existing parsing report
@@ -93,6 +141,7 @@ serve(async (req) => {
         content_length: (enterprise.document_content || "").length,
         storage_count: validNames.size,
         removed_orphans: removedOrphans,
+        cleaned_duplicates: cleanedDuplicates,
         missing_content_files: keptFiles.map((f) => f.fileName),
         legacy_preserved: true,
       });
@@ -146,6 +195,7 @@ serve(async (req) => {
       content_length: rebuilt.length,
       storage_count: validNames.size,
       removed_orphans: removedOrphans,
+      cleaned_duplicates: cleanedDuplicates,
       missing_content_files: missingContentFiles,
     });
   } catch (e: any) {
