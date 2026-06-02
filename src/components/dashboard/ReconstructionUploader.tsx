@@ -206,13 +206,26 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
       const token = await getValidAccessToken(session, navigate);
 
       // === STEP 0: Detect conflicts with existing files ===
+      // Normalize legacy filenames (Date.now()_prefix.ext → prefix.ext) so a re-upload
+      // of "bilan.pdf" matches an existing "1780XXX_bilan.pdf" left over from before fix.
       const sanitize = (n: string) => n.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const stripLegacyPrefix = (n: string) => n.replace(/^\d+_/, '');
       const safeNames = files.map(f => sanitize(f.name));
-      const existingNames = new Set(existingFiles.map(f => f.name));
-      const conflicts = safeNames.filter(n => existingNames.has(n));
+
+      // Map: normalized name → list of actual storage names (legacy can have multiple variants)
+      const normalizedToStorage = new Map<string, string[]>();
+      for (const f of existingFiles) {
+        const key = stripLegacyPrefix(f.name);
+        const arr = normalizedToStorage.get(key) || [];
+        arr.push(f.name);
+        normalizedToStorage.set(key, arr);
+      }
+
+      const conflicts = safeNames.filter(n => normalizedToStorage.has(n));
 
       let filesToUpload = files;
       let replacedCount = 0;
+      let legacyPathsToDelete: string[] = [];
       if (conflicts.length > 0) {
         const choice = await askConflict(conflicts);
         if (choice === 'cancel') {
@@ -220,15 +233,26 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
           return;
         }
         if (choice === 'skip') {
-          filesToUpload = files.filter((_, i) => !existingNames.has(safeNames[i]));
+          filesToUpload = files.filter((_, i) => !normalizedToStorage.has(safeNames[i]));
           if (filesToUpload.length === 0) {
             toast.info('Tous les fichiers étaient déjà présents — rien à uploader.');
             setUploading(false);
             return;
           }
         } else {
-          // 'replace' — upsert: true écrasera côté Storage, le merge report dédoublonne par fileName
+          // 'replace' — collect all legacy storage paths that match (could have multiple
+          // variants like 1780A_bilan.pdf AND 1780B_bilan.pdf for the same logical file)
+          // so we can delete them after successful upload.
           replacedCount = conflicts.length;
+          for (const conflict of conflicts) {
+            const storageNames = normalizedToStorage.get(conflict) || [];
+            for (const sn of storageNames) {
+              // Only mark legacy variants (those that differ from the new clean name)
+              if (sn !== conflict) {
+                legacyPathsToDelete.push(`${enterpriseId}/reconstruction/${sn}`);
+              }
+            }
+          }
         }
       }
 
@@ -242,6 +266,17 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         if (error) throw error;
         setProgress(Math.round(((i + 1) / filesToUpload.length) * 40));
         setProgressLabel(`Upload ${i + 1}/${filesToUpload.length}…`);
+      }
+
+      // === STEP 1b: Delete legacy variants (timestamp-prefixed) replaced by the new clean uploads ===
+      if (legacyPathsToDelete.length > 0) {
+        const { error: rmErr } = await supabase.storage.from('documents').remove(legacyPathsToDelete);
+        if (rmErr) {
+          console.error('Failed to delete legacy variants:', rmErr);
+          // Non-fatal: new file is uploaded, EF rebuild will pick the latest by fileName.
+          // But warn the user that cleanup didn't fully happen.
+          toast.warning('Anciens fichiers conservés (erreur de nettoyage) — pas critique, mais à signaler au support si ça se reproduit.');
+        }
       }
 
       // === STEP 2: Parse each file via Python micro-service ===
@@ -274,9 +309,11 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         .single();
 
       const existingFilesReport = ((existingEnt?.document_parsing_report as any)?.files || []) as any[];
-      const newFileNames = new Set(docs.map(d => d.fileName));
+      // Dedup by NORMALIZED fileName (strip legacy timestamp prefix) so a re-upload
+      // of "bilan.pdf" replaces the legacy entry "1780XXX_bilan.pdf" in the report.
+      const newNormalized = new Set(docs.map(d => stripLegacyPrefix(d.fileName)));
       const mergedFiles = [
-        ...existingFilesReport.filter((f: any) => !newFileNames.has(f.fileName)),
+        ...existingFilesReport.filter((f: any) => !newNormalized.has(stripLegacyPrefix(f.fileName || ''))),
         ...newReport.files,
       ];
 
