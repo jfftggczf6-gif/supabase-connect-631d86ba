@@ -7,7 +7,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
-import { parseFile, buildDocumentContent, buildParsingReport, type ParsedDocument, type ParsingReport } from '@/lib/document-parser';
+import { parseFile, buildParsingReport, type ParsedDocument, type ParsingReport } from '@/lib/document-parser';
+import { DocumentConflictDialog, type ConflictChoice } from './DocumentConflictDialog';
 import {
   Wand2, X, FileText, Loader2, CheckCircle2,
   AlertTriangle, RotateCcw, Download, Trash2
@@ -58,6 +59,21 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   const [dragOver, setDragOver] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const [conflictDialog, setConflictDialog] = useState<{ open: boolean; files: string[] }>({ open: false, files: [] });
+  const conflictResolverRef = useRef<((c: ConflictChoice) => void) | null>(null);
+
+  const askConflict = (conflicts: string[]) => new Promise<ConflictChoice>((resolve) => {
+    conflictResolverRef.current = resolve;
+    setConflictDialog({ open: true, files: conflicts });
+  });
+
+  const resolveConflict = (choice: ConflictChoice) => {
+    setConflictDialog({ open: false, files: [] });
+    const resolver = conflictResolverRef.current;
+    conflictResolverRef.current = null;
+    resolver?.(choice);
+  };
+
   const fetchExistingFiles = useCallback(async () => {
     const { data } = await supabase.storage.from('documents').list(`${enterpriseId}/reconstruction/`);
     if (data && data.length > 0) {
@@ -100,13 +116,39 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
 
   const handleDeleteExisting = async (filename: string) => {
     if (!confirm(`Supprimer "${filename.replace(/^\d+_/, '')}" ?`)) return;
-    const { error } = await supabase.storage
-      .from('documents')
-      .remove([`${enterpriseId}/reconstruction/${filename}`]);
+    const folder = `${enterpriseId}/reconstruction/`;
+    const path = `${folder}${filename}`;
+
+    const { error } = await supabase.storage.from('documents').remove([path]);
     if (error) {
       toast.error('Erreur de suppression : ' + error.message);
       return;
     }
+
+    // Defensive: verify the file is actually gone (Supabase may silently no-op on RLS deny)
+    const { data: after } = await supabase.storage.from('documents').list(folder);
+    const stillThere = after?.some(f => f.name === filename);
+    if (stillThere) {
+      toast.error('Suppression refusée par le serveur (permission ou verrou). Contactez le support.');
+      return;
+    }
+
+    // Rebuild document_content via EF — keep IA memory in sync with storage
+    try {
+      const token = await getValidAccessToken(session, navigate);
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rebuild-document-content`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterpriseId }),
+        }
+      );
+    } catch (e) {
+      console.warn('[delete] rebuild failed, file removed but content not reconciled:', e);
+      // Non-fatal: next upload/delete will rebuild
+    }
+
     toast.success('Document supprimé');
     await fetchExistingFiles();
   };
@@ -163,70 +205,112 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
 
       const token = await getValidAccessToken(session, navigate);
 
-      // === STEP 1: Upload all files to storage ===
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const filePath = `${enterpriseId}/reconstruction/${Date.now()}_${safeName}`;
+      // === STEP 0: Detect conflicts with existing files ===
+      const sanitize = (n: string) => n.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeNames = files.map(f => sanitize(f.name));
+      const existingNames = new Set(existingFiles.map(f => f.name));
+      const conflicts = safeNames.filter(n => existingNames.has(n));
+
+      let filesToUpload = files;
+      let replacedCount = 0;
+      if (conflicts.length > 0) {
+        const choice = await askConflict(conflicts);
+        if (choice === 'cancel') {
+          setUploading(false);
+          return;
+        }
+        if (choice === 'skip') {
+          filesToUpload = files.filter((_, i) => !existingNames.has(safeNames[i]));
+          if (filesToUpload.length === 0) {
+            toast.info('Tous les fichiers étaient déjà présents — rien à uploader.');
+            setUploading(false);
+            return;
+          }
+        } else {
+          // 'replace' — upsert: true écrasera côté Storage, le merge report dédoublonne par fileName
+          replacedCount = conflicts.length;
+        }
+      }
+
+      const uploadSafeNames = filesToUpload.map(f => sanitize(f.name));
+
+      // === STEP 1: Upload all files to storage (no timestamp prefix → dedup native via upsert) ===
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        const filePath = `${enterpriseId}/reconstruction/${uploadSafeNames[i]}`;
         const { error } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true });
         if (error) throw error;
-        setProgress(Math.round(((i + 1) / files.length) * 40));
-        setProgressLabel(`Upload ${i + 1}/${files.length}…`);
+        setProgress(Math.round(((i + 1) / filesToUpload.length) * 40));
+        setProgressLabel(`Upload ${i + 1}/${filesToUpload.length}…`);
       }
 
       // === STEP 2: Parse each file via Python micro-service ===
       setProgressLabel('Analyse des documents…');
       const docs: ParsedDocument[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        setProgressLabel(`Lecture de ${files[i].name} (${i + 1}/${files.length})…`);
-        setProgress(Math.round(40 + (i / files.length) * 35)); // 40-75%
+      for (let i = 0; i < filesToUpload.length; i++) {
+        setProgressLabel(`Lecture de ${filesToUpload[i].name} (${i + 1}/${filesToUpload.length})…`);
+        setProgress(Math.round(40 + (i / filesToUpload.length) * 35)); // 40-75%
 
-        const parsed = await parseFile(files[i]);
+        // Normalize fileName to match what storage list returns (sanitized)
+        const parsed = await parseFile(filesToUpload[i]);
+        parsed.fileName = uploadSafeNames[i];
         docs.push(parsed);
         setParsedDocs([...docs]);
 
-        console.log(`[parser] ${files[i].name}: ${parsed.quality} — ${parsed.summary}`);
+        console.log(`[parser] ${filesToUpload[i].name}: ${parsed.quality} — ${parsed.summary}`);
       }
 
-      // === STEP 3: Build and cache document content (ADDITIVE — append, don't replace) ===
+      // === STEP 3: Merge report.files (dedup by fileName) then ask EF to rebuild document_content ===
       setProgressLabel('Compilation du dossier…');
       setProgress(78);
 
-      const newContent = buildDocumentContent(docs);
-      const parsingReport = buildParsingReport(docs, newContent.length);
-      setParsingSummary(parsingReport);
+      const newReport = buildParsingReport(docs, 0);
+      setParsingSummary(newReport);
 
-      // Load existing document_content and APPEND new content
       const { data: existingEnt } = await supabase.from('enterprises')
-        .select('document_content')
+        .select('document_parsing_report')
         .eq('id', enterpriseId)
         .single();
 
-      const existingContent = (existingEnt?.document_content as string) || '';
-      const separator = `\n\n══════ DOCUMENTS AJOUTÉS LE ${new Date().toLocaleDateString('fr-FR')} ══════\n`;
-      const mergedContent = existingContent + separator + newContent;
+      const existingFilesReport = ((existingEnt?.document_parsing_report as any)?.files || []) as any[];
+      const newFileNames = new Set(docs.map(d => d.fileName));
+      const mergedFiles = [
+        ...existingFilesReport.filter((f: any) => !newFileNames.has(f.fileName)),
+        ...newReport.files,
+      ];
 
-      // Truncate if too long (keep the most recent 600K chars)
-      // Bumped 300K → 600K (2026-05-20) après migration reconstruct vers Railway
-      // worker. Permet d'accumuler 15-20 docs au lieu de 9-10.
-      const MAX_CONTENT = 600_000;
-      const finalContent = mergedContent.length > MAX_CONTENT
-        ? mergedContent.slice(mergedContent.length - MAX_CONTENT)
-        : mergedContent;
-
-      const { error: updateErr } = await supabase.from('enterprises').update({
-        document_content: finalContent,
-        document_content_updated_at: new Date().toISOString(),
-        document_files_count: docs.filter(d => d.quality !== 'failed').length,
-        document_parsing_report: parsingReport,
+      const { error: updateReportErr } = await supabase.from('enterprises').update({
+        document_parsing_report: { ...newReport, files: mergedFiles },
       } as any).eq('id', enterpriseId);
-      if (updateErr) {
-        console.error('Failed to cache document content:', updateErr);
-        throw new Error('Impossible de sauvegarder le contenu documentaire: ' + updateErr.message);
+      if (updateReportErr) {
+        console.error('Failed to update parsing report:', updateReportErr);
+        throw new Error('Impossible de sauvegarder le rapport: ' + updateReportErr.message);
       }
 
-      console.log('Document content cached:', finalContent.length, 'chars from', docs.length, 'files');
+      // Call EF to rebuild document_content from the merged report + storage truth
+      const rebuildResp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rebuild-document-content`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ enterprise_id: enterpriseId }),
+        }
+      );
+      if (!rebuildResp.ok) {
+        const err = await rebuildResp.json().catch(() => ({ error: 'Erreur' }));
+        console.error('Failed to rebuild document_content:', err);
+        // Non-fatal: file is uploaded and report saved; next call will rebuild
+        toast.warning('Documents enregistrés, réconciliation différée.');
+      } else {
+        const rebuildData = await rebuildResp.json();
+        console.log('Document content rebuilt:', rebuildData);
+      }
+
+      // Toast truth: how many uploaded, how many replaced
+      if (replacedCount > 0) {
+        toast.success(`${docs.length} document(s) traité(s) — ${replacedCount} remplacé(s)`);
+      }
 
       // === STEP 4: Dispatch reconstruction vers Railway worker (~2s) ===
       // Migration prod 2026-05-20 : l'EF retourne immédiatement un job_id,
@@ -445,6 +529,12 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
   }
 
   return (
+    <>
+    <DocumentConflictDialog
+      open={conflictDialog.open}
+      conflicts={conflictDialog.files}
+      onChoice={resolveConflict}
+    />
     <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
       <CardContent className="py-6">
         {/* Existing files from storage */}
@@ -591,5 +681,6 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         )}
       </CardContent>
     </Card>
+    </>
   );
 }

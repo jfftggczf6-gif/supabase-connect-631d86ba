@@ -40,6 +40,7 @@ export interface ParsingReport {
   total_chars_extracted: number;
   files: {
     fileName: string;
+    content?: string;
     sizeBytes: number;
     method: string;
     category: DocumentCategory;
@@ -197,6 +198,7 @@ export function buildParsingReport(docs: ParsedDocument[], totalChars: number): 
     total_chars_extracted: totalChars,
     files: docs.map(d => ({
       fileName: d.fileName,
+      content: d.content,
       sizeBytes: d.sizeBytes,
       method: d.method,
       category: d.category,
