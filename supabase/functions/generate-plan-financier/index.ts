@@ -69,9 +69,12 @@ serve(async (req: Request) => {
         .single();
       if (!enterprise) return errorResponse("Enterprise not found", 404);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("[plan-financier] VALIDATION ERROR:", err);
-    return errorResponse(String(err), 500);
+    // verifyAndGetContext throws plain objects { status, message } — extract message proprement
+    const msg = err?.message || (typeof err === "string" ? err : JSON.stringify(err)) || "Erreur inconnue";
+    const status = typeof err?.status === "number" ? err.status : 500;
+    return errorResponse(msg, status);
   }
 
   const requestId = preParsedBody?.request_id || crypto.randomUUID();
@@ -322,7 +325,12 @@ serve(async (req: Request) => {
       console.error("[plan-financier] ASYNC ERROR:", err);
       try {
         await supabase.from("deliverables").update({
-          data: { status: "error", error: String(err), request_id: requestId, failed_at: new Date().toISOString() },
+          data: {
+            status: "error",
+            error: (err as any)?.message || (typeof err === "string" ? err : JSON.stringify(err)) || "Erreur inconnue",
+            request_id: requestId,
+            failed_at: new Date().toISOString(),
+          },
         }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
       } catch (cleanupErr) {
         console.error("[plan-financier] CLEANUP ERROR:", cleanupErr);
@@ -336,8 +344,9 @@ serve(async (req: Request) => {
     try {
       await work();
       return jsonResponse({ ok: true, mode: "finalize", request_id: requestId });
-    } catch (err) {
-      return errorResponse(String(err), 500);
+    } catch (err: any) {
+      const msg = err?.message || (typeof err === "string" ? err : JSON.stringify(err)) || "Erreur inconnue";
+      return errorResponse(msg, 500);
     }
   }
 
