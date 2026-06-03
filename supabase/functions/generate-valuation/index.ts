@@ -8,6 +8,7 @@ import { getValuationBenchmarksPrompt } from "../_shared/financial-knowledge.ts"
 import { computeValuation, extractValuationInputs } from "../_shared/valuation-engine.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 import { getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { getCanonicalFinancials, upsertCanonicalFinancials } from "../_shared/canonical-financials.ts";
 
 const ANALYSIS_PROMPT = `Tu es un analyste senior en valorisation d'entreprises, spécialisé dans le private equity africain (I&P, Partech, Phatisa, AfricInvest). 15 ans d'expérience.
 
@@ -39,6 +40,20 @@ serve(async (req) => {
   try {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
+
+    // ─── Brief 0.7 : précondition canonical WACC ─────────────────────
+    // La Valuation ne peut tourner qu'après le plan financier (canonical.wacc_pct).
+    // Évite la divergence historique (Valuation 60.3% RDC vs plan-financier 25%) :
+    // un seul WACC fait foi, et c'est celui du plan-financier qui a la vue
+    // intégrée des hypothèses (inflation, croissance, structure coûts).
+    const canonical = await getCanonicalFinancials(ctx.supabase, ctx.enterprise_id);
+    if (!canonical || canonical.wacc_pct == null) {
+      return errorResponse(
+        "Plan financier doit être généré avant la Valuation (WACC canonique manquant).",
+        412,
+      );
+    }
+    console.log(`[valuation] Using canonical WACC: ${canonical.wacc_pct}% (from ${canonical.last_updated_by})`);
 
     // 1. Charger les livrables
     const { data: deliverables } = await ctx.supabase
@@ -78,8 +93,10 @@ serve(async (req) => {
       console.log("[valuation] No risk_params in DB for", paysKey, "→ fallback sur constantes par zone");
     }
 
-    // 3. CALCUL DÉTERMINISTE (utilise DB params si dispo, sinon fallback zone)
-    const calcResult = computeValuation(valInputs, riskParamsDB);
+    // 3. CALCUL DÉTERMINISTE — Brief 0.7 : WACC vient désormais de canonical.wacc_pct
+    // (riskParamsDB reste passé : computeWACC interne tourne en parallèle pour
+    // traçabilité dans wacc_internal_computed → valuation_engine_would_have_used)
+    const calcResult = computeValuation(valInputs, riskParamsDB, canonical.wacc_pct);
 
     console.log("[valuation] Calculated:", {
       dcf_equity: calcResult.dcf.equity_value,
@@ -95,12 +112,31 @@ serve(async (req) => {
 
     // 5. Appel IA pour l'analyse qualitative
     const devise = inputsData?.devise || frameworkData?.devise || "";
+    const internalWacc = calcResult.dcf.wacc_internal_computed;
+    const waccChallengeBlock = `
+═══ WACC CANONIQUE (FOURNI PAR LE PLAN FINANCIER) ═══
+Le WACC utilisé pour ce DCF est ${canonical.wacc_pct}% — il provient du plan financier
+qui a une vue intégrée des hypothèses (inflation, croissance, structure de coûts).
+${internalWacc ? `À titre d'audit, le moteur de valorisation aurait calculé seul : ${internalWacc.wacc}%
+(risk-free ${internalWacc.risk_free_rate}%, ERP ${internalWacc.equity_risk_premium}%,
+size ${internalWacc.size_premium}%, illiq ${internalWacc.illiquidity_premium}%).
+Ne pas appliquer ces composantes au DCF — uniquement utilisées pour la traçabilité.` : ''}
+
+Tu peux le DISCUTER dans ta NOTE MÉTHODOLOGIQUE :
+- Si tu le trouves trop conservateur : suggérer une fourchette plus basse + justification
+- Si tu le trouves trop optimiste : suggérer une fourchette plus haute + justification
+- Si tu le trouves juste : confirmer
+
+MAIS : utilise ce WACC pour le DCF. Si tu le challenges, c'est documenté dans la note
+qualitative, pas appliqué silencieusement dans les chiffres.
+`;
+
     const analysisInput = `ENTREPRISE : ${ent.name}
 SECTEUR : ${ent.sector || 'Non spécifié'}
 PAYS : ${ent.country || ''}
 DEVISE : ${devise}
 EFFECTIFS : ${ent.employees_count || 'Non spécifié'}
-
+${waccChallengeBlock}
 ═══ RÉSULTATS CALCULÉS (NE PAS MODIFIER) ═══
 DCF :
   WACC = ${calcResult.dcf.wacc_pct}%
@@ -240,6 +276,49 @@ Produis l'analyse qualitative en JSON :
     }
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "valuation", finalData, "valuation");
+
+    // ─── Brief 0.7 : écriture canonical (colonnes valorisation uniquement) ──
+    // On ne MODIFIE PAS wacc_pct (déjà canonique depuis plan-financier).
+    // wacc_components contient la traçabilité : source + ce que computeWACC
+    // aurait calculé seul (pour audit / comparaison).
+    try {
+      const internal = calcResult.dcf.wacc_internal_computed;
+      const r = await upsertCanonicalFinancials(ctx.supabase, ctx.enterprise_id, {
+        wacc_pct: canonical.wacc_pct, // confirmation, identique
+        wacc_components: {
+          source: "plan-financier-canonical",
+          valuation_engine_would_have_used: internal ? {
+            wacc: internal.wacc,
+            risk_free_rate: internal.risk_free_rate,
+            equity_risk_premium: internal.equity_risk_premium,
+            size_premium: internal.size_premium,
+            illiquidity_premium: internal.illiquidity_premium,
+            cost_of_equity: internal.cost_of_equity,
+            cost_of_debt: internal.cost_of_debt,
+            debt_to_capital: internal.debt_weight,
+          } : null,
+        } as any,
+        equity_value_dcf: calcResult.dcf.equity_value,
+        enterprise_value_dcf: calcResult.dcf.enterprise_value,
+        terminal_value: calcResult.dcf.terminal_value,
+        multiple_ebitda_retenu: (calcResult.multiples as any).multiple_ebitda_retenu ?? (calcResult.multiples as any).ebitda_multiple ?? null,
+        multiple_ca_retenu: (calcResult.multiples as any).multiple_ca_retenu ?? (calcResult.multiples as any).ca_multiple ?? null,
+        valeur_par_ebitda: calcResult.multiples.valeur_par_ebitda,
+        valeur_par_ca: calcResult.multiples.valeur_par_ca,
+        valorisation_basse: calcResult.synthese.valeur_basse,
+        valorisation_mediane: calcResult.synthese.valeur_mediane,
+        valorisation_haute: calcResult.synthese.valeur_haute,
+        methode_privilegiee: (calcResult.synthese as any).methode_privilegiee ?? (calcResult.synthese as any).methode_retenue ?? null,
+      }, "generate-valuation");
+      if (r.ok) {
+        console.log(`[valuation] canonical valuation columns updated (version ${r.version})`);
+      } else {
+        console.error(`[valuation] canonical write failed (non-blocking): ${r.error}`);
+      }
+    } catch (e) {
+      console.error("[valuation] canonical write failed (non-blocking):", e);
+    }
+
     return jsonResponse({ success: true, data: finalData, score: finalData.score });
 
   } catch (e: any) {
