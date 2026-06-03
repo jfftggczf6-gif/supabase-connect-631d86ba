@@ -408,12 +408,27 @@ function buildUserPrompt(
     }
     blocks += `  ⚠️ CHAQUE produit ci-dessus DOIT apparaître dans "produits[]" avec les prix/volumes indiqués.\n`;
     blocks += `  ⚠️ JAMAIS de prix_unitaire = 0. Les valeurs ci-dessus sont PRÉ-CALCULÉES.\n`;
+    blocks += `  🚫 INTERDICTION ABSOLUE DE DUPLIQUER : la liste ci-dessus est EXHAUSTIVE et déjà dédoublonnée.\n`;
+    blocks += `     Tu dois sortir EXACTEMENT ${prodServices.length} produit(s), un par entrée ci-dessus, ni plus ni moins.\n`;
+    blocks += `     NE crée JAMAIS un produit additionnel même si le document brut mentionne un nom proche\n`;
+    blocks += `     (ex: si tu vois "Handwash cartons" dans les états financiers ET "Handwash (savon liquide) — cartons"\n`;
+    blocks += `     dans la liste ci-dessus, c'est LE MÊME PRODUIT → 1 seule entrée). Les documents bruts servent\n`;
+    blocks += `     uniquement à enrichir/valider les prix et volumes des produits ci-dessus, JAMAIS à en ajouter.\n`;
   }
 
   blocks += `
 ⚠️⚠️⚠️ INSTRUCTION CRITIQUE — PRODUITS / ACTIVITÉS ⚠️⚠️⚠️
 
-Tu DOIS identifier TOUTES les activités de l'entreprise en lisant ATTENTIVEMENT :
+${prodServices.length > 0 ? `RÈGLE PRIORITAIRE — LISTE FERMÉE :
+La liste PRODUITS/SERVICES pré-calculée ci-dessus est la SOURCE DE VÉRITÉ UNIQUE pour produits[].
+- Tu sors EXACTEMENT ${prodServices.length} produit(s), copies fidèles des entrées ci-dessus
+- Tu NE génères PAS de produit supplémentaire en relisant le rapport d'activités, le BMC ou les états financiers
+- Si tu hésites parce qu'un nom apparaît sous une forme légèrement différente dans le document brut,
+  c'est le MÊME produit → tu réutilises l'entrée existante, tu n'en ajoutes pas
+- Les documents bruts servent à : (a) valider les prix/volumes, (b) compléter les champs facultatifs
+  (estimation.sources, estimation.methode), (c) calculer cout_unitaire et taux de croissance
+
+` : `Tu DOIS identifier TOUTES les activités de l'entreprise en lisant ATTENTIVEMENT :
 1. Le RAPPORT D'ACTIVITÉS — liste explicitement les branches d'activité avec leurs CA
 2. Le BMC (flux de revenus) — décrit les produits/services et leur pricing
 3. Le PITCH DECK / PRÉSENTATION — décrit le business model
@@ -428,6 +443,10 @@ RÈGLES ABSOLUES :
 - Pour chaque produit : préciser s'il est PRODUCTION, DISTRIBUTION, ou SERVICE
 - NE PAS fusionner des activités distinctes en un seul produit
 - NE PAS ignorer une activité sous prétexte qu'elle est petite
+
+`}🚫 RÈGLE ANTI-DOUBLON (s'applique TOUJOURS) :
+Avant de finaliser produits[], vérifie qu'aucune entrée n'a un volume_annuel + prix_unitaire identique
+à une autre. Deux entrées avec les MÊMES chiffres = doublon ⇒ tu dois fusionner et garder une seule.
 
 Exemple pour une entreprise avec 3 activités :
   produits[0] = {nom: "Distribution marchandises", prix_unitaire: ..., volume_annuel: ..., part_ca: 0.52}

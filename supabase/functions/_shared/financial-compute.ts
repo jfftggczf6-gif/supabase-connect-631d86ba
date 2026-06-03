@@ -1369,8 +1369,73 @@ export function computeFullPlan(
   const cr_for_enrich = inputs.compte_resultat || {};
   const CA_total = safe(cr_for_enrich.chiffre_affaires || cr_for_enrich.ca || inputs.revenue);
 
+  // Phase 0: DÉDUPLICATION — l'IA crée parfois deux entrées pour le même produit physique
+  // (ex: "Handwash cartons" + "Handwash (savon liquide) — cartons" avec mêmes prix/volume).
+  // On détecte par : (a) même prix_unitaire ET même volume_annuel (signature exacte),
+  //                  (b) noms normalisés très proches (similarité ≥ 0.85).
+  // On garde l'entrée avec le plus d'info (nom le plus long + part_ca > 0).
+  const normalizeForCompare = (name: string): string => {
+    return (name || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // accents
+      .replace(/\([^)]*\)/g, ' ') // parenthèses (savon liquide), etc.
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\b(le|la|les|un|une|de|du|des|et|en|pour|avec|sans|sur|sous)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const tokenSimilarity = (a: string, b: string): number => {
+    const ta = new Set(a.split(' ').filter(Boolean));
+    const tb = new Set(b.split(' ').filter(Boolean));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let inter = 0;
+    for (const t of ta) if (tb.has(t)) inter++;
+    const union = ta.size + tb.size - inter;
+    return union > 0 ? inter / union : 0;
+  };
+
+  const rawProds = (aiAnalysis.produits || []) as any[];
+  const dedupedProds: any[] = [];
+  const dropped: any[] = [];
+  for (const p of rawProds) {
+    const prix = safe(p.prix_unitaire);
+    const vol = safe(p.volume_annuel);
+    const normName = normalizeForCompare(p.nom || '');
+
+    const dupIdx = dedupedProds.findIndex((q: any) => {
+      const qPrix = safe(q.prix_unitaire);
+      const qVol = safe(q.volume_annuel);
+      const qNorm = normalizeForCompare(q.nom || '');
+      // (a) signature exacte prix+volume (>0)
+      if (prix > 0 && vol > 0 && prix === qPrix && vol === qVol) return true;
+      // (b) similarité forte des noms normalisés
+      if (normName && qNorm && tokenSimilarity(normName, qNorm) >= 0.85) return true;
+      return false;
+    });
+
+    if (dupIdx === -1) {
+      dedupedProds.push(p);
+      continue;
+    }
+
+    // Fusion : on garde le "meilleur" (nom le plus descriptif, part_ca renseigné)
+    const existing = dedupedProds[dupIdx];
+    const newScore = (p.nom?.length || 0) + (safe(p.part_ca) > 0 ? 100 : 0);
+    const oldScore = (existing.nom?.length || 0) + (safe(existing.part_ca) > 0 ? 100 : 0);
+    if (newScore > oldScore) {
+      dropped.push({ nom: existing.nom, raison: 'fusion avec ' + p.nom });
+      dedupedProds[dupIdx] = { ...existing, ...p };
+    } else {
+      dropped.push({ nom: p.nom, raison: 'fusion avec ' + existing.nom });
+    }
+  }
+  if (dropped.length > 0) {
+    console.log(`[plan-financier] Dedup: ${dropped.length} produit(s) fusionné(s):`, dropped);
+  }
+
   // Phase 1: Match AI products with inputs_data products
-  const aiProds = (aiAnalysis.produits || []).map((p: any) => {
+  const aiProds = dedupedProds.map((p: any) => {
     const match = inputsProducts.find((ip: any) =>
       ip.nom && p.nom && (ip.nom.toLowerCase().includes(p.nom.toLowerCase().slice(0, 10)) || p.nom.toLowerCase().includes(ip.nom.toLowerCase().slice(0, 10)))
     );
