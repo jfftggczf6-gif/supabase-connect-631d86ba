@@ -26,14 +26,19 @@ export type PipelineState = 'generate' | 'update' | 'up_to_date';
 
 export async function getPipelineState(enterpriseId: string): Promise<PipelineState> {
   const [{ data: ent }, { data: existing }] = await Promise.all([
-    supabase.from('enterprises').select('updated_at, data_changed_at').eq('id', enterpriseId).single(),
+    supabase.from('enterprises').select('updated_at, data_changed_at, document_content_updated_at').eq('id', enterpriseId).single(),
     supabase.from('deliverables').select('type, updated_at, data').eq('enterprise_id', enterpriseId),
   ]);
 
   if (!existing || existing.length === 0) return 'generate';
 
-  // Use data_changed_at (pipeline-impactful changes only), fallback to updated_at
-  const sourceDate = new Date(ent?.data_changed_at || ent?.updated_at || 0).getTime();
+  // Source date = max of (data_changed_at, document_content_updated_at, updated_at).
+  // Includes document_content_updated_at so new uploads flag deliverables as stale.
+  const sourceDate = Math.max(
+    new Date((ent as any)?.data_changed_at || 0).getTime(),
+    new Date((ent as any)?.document_content_updated_at || 0).getTime(),
+    new Date(ent?.updated_at || 0).getTime(),
+  );
 
   const toNumber = (v: any) => {
     const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
@@ -110,13 +115,19 @@ export async function runPipelineFromClient(
 
   // Fetch enterprise data_changed_at and existing deliverables + corrections
   const [{ data: ent }, { data: existing }, { data: corrections }] = await Promise.all([
-    supabase.from('enterprises').select('updated_at, data_changed_at').eq('id', enterpriseId).single(),
+    supabase.from('enterprises').select('updated_at, data_changed_at, document_content_updated_at').eq('id', enterpriseId).single(),
     supabase.from('deliverables').select('id, type, data, score, version, updated_at').eq('enterprise_id', enterpriseId),
     supabase.from('deliverable_corrections').select('deliverable_id, field_path, corrected_value').eq('enterprise_id', enterpriseId),
   ]);
 
-  // Use data_changed_at (pipeline-impactful changes only), fallback to updated_at
-  const sourceDate = new Date(ent?.data_changed_at || ent?.updated_at || 0).getTime();
+  // Source date = max of (data_changed_at, document_content_updated_at, updated_at)
+  // document_content_updated_at is bumped after every Reconstruction upload/delete →
+  // ensures deliverables created before the latest upload are flagged as stale.
+  const sourceDate = Math.max(
+    new Date((ent as any)?.data_changed_at || 0).getTime(),
+    new Date((ent as any)?.document_content_updated_at || 0).getTime(),
+    new Date(ent?.updated_at || 0).getTime(),
+  );
 
   const toNumber = (v: any) => {
     const n = typeof v === 'string' ? parseFloat(v.replace(/[^0-9.-]/g, '')) : Number(v);
