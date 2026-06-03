@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, getDocumentContentForAgent, saveDeliverable, getFiscalParams, getFiscalParamsForPrompt, getCoachingContext, getKnowledgeForAgent, buildRAGContext } from "../_shared/helpers_v5.ts";
+import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, getDocumentContentForAgent, saveDeliverable, getFiscalParams, getFiscalParamsForPrompt, getCoachingContext, getKnowledgeForAgent, buildRAGContext, preloadFiscalParams } from "../_shared/helpers_v5.ts";
 import { callAIWithCalculator } from "../_shared/ai-with-tools.ts";
 import { getSectorGuardrails, getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { computeFullPlan } from "../_shared/financial-compute.ts";
@@ -132,6 +132,13 @@ serve(async (req: Request) => {
       const currentYear = new Date().getFullYear();
       const country = enterprise.country || '';
       const sector = enterprise.sector || "agro_industrie";
+
+      // Précharge knowledge_country_data en cache mémoire (idempotent).
+      // À partir de ce point, getFiscalParams() prend la valeur DB sur la valeur TS.
+      // Effet : inflation_pct, taux_is, cotisations_sociales_pct etc. fixés via SQL
+      // par l'audit Aurélie (et tous les futurs) sont effectivement appliqués.
+      await preloadFiscalParams(supabase);
+
       const fiscal = getFiscalParams(country);
       const inputsCurrency = (inputsData as any)?.devise;
       if (inputsCurrency && inputsCurrency !== fiscal.devise) {

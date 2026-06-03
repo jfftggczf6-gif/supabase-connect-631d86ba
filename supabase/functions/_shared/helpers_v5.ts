@@ -661,50 +661,162 @@ export const FISCAL_PARAMS: Record<string, {
   "Afrique du Sud": { tva: 15, is: 27, ir_max: 45, smig: 4600, patente: "Variable", cotisations_sociales: 2, devise: "ZAR", currency_iso: "ZAR", exchange_rate_eur: 20.5 },
 };
 
-export function getFiscalParams(country: string) {
-  // Direct match
-  if (FISCAL_PARAMS[country]) return FISCAL_PARAMS[country];
-  // Fuzzy match
-  const c = (country || '').toLowerCase().trim();
-  for (const [key, val] of Object.entries(FISCAL_PARAMS)) {
-    if (c.includes(key.toLowerCase()) || key.toLowerCase().includes(c)) return val;
+// ─── DB OVERRIDES de FISCAL_PARAMS ──────────────────────────────────────
+// knowledge_country_data est la source canonique. FISCAL_PARAMS reste un fallback
+// pour les pays absents de la DB. Cache en mémoire pour éviter une requête par appel.
+let _dbFiscalCache: Record<string, Partial<FiscalParamsType>> | null = null;
+let _dbFiscalPmeData: Record<string, { is_pme: number | null; seuil_is_pme: number | null }> = {};
+
+type FiscalParamsType = {
+  tva: number; is: number; ir_max: number; smig: number;
+  patente: string; cotisations_sociales: number; devise: string;
+  currency_iso: string; exchange_rate_eur: number;
+  // Extensions DB (présentes si preloadFiscalParams a été appelée)
+  inflation_pct?: number;
+  taux_change_usd?: number;
+};
+
+/**
+ * Charge les overrides de knowledge_country_data en cache mémoire.
+ * À appeler une fois au début de chaque EF avant les getFiscalParams.
+ * Idempotent : second appel = no-op.
+ */
+export async function preloadFiscalParams(supabase: any): Promise<void> {
+  if (_dbFiscalCache !== null) return; // déjà chargé
+  try {
+    const { data, error } = await supabase
+      .from("knowledge_country_data")
+      .select("pays, taux_tva, taux_is, is_pme, seuil_is_pme, cotisations_sociales_pct, charges_patronales_pct, devise, taux_change_eur, taux_change_usd, inflation_pct, salaire_minimum");
+    if (error || !data) {
+      console.warn("[preloadFiscalParams] DB read failed, using TS hardcoded only:", error?.message);
+      _dbFiscalCache = {};
+      return;
+    }
+    const map: Record<string, Partial<FiscalParamsType>> = {};
+    const pmeData: Record<string, { is_pme: number | null; seuil_is_pme: number | null }> = {};
+    for (const row of data) {
+      const key = (row.pays || '').toLowerCase().trim();
+      if (!key) continue;
+      const partial: Partial<FiscalParamsType> = {};
+      if (row.taux_tva != null) partial.tva = Number(row.taux_tva);
+      if (row.taux_is != null) partial.is = Number(row.taux_is);
+      // Préférer charges_patronales_pct (côté employeur, plus pertinent pour OPEX) si présent
+      const cot = row.charges_patronales_pct ?? row.cotisations_sociales_pct;
+      if (cot != null) partial.cotisations_sociales = Number(cot);
+      if (row.devise) partial.devise = row.devise;
+      if (row.salaire_minimum != null) partial.smig = Number(row.salaire_minimum);
+      if (row.taux_change_eur != null) partial.exchange_rate_eur = Number(row.taux_change_eur);
+      if (row.taux_change_usd != null) partial.taux_change_usd = Number(row.taux_change_usd);
+      if (row.inflation_pct != null) partial.inflation_pct = Number(row.inflation_pct);
+      map[key] = partial;
+      pmeData[key] = {
+        is_pme: row.is_pme != null ? Number(row.is_pme) : null,
+        seuil_is_pme: row.seuil_is_pme != null ? Number(row.seuil_is_pme) : null,
+      };
+    }
+    _dbFiscalCache = map;
+    _dbFiscalPmeData = pmeData;
+    console.log(`[preloadFiscalParams] Loaded ${Object.keys(map).length} country overrides from DB`);
+  } catch (e: any) {
+    console.warn("[preloadFiscalParams] Unexpected error:", e?.message);
+    _dbFiscalCache = {};
   }
-  // Fallback générique — taux moyens UEMOA (pas spécifique à un pays)
-  return { tva: 18, is: 25, ir_max: 35, smig: 60000, patente: "0.5% CA", cotisations_sociales: 20, devise: "", currency_iso: "", exchange_rate_eur: 655.957 };
+}
+
+function _findDBOverride(country: string): Partial<FiscalParamsType> | null {
+  if (!_dbFiscalCache) return null;
+  const c = (country || '').toLowerCase().trim();
+  if (_dbFiscalCache[c]) return _dbFiscalCache[c];
+  for (const [key, val] of Object.entries(_dbFiscalCache)) {
+    if (c.includes(key) || key.includes(c)) return val;
+  }
+  return null;
+}
+
+function _findDBPmeData(country: string): { is_pme: number | null; seuil_is_pme: number | null } | null {
+  const c = (country || '').toLowerCase().trim();
+  if (_dbFiscalPmeData[c]) return _dbFiscalPmeData[c];
+  for (const [key, val] of Object.entries(_dbFiscalPmeData)) {
+    if (c.includes(key) || key.includes(c)) return val;
+  }
+  return null;
+}
+
+export function getFiscalParams(country: string): FiscalParamsType {
+  const c = (country || '').toLowerCase().trim();
+  let tsBase: FiscalParamsType | null = null;
+  // 1. Trouve l'entrée TS de référence (par direct match ou fuzzy)
+  if (FISCAL_PARAMS[country]) {
+    tsBase = FISCAL_PARAMS[country] as FiscalParamsType;
+  } else {
+    for (const [key, val] of Object.entries(FISCAL_PARAMS)) {
+      if (c.includes(key.toLowerCase()) || key.toLowerCase().includes(c)) {
+        tsBase = val as FiscalParamsType;
+        break;
+      }
+    }
+  }
+  // Fallback générique si rien trouvé
+  if (!tsBase) {
+    tsBase = { tva: 18, is: 25, ir_max: 35, smig: 60000, patente: "0.5% CA", cotisations_sociales: 20, devise: "", currency_iso: "", exchange_rate_eur: 655.957 };
+  }
+  // 2. Merge avec les overrides DB (la DB gagne sur la TS)
+  const dbOverride = _findDBOverride(country);
+  if (dbOverride) return { ...tsBase, ...dbOverride };
+  return tsBase;
 }
 
 /**
  * Returns fiscal params in prompt-friendly format for AI system prompts.
- * This is the SINGLE source — no more local copies in edge functions.
+ * SOURCE UNIQUE : knowledge_country_data (avec fallback TS pour pays manquants).
+ *
+ * `is_pme` et `seuil_pme` sont null/'N/A' SAUF si la DB stocke un régime PME
+ * distinct du régime standard (cas CIV). Plus de ligne fantôme pour les pays
+ * sans régime PME différencié.
  */
 export function getFiscalParamsForPrompt(country: string): {
-  tva: number; is_standard: number; is_pme: number; seuil_pme: string;
+  tva: number; is_standard: number; is_pme: number | null; seuil_pme: string | null;
   charges_sociales: number; focus: string;
   devise: string; currency_iso: string; exchange_rate_eur: number;
+  inflation_pct?: number;
 } {
   const fp = getFiscalParams(country);
   const c = (country || '').toLowerCase().trim();
-  
-  // CIV has a special PME regime
-  const isCIV = c.includes("ivoire") || c.includes("civ") || country === "Côte d'Ivoire";
-  
+
   // Determine focus name
   let focus = country;
   for (const key of Object.keys(FISCAL_PARAMS)) {
     const kl = key.toLowerCase();
     if (c.includes(kl) || kl.includes(c)) { focus = key; break; }
   }
-  
+
+  // Régime PME : on regarde d'abord la DB, sinon fallback CIV-hardcodé pour rétrocompat
+  const dbPme = _findDBPmeData(country);
+  const isCIV = c.includes("ivoire") || c.includes("civ") || country === "Côte d'Ivoire";
+
+  let is_pme: number | null = null;
+  let seuil_pme: string | null = null;
+  if (dbPme && dbPme.is_pme != null && dbPme.is_pme !== fp.is) {
+    // DB déclare un régime PME différent du standard → on l'expose
+    is_pme = dbPme.is_pme;
+    seuil_pme = dbPme.seuil_is_pme != null ? `${dbPme.seuil_is_pme.toLocaleString('fr-FR')} ${fp.devise}` : null;
+  } else if (!dbPme && isCIV) {
+    // Fallback historique pour CIV si la DB n'a pas encore été préchargée
+    is_pme = 4;
+    seuil_pme = `200M ${fp.devise}`;
+  }
+
   return {
     tva: fp.tva,
     is_standard: fp.is,
-    is_pme: isCIV ? 4 : fp.is,
-    seuil_pme: isCIV ? `200M ${fp.devise}` : 'N/A',
+    is_pme,
+    seuil_pme,
     charges_sociales: fp.cotisations_sociales,
     focus,
     devise: fp.devise,
     currency_iso: fp.currency_iso,
     exchange_rate_eur: fp.exchange_rate_eur,
+    inflation_pct: fp.inflation_pct,
   };
 }
 
@@ -1148,7 +1260,12 @@ Taux emprunt PME: ${c.taux_emprunt_pme}% | Accès crédit: ${c.acces_credit_pme_
     if (c.fiscalite_detail) {
       const f = c.fiscalite_detail;
       let fBlock = `══ FISCALITÉ DÉTAILLÉE (${c.pays}) ══\nIS standard: ${f.is_standard}%`;
-      if (f.is_pme) fBlock += ` | IS PME: ${f.is_pme}% (seuil CA < ${f.seuil_pme_ca?.toLocaleString('fr-FR') || 'N/A'})`;
+      // Bug 3 fix : ne pas afficher la ligne IS PME si le régime PME = régime standard
+      // (cas des pays sans régime PME différencié comme la RDC). Avant : "IS PME: 35% (seuil N/A)"
+      // s'affichait alors que c'était juste une copie du standard.
+      if (f.is_pme && f.is_pme !== f.is_standard) {
+        fBlock += ` | IS PME: ${f.is_pme}% (seuil CA < ${f.seuil_pme_ca?.toLocaleString('fr-FR') || 'N/A'})`;
+      }
       fBlock += `\nTVA standard: ${f.tva_standard}%`;
       if (f.tva_reduit) fBlock += ` | TVA réduit: ${f.tva_reduit}%`;
       if (f.minimum_fiscal) fBlock += `\nMinimum fiscal: ${f.minimum_fiscal}`;
