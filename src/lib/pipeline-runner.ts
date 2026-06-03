@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { PIPELINE } from '@/lib/dashboard-config';
+import { PIPELINE, PIPELINE_DEPENDENCIES } from '@/lib/dashboard-config';
 
 export interface PipelineProgress {
   current: number;
@@ -65,6 +65,7 @@ export async function getPipelineState(enterpriseId: string): Promise<PipelineSt
   // Check all pipeline types (excluding always-run steps)
   const pipelineTypes = new Set(PIPELINE.map(s => s.type));
   const delivMap = new Map(existing.map((d: any) => [d.type, d]));
+  const delivUpdated = new Map(existing.map((d: any) => [d.type, new Date(d.updated_at).getTime()]));
 
   let hasMissing = false;
   let hasStale = false;
@@ -76,7 +77,13 @@ export async function getPipelineState(enterpriseId: string): Promise<PipelineSt
       continue;
     }
     const delivDate = new Date(d.updated_at).getTime();
-    if (delivDate < sourceDate) {
+    // Effective source date includes upstream deliverable timestamps (cascade)
+    let effective = sourceDate;
+    for (const depType of (PIPELINE_DEPENDENCIES[type] || [])) {
+      const depDate = delivUpdated.get(depType);
+      if (depDate && depDate > effective) effective = depDate;
+    }
+    if (delivDate < effective) {
       hasStale = true;
     }
   }
@@ -134,8 +141,15 @@ export async function runPipelineFromClient(
     return isNaN(n) ? 0 : n;
   };
 
-  // Build a map of type -> { isRich, isUpToDate }
-  const delivStatus = new Map<string, { rich: boolean; upToDate: boolean }>();
+  // Build a map of type -> { isRich, isUpToDate, updatedAt }
+  const delivStatus = new Map<string, { rich: boolean; upToDate: boolean; updatedAt: number }>();
+  const delivUpdatedAt = new Map<string, number>();
+  if (existing) {
+    for (const d of existing as any[]) {
+      const t = new Date(d.updated_at).getTime();
+      delivUpdatedAt.set(d.type, t);
+    }
+  }
   if (!force && existing) {
     for (const d of existing as any[]) {
       let rich = false;
@@ -154,7 +168,17 @@ export async function runPipelineFromClient(
         else rich = d.data.canvas || d.data.theorie_changement || d.data.compte_resultat || d.data.ratios || d.data.diagnostic_par_dimension || d.data.scenarios || d.data.checklist;
       }
       const delivDate = new Date(d.updated_at).getTime();
-      delivStatus.set(d.type, { rich: !!rich, upToDate: delivDate >= sourceDate });
+
+      // Effective source date for this module = max(external sources, upstream deliverables updatedAt)
+      // Ensures a deliverable is flagged stale if any of its declared dependencies was updated after it.
+      const deps = PIPELINE_DEPENDENCIES[d.type] || [];
+      let effectiveSourceDate = sourceDate;
+      for (const depType of deps) {
+        const depDate = delivUpdatedAt.get(depType);
+        if (depDate && depDate > effectiveSourceDate) effectiveSourceDate = depDate;
+      }
+
+      delivStatus.set(d.type, { rich: !!rich, upToDate: delivDate >= effectiveSourceDate, updatedAt: delivDate });
     }
   }
 
@@ -162,6 +186,11 @@ export async function runPipelineFromClient(
   let completedCount = 0;
   let creditError = false;
   let inputsScoreZero = false;
+
+  // Track which deliverables are regenerated during THIS run. Used to cascade
+  // staleness: if module X is regenerated and Y depends on X, Y becomes stale
+  // even if its own upToDate flag was true at run start.
+  const regeneratedThisRun = new Set<string>();
 
   // Financial steps that require real inputs data
   const FINANCIAL_STEPS = new Set(['generate-framework', 'generate-plan-financier']);
@@ -192,9 +221,12 @@ export async function runPipelineFromClient(
     }
 
     // Skip only if rich data exists AND it's more recent than source changes
+    // AND none of its declared dependencies was regenerated earlier in THIS run.
     if (!force) {
       const status = delivStatus.get(step.type);
-      if (status?.rich && status.upToDate) {
+      const deps = PIPELINE_DEPENDENCIES[step.type] || [];
+      const upstreamRegen = deps.some((dep) => regeneratedThisRun.has(dep));
+      if (status?.rich && status.upToDate && !upstreamRegen) {
         results.push({ step: step.name, success: true, skipped: true });
         completedCount++;
         onProgress?.({ current: i + 1, total: PIPELINE.length, name: `${step.name} (à jour)` });
@@ -410,6 +442,7 @@ export async function runPipelineFromClient(
           if (asyncResult.success) {
             results.push({ step: step.name, success: true, score: asyncResult.score });
             completedCount++;
+            regeneratedThisRun.add(step.type);
           } else {
             results.push({ step: step.name, success: false, error: asyncResult.error });
           }
@@ -477,6 +510,7 @@ export async function runPipelineFromClient(
 
           results.push({ step: step.name, success: true, score: result.score });
           completedCount++;
+          regeneratedThisRun.add(step.type);
           onStepComplete?.();
           // Detect empty inputs (no financial data) to skip downstream financial steps
           if (step.fn === 'generate-inputs' && (result.score === 0 || !result.score)) {

@@ -80,6 +80,28 @@ export const PIPELINE = [
   { name: 'Décision programme', fn: 'generate-screening-report', type: 'screening_report' as DeliverableType },
 ];
 
+/**
+ * Dépendances inter-modules : pour chaque deliverable, liste des deliverables upstream
+ * dont la mise à jour invalide ce deliverable. Utilisé par pipeline-runner pour cascader
+ * la fraîcheur (si inputs_data est régénéré, plan_financier est stale même si son propre
+ * updated_at est plus récent que les sources externes).
+ */
+export const PIPELINE_DEPENDENCIES: Record<string, DeliverableType[]> = {
+  pre_screening: [],
+  inputs_data: [],
+  bmc_analysis: ['inputs_data', 'pre_screening'],
+  sic_analysis: ['inputs_data', 'bmc_analysis'],
+  framework_data: ['inputs_data'],
+  plan_financier: ['inputs_data', 'framework_data', 'bmc_analysis'],
+  business_plan: ['inputs_data', 'bmc_analysis', 'sic_analysis', 'plan_financier'],
+  odd_analysis: ['inputs_data', 'sic_analysis'],
+  diagnostic_data: ['inputs_data', 'framework_data', 'plan_financier'],
+  valuation: ['inputs_data', 'plan_financier', 'framework_data'],
+  onepager: ['inputs_data', 'bmc_analysis', 'plan_financier', 'valuation'],
+  investment_memo: ['inputs_data', 'bmc_analysis', 'sic_analysis', 'plan_financier', 'valuation', 'framework_data'],
+  screening_report: ['inputs_data', 'plan_financier', 'business_plan', 'odd_analysis', 'diagnostic_data', 'valuation', 'investment_memo'],
+};
+
 export const MODULE_FN_MAP: Record<string, string> = {
   bmc: 'generate-bmc',
   sic: 'generate-sic',
