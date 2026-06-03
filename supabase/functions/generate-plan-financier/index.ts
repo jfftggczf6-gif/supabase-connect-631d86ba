@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, jsonResponse, errorResponse, verifyAndGetContext, getDocumentContentForAgent, saveDeliverable, getFiscalParams, getFiscalParamsForPrompt, getCoachingContext, getKnowledgeForAgent, buildRAGContext, preloadFiscalParams } from "../_shared/helpers_v5.ts";
+import { upsertCanonicalFinancials, detectZoneMonetaire } from "../_shared/canonical-financials.ts";
 import { callAIWithCalculator } from "../_shared/ai-with-tools.ts";
 import { getSectorGuardrails, getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { computeFullPlan } from "../_shared/financial-compute.ts";
@@ -265,6 +266,113 @@ serve(async (req: Request) => {
       // 5. Sauvegarde
       console.log(`[plan-financier] Saving to database...`);
       await saveDeliverable(supabase, enterpriseId, "plan_financier", finalPlan, "PLAN_FIN", undefined, "generation");
+
+      // 5b. Écriture SSOT canonical (brief 0.6) — non-bloquant.
+      // Le plan_financier devient l'unique écrivain des champs hors valorisation.
+      // generate-valuation patchera ensuite WACC + valorisations (brief 0.7).
+      try {
+        const projOnly = (computed as any).projections?.filter((p: any) => !p.is_reel) || [];
+        const projY5 = (field: string) => projOnly.slice(0, 5).reduce(
+          (acc: Record<string, number>, p: any, i: number) => {
+            const v = Number(p?.[field]);
+            if (Number.isFinite(v)) acc[`y${i + 1}`] = v;
+            return acc;
+          }, {},
+        );
+        const hyp = (aiAnalysis as any)?.hypotheses_croissance || (aiAnalysis as any)?.hypotheses || {};
+        const indicateurs = (computed as any).indicateurs_decision || {};
+        const capexTotal = ((computed as any).capex || []).reduce(
+          (s: number, c: any) => s + (Number(c?.acquisition_value) || 0), 0);
+        const bfrMontant = Number((computed as any).bfr_detail?.bfr_montant) || 0;
+        const prets = (inputsData as any)?.financement?.prets || [];
+        const pretsTotal = prets.reduce((s: number, p: any) => s + (Number(p?.montant) || 0), 0);
+        const capitalApport = Number((inputsData as any)?.financement?.capital_apport) || 0;
+        const besoinExplicite = Number((inputsData as any)?.financement?.besoin_total_recherche) || 0;
+        const num = (v: unknown): number | null => {
+          if (v === null || v === undefined) return null;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+
+        // Récupère version du deliverable plan_financier pour traçabilité
+        let plan_financier_version: number | null = null;
+        try {
+          const { data: pfRow } = await supabase
+            .from("deliverables")
+            .select("version")
+            .eq("enterprise_id", enterpriseId)
+            .eq("type", "plan_financier")
+            .maybeSingle();
+          plan_financier_version = (pfRow as any)?.version ?? null;
+        } catch {}
+
+        const cr = (inputsData as any)?.compte_resultat || {};
+        const hist = (inputsData as any)?.historique_3ans || {};
+        const bil = (inputsData as any)?.bilan || {};
+        const passif = bil?.passif || {};
+        const actif = bil?.actif || {};
+
+        const r = await upsertCanonicalFinancials(supabase, enterpriseId, {
+          currency: fiscal.devise || fp.devise || "FCFA",
+          currency_iso: fiscal.currency_iso || fp.currency_iso || "XOF",
+          base_year: currentYear - 1,
+          zone_monetaire: detectZoneMonetaire(country),
+
+          // Historique
+          ca_y_minus_2: num(hist?.n_moins_2?.ca_total ?? hist?.n_moins_2?.ca),
+          ca_y_minus_1: num(hist?.n_moins_1?.ca_total ?? hist?.n_moins_1?.ca),
+          ca_y: num(cr?.chiffre_affaires ?? cr?.ca),
+          ebitda_y_minus_2: num(hist?.n_moins_2?.ebitda),
+          ebitda_y_minus_1: num(hist?.n_moins_1?.ebitda),
+          ebitda_y: num(cr?.ebe ?? cr?.ebitda ?? (inputsData as any)?.ebe),
+          resultat_net_y_minus_2: num(hist?.n_moins_2?.resultat_net),
+          resultat_net_y_minus_1: num(hist?.n_moins_1?.resultat_net),
+          resultat_net_y: num(cr?.resultat_net),
+          tresorerie_actuelle: num(actif?.tresorerie ?? bil?.tresorerie),
+          dette_financiere_actuelle: num(passif?.dettes_financieres ?? passif?.dettes_lt ?? bil?.dettes_totales),
+          capitaux_propres_actuels: num(passif?.capitaux_propres ?? bil?.capitaux_propres),
+
+          // Projections
+          ca_projected: projY5("ca"),
+          ebitda_projected: projY5("ebitda"),
+          cashflow_projected: projY5("cashflow"),
+          resultat_net_projected: projY5("resultat_net"),
+          inflation_used: num(hyp?.inflation ?? hyp?.inflation_pct),
+
+          // Investissement
+          besoin_financement_total: besoinExplicite > 0 ? besoinExplicite : (capexTotal + bfrMontant),
+          capex_prevu: capexTotal,
+          bfr_initial: bfrMontant,
+          restructuration_dette: num((inputsData as any)?.financement?.restructuration_dette),
+          financement_deja_obtenu: pretsTotal + capitalApport,
+          composition_besoin: {
+            capex: capexTotal,
+            bfr: bfrMontant,
+            restructuration: Number((inputsData as any)?.financement?.restructuration_dette) || 0,
+          },
+
+          // Indicateurs (ne PAS écrire wacc_*, valorisation_*, equity_value_dcf : réservé à 0.7)
+          van: num(indicateurs.van),
+          tri_pct: num(typeof indicateurs.tri === "number" && Math.abs(indicateurs.tri) < 50 ? indicateurs.tri * 100 : indicateurs.tri),
+          payback_years: num(indicateurs.payback_years ?? indicateurs.payback),
+          dscr_moyen: num(indicateurs.dscr_moyen),
+          duree_pret_utilisee_dscr: num(indicateurs.duree_pret_utilisee), // peuplé par brief 0.13
+          roi_pct: num(typeof indicateurs.roi === "number" && Math.abs(indicateurs.roi) < 50 ? indicateurs.roi * 100 : indicateurs.roi),
+          runway_mois: num(indicateurs.runway_mois),
+          couverture_interets: num(indicateurs.couverture_interets),
+          cycle_tresorerie_jours: num(indicateurs.cycle_tresorerie),
+
+          source_deliverables: { plan_financier_version },
+        }, "generate-plan-financier");
+
+        if (r.ok) {
+          console.log(`[plan-financier] canonical updated for enterprise ${enterpriseId} (version ${r.version})`);
+        } else {
+          console.error(`[plan-financier] canonical write failed (non-blocking): ${r.error}`);
+        }
+      } catch (e) {
+        console.error("[plan-financier] canonical write failed (non-blocking):", e);
+      }
 
       // 6. Excel via Railway (non-bloquant)
       try {

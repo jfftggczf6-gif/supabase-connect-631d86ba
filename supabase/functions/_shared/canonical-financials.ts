@@ -147,6 +147,30 @@ export interface CanonicalFinancials {
   coherence_last_check_at: string | null;
 }
 
+/**
+ * Détecte la zone monétaire d'un pays africain pour groupement / benchmark.
+ * Retourne 'uemoa' | 'cemac' | 'rdc' | 'east_africa' | 'autre'.
+ *
+ * Ordre important : RDC (dont le nom contient "congo") avant CEMAC pour éviter
+ * que la RDC soit classifiée par erreur en zone franc CFA Afrique centrale.
+ */
+export function detectZoneMonetaire(country: string): string {
+  const c = (country || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\s\-']/g, "_");
+  const RDC_LIST = ["rdc", "drc", "republique_democratique_du_congo", "kinshasa"];
+  const UEMOA = ["cote_d_ivoire", "ivoire", "senegal", "burkina_faso", "burkina", "mali", "benin", "togo", "niger", "guinee_bissau"];
+  const CEMAC = ["cameroun", "gabon", "congo", "tchad", "centrafrique", "guinee_equatoriale"];
+  const EAST = ["kenya", "tanzanie", "ouganda", "rwanda"];
+  if (RDC_LIST.some((p) => c.includes(p))) return "rdc";
+  if (UEMOA.some((p) => c.includes(p))) return "uemoa";
+  if (CEMAC.some((p) => c.includes(p))) return "cemac";
+  if (EAST.some((p) => c.includes(p))) return "east_africa";
+  return "autre";
+}
+
 /** Sources autorisées à écrire dans enterprise_financial_canonical. */
 export type CanonicalSource = "generate-plan-financier" | "generate-valuation";
 
