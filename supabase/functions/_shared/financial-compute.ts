@@ -1434,20 +1434,42 @@ export function computeFullPlan(
     console.log(`[plan-financier] Dedup: ${dropped.length} produit(s) fusionné(s):`, dropped);
   }
 
-  // Phase 1: Match AI products with inputs_data products
+  // Phase 1: Match AI products with inputs_data products — BEST-SIMILARITY MATCH.
+  // L'ancien matching utilisait un prefix de 10 chars qui faisait que tous les
+  // "Savon en dur LBS/Cube/Barre" matchaient la première entrée trouvée.
+  // On utilise maintenant la similarité de tokens (Jaccard) et on garde le best score.
   const aiProds = dedupedProds.map((p: any) => {
-    const match = inputsProducts.find((ip: any) =>
-      ip.nom && p.nom && (ip.nom.toLowerCase().includes(p.nom.toLowerCase().slice(0, 10)) || p.nom.toLowerCase().includes(ip.nom.toLowerCase().slice(0, 10)))
-    );
-    if (match) {
-      p._inputCA = safe(match.ca_estime || match.ca_annuel);
-      p._inputVol = safe(match.volume_annuel);
-      p._inputPrix = safe(match.prix_unitaire);
-      p._inputPart = safe(match.part_ca_pct) / 100;
-      p._inputMarge = safe(match.marge_pct) || 30;
+    const pNorm = normalizeForCompare(p.nom || '');
+    let bestMatch: any = null;
+    let bestScore = 0;
+    for (const ip of inputsProducts) {
+      if (!ip.nom) continue;
+      const ipNorm = normalizeForCompare(ip.nom);
+      const sim = tokenSimilarity(pNorm, ipNorm);
+      if (sim > bestScore) {
+        bestMatch = ip;
+        bestScore = sim;
+      }
+    }
+    // Seuil 0.3 pour éviter de matcher des produits sans rapport
+    if (bestMatch && bestScore >= 0.3) {
+      p._inputCA = safe(bestMatch.ca_estime || bestMatch.ca_annuel);
+      p._inputVol = safe(bestMatch.volume_annuel);
+      p._inputPrix = safe(bestMatch.prix_unitaire);
+      p._inputPart = safe(bestMatch.part_ca_pct) / 100;
+      p._inputMarge = safe(bestMatch.marge_pct) || 30;
+      p._matchedInputNom = bestMatch.nom;
+      p._matchScore = bestScore;
     }
     return p;
   });
+
+  if (aiProds.some((p: any) => p._matchedInputNom)) {
+    const matches = aiProds
+      .filter((p: any) => p._matchedInputNom)
+      .map((p: any) => `${p.nom} ← ${p._matchedInputNom} (sim=${p._matchScore.toFixed(2)}, CA=${p._inputCA})`);
+    console.log(`[plan-financier] Matches inputs:`, matches);
+  }
 
   // Phase 2: DESCENDANT — CA total → CA par produit via parts
   for (const p of aiProds) {
@@ -1535,6 +1557,32 @@ export function computeFullPlan(
         aiProds.push(newProd);
         console.log(`[cascade+] Added missing product: ${ip.nom} prix=${prix} vol=${vol}`);
       }
+    }
+  }
+
+  // Phase 6: NORMALIZE part_ca — garantit que la somme = 100% par construction.
+  // Source de vérité priorisée : (1) inputs_data ca_estime via match  (2) prix × volume comme fallback.
+  // Cette étape absorbe les arrondis ET corrige les hallucinations de l'IA sur part_ca.
+  {
+    // Rebuild part_ca déterministe pour chaque produit
+    for (const p of aiProds) {
+      let caForProduct = safe(p._inputCA);
+      if (caForProduct <= 0) {
+        const prix = safe(p.prix_unitaire);
+        const vol = safe(p.volume_annuel);
+        caForProduct = prix > 0 && vol > 0 ? prix * vol : 0;
+      }
+      if (CA_total > 0 && caForProduct > 0) {
+        p.part_ca = caForProduct / CA_total;
+      }
+    }
+    // Normalisation finale : si la somme dérive du fait que prix×vol ≠ CA_total exact,
+    // on rescale pour atteindre 100% pile.
+    const totalPart = aiProds.reduce((s: number, p: any) => s + safe(p.part_ca), 0);
+    if (totalPart > 0 && Math.abs(totalPart - 1) > 0.001) {
+      const scale = 1 / totalPart;
+      for (const p of aiProds) p.part_ca = safe(p.part_ca) * scale;
+      console.log(`[plan-financier] part_ca normalized: sum=${totalPart.toFixed(4)} → 1.0 (scale=${scale.toFixed(4)})`);
     }
   }
 
