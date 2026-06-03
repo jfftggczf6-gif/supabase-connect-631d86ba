@@ -172,7 +172,9 @@ serve(async (req: Request) => {
           // (b) Dispatch Railway → l'agent Python rappelle l'EF en mode finalize avec ai_analysis
           console.log(`[plan-financier] Dispatching to Railway (Opus ${PLAN_FINANCIER_MODEL})...`);
           await dispatchToRailwayOpus({
+            supabase,
             enterpriseId,
+            organizationId,
             requestId,
             systemPrompt,
             userPrompt,
@@ -349,7 +351,9 @@ serve(async (req: Request) => {
 // ─────────────────────────────────────────────────────────────────
 
 async function dispatchToRailwayOpus(args: {
+  supabase: any;
   enterpriseId: string;
+  organizationId?: string;
   requestId: string;
   systemPrompt: string;
   userPrompt: string;
@@ -361,7 +365,26 @@ async function dispatchToRailwayOpus(args: {
     throw new Error("RAILWAY_AI_URL / RAILWAY_AI_KEY non configurés — impossible de dispatch");
   }
 
-  const jobId = crypto.randomUUID();
+  // 1. INSERT ai_jobs row first (le worker fait .select() pour vérifier l'existence)
+  const { data: job, error: jobErr } = await args.supabase
+    .from("ai_jobs")
+    .insert({
+      agent_name: "generate-plan-financier-opus",
+      payload: {
+        enterprise_id: args.enterpriseId,
+        request_id: args.requestId,
+        model: args.model,
+      },
+      status: "pending",
+      organization_id: args.organizationId ?? null,
+    })
+    .select("id")
+    .single();
+  if (jobErr || !job) {
+    throw new Error(`INSERT ai_jobs failed: ${jobErr?.message ?? "unknown"}`);
+  }
+
+  // 2. POST /run-agent avec le job_id de la row insérée
   const resp = await fetch(`${railwayUrl}/run-agent`, {
     method: "POST",
     headers: {
@@ -370,7 +393,7 @@ async function dispatchToRailwayOpus(args: {
     },
     body: JSON.stringify({
       agent_name: "generate-plan-financier-opus",
-      job_id: jobId,
+      job_id: job.id,
       payload: {
         enterprise_id: args.enterpriseId,
         request_id: args.requestId,
