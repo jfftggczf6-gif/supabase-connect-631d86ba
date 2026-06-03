@@ -16,12 +16,19 @@ export async function callAIWithCalculator(
   maxTokens: number = 16384,
   model: string = "claude-sonnet-4-20250514",  // Sonnet 4 — 4.6 gets stuck in tool loops
   temperature: number = 0,
+  options: { enableCache?: boolean } = {},
 ): Promise<Record<string, any>> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+  const { enableCache = false } = options;
 
   const messages: Array<{ role: string; content: any }> = [
     { role: "user", content: userPrompt },
   ];
+
+  // Build the system field: string (default) or content blocks with cache_control (when enableCache)
+  const systemField: any = enableCache
+    ? [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }]
+    : systemPrompt;
 
   let toolCallCount = 0;
   let retried = false;
@@ -38,7 +45,7 @@ export async function callAIWithCalculator(
         model,
         max_tokens: maxTokens,
         temperature,
-        system: systemPrompt,
+        system: systemField,
         messages,
         tools: CALCULATOR_TOOLS,
       }),

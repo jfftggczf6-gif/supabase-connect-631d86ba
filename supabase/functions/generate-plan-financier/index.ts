@@ -23,56 +23,86 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   // ═══════════════════════════════════════════════════════════════
-  // Phase synchrone : validation + retour 202 immédiat
+  // Mode FINALIZE — appel callback depuis Railway après réponse Opus.
+  // Header X-EF-Service-Token + body { mode:"finalize", enterprise_id, ai_analysis, request_id }
+  // Bypass user auth, exécute uniquement les calculs déterministes + save.
   // ═══════════════════════════════════════════════════════════════
+  const efServiceToken = Deno.env.get("EF_SERVICE_TOKEN");
+  const incomingToken = req.headers.get("X-EF-Service-Token");
+  const isFinalizeAuthorized = !!efServiceToken && incomingToken === efServiceToken;
 
   let supabase: any;
   let enterpriseId: string;
   let organizationId: string | undefined;
+  let preParsedBody: any = null;
+  let mode: string = "default";
 
   try {
-    const body = await req.json();
-    const ctx = await verifyAndGetContext(req, body);
-    supabase = ctx.supabase;
-    organizationId = ctx.organization_id;
-    enterpriseId = body.enterprise_id;
-    if (!enterpriseId) return errorResponse("enterprise_id required", 400);
+    preParsedBody = await req.json();
+    mode = preParsedBody?.mode || "default";
 
-    const { data: enterprise } = await supabase
-      .from("enterprises")
-      .select("id")
-      .eq("id", enterpriseId)
-      .single();
-    if (!enterprise) return errorResponse("Enterprise not found", 404);
+    if (mode === "finalize") {
+      if (!isFinalizeAuthorized) return errorResponse("Forbidden (finalize)", 403);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      supabase = createClient(supabaseUrl, serviceKey);
+      enterpriseId = preParsedBody?.enterprise_id;
+      if (!enterpriseId) return errorResponse("enterprise_id required", 400);
+      const { data: ent } = await supabase
+        .from("enterprises")
+        .select("id, organization_id")
+        .eq("id", enterpriseId)
+        .single();
+      if (!ent) return errorResponse("Enterprise not found", 404);
+      organizationId = ent.organization_id;
+    } else {
+      const ctx = await verifyAndGetContext(req, preParsedBody);
+      supabase = ctx.supabase;
+      organizationId = ctx.organization_id;
+      enterpriseId = preParsedBody?.enterprise_id;
+      if (!enterpriseId) return errorResponse("enterprise_id required", 400);
+
+      const { data: enterprise } = await supabase
+        .from("enterprises")
+        .select("id")
+        .eq("id", enterpriseId)
+        .single();
+      if (!enterprise) return errorResponse("Enterprise not found", 404);
+    }
   } catch (err) {
     console.error("[plan-financier] VALIDATION ERROR:", err);
     return errorResponse(String(err), 500);
   }
 
-  const requestId = crypto.randomUUID();
-  console.log(`[plan-financier] START ${requestId} for enterprise ${enterpriseId} (async)`);
+  const requestId = preParsedBody?.request_id || crypto.randomUUID();
+  console.log(`[plan-financier] ${mode.toUpperCase()} ${requestId} for enterprise ${enterpriseId}`);
 
-  // Marquer "processing"
-  await supabase.from("deliverables").upsert({
-    enterprise_id: enterpriseId,
-    type: "plan_financier",
-    data: { status: "processing", request_id: requestId, phase: "calling_ai", started_at: new Date().toISOString() },
-  }, { onConflict: "enterprise_id,type" });
+  // En mode finalize, pas de 202 — on attend la fin du compute+save synchronement.
+  if (mode !== "finalize") {
+    // Marquer "processing"
+    await supabase.from("deliverables").upsert({
+      enterprise_id: enterpriseId,
+      type: "plan_financier",
+      data: { status: "processing", request_id: requestId, phase: "calling_ai", started_at: new Date().toISOString() },
+    }, { onConflict: "enterprise_id,type" });
+  }
 
-  // Retour immédiat 202
-  const response = jsonResponse({ processing: true, request_id: requestId }, 202);
+  // Retour immédiat 202 (mode default uniquement)
+  const response = mode === "finalize" ? null : jsonResponse({ processing: true, request_id: requestId }, 202);
 
   // ═══════════════════════════════════════════════════════════════
   // Phase asynchrone : tout le travail en background
+  // En mode finalize, on s'exécute SYNCHRONEMENT (pas de waitUntil).
   // ═══════════════════════════════════════════════════════════════
 
-  // @ts-ignore — Deno EdgeRuntime (pas d'optional chaining : si EdgeRuntime absent, on veut l'erreur)
-  const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil?.bind((globalThis as any).EdgeRuntime);
-  if (!waitUntil) {
+  // @ts-ignore — Deno EdgeRuntime
+  const waitUntilFn = (globalThis as any).EdgeRuntime?.waitUntil?.bind((globalThis as any).EdgeRuntime);
+  if (mode !== "finalize" && !waitUntilFn) {
     console.error("[plan-financier] EdgeRuntime.waitUntil not available — cannot run async");
     return errorResponse("EdgeRuntime not available", 500);
   }
-  waitUntil((async () => {
+
+  const work = async () => {
     try {
       // 1. Récupérer toutes les sources
       const { data: enterprise } = await supabase
@@ -111,16 +141,61 @@ serve(async (req: Request) => {
       const guardrails = getSectorGuardrails(sector);
 
       // 2. Appel IA — analyse qualitative + hypothèses
-      console.log(`[plan-financier] Calling AI for analysis...`);
+      // 3 modes possibles :
+      //   (a) mode === "finalize" : on REÇOIT l'ai_analysis du callback Railway, on saute l'appel IA
+      //   (b) USE_RAILWAY_FOR_PLAN_FINANCIER === "1" : on dispatche à Railway et on EXIT
+      //   (c) default : appel local Opus 4.7 + tool_use loop dans cette EF
+      const PLAN_FINANCIER_MODEL = Deno.env.get("PLAN_FINANCIER_MODEL") || "claude-opus-4-7";
+      const USE_RAILWAY = Deno.env.get("USE_RAILWAY_FOR_PLAN_FINANCIER") === "1";
 
-      const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework', undefined, organizationId);
-      const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
+      let aiAnalysis: Record<string, any>;
+      let systemPrompt = "";
+      let userPrompt = "";
 
-      const systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
-      const userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, preScreenData, diagnosticData, coachingContext, currentYear, fp)
-        + knowledgeContext + ragContext;
+      if (mode === "finalize") {
+        // (a) Callback Railway — l'ai_analysis est déjà fourni
+        aiAnalysis = preParsedBody?.ai_analysis;
+        if (!aiAnalysis || typeof aiAnalysis !== "object") {
+          throw new Error("ai_analysis required for finalize mode");
+        }
+        console.log(`[plan-financier] Finalize mode — ai_analysis received (${Object.keys(aiAnalysis).length} keys)`);
+      } else {
+        // (b) ou (c) — on construit les prompts dans tous les cas
+        console.log(`[plan-financier] Building prompts...`);
+        const knowledgeContext = await getKnowledgeForAgent(supabase, country, sector, 'framework', undefined, organizationId);
+        const ragContext = await buildRAGContext(supabase, country, sector, ["benchmarks", "fiscal"], "plan_financier", enterpriseId);
+        systemPrompt = buildSystemPrompt(country, sector, fp, guardrails);
+        userPrompt = buildUserPrompt(enterprise, inputsData, bmcData, sicData, preScreenData, diagnosticData, coachingContext, currentYear, fp)
+          + knowledgeContext + ragContext;
 
-      const aiAnalysis = await callAIWithCalculator(systemPrompt, userPrompt, 16384, "claude-sonnet-4-20250514", 0.2);
+        if (USE_RAILWAY) {
+          // (b) Dispatch Railway → l'agent Python rappelle l'EF en mode finalize avec ai_analysis
+          console.log(`[plan-financier] Dispatching to Railway (Opus ${PLAN_FINANCIER_MODEL})...`);
+          await dispatchToRailwayOpus({
+            enterpriseId,
+            requestId,
+            systemPrompt,
+            userPrompt,
+            model: PLAN_FINANCIER_MODEL,
+          });
+          // Marquer le phase pour le front
+          await supabase.from("deliverables").update({
+            data: { status: "processing", request_id: requestId, phase: "opus_dispatched", model: PLAN_FINANCIER_MODEL, dispatched_at: new Date().toISOString() },
+          }).eq("enterprise_id", enterpriseId).eq("type", "plan_financier");
+          return; // l'EF s'arrête ici — Railway prend le relais et rappelera en mode finalize
+        }
+
+        // (c) Appel local Opus 4.7 — prompt cache activé
+        console.log(`[plan-financier] Calling Opus ${PLAN_FINANCIER_MODEL} locally with tool_use...`);
+        aiAnalysis = await callAIWithCalculator(
+          systemPrompt,
+          userPrompt,
+          16384,
+          PLAN_FINANCIER_MODEL,
+          0.2,
+          { enableCache: true },
+        );
+      }
 
       // 3. Calculs déterministes
       console.log(`[plan-financier] Computing financial plan...`);
@@ -169,8 +244,8 @@ serve(async (req: Request) => {
         _meta: {
           generated_at: new Date().toISOString(),
           request_id: requestId,
-          model: "claude-sonnet-4-6",
-          version: "2.1-async",
+          model: PLAN_FINANCIER_MODEL,
+          version: "2.2-opus",
           sources: ["inputs_data", "bmc_data", "sic_data", "diagnostic_data", "coaching_notes"],
         },
       };
@@ -250,11 +325,67 @@ serve(async (req: Request) => {
       } catch (cleanupErr) {
         console.error("[plan-financier] CLEANUP ERROR:", cleanupErr);
       }
+      if (mode === "finalize") throw err;
     }
-  })());
+  };
 
-  return response;
+  if (mode === "finalize") {
+    // Exécution synchrone (callback Railway attend la réponse)
+    try {
+      await work();
+      return jsonResponse({ ok: true, mode: "finalize", request_id: requestId });
+    } catch (err) {
+      return errorResponse(String(err), 500);
+    }
+  }
+
+  // Mode default : background via waitUntil + retour 202 immédiat
+  waitUntilFn!(work());
+  return response!;
 });
+
+// ─────────────────────────────────────────────────────────────────
+// RAILWAY DISPATCH (Opus 4.7)
+// ─────────────────────────────────────────────────────────────────
+
+async function dispatchToRailwayOpus(args: {
+  enterpriseId: string;
+  requestId: string;
+  systemPrompt: string;
+  userPrompt: string;
+  model: string;
+}): Promise<void> {
+  const railwayUrl = Deno.env.get("RAILWAY_AI_URL");
+  const railwayKey = Deno.env.get("RAILWAY_AI_KEY");
+  if (!railwayUrl || !railwayKey) {
+    throw new Error("RAILWAY_AI_URL / RAILWAY_AI_KEY non configurés — impossible de dispatch");
+  }
+
+  const jobId = crypto.randomUUID();
+  const resp = await fetch(`${railwayUrl}/run-agent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Worker-API-Key": railwayKey,
+    },
+    body: JSON.stringify({
+      agent_name: "generate-plan-financier-opus",
+      job_id: jobId,
+      payload: {
+        enterprise_id: args.enterpriseId,
+        request_id: args.requestId,
+        system_prompt: args.systemPrompt,
+        user_prompt: args.userPrompt,
+        model: args.model,
+      },
+    }),
+  });
+
+  if (!resp.ok && resp.status !== 202) {
+    const text = await resp.text();
+    throw new Error(`Railway dispatch failed: ${resp.status} ${text.slice(0, 200)}`);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT
