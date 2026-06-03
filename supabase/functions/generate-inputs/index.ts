@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, preloadFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
 import { normalizeInputs } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { getExtractionKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
@@ -487,6 +487,8 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
     const bmcData = ctx.deliverableMap["bmc_analysis"] || {};
+    // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
+    await preloadFiscalParams(ctx.supabase);
     const fiscalParams = getFiscalParams(ent.country || '');
 
     // ── Load existing inputs for merge ──

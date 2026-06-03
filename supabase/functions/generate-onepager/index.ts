@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  jsonResponse, errorResponse, getCoachingContext, getFiscalParams,
+  jsonResponse, errorResponse, getCoachingContext, getFiscalParams, preloadFiscalParams,
 } from "../_shared/helpers_v5.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
@@ -110,6 +110,8 @@ serve(async (req) => {
     // Financial Truth Anchor
     const { getFinancialTruth } = await import("../_shared/normalizers.ts");
     const truth = getFinancialTruth(inputsData);
+    // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
+    await preloadFiscalParams(ctx.supabase);
     const devise = (inputsData as any)?.devise || getFiscalParams(ent.country || '').devise || '';
     let tractionBlock = "";
     if (truth) {

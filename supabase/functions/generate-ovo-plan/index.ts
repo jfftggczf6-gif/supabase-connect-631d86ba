@@ -24,7 +24,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sanitize } from "../_shared/zip-utils.ts";
 import { expandCondensedData, validateAndFillVolumes, scaleToFrameworkTargets, scaleCOGSToFramework, normalizeRangeData, alignOpexToPlanOvo, alignStaffToTarget, alignTotalOpexToFramework, reconcileWithPlanOvo } from "../_shared/ovo-data-expander.ts";
-import { getFiscalParamsForPrompt } from "../_shared/helpers_v5.ts";
+import { getFiscalParamsForPrompt, preloadFiscalParams } from "../_shared/helpers_v5.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -533,6 +533,8 @@ async function callClaudeAPI(data: EntrepreneurData, supabase?: any, enterpriseI
 // ─────────────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(country: string): string {
+  // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
+  await preloadFiscalParams(ctx.supabase);
   const fp = getFiscalParamsForPrompt(country);
   const isRegimeInfo = fp.seuil_pme !== 'N/A'
     ? `- IS régime simplifié (revenus ≤ ${fp.seuil_pme}) : ${fp.is_pme}% du CA\n- IS régime réel (revenus > ${fp.seuil_pme}) : ${fp.is_standard}% du bénéfice`

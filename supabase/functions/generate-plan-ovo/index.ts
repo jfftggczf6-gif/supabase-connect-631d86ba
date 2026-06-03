@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParamsForPrompt, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParamsForPrompt, preloadFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { getFinancialTruth, validateCrossDeliverables } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { normalizePlanOvo, enforceFrameworkConstraints } from "../_shared/normalizers.ts";
@@ -10,6 +10,8 @@ import { injectGuardrails } from "../_shared/guardrails.ts";
 // Use centralized fiscal params from helpers.ts
 
 function buildSystemPrompt(country: string, sector: string): string {
+  // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
+  await preloadFiscalParams(ctx.supabase);
   const fp = getFiscalParamsForPrompt(country);
   const knowledgeBase = getFinancialKnowledgePrompt(country.toLowerCase().replace(/[\s']/g, "_"), sector.toLowerCase().replace(/[\s\-\/]/g, "_"));
 

@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext,
-  jsonResponse, errorResponse, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent, getFiscalParams,
+  jsonResponse, errorResponse, getDocumentContentForAgent, getCoachingContext, getKnowledgeForAgent, getFiscalParams, preloadFiscalParams,
 } from "../_shared/helpers_v5.ts";
 import { normalizeScreeningReport, getFinancialTruth } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
@@ -164,6 +164,8 @@ serve(async (req) => {
 
     // Financial Truth Anchor
     const truth = getFinancialTruth(inputsData);
+    // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
+    await preloadFiscalParams(ctx.supabase);
     const devise = (inputsData as any)?.devise || getFiscalParams(ent.country || '').devise || '';
     let truthBlock = "";
     if (truth) {

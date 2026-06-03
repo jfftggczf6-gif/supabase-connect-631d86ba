@@ -1,6 +1,6 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
+import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, preloadFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
 import { normalizeFramework } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { fillFrameworkExcelTemplate } from "../_shared/framework-excel-template.ts";
@@ -328,6 +328,8 @@ serve(async (req) => {
 
     // RAG: enrichir avec benchmarks sectoriels et données fiscales
     const ragContext = await buildRAGContext(ctx.supabase, ent.country || "", ent.sector || "", ["benchmarks", "fiscal", "bailleurs", "secteurs"], "framework_data", ctx.enterprise_id);
+    // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
+    await preloadFiscalParams(ctx.supabase);
     const fiscalParams = getFiscalParams(ent.country || '');
 
     // Inject centralized financial knowledge (without examples to save context)
