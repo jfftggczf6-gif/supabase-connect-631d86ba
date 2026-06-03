@@ -44,7 +44,8 @@ export async function callAIWithCalculator(
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        temperature,
+        // Opus 4.7+ ne supporte plus le param temperature — on l'omet pour ces modèles.
+        ...(model.startsWith("claude-opus-4-") ? {} : { temperature }),
         system: systemField,
         messages,
         tools: CALCULATOR_TOOLS,
