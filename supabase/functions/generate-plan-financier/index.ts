@@ -351,7 +351,23 @@ serve(async (req: Request) => {
             restructuration: Number((inputsData as any)?.financement?.restructuration_dette) || 0,
           },
 
-          // Indicateurs (ne PAS écrire wacc_*, valorisation_*, equity_value_dcf : réservé à 0.7)
+          // WACC : Plan-financier écrit le wacc_pct (taux d'actualisation utilisé). Brief 0.7
+          // (generate-valuation) le LIT comme précondition. Plan-financier ne touche PAS aux
+          // valorisations / equity_value_dcf (réservé à 0.7).
+          wacc_pct: num((computed as any)?.wacc_metadata?.wacc_applique),
+          wacc_components: (computed as any)?.wacc_metadata
+            ? {
+                source: "plan-financier",
+                wacc_brut: (computed as any).wacc_metadata.wacc_brut,
+                wacc_applique: (computed as any).wacc_metadata.wacc_applique,
+                floor_pct: (computed as any).wacc_metadata.wacc_floor_pct,
+                ceil_pct: (computed as any).wacc_metadata.wacc_ceil_pct,
+              }
+            : null,
+          wacc_capped: ((computed as any)?.wacc_metadata?.wacc_was_capped ?? false) === true,
+          wacc_raw: num((computed as any)?.wacc_metadata?.wacc_brut),
+
+          // Indicateurs financiers (valorisation_*, equity_value_dcf : réservés à 0.7)
           // FIX hot post brief 0.13 — computeIndicateurs retourne tri/roi DÉJÀ en % (pas en décimal).
           // L'ancienne heuristique "*100 si abs<50" produisait tri_pct=590 pour un tri réel 5.9% → violation
           // CHECK (tri_pct <= 500) → upsert canonical rejeté silencieusement.
