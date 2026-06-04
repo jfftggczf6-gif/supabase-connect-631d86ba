@@ -674,6 +674,11 @@ type FiscalParamsType = {
   // Extensions DB (présentes si preloadFiscalParams a été appelée)
   inflation_pct?: number;
   taux_change_usd?: number;
+  // Brief Aurélie bug 5 — exposer is_pme depuis DB pour distinguer le cas
+  // « régime PME différencié » (UEMOA Côte d'Ivoire 4%) du cas « pas de régime PME »
+  // (RDC : is_pme = is_standard = 30%). Permet à financial-compute de ne PAS
+  // afficher de tax_regime_1 fictif quand is_pme == is.
+  is_pme?: number | null;
 };
 
 /**
@@ -708,6 +713,8 @@ export async function preloadFiscalParams(supabase: any): Promise<void> {
       if (row.taux_change_eur != null) partial.exchange_rate_eur = Number(row.taux_change_eur);
       if (row.taux_change_usd != null) partial.taux_change_usd = Number(row.taux_change_usd);
       if (row.inflation_pct != null) partial.inflation_pct = Number(row.inflation_pct);
+      // Brief Aurélie bug 5 — propager is_pme à fiscalParams pour tax_regime_1
+      if (row.is_pme != null) partial.is_pme = Number(row.is_pme);
       map[key] = partial;
       pmeData[key] = {
         is_pme: row.is_pme != null ? Number(row.is_pme) : null,

@@ -1428,7 +1428,7 @@ export function computeFullPlan(
   company: string,
   country: string,
   currentYear: number,
-  fiscalParams: { tva: number; is: number; devise: string; currency_iso: string; exchange_rate_eur: number },
+  fiscalParams: { tva: number; is: number; devise: string; currency_iso: string; exchange_rate_eur: number; is_pme?: number | null },
   employeesCount?: number,
 ): PlanFinancierComputed {
 
@@ -1923,10 +1923,22 @@ export function computeFullPlan(
   const opexDetail = computeOpexDetail(opex);
 
   // 16. Échéancier dette
+  // Brief Aurélie #1 — un prêt absent (amount=0) ne doit PAS produire un échéancier fictif
+  // avec un taux par défaut. Avant : family=10%/3ans visible même sans prêt famille.
+  // Fix : si amount=0, on remet rate=0 et term_years=0 (l'échéancier sera vide pour ce poste).
+  const buildLoan = (loan: any, defaultRate: number, defaultTerm: number) => {
+    const amount = safe(loan.montant);
+    if (amount <= 0) return { amount: 0, rate: 0, term_years: 0 };
+    return {
+      amount,
+      rate: loan.taux_pct != null ? safe(loan.taux_pct) / 100 : defaultRate,
+      term_years: safe(loan.duree_mois) / 12 || defaultTerm,
+    };
+  };
   const loansForEcheancier = {
-    ovo: { amount: safe(loansOvo.montant), rate: loansOvo.taux_pct != null ? safe(loansOvo.taux_pct) / 100 : 0.07, term_years: safe(loansOvo.duree_mois) / 12 || 5 },
-    family: { amount: safe(loansFamily.montant), rate: loansFamily.taux_pct != null ? safe(loansFamily.taux_pct) / 100 : 0.10, term_years: safe(loansFamily.duree_mois) / 12 || 3 },
-    bank: { amount: safe(loansBank.montant), rate: loansBank.taux_pct != null ? safe(loansBank.taux_pct) / 100 : 0.12, term_years: safe(loansBank.duree_mois) / 12 || 2 },
+    ovo: buildLoan(loansOvo, 0.07, 5),
+    family: buildLoan(loansFamily, 0.10, 3),
+    bank: buildLoan(loansBank, 0.12, 2),
   };
   const echeancier = computeEcheancier(loansForEcheancier, projections, currentYear);
 
@@ -1951,7 +1963,13 @@ export function computeFullPlan(
     exchange_rate_eur: fiscalParams.exchange_rate_eur,
     vat_rate: fiscalParams.tva / 100,
     inflation_rate: hyp.inflation,
-    tax_regime_1: fiscalParams.is / 100 * 0.15 || 0.04, // IS réduit régime 1 (≈15% du taux IS standard, fallback 4%)
+    // Brief Aurélie bug 5 — tax_regime_1 = IS PME RÉEL depuis DB knowledge_country_data
+    // (et non plus l'heuristique générique IS×15%). Si is_pme == is_standard (cas RDC où
+    // pas de régime PME différencié), on met 0 pour signaler "pas de régime PME applicable".
+    // L'Excel template peut ainsi conditionner l'affichage de la cellule.
+    tax_regime_1: (fiscalParams.is_pme != null && fiscalParams.is_pme < fiscalParams.is)
+      ? fiscalParams.is_pme / 100
+      : 0,
     tax_regime_2: fiscalParams.is / 100,
     current_year: baseYearEarly,
     years,
@@ -1974,9 +1992,10 @@ export function computeFullPlan(
     opex,
     capex: capexFormatted,
     loans: {
-      ovo: { amount: safe(loansOvo.montant), rate: safe(loansOvo.taux_pct) / 100 || 0.07, term_years: safe(loansOvo.duree_mois) / 12 || 5 },
-      family: { amount: safe(loansFamily.montant), rate: safe(loansFamily.taux_pct) / 100 || 0.10, term_years: safe(loansFamily.duree_mois) / 12 || 3 },
-      bank: { amount: safe(loansBank.montant), rate: safe(loansBank.taux_pct) / 100 || 0.12, term_years: safe(loansBank.duree_mois) / 12 || 2 },
+      // Brief Aurélie #1 — applique buildLoan ici aussi pour cohérence avec l'échéancier.
+      ovo: buildLoan(loansOvo, 0.07, 5),
+      family: buildLoan(loansFamily, 0.10, 3),
+      bank: buildLoan(loansBank, 0.12, 2),
     },
     financing: aiAnalysis.financing || {},
     working_capital: {
