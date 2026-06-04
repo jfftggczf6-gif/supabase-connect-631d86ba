@@ -57,6 +57,22 @@ interface DCFResult {
     debt_weight: number;
     equity_weight: number;
   };
+  /**
+   * Brief 0.7 — Si waccOverride a été utilisé, contient ce que computeWACC
+   * aurait produit en autonome (audit/comparaison + écriture canonical).
+   * undefined si pas d'override (computeWACC = source de vérité, déjà dans wacc_detail).
+   */
+  wacc_internal_computed?: {
+    wacc: number;
+    risk_free_rate: number;
+    equity_risk_premium: number;
+    size_premium: number;
+    illiquidity_premium: number;
+    cost_of_equity: number;
+    cost_of_debt: number;
+    debt_weight: number;
+    equity_weight: number;
+  };
   projections_cashflow: { annee: string; fcf: number }[];
   pv_cashflows: number;
   terminal_growth_rate: number;
@@ -254,8 +270,24 @@ function estimateFCFs(inputs: ValuationInputs): number[] {
   );
 }
 
-function computeDCF(inputs: ValuationInputs, riskParamsDB?: any): DCFResult {
-  const waccResult = computeWACC(inputs, riskParamsDB);
+function computeDCF(inputs: ValuationInputs, riskParamsDB?: any, waccOverride?: number): DCFResult {
+  // Brief 0.7 : si waccOverride > 0 → utiliser le WACC canonical (plan-financier).
+  // computeWACC reste calculé en parallèle pour traçabilité dans wacc_components.
+  // valuation_engine_would_have_used dans canonical → audit/comparaison.
+  const internalWaccResult = computeWACC(inputs, riskParamsDB);
+  const waccResult = (waccOverride !== undefined && waccOverride > 0)
+    ? {
+        risk_free_rate: 0,
+        equity_risk_premium: 0,
+        size_premium: 0,
+        illiquidity_premium: 0,
+        cost_of_equity: 0,
+        cost_of_debt: 0,
+        debt_weight: 0,
+        equity_weight: 0,
+        wacc: Math.round(waccOverride * 10) / 10,
+      } satisfies ReturnType<typeof computeWACC>
+    : internalWaccResult;
   const wacc = waccResult.wacc / 100;
 
   const fcfs = inputs.cashflows_projetes.length >= 5
@@ -323,6 +355,10 @@ function computeDCF(inputs: ValuationInputs, riskParamsDB?: any): DCFResult {
   return {
     wacc_pct: waccResult.wacc,
     wacc_detail: waccResult,
+    // Brief 0.7 — Si override appliqué, on garde une trace du WACC qu'on aurait calculé seul.
+    wacc_internal_computed: (waccOverride !== undefined && waccOverride > 0)
+      ? internalWaccResult
+      : undefined,
     projections_cashflow: projections,
     pv_cashflows: Math.round(pvCashflows),
     terminal_growth_rate: terminalGrowth * 100,
@@ -469,8 +505,8 @@ function computeSynthese(dcf: DCFResult, multiples: MultiplesResult, decotes: De
 // FONCTION PRINCIPALE — EXPORT
 // ═══════════════════════════════════════════════════════
 
-export function computeValuation(inputs: ValuationInputs, riskParamsDB?: any): ValuationResult {
-  const dcf = computeDCF(inputs, riskParamsDB);
+export function computeValuation(inputs: ValuationInputs, riskParamsDB?: any, waccOverride?: number): ValuationResult {
+  const dcf = computeDCF(inputs, riskParamsDB, waccOverride);
   const multiples = computeMultiples(inputs);
   const decotes = computeDecotesPrimes(inputs);
   const synthese = computeSynthese(dcf, multiples, decotes);

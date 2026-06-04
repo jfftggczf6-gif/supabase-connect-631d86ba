@@ -551,5 +551,27 @@ export async function runPipelineFromClient(
   const skippedCount = results.filter(r => r.skipped).length;
   const executedCount = results.filter(r => r.success && !r.skipped).length;
 
+  // Brief 0.12 — QA inter-livrables (non-bloquant) en sortie de cascade
+  try {
+    const token = await getFreshToken();
+    fetch(`${supabaseUrl}/functions/v1/validate-deliverables-coherence`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ enterprise_id: enterpriseId }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json) {
+          console.log(`[cascade] coherence: ${json.divergences_count} divergences (${json.critical_count} critical)`);
+        }
+      })
+      .catch((e) => console.warn('[cascade] coherence validation failed (non-blocking):', e?.message));
+  } catch (e: any) {
+    console.warn('[cascade] coherence validation dispatch failed (non-blocking):', e?.message);
+  }
+
   return { completedCount, executedCount, skippedCount, results, creditError };
 }

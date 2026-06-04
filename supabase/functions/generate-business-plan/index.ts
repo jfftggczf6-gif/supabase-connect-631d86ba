@@ -1,9 +1,10 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getDocumentContentForAgent, getKnowledgeForAgent, getCoachingContext } from "../_shared/helpers_v5.ts";
-import { syncBusinessPlanWithPlanOvo } from "../_shared/normalizers.ts";
+// Brief 0.9: syncBusinessPlanWithPlanOvo retiré — financier_tableau construit depuis canonical
 import { getFinancialKnowledgePrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { getCanonicalFinancials, formatCanonicalForPrompt, type CanonicalFinancials } from "../_shared/canonical-financials.ts";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, LevelFormat, PageBreak, Header, Footer } from "npm:docx@8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
@@ -14,6 +15,13 @@ const BP_MODEL = "claude-sonnet-4-6";
 const BP_SYSTEM_PROMPT = `Tu es un consultant senior en business plan avec 20+ ans d'expérience auprès de PME africaines. Tu rédiges des business plans professionnels pour OVO.
 Tu connais les normes SYSCOHADA, la fiscalité UEMOA/CEMAC, et les critères des bailleurs de fonds (Enabel, GIZ, BAD, AFD, IFC, OVO).
 Tu génères UNIQUEMENT du JSON structuré. Pas de markdown, pas de texte autour. Rédige en français. Sois précis, factuel, stratégique. JAMAIS de contenu générique.
+
+RÈGLES SUR LES CHIFFRES FINANCIERS (BRIEF 0.9) :
+1. Tu reçois les chiffres canoniques dans le bloc « CHIFFRES FINANCIERS CANONIQUES » ci-dessous (CA projeté, EBITDA, résultat net, cashflow, WACC, besoin financement, composition, etc.).
+2. Dans tes narratives (investissement_plan, financement_plan, ovo_financier), tu CITES ces chiffres mais tu n'en INVENTES JAMAIS d'autres.
+3. Pas de mention de WACC, TRI, VAN, equity value dans tes narratives sauf pour reprendre EXACTEMENT les valeurs canoniques.
+4. Tu peux contextualiser : « Le besoin de financement de X est composé de Y de CAPEX et Z de BFR… »
+5. Tu ne dois PAS produire de financier_tableau — ce tableau est construit automatiquement par le système à partir du canonique.
 
 RÈGLE ABSOLUE — CITATIONS DE SOURCES :
 - INTERDIT d'écrire "(source: AFD 2024)", "(d'après BCEAO)", "(réf: ...)", "selon le rapport ..." DANS LE CORPS DES TEXTES, des cellules, ou de toute valeur de champ.
@@ -110,14 +118,8 @@ const SCHEMA_PART2 = `{
   "impact_social": "string",
   "impact_environnemental": "string",
   "impact_economique": "string",
-  "investissement_plan": "string",
-  "financement_plan": "string",
-  "financier_tableau": {
-    "_RÈGLE_STRICTE": "Chaque cellule ci-dessous = MONTANT NUMÉRIQUE UNIQUEMENT, format '20 000 000 FCFA' ou '0 FCFA'. INTERDIT: parenthèses explicatives, sources, taux, hypothèses, formules, justifications. Toute justification/hypothèse va dans investissement_plan ou financement_plan, JAMAIS dans une cellule de tableau.",
-    "annee1": { "contrib_locale": "ex: '20 000 000 FCFA'", "prets_locaux": "ex: '25 000 000 FCFA'", "prets_etrangers": "ex: '0 FCFA'", "subventions": "ex: '15 000 000 FCFA'", "total": "ex: '60 000 000 FCFA'", "revenu": "ex: '120 000 000 FCFA'", "depenses": "ex: '92 000 000 FCFA'", "marge_brute": "ex: '28 000 000 FCFA'", "benefice_net": "ex: '18 000 000 FCFA'", "seuil_rentabilite": "ex: '85 000 000 FCFA'", "tresorerie_finale": "ex: '12 000 000 FCFA'" },
-    "annee2": { "...mêmes champs, mêmes règles : QUE des nombres + FCFA..." },
-    "annee3": { "...mêmes champs, mêmes règles : QUE des nombres + FCFA..." }
-  },
+  "investissement_plan": "string — 200-300 mots : narrative justifiant les besoins (CAPEX, BFR, restructuration). CITE les chiffres canoniques, n'en invente pas. NE PRODUIS PAS de tableau, il est construit par le système.",
+  "financement_plan": "string — 200-300 mots : narrative justifiant la structure de financement (contribution propre, prêts locaux/étrangers, subventions). CITE composition_besoin du canonique.",
   "ovo_financier": "string",
   "ovo_expertise": "string",
   "sources_consultees": [
@@ -131,15 +133,19 @@ const SCHEMA_PART2 = `{
 }`;
 
 // ── BUILD USER PROMPTS ─────────────────────────────────────────────────
-function buildContextBlock(ctx: any): string {
+async function buildContextBlock(ctx: any): Promise<string> {
   const ent = ctx.enterprise;
-  const dm = ctx.deliverableMap;
+  const dm = ctx.deliverableMap || {};
   const bmc = dm["bmc_analysis"] || {};
-  const inp = dm["inputs_data"] || {};
-  const fw = dm["plan_financier"] || dm["framework_data"] || {};
   const sic = dm["sic_analysis"] || {};
   const diag = dm["diagnostic_data"] || {};
-  const plan = dm["plan_financier"] || dm["plan_ovo"] || {};
+
+  // Brief 0.9 — lecture canonical (remplace dm["plan_financier"] + truncate substring(0, 800))
+  const canonical: CanonicalFinancials | null =
+    ctx.canonical ?? (await getCanonicalFinancials(ctx.supabase, ctx.enterprise_id));
+  if (!canonical) {
+    throw { status: 412, message: "Plan financier doit être généré avant le Business Plan (fiche canonique absente)." };
+  }
 
   return `ENTREPRISE :
 - Nom : ${ent.name || "N/A"}
@@ -150,39 +156,34 @@ function buildContextBlock(ctx: any): string {
 - Forme juridique : ${ent.legal_form || "N/A"}
 - Date création : ${ent.creation_date || "N/A"}
 
+${formatCanonicalForPrompt(canonical)}
+
+CONTEXTE QUALITATIF (chiffres ⇒ canonique ci-dessus, pas ici) :
 BMC : ${JSON.stringify(bmc).substring(0, 1000)}
-
-FINANCIER (Inputs historiques): ${JSON.stringify(inp).substring(0, 2000)}
-
-FRAMEWORK : ${JSON.stringify(fw).substring(0, 800)}
-
 SIC : ${JSON.stringify(sic).substring(0, 500)}
-
 DIAGNOSTIC : ${JSON.stringify(diag).substring(0, 500)}
-
-PLAN OVO : ${plan ? JSON.stringify(plan).substring(0, 800) : "Non disponible"}
 
 ${ctx._agentDocs ? `DOCUMENTS:\n${ctx._agentDocs.substring(0, 2000)}` : ""}`;
 }
 
-function buildPromptPart1(ctx: any): string {
+async function buildPromptPart1(ctx: any): Promise<string> {
   return `Génère les sections 1-8 du business plan OVO (présentation + opérations) pour cette entreprise.
 
-${buildContextBlock(ctx)}
+${await buildContextBlock(ctx)}
 
 CONTRAINTES : Chaque section doit être substantielle. Utilise des chiffres précis (devise locale, %). RETOURNE UNIQUEMENT LE JSON.
 
 ${SCHEMA_PART1}`;
 }
 
-function buildPromptPart2(ctx: any, part1Summary: string): string {
+async function buildPromptPart2(ctx: any, part1Summary: string): Promise<string> {
   return `Génère les sections 9-14 du business plan OVO (marketing, équipe, projet, impact, financier, attentes OVO).
 
-${buildContextBlock(ctx)}
+${await buildContextBlock(ctx)}
 
 SECTIONS DÉJÀ GÉNÉRÉES (résumé) : ${part1Summary}
 
-CONTRAINTES : Cohérence avec les sections précédentes. Chiffres financiers précis dans la devise locale. RETOURNE UNIQUEMENT LE JSON.
+CONTRAINTES : Cohérence avec les sections précédentes. Chiffres financiers à CITER depuis le bloc CHIFFRES FINANCIERS CANONIQUES (ne pas en inventer). NE PAS produire financier_tableau. RETOURNE UNIQUEMENT LE JSON.
 
 ${SCHEMA_PART2}`;
 }
@@ -828,6 +829,16 @@ serve(async (req) => {
     (ctx as any)._agentDocs = getDocumentContentForAgent(ent, "business_plan", 100_000);
     const requestId = crypto.randomUUID();
 
+    // ═══════ Précondition SSOT (brief 0.9) — fiche canonical requise ═══════
+    const canonical = await getCanonicalFinancials(ctx.supabase, ctx.enterprise_id);
+    if (!canonical) {
+      return errorResponse(
+        "Plan financier doit être généré avant le Business Plan (fiche canonique absente).",
+        412,
+      );
+    }
+    (ctx as any).canonical = canonical;
+
     const { data: existingDeliv } = await ctx.supabase.from("deliverables")
       .select("data").eq("enterprise_id", ctx.enterprise_id).eq("type", "business_plan").maybeSingle();
     if (existingDeliv?.data && Object.keys(existingDeliv.data).length > 5) {
@@ -901,7 +912,8 @@ serve(async (req) => {
 
     // PART 1: Sections 1-8
     console.log("[BP] AI Call 1/2: Sections 1-8...");
-    const part1 = await callAI(guardedPrompt, buildPromptPart1(ctx) + knowledgeBlock + ragContext + kbContext + coachingContext + webMarketContext, 16384, BP_MODEL, 0.1, { functionName: "generate-business-plan", enterpriseId: ctx.enterprise_id });
+    const prompt1 = await buildPromptPart1(ctx);
+    const part1 = await callAI(guardedPrompt, prompt1 + knowledgeBlock + ragContext + kbContext + coachingContext + webMarketContext, 16384, BP_MODEL, 0.1, { functionName: "generate-business-plan", enterpriseId: ctx.enterprise_id });
     console.log("[BP] Part 1 OK, keys:", Object.keys(part1).length);
 
     // Build summary of part1 for context in part2
@@ -909,7 +921,8 @@ serve(async (req) => {
 
     // PART 2: Sections 9-14
     console.log("[BP] AI Call 2/2: Sections 9-14...");
-    const part2 = await callAI(guardedPrompt, buildPromptPart2(ctx, part1Summary) + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, BP_MODEL, 0.1, { functionName: "generate-business-plan", enterpriseId: ctx.enterprise_id });
+    const prompt2 = await buildPromptPart2(ctx, part1Summary);
+    const part2 = await callAI(guardedPrompt, prompt2 + knowledgeBlock + ragContext + kbContext + coachingContext, 16384, BP_MODEL, 0.1, { functionName: "generate-business-plan", enterpriseId: ctx.enterprise_id });
     console.log("[BP] Part 2 OK, keys:", Object.keys(part2).length);
 
     // Merge
@@ -917,11 +930,53 @@ serve(async (req) => {
     bpJson.score = bpJson.score || part1.score || 50;
     bpJson.company_name = bpJson.company_name || ent.name;
 
-    // Sync financial table with Plan OVO synchronized data
-    const planOvoData = ctx.deliverableMap["plan_financier"] || ctx.deliverableMap["plan_ovo"];
-    if (planOvoData?.revenue) {
-      console.log("[BP] Syncing financier_tableau with Plan OVO data...");
-      syncBusinessPlanWithPlanOvo(bpJson, planOvoData);
+    // ═══════ Construction serveur de financier_tableau depuis canonical (brief 0.9) ═══════
+    // L'IA n'a plus à produire ce tableau — le système l'assemble à partir des chiffres officiels.
+    {
+      const c = canonical;
+      const ccy = c.currency_iso || c.currency || "FCFA";
+      const fmt = (n: number | null | undefined) =>
+        n !== null && n !== undefined
+          ? `${Math.round(n).toLocaleString("fr-FR")} ${ccy}`
+          : `0 ${ccy}`;
+
+      const composition = (c.composition_besoin as any) || {};
+      const totalBesoin = c.besoin_financement_total || 0;
+
+      const ca = (c.ca_projected as any) || {};
+      const ebitda = (c.ebitda_projected as any) || {};
+      const resultat = (c.resultat_net_projected as any) || {};
+      const cash = (c.cashflow_projected as any) || {};
+
+      const yearCells = (idx: 1 | 2 | 3) => {
+        const k = `y${idx}` as const;
+        const caY = ca[k] ?? null;
+        const ebitdaY = ebitda[k] ?? null;
+        const depensesY = caY != null && ebitdaY != null ? caY - ebitdaY : null;
+        return {
+          // Composition besoin (constante sur 3 ans : c'est un besoin one-shot affecté en année 1).
+          contrib_locale: idx === 1 ? fmt(composition.contrib_locale ?? 0) : fmt(0),
+          prets_locaux: idx === 1 ? fmt(composition.prets_locaux ?? 0) : fmt(0),
+          prets_etrangers: idx === 1 ? fmt(composition.prets_etrangers ?? 0) : fmt(0),
+          subventions: idx === 1 ? fmt(composition.subventions ?? 0) : fmt(0),
+          total: idx === 1 ? fmt(totalBesoin) : fmt(0),
+          revenu: fmt(caY),
+          depenses: fmt(depensesY),
+          marge_brute: fmt(ebitdaY),
+          benefice_net: fmt(resultat[k] ?? null),
+          seuil_rentabilite: fmt(null),
+          tresorerie_finale: fmt(cash[k] ?? null),
+        };
+      };
+
+      bpJson.financier_tableau = {
+        annee1: yearCells(1),
+        annee2: yearCells(2),
+        annee3: yearCells(3),
+        _injected_from_canonical: true,
+        _canonical_version: c.version,
+      };
+      console.log(`[BP] financier_tableau injecté depuis canonical v${c.version} (devise=${ccy})`);
     }
 
     console.log("[BP] Merged, generating Word document...");

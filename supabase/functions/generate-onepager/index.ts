@@ -6,6 +6,7 @@ import {
 } from "../_shared/helpers_v5.ts";
 import { getDonorCriteriaPrompt } from "../_shared/financial-knowledge.ts";
 import { injectGuardrails } from "../_shared/guardrails.ts";
+import { getCanonicalFinancials, formatCanonicalForPrompt } from "../_shared/canonical-financials.ts";
 
 const SYSTEM_PROMPT = `Tu es un analyste deal sourcing senior spécialisé en investissement d'impact en Afrique francophone.
 
@@ -24,12 +25,15 @@ Le one-pager suit EXACTEMENT la structure du template I&P :
 4. Critères I&P : documentation disponible par catégorie
 
 RÈGLES :
-- Chaque champ de la section "traction_finances" DOIT utiliser les chiffres exacts des états financiers
-- Le CA doit être le CA réel du dernier exercice (pas une estimation)
-- La croissance doit montrer l'historique 3 ans réel
 - Concis : chaque champ est 1-3 phrases max
 - Factuel et chiffré : pas de superlatifs ("leader du marché") sans preuve
 - Le potentiel marché et l'impact sont des paragraphes narratifs
+
+RÈGLES SUR LES CHIFFRES FINANCIERS (BRIEF 0.10) :
+1. Les chiffres financiers (CA, EBITDA, TRI, VAN, valorisation, montant de la levée, croissance projetée) sont DÉJÀ calculés et te sont fournis dans le bloc « CHIFFRES FINANCIERS CANONIQUES ».
+2. INTERDICTION de les recalculer, de les modifier ou d'en inventer d'autres dans tes narratives.
+3. Les champs numériques de "traction_finances" (ca_annee_derniere, croissance, rentabilite) et "presentation_entreprise.financement_recherche" sont remplis automatiquement côté serveur depuis le canonique. Tu peux les laisser vides ou les pré-remplir mais ils seront écrasés.
+4. Tu peux ajouter UN champ "commentaire_financier" (1-2 phrases qualitatives) qui contextualise les chiffres canoniques (ex: « EBITDA en hausse de 30% sur 3 ans grâce à la mutualisation des coûts de logistique »).
 
 IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
 
@@ -44,8 +48,7 @@ const ONEPAGER_SCHEMA = `{
     "site_web": "string ou 'Non disponible'",
     "annee_creation": "string",
     "forme_juridique": "string",
-    "financement_recherche": "string — montant et type (ex: '150-200M (devise locale) — prêt à taux préférentiel')",
-    "objectif": "string — à quoi sert le financement"
+    "objectif": "string — à quoi sert le financement (qualitatif — montant rempli côté serveur)"
   },
 
   "equipe_gouvernance": {
@@ -58,15 +61,13 @@ const ONEPAGER_SCHEMA = `{
   },
 
   "traction_finances": {
-    "ventes": "string — description du modèle de vente et de la traction commerciale",
-    "ca_annee_derniere": "string — CA exact avec l'année (ex: '460 329 721 (devise locale) (2024)')",
-    "acces_financement": "string — financements obtenus jusqu'ici",
-    "croissance": "string — taux de croissance et historique (ex: '462M (2022) → 759M (2023) → 460M (2024)')",
-    "economie_unitaire": "string — marge brute, marge unitaire, avantage coût",
-    "rentabilite": "string — EBITDA, marge nette, résultat net",
-    "plan_croissance": "string — hypothèses de croissance et plan à 3-5 ans",
-    "source": "string — ex: 'États financiers 2022-2024' ou 'Plan OVO — projections'"
+    "ventes": "string — narrative sur le modèle de vente et la traction commerciale (qualitatif)",
+    "acces_financement": "string — financements obtenus jusqu'ici (qualitatif)",
+    "economie_unitaire": "string — marge brute, marge unitaire, avantage coût (qualitatif)",
+    "plan_croissance": "string — hypothèses de croissance et plan à 3-5 ans (qualitatif)",
+    "source": "string — ex: 'États financiers 2022-2024'"
   },
+  "commentaire_financier": "string — 1-2 phrases qualitatives sur les chiffres canoniques (ex: EBITDA en hausse de 30% grâce à la mutualisation)",
 
   "potentiel_marche": "string — 1 paragraphe décrivant la taille du marché, la dynamique, la concurrence et le positionnement",
 
@@ -90,6 +91,15 @@ serve(async (req) => {
     const ctx = await verifyAndGetContext(req);
     const ent = ctx.enterprise;
 
+    // ═══════ Précondition SSOT (brief 0.10) — fiche canonical requise ═══════
+    const canonical = await getCanonicalFinancials(ctx.supabase, ctx.enterprise_id);
+    if (!canonical) {
+      return errorResponse(
+        "Plan financier doit être généré avant le OnePager (fiche canonique absente).",
+        412,
+      );
+    }
+
     const { data: existingDeliverables } = await ctx.supabase
       .from("deliverables")
       .select("type, data")
@@ -103,8 +113,7 @@ serve(async (req) => {
     const bmcData = getDelivData("bmc_analysis");
     const sicData = getDelivData("sic_analysis");
     const inputsData = getDelivData("inputs_data");
-    const planOvoData = getDelivData("plan_ovo");
-    const valuationData = getDelivData("valuation");
+    // Brief 0.10: plan_ovo & valuation lus depuis canonical (cf. formatCanonicalForPrompt)
     const oddData = getDelivData("odd_analysis");
 
     // Financial Truth Anchor
@@ -132,8 +141,6 @@ Marge brute = ${truth.marge_brute_pct}%
     if (bmcData) delivSummary.push(`BMC:\n${JSON.stringify(bmcData).substring(0, 3000)}`);
     if (sicData) delivSummary.push(`SIC:\n${JSON.stringify(sicData).substring(0, 2000)}`);
     if (inputsData) delivSummary.push(`INPUTS FINANCIERS:\n${JSON.stringify(inputsData).substring(0, 3000)}`);
-    if (planOvoData) delivSummary.push(`PLAN OVO:\n${JSON.stringify(planOvoData).substring(0, 3000)}`);
-    if (valuationData) delivSummary.push(`VALORISATION:\n${JSON.stringify(valuationData).substring(0, 2000)}`);
     if (oddData) delivSummary.push(`ODD:\n${JSON.stringify(oddData).substring(0, 1500)}`);
 
     const prompt = `ENTREPRISE : ${ent.name}
@@ -148,7 +155,9 @@ CONTACT : ${ent.contact_name || ""} — ${ent.contact_email || ""} — ${ent.con
 
 ${tractionBlock}
 
-══════ LIVRABLES ══════
+${formatCanonicalForPrompt(canonical)}
+
+══════ LIVRABLES (contexte qualitatif uniquement — chiffres dans le bloc canonique ci-dessus) ══════
 ${delivSummary.join("\n\n")}
 
 ══════ CRITÈRES BAILLEURS ══════
@@ -164,6 +173,79 @@ ${ONEPAGER_SCHEMA}`;
 
     const coachingContext = await getCoachingContext(ctx.supabase, ctx.enterprise_id);
     const rawData = await callAI(injectGuardrails(SYSTEM_PROMPT, ent.country), prompt + coachingContext, 8192, "claude-sonnet-4-20250514", 0.3, { functionName: "generate-onepager", enterpriseId: ctx.enterprise_id });
+
+    // ═══════ Injection serveur depuis canonical (brief 0.10) ═══════
+    // L'IA garde les narratives qualitatives. Tous les chiffres viennent du canonique.
+    const ccy = canonical.currency_iso || canonical.currency || "FCFA";
+    const fmt = (n: number | null | undefined) =>
+      n !== null && n !== undefined
+        ? `${Math.round(n).toLocaleString("fr-FR")} ${ccy}`
+        : "—";
+
+    const caProj = (canonical.ca_projected as any) || {};
+    const cagr5y =
+      caProj.y5 != null && canonical.ca_y != null && canonical.ca_y > 0
+        ? Math.round((Math.pow(caProj.y5 / canonical.ca_y, 1 / 5) - 1) * 100)
+        : null;
+
+    rawData.kpis_financiers = {
+      ca_actuel: canonical.ca_y,
+      ebitda_actuel: canonical.ebitda_y,
+      resultat_net_actuel: canonical.resultat_net_y,
+      croissance_projetee_pct: cagr5y,
+      ca_projected_y5: caProj.y5 ?? null,
+      van: canonical.van,
+      tri_pct: canonical.tri_pct,
+      payback_years: canonical.payback_years,
+      currency: ccy,
+      _injected_from_canonical: true,
+      _canonical_version: canonical.version,
+    };
+
+    rawData.valorisation_indicative = {
+      fourchette_basse: canonical.valorisation_basse,
+      fourchette_mediane: canonical.valorisation_mediane,
+      fourchette_haute: canonical.valorisation_haute,
+      methode: canonical.methode_privilegiee,
+      wacc_pct: canonical.wacc_pct,
+      currency: ccy,
+      _injected_from_canonical: true,
+      _canonical_version: canonical.version,
+    };
+
+    rawData.financement_recherche = {
+      montant: canonical.besoin_financement_total,
+      currency: ccy,
+      composition: canonical.composition_besoin,
+      financement_deja_obtenu: canonical.financement_deja_obtenu,
+      _injected_from_canonical: true,
+      _canonical_version: canonical.version,
+    };
+
+    // Backward-compat strings — écrasent les valeurs IA pour garantir cohérence avec canonical
+    rawData.presentation_entreprise = rawData.presentation_entreprise || {};
+    rawData.presentation_entreprise.financement_recherche =
+      canonical.besoin_financement_total != null
+        ? fmt(canonical.besoin_financement_total)
+        : rawData.presentation_entreprise.financement_recherche;
+
+    rawData.traction_finances = rawData.traction_finances || {};
+    if (canonical.ca_y != null) {
+      rawData.traction_finances.ca_annee_derniere = `${fmt(canonical.ca_y)}${canonical.base_year ? ` (${canonical.base_year})` : ""}`;
+    }
+    const histParts: string[] = [];
+    if (canonical.ca_y_minus_2 != null && canonical.base_year)
+      histParts.push(`${fmt(canonical.ca_y_minus_2)} (${canonical.base_year - 2})`);
+    if (canonical.ca_y_minus_1 != null && canonical.base_year)
+      histParts.push(`${fmt(canonical.ca_y_minus_1)} (${canonical.base_year - 1})`);
+    if (canonical.ca_y != null && canonical.base_year)
+      histParts.push(`${fmt(canonical.ca_y)} (${canonical.base_year})`);
+    if (histParts.length >= 2) {
+      rawData.traction_finances.croissance = histParts.join(" → ");
+    }
+    if (canonical.ebitda_y != null || canonical.resultat_net_y != null) {
+      rawData.traction_finances.rentabilite = `EBITDA ${fmt(canonical.ebitda_y)} · Résultat net ${fmt(canonical.resultat_net_y)}`;
+    }
 
     await saveDeliverable(ctx.supabase, ctx.enterprise_id, "onepager", rawData, "onepager");
 

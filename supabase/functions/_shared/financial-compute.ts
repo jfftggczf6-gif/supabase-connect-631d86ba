@@ -68,6 +68,15 @@ export interface InputsData {
       source: string; montant?: number;
       taux_pct?: number; duree_mois?: number; differe_mois?: number;
     }>;
+    // Brief 0.13 — besoin de financement futur (ce que l'entreprise cherche à lever)
+    besoin_total_recherche?: number;
+    composition_besoin?: {
+      capex?: number;
+      bfr_demarrage?: number;
+      restructuration_dette?: number;
+      commercialisation_lancement?: number;
+    };
+    restructuration_dette?: number;
   };
   hypotheses_croissance?: {
     objectifs_ca?: Array<{ annee: number; montant: number }>;
@@ -184,14 +193,126 @@ export interface Projection {
 }
 
 export interface IndicateursDecision {
+  // ── FUTURS (conditionnels au financement) ──
   van: number | null;
   tri: number | null;
   payback_years: number | null;
   dscr_moyen: number | null;
   roi: number | null;
+  // ── PRÉSENTS (situation actuelle) ──
   couverture_interets: number | null;
   cycle_tresorerie: number;
   runway_mois: number | null;
+  // ── Métadonnées de transparence (brief 0.13) ──
+  duree_pret_utilisee?: number;
+  _temporalite?: {
+    presents: string[];
+    futurs: string[];
+    hypothese_investissement: number;
+    duree_pret_utilisee: number;
+  };
+}
+
+// ─── COHÉRENCE INDICATEURS (brief 0.11) ───────────────────────────
+export interface CoherenceCheck {
+  type:
+    | 'paradoxe_temporel'
+    | 'tri_extreme'
+    | 'roi_extreme'
+    | 'dscr_extreme'
+    | 'payback_extreme'
+    | 'logique_impossible';
+  severity: 'warning' | 'blocker';
+  message: string;
+  values?: Record<string, any>;
+}
+
+export interface CoherenceResult {
+  valid: boolean;
+  checks: CoherenceCheck[];
+  validated_at: string;
+}
+
+/**
+ * Détecte les paradoxes logiques entre indicateurs de décision (brief 0.11).
+ * Tourne après computeIndicateurs et avant le rendu UI.
+ * Règles : paradoxe_temporel, tri_extreme, roi_extreme, dscr_extreme,
+ * payback_extreme, logique_impossible.
+ */
+export function validateIndicateursCoherence(
+  ind: IndicateursDecision,
+  context: {
+    investissement_total: number;
+    besoin_financement_total?: number;
+    duree_pret_moyenne?: number;
+  },
+): { valid: boolean; checks: CoherenceCheck[] } {
+  const checks: CoherenceCheck[] = [];
+
+  // Paradoxe temporel : runway critique + TRI élevé
+  if (ind.runway_mois !== null && ind.runway_mois < 6
+      && ind.tri !== null && ind.tri > 30) {
+    checks.push({
+      type: 'paradoxe_temporel',
+      severity: 'warning',
+      message: `Paradoxe temporel : Runway ${ind.runway_mois} mois (critique) coexiste avec TRI ${ind.tri}% (excellent). Vérifier que investissement_total reflète bien le besoin futur, pas le financement existant.`,
+      values: { runway_mois: ind.runway_mois, tri_pct: ind.tri, investissement_total: context.investissement_total },
+    });
+  }
+
+  // TRI extrême
+  if (ind.tri !== null && ind.tri > 60) {
+    checks.push({
+      type: 'tri_extreme',
+      severity: ind.tri > 100 ? 'blocker' : 'warning',
+      message: `TRI ${ind.tri}% ${ind.tri > 100 ? 'structurellement impossible' : 'très élevé'}. Possible : investissement de référence trop bas, ou cashflows projetés trop optimistes.`,
+      values: { tri_pct: ind.tri },
+    });
+  }
+
+  // ROI extrême
+  if (ind.roi !== null && ind.roi > 500) {
+    checks.push({
+      type: 'roi_extreme',
+      severity: ind.roi > 1000 ? 'blocker' : 'warning',
+      message: `ROI ${ind.roi}% sur 5 ans ${ind.roi > 1000 ? 'mathématiquement louche' : 'très élevé'}. À justifier explicitement.`,
+      values: { roi_pct: ind.roi },
+    });
+  }
+
+  // DSCR extrême (durée prêt suspecte)
+  if (ind.dscr_moyen !== null && ind.dscr_moyen > 5) {
+    checks.push({
+      type: 'dscr_extreme',
+      severity: 'warning',
+      message: `DSCR ${ind.dscr_moyen}× très confortable. Vérifier que la durée de prêt utilisée (${context.duree_pret_moyenne ?? 'inconnue'} ans) correspond à la réalité.`,
+      values: { dscr_moyen: ind.dscr_moyen, duree_pret: context.duree_pret_moyenne ?? null },
+    });
+  }
+
+  // Payback trop court
+  if (ind.payback_years !== null && ind.payback_years < 1.5) {
+    checks.push({
+      type: 'payback_extreme',
+      severity: 'warning',
+      message: `Payback ${ind.payback_years} ans très court. Cohérent uniquement si l'investissement est minime relativement aux cashflows projetés.`,
+      values: { payback_years: ind.payback_years, investissement: context.investissement_total },
+    });
+  }
+
+  // Logique impossible : runway < 2 mois ET payback < 2 ans
+  if (ind.runway_mois !== null && ind.runway_mois < 2
+      && ind.payback_years !== null && ind.payback_years < 2) {
+    checks.push({
+      type: 'logique_impossible',
+      severity: 'blocker',
+      message: `BLOQUANT : Runway < 2 mois ET Payback < 2 ans. Mathématiquement, l'entreprise ne peut pas rembourser un investissement en 2 ans si elle fait faillite dans 2 mois.`,
+      values: { runway_mois: ind.runway_mois, payback_years: ind.payback_years },
+    });
+  }
+
+  const blockers = checks.filter(c => c.severity === 'blocker');
+  return { valid: blockers.length === 0, checks };
 }
 
 export interface SeuilRentabilite {
@@ -251,6 +372,24 @@ export interface PlanFinancierComputed {
   opex_detail: Array<{ categorie: string; sous_poste: string; montant_cy: number; montant_y5: number }>;
   echeancier: Array<{ label: string; is_total?: boolean; is_dscr?: boolean; dim?: boolean; annees: Array<{ annee: number; valeur: string }> }>;
   bfr_detail: { delai_clients_jours: number; delai_fournisseurs_jours: number; stock_moyen_jours: number; bfr_montant: number; bfr_jours: number; variation_bfr: number } | null;
+  _coherence?: CoherenceResult;
+  // Brief 0.13 — Transparence WACC
+  wacc_metadata?: {
+    wacc_brut: number;
+    wacc_applique: number;
+    wacc_was_capped: boolean;
+    wacc_floor_pct: number;
+    wacc_ceil_pct: number;
+  };
+  // Brief 0.13 — Investissement utilisé (source explicite pour debug)
+  investissement_metadata?: {
+    investissement_total: number;
+    source: 'besoin_recherche' | 'capex_plus_bfr_moins_finance' | 'capex_only' | 'fallback_1';
+    besoin_total_recherche: number;
+    capex_total: number;
+    bfr_demarrage: number;
+    financement_deja_obtenu: number;
+  };
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────
@@ -910,11 +1049,35 @@ export function computeProjections(
 
 // ─── INDICATEURS DE DÉCISION ──────────────────────────────────────
 
+/**
+ * Durée moyenne pondérée par le montant des prêts existants (brief 0.13).
+ * Remplace la durée hardcodée de 5 ans utilisée dans le DSCR, qui produisait
+ * sur Savoki (RAWBANK 2 ans) un DSCR 18× au lieu de 6-8× réaliste.
+ *
+ * Retombée par défaut : 5 ans si aucun prêt renseigné (compatibilité ancien comportement).
+ * Pour chaque prêt sans durée explicite, on prend 3 ans (court terme typique PME).
+ */
+export function computeDureePondereePrets(
+  prets: Array<{ montant?: number; duree_mois?: number }>,
+): number {
+  if (!prets || prets.length === 0) return 5;
+  let totalMontant = 0;
+  let sommePonderee = 0;
+  for (const p of prets) {
+    const m = safe(p.montant);
+    const d = safe(p.duree_mois) > 0 ? safe(p.duree_mois) / 12 : 3;
+    sommePonderee += m * d;
+    totalMontant += m;
+  }
+  return totalMontant > 0 ? sommePonderee / totalMontant : 5;
+}
+
 export function computeIndicateurs(
   projections: Projection[],
   investissement_total: number,
   taux_actualisation: number = 0.15,
   dette_totale?: number,
+  prets?: Array<{ montant?: number; duree_mois?: number }>,
 ): IndicateursDecision {
   // Cashflows projetés (Y+1 à Y+5)
   const cashflows = projections.filter(p => !p.is_reel).map(p => p.cashflow);
@@ -962,14 +1125,14 @@ export function computeIndicateurs(
     }
   }
 
-  // DSCR moyen sur la période
+  // DSCR moyen sur la période — utilise la durée pondérée réelle des prêts (brief 0.13).
   // Service dette = remboursement capital (prêts uniquement) + intérêts
   const dettePourDscr = dette_totale ?? investissement_total;
+  const dureeReelle = computeDureePondereePrets(prets || []);
   const dscr_values = projections.filter(p => !p.is_reel).map((p, idx) => {
-    const duree = 5; // durée moyenne estimée
-    const remainingYears = Math.max(0, duree - idx);
+    const remainingYears = Math.max(0, dureeReelle - idx);
     // Après la fin du prêt, plus de capital à rembourser
-    const capitalRembourse = remainingYears > 0 ? dettePourDscr / duree : 0;
+    const capitalRembourse = remainingYears > 0 ? dettePourDscr / dureeReelle : 0;
     const service = p.charges_financieres + capitalRembourse;
     return service > 0 ? p.ebitda / service : 0;
   });
@@ -987,7 +1150,23 @@ export function computeIndicateurs(
   const cycle = cy ? 0 : 0; // computed in ratios
   const runway = null; // computed in ratios
 
-  return { van, tri, payback_years: payback, dscr_moyen, roi, couverture_interets: couv, cycle_tresorerie: 0, runway_mois: null };
+  return {
+    van,
+    tri,
+    payback_years: payback,
+    dscr_moyen,
+    roi,
+    couverture_interets: couv,
+    cycle_tresorerie: 0,
+    runway_mois: null,
+    duree_pret_utilisee: round(dureeReelle, 2),
+    _temporalite: {
+      presents: ['runway_mois', 'couverture_interets', 'cycle_tresorerie'],
+      futurs: ['van', 'tri', 'payback_years', 'dscr_moyen', 'roi'],
+      hypothese_investissement: investissement_total,
+      duree_pret_utilisee: round(dureeReelle, 2),
+    },
+  };
 }
 
 // ─── PRODUITS — PROJECTION PAR ANNÉE ──────────────────────────────
@@ -1304,16 +1483,51 @@ export function computeFullPlan(
   // 2. Projections 8 ans
   const projections = computeProjections(inputs, hyp, baseYearEarly, fiscalParams.is / 100);
 
-  // 3. Investissement total (depuis CAPEX IA)
+  // 3. Investissement total — brief 0.13
+  // Priorité : besoin_total_recherche (futur, déclaré explicite par l'IA dans generate-inputs)
+  // Sinon : CAPEX + BFR de démarrage - financement déjà obtenu
+  // Ultime : capex_total (jamais 1 magique : warnings explicites)
   const capexItems = aiAnalysis.capex || [];
   const capex_total = capexItems.reduce((s: number, c: any) => s + safe(c.montant || c.acquisition_value), 0);
 
-  // Investissement total pour VAN/TRI = prêts + capital (montant total investi dans le projet)
-  const prets_total = (inputs.financement?.prets || []).reduce((s, p) => s + safe(p.montant), 0);
+  // BFR de démarrage (hoisté depuis l'ancienne position §17 pour servir au fallback)
+  const bfrDetailEarly = computeBfrDetail(inputs, projections);
+  const bfrMontantPourFallback = safe(bfrDetailEarly?.bfr_montant);
+
+  const prets_existants_total = (inputs.financement?.prets || []).reduce((s, p) => s + safe(p.montant), 0);
   const capital_apport = safe(inputs.financement?.apports_capital);
-  const investissement_total = (prets_total + capital_apport) || capex_total || 1;
-  // Service dette : uniquement les prêts (le capital_apport n'est PAS une dette à rembourser)
-  const dette_totale = prets_total || 1;
+  const financement_deja_obtenu = prets_existants_total + capital_apport;
+
+  const besoin_recherche = safe(inputs.financement?.besoin_total_recherche);
+
+  let investissement_total: number;
+  let investissement_source: 'besoin_recherche' | 'capex_plus_bfr_moins_finance' | 'capex_only' | 'fallback_1';
+  if (besoin_recherche > 0) {
+    investissement_total = besoin_recherche;
+    investissement_source = 'besoin_recherche';
+  } else {
+    const calcule = capex_total + bfrMontantPourFallback - financement_deja_obtenu;
+    if (calcule > 0) {
+      investissement_total = Math.max(calcule, capex_total, 1);
+      investissement_source = calcule >= capex_total ? 'capex_plus_bfr_moins_finance' : 'capex_only';
+    } else if (capex_total > 0) {
+      investissement_total = capex_total;
+      investissement_source = 'capex_only';
+    } else {
+      investissement_total = 1;
+      investissement_source = 'fallback_1';
+    }
+  }
+
+  if (investissement_source === 'fallback_1') {
+    console.warn('[computeFullPlan] investissement_total = 1 (fallback). Tous les indicateurs vont être absurdes. Renseigner inputs.financement.besoin_total_recherche.');
+  } else if (besoin_recherche === 0 && capex_total === 0) {
+    console.warn('[computeFullPlan] Aucun investissement futur renseigné (besoin_recherche=0, capex=0). Indicateurs probablement non-significatifs.');
+  }
+
+  // Service dette : prêts existants + nouveau besoin (la dette future sera ajoutée par
+  // le moteur de structuration ; ici on prend une estimation prudente).
+  const dette_totale = prets_existants_total + besoin_recherche;
 
   // 4. Indicateurs de décision
   // WACC calculé dynamiquement depuis les données réelles de l'entreprise
@@ -1331,6 +1545,7 @@ export function computeFullPlan(
   const totalDettes = bx.dettes; // uniquement dette financière, pas les fournisseurs (non-interest-bearing)
   const totalV = cp + totalDettes;
 
+  let wacc_brut: number;
   let taux_actualisation: number;
   if (totalV > 0 && cp > 0) {
     const partEquity = cp / totalV;
@@ -1352,17 +1567,58 @@ export function computeFullPlan(
     Kd = poidsTotal > 0 ? Kd / poidsTotal : 0.08;
 
     const tauxIS = fiscalParams.is / 100;
-    taux_actualisation = Ke * partEquity + Kd * partDette * (1 - tauxIS);
-    // Gardes-fous : jamais < 10% ni > 35%
-    taux_actualisation = Math.max(0.10, Math.min(0.35, taux_actualisation));
+    wacc_brut = Ke * partEquity + Kd * partDette * (1 - tauxIS);
   } else {
-    taux_actualisation = wacc_zone;
+    wacc_brut = wacc_zone;
   }
 
-  const indicateurs = computeIndicateurs(projections, investissement_total, taux_actualisation, dette_totale);
+  // Brief 0.13 — Cap WACC explicite : gardes-fous 10%-35% mais on logge et expose le brut.
+  const wacc_floor = 0.10;
+  const wacc_ceil = 0.35;
+  taux_actualisation = Math.max(wacc_floor, Math.min(wacc_ceil, wacc_brut));
+  const wacc_was_capped = Math.abs(taux_actualisation - wacc_brut) > 0.0001;
+  if (wacc_was_capped) {
+    console.warn(
+      `[wacc] computed ${(wacc_brut * 100).toFixed(1)}% capped to ${(taux_actualisation * 100).toFixed(1)}% ` +
+      `(bornes ${wacc_floor * 100}%-${wacc_ceil * 100}%). Vérifier inputs (capitaux propres, dettes, taux prêts).`,
+    );
+  }
+  const waccMetadata = {
+    wacc_brut: round(wacc_brut * 100, 1),
+    wacc_applique: round(taux_actualisation * 100, 1),
+    wacc_was_capped,
+    wacc_floor_pct: wacc_floor * 100,
+    wacc_ceil_pct: wacc_ceil * 100,
+  };
+
+  const indicateurs = computeIndicateurs(
+    projections,
+    investissement_total,
+    taux_actualisation,
+    dette_totale,
+    inputs.financement?.prets || [],
+  );
   // Merge cycle_tresorerie and runway from ratios
   indicateurs.cycle_tresorerie = ratios.cycle_exploitation.cycle_tresorerie;
   indicateurs.runway_mois = ratios.liquidite.runway_mois;
+  // Recompose _temporalite avec les présents finaux
+  if (indicateurs._temporalite) {
+    indicateurs._temporalite.duree_pret_utilisee = indicateurs.duree_pret_utilisee || 5;
+  }
+
+  // Brief 0.11 — Validation cohérence intra-livrable (utilise duree_pret_utilisee du brief 0.13)
+  const coherence = validateIndicateursCoherence(indicateurs, {
+    investissement_total,
+    besoin_financement_total: safe(inputs.financement?.besoin_total_recherche),
+    duree_pret_moyenne: indicateurs.duree_pret_utilisee,
+  });
+  if (coherence.checks.length > 0) {
+    const blockers = coherence.checks.filter((c) => c.severity === 'blocker').length;
+    console.log(`[plan-financier] coherence checks: ${coherence.checks.length} (${blockers} blockers)`);
+    for (const c of coherence.checks) {
+      console.log(`  [${c.severity}] ${c.type}: ${c.message}`);
+    }
+  }
 
   // 5. Produits projetés — ESTIMATION CASCADE BIDIRECTIONNELLE
   const inputsProducts = (inputs as any).produits_services || [];
@@ -1674,8 +1930,8 @@ export function computeFullPlan(
   };
   const echeancier = computeEcheancier(loansForEcheancier, projections, currentYear);
 
-  // 17. BFR détaillé
-  const bfrDetail = computeBfrDetail(inputs, projections);
+  // 17. BFR détaillé (hoisté en amont via bfrDetailEarly pour le calcul investissement, brief 0.13)
+  const bfrDetail = bfrDetailEarly;
 
   // 18. CAPEX formatted for Excel
   const capexFormatted = capexItems.map((c: any, i: number) => ({
@@ -1736,5 +1992,19 @@ export function computeFullPlan(
     opex_detail: opexDetail,
     echeancier,
     bfr_detail: bfrDetail,
+    _coherence: {
+      valid: coherence.valid,
+      checks: coherence.checks,
+      validated_at: new Date().toISOString(),
+    },
+    wacc_metadata: waccMetadata,
+    investissement_metadata: {
+      investissement_total,
+      source: investissement_source,
+      besoin_total_recherche: besoin_recherche,
+      capex_total,
+      bfr_demarrage: bfrMontantPourFallback,
+      financement_deja_obtenu,
+    },
   };
 }

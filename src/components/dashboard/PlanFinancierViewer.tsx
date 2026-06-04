@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -290,19 +291,75 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
               </Card>
             </div>
 
-            {/* Indicateurs de décision */}
+            {/* Brief 0.11 — Bandeau cohérence intra-livrable */}
+            {Array.isArray(data._coherence?.checks) && data._coherence.checks.length > 0 && (
+              <Alert
+                variant={data._coherence.valid ? 'default' : 'destructive'}
+                className={data._coherence.valid ? 'border-amber-400 bg-amber-50 text-amber-900' : undefined}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>
+                  {data._coherence.valid
+                    ? 'Indicateurs à vérifier'
+                    : 'Incohérences logiques détectées'}
+                </AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {data._coherence.checks.map((c: any, i: number) => (
+                      <li key={i} className="flex gap-2">
+                        <Badge variant={c.severity === 'blocker' ? 'destructive' : 'secondary'} className="shrink-0">
+                          {c.severity === 'blocker' ? 'BLOQUANT' : 'WARNING'}
+                        </Badge>
+                        <span>
+                          <strong className="font-semibold">{c.type}</strong> — {c.message}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Brief 0.13 — Indicateurs séparés : Situation actuelle vs Après investissement */}
             <Card>
               <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">Indicateurs de décision</p>
-                <div className="grid grid-cols-4 gap-2">
+                <p className="text-sm font-semibold mb-3">Situation actuelle <span className="text-xs text-muted-foreground font-normal">(état présent, indépendant du financement recherché)</span></p>
+                <div className="grid grid-cols-3 gap-2">
+                  <MetricBox label="Runway" value={indicateurs.runway_mois != null ? `${indicateurs.runway_mois} mois` : '—'} color={indicateurs.runway_mois != null && indicateurs.runway_mois < 2 ? 'text-red-600' : undefined} />
+                  <MetricBox label="Couv. intérêts" value={indicateurs.couverture_interets != null ? `${indicateurs.couverture_interets}x` : '—'} />
+                  <MetricBox label="Cycle tréso" value={`${indicateurs.cycle_tresorerie || 0}j`} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-3">
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-sm font-semibold">
+                    Après investissement
+                    {indicateurs._temporalite?.hypothese_investissement != null && (
+                      <span className="ml-1 text-muted-foreground font-normal">
+                        de {fmtM(indicateurs._temporalite.hypothese_investissement)}
+                      </span>
+                    )}
+                  </p>
+                  {indicateurs._temporalite?.duree_pret_utilisee != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Hypothèse : durée prêt {indicateurs._temporalite.duree_pret_utilisee} ans
+                      {data.wacc_metadata && (
+                        <span className={data.wacc_metadata.wacc_was_capped ? 'ml-2 text-amber-600 font-medium' : 'ml-2'}>
+                          · WACC {data.wacc_metadata.wacc_applique}%{data.wacc_metadata.wacc_was_capped ? ` (cappé depuis ${data.wacc_metadata.wacc_brut}%)` : ''}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-5 gap-2">
                   <MetricBox label="VAN" value={indicateurs.van != null ? fmtM(indicateurs.van) : '—'} color={indicateurs.van > 0 ? 'text-green-600' : 'text-red-600'} />
                   <MetricBox label="TRI" value={indicateurs.tri != null ? `${indicateurs.tri}%` : '—'} color={indicateurs.tri > 15 ? 'text-green-600' : 'text-amber-600'} />
                   <MetricBox label="Payback" value={indicateurs.payback_years != null ? `${indicateurs.payback_years} ans` : '—'} color={indicateurs.payback_years <= 3 ? 'text-green-600' : 'text-amber-600'} />
                   <MetricBox label="DSCR moy." value={indicateurs.dscr_moyen != null ? `${indicateurs.dscr_moyen}x` : '—'} color={indicateurs.dscr_moyen > 1.5 ? 'text-green-600' : 'text-amber-600'} />
                   <MetricBox label="ROI" value={indicateurs.roi != null ? `${indicateurs.roi}%` : '—'} color={indicateurs.roi > 20 ? 'text-green-600' : 'text-amber-600'} />
-                  <MetricBox label="Couv. intérêts" value={indicateurs.couverture_interets != null ? `${indicateurs.couverture_interets}x` : '—'} />
-                  <MetricBox label="Cycle tréso" value={`${indicateurs.cycle_tresorerie || 0}j`} />
-                  <MetricBox label="Runway" value={indicateurs.runway_mois != null ? `${indicateurs.runway_mois} mois` : '—'} color={indicateurs.runway_mois != null && indicateurs.runway_mois < 2 ? 'text-red-600' : undefined} />
                 </div>
               </CardContent>
             </Card>

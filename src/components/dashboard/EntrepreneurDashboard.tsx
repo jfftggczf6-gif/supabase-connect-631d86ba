@@ -41,6 +41,7 @@ import TranslateButton from './TranslateButton';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardOverview from './DashboardOverview';
 import EnterpriseCoachesManager from './EnterpriseCoachesManager';
+import CoherenceBadge from './CoherenceBadge';
 import { generateMemoHtml } from '@/lib/memo-html-generator';
 import {
   MODULE_CONFIG, PIPELINE, MODULE_FN_MAP,
@@ -1427,6 +1428,9 @@ export default function EntrepreneurDashboard({
         <Button variant="ghost" size="icon" className="h-7 w-7 ml-1" onClick={openEditDialog}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
+        <div className="ml-2">
+          <CoherenceBadge enterpriseId={enterprise.id} />
+        </div>
         {coachMode && enterprise.organization_id && (
           <div className="ml-4 border-l pl-4">
             <EnterpriseCoachesManager
