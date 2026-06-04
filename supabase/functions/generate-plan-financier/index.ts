@@ -362,6 +362,16 @@ serve(async (req: Request) => {
           couverture_interets: num(indicateurs.couverture_interets),
           cycle_tresorerie_jours: num(indicateurs.cycle_tresorerie),
 
+          // Brief 0.11 — mapping cohérence intra-livrable vers canonical
+          coherence_validated: ((computed as any)?._coherence?.valid ?? true) === true,
+          coherence_warnings: (((computed as any)?._coherence?.checks) || []).map((c: any) => ({
+            rule: String(c?.type || "unknown"),
+            severity: c?.severity === "blocker" ? "error" : "warning",
+            message: String(c?.message || ""),
+            fields: c?.values ? Object.keys(c.values) : undefined,
+          })),
+          coherence_last_check_at: (computed as any)?._coherence?.validated_at || new Date().toISOString(),
+
           source_deliverables: { plan_financier_version },
         }, "generate-plan-financier");
 

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -289,6 +290,35 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
                 </CardContent>
               </Card>
             </div>
+
+            {/* Brief 0.11 — Bandeau cohérence intra-livrable */}
+            {Array.isArray(data._coherence?.checks) && data._coherence.checks.length > 0 && (
+              <Alert
+                variant={data._coherence.valid ? 'default' : 'destructive'}
+                className={data._coherence.valid ? 'border-amber-400 bg-amber-50 text-amber-900' : undefined}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>
+                  {data._coherence.valid
+                    ? 'Indicateurs à vérifier'
+                    : 'Incohérences logiques détectées'}
+                </AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {data._coherence.checks.map((c: any, i: number) => (
+                      <li key={i} className="flex gap-2">
+                        <Badge variant={c.severity === 'blocker' ? 'destructive' : 'secondary'} className="shrink-0">
+                          {c.severity === 'blocker' ? 'BLOQUANT' : 'WARNING'}
+                        </Badge>
+                        <span>
+                          <strong className="font-semibold">{c.type}</strong> — {c.message}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Indicateurs de décision */}
             <Card>

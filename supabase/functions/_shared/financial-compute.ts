@@ -194,6 +194,108 @@ export interface IndicateursDecision {
   runway_mois: number | null;
 }
 
+// ─── COHÉRENCE INDICATEURS (brief 0.11) ───────────────────────────
+export interface CoherenceCheck {
+  type:
+    | 'paradoxe_temporel'
+    | 'tri_extreme'
+    | 'roi_extreme'
+    | 'dscr_extreme'
+    | 'payback_extreme'
+    | 'logique_impossible';
+  severity: 'warning' | 'blocker';
+  message: string;
+  values?: Record<string, any>;
+}
+
+export interface CoherenceResult {
+  valid: boolean;
+  checks: CoherenceCheck[];
+  validated_at: string;
+}
+
+/**
+ * Détecte les paradoxes logiques entre indicateurs de décision (brief 0.11).
+ * Tourne après computeIndicateurs et avant le rendu UI.
+ * Règles : paradoxe_temporel, tri_extreme, roi_extreme, dscr_extreme,
+ * payback_extreme, logique_impossible.
+ */
+export function validateIndicateursCoherence(
+  ind: IndicateursDecision,
+  context: {
+    investissement_total: number;
+    besoin_financement_total?: number;
+    duree_pret_moyenne?: number;
+  },
+): { valid: boolean; checks: CoherenceCheck[] } {
+  const checks: CoherenceCheck[] = [];
+
+  // Paradoxe temporel : runway critique + TRI élevé
+  if (ind.runway_mois !== null && ind.runway_mois < 6
+      && ind.tri !== null && ind.tri > 30) {
+    checks.push({
+      type: 'paradoxe_temporel',
+      severity: 'warning',
+      message: `Paradoxe temporel : Runway ${ind.runway_mois} mois (critique) coexiste avec TRI ${ind.tri}% (excellent). Vérifier que investissement_total reflète bien le besoin futur, pas le financement existant.`,
+      values: { runway_mois: ind.runway_mois, tri_pct: ind.tri, investissement_total: context.investissement_total },
+    });
+  }
+
+  // TRI extrême
+  if (ind.tri !== null && ind.tri > 60) {
+    checks.push({
+      type: 'tri_extreme',
+      severity: ind.tri > 100 ? 'blocker' : 'warning',
+      message: `TRI ${ind.tri}% ${ind.tri > 100 ? 'structurellement impossible' : 'très élevé'}. Possible : investissement de référence trop bas, ou cashflows projetés trop optimistes.`,
+      values: { tri_pct: ind.tri },
+    });
+  }
+
+  // ROI extrême
+  if (ind.roi !== null && ind.roi > 500) {
+    checks.push({
+      type: 'roi_extreme',
+      severity: ind.roi > 1000 ? 'blocker' : 'warning',
+      message: `ROI ${ind.roi}% sur 5 ans ${ind.roi > 1000 ? 'mathématiquement louche' : 'très élevé'}. À justifier explicitement.`,
+      values: { roi_pct: ind.roi },
+    });
+  }
+
+  // DSCR extrême (durée prêt suspecte)
+  if (ind.dscr_moyen !== null && ind.dscr_moyen > 5) {
+    checks.push({
+      type: 'dscr_extreme',
+      severity: 'warning',
+      message: `DSCR ${ind.dscr_moyen}× très confortable. Vérifier que la durée de prêt utilisée (${context.duree_pret_moyenne ?? 'inconnue'} ans) correspond à la réalité.`,
+      values: { dscr_moyen: ind.dscr_moyen, duree_pret: context.duree_pret_moyenne ?? null },
+    });
+  }
+
+  // Payback trop court
+  if (ind.payback_years !== null && ind.payback_years < 1.5) {
+    checks.push({
+      type: 'payback_extreme',
+      severity: 'warning',
+      message: `Payback ${ind.payback_years} ans très court. Cohérent uniquement si l'investissement est minime relativement aux cashflows projetés.`,
+      values: { payback_years: ind.payback_years, investissement: context.investissement_total },
+    });
+  }
+
+  // Logique impossible : runway < 2 mois ET payback < 2 ans
+  if (ind.runway_mois !== null && ind.runway_mois < 2
+      && ind.payback_years !== null && ind.payback_years < 2) {
+    checks.push({
+      type: 'logique_impossible',
+      severity: 'blocker',
+      message: `BLOQUANT : Runway < 2 mois ET Payback < 2 ans. Mathématiquement, l'entreprise ne peut pas rembourser un investissement en 2 ans si elle fait faillite dans 2 mois.`,
+      values: { runway_mois: ind.runway_mois, payback_years: ind.payback_years },
+    });
+  }
+
+  const blockers = checks.filter(c => c.severity === 'blocker');
+  return { valid: blockers.length === 0, checks };
+}
+
 export interface SeuilRentabilite {
   seuil_annuel: number;
   ca_actuel: number;
@@ -251,6 +353,7 @@ export interface PlanFinancierComputed {
   opex_detail: Array<{ categorie: string; sous_poste: string; montant_cy: number; montant_y5: number }>;
   echeancier: Array<{ label: string; is_total?: boolean; is_dscr?: boolean; dim?: boolean; annees: Array<{ annee: number; valeur: string }> }>;
   bfr_detail: { delai_clients_jours: number; delai_fournisseurs_jours: number; stock_moyen_jours: number; bfr_montant: number; bfr_jours: number; variation_bfr: number } | null;
+  _coherence?: CoherenceResult;
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────
@@ -1364,6 +1467,27 @@ export function computeFullPlan(
   indicateurs.cycle_tresorerie = ratios.cycle_exploitation.cycle_tresorerie;
   indicateurs.runway_mois = ratios.liquidite.runway_mois;
 
+  // Brief 0.11 — Validation cohérence intra-livrable
+  // Durée prêt moyenne pondérée (brief 0.13 ajoutera une version "ponderée réelle" tenant
+  // compte des amortissements ; ici on prend une moyenne pondérée par montant).
+  const _pretsBrief011 = inputs.financement?.prets || [];
+  const _sumMontants = _pretsBrief011.reduce((s, p) => s + safe(p.montant), 0);
+  const dureePretMoyenne = _sumMontants > 0
+    ? _pretsBrief011.reduce((s, p) => s + safe(p.montant) * (safe(p.duree_mois) / 12), 0) / _sumMontants
+    : undefined;
+  const coherence = validateIndicateursCoherence(indicateurs, {
+    investissement_total,
+    besoin_financement_total: safe(inputs.financement?.besoin_total_recherche),
+    duree_pret_moyenne: dureePretMoyenne,
+  });
+  if (coherence.checks.length > 0) {
+    const blockers = coherence.checks.filter((c) => c.severity === 'blocker').length;
+    console.log(`[plan-financier] coherence checks: ${coherence.checks.length} (${blockers} blockers)`);
+    for (const c of coherence.checks) {
+      console.log(`  [${c.severity}] ${c.type}: ${c.message}`);
+    }
+  }
+
   // 5. Produits projetés — ESTIMATION CASCADE BIDIRECTIONNELLE
   const inputsProducts = (inputs as any).produits_services || [];
   const cr_for_enrich = inputs.compte_resultat || {};
@@ -1736,5 +1860,10 @@ export function computeFullPlan(
     opex_detail: opexDetail,
     echeancier,
     bfr_detail: bfrDetail,
+    _coherence: {
+      valid: coherence.valid,
+      checks: coherence.checks,
+      validated_at: new Date().toISOString(),
+    },
   };
 }
