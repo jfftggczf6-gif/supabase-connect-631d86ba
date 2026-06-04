@@ -284,6 +284,14 @@ Produis l'analyse qualitative en JSON :
     try {
       const internal = calcResult.dcf.wacc_internal_computed;
       const r = await upsertCanonicalFinancials(ctx.supabase, ctx.enterprise_id, {
+        // FIX hot post brief 0.7 — Supabase upsert peut tenter un INSERT ON CONFLICT
+        // qui viole les NOT NULL si on n'inclut pas currency/currency_iso/base_year.
+        // On les reprend depuis le canonical déjà lu en précondition.
+        currency: canonical.currency,
+        currency_iso: canonical.currency_iso,
+        base_year: canonical.base_year,
+        zone_monetaire: canonical.zone_monetaire,
+
         wacc_pct: canonical.wacc_pct, // confirmation, identique
         wacc_components: {
           source: "plan-financier-canonical",
