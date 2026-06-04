@@ -332,7 +332,7 @@ ${MEMO_SCHEMA_PART2}`;
           // ═══════ Injection serveur depuis canonical (brief 0.8) ══════
           // L'IA ne fournit QUE les commentaires qualitatifs (commentaire_methode, commentaire_decotes,
           // note_valorisation, sensitivity_summary). Les chiffres officiels sont injectés ici.
-          const _ccy = canonical.currency_iso || canonical.devise || "FCFA";
+          const _ccy = canonical.currency_iso || canonical.currency || "FCFA";
           const _fmt = (n: number | null | undefined) =>
             n == null ? "—" : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n)} ${_ccy}`;
           mergedMemo.valorisation = {
