@@ -352,12 +352,15 @@ serve(async (req: Request) => {
           },
 
           // Indicateurs (ne PAS écrire wacc_*, valorisation_*, equity_value_dcf : réservé à 0.7)
+          // FIX hot post brief 0.13 — computeIndicateurs retourne tri/roi DÉJÀ en % (pas en décimal).
+          // L'ancienne heuristique "*100 si abs<50" produisait tri_pct=590 pour un tri réel 5.9% → violation
+          // CHECK (tri_pct <= 500) → upsert canonical rejeté silencieusement.
           van: num(indicateurs.van),
-          tri_pct: num(typeof indicateurs.tri === "number" && Math.abs(indicateurs.tri) < 50 ? indicateurs.tri * 100 : indicateurs.tri),
+          tri_pct: num(indicateurs.tri),
           payback_years: num(indicateurs.payback_years ?? indicateurs.payback),
           dscr_moyen: num(indicateurs.dscr_moyen),
           duree_pret_utilisee_dscr: num(indicateurs.duree_pret_utilisee), // peuplé par brief 0.13
-          roi_pct: num(typeof indicateurs.roi === "number" && Math.abs(indicateurs.roi) < 50 ? indicateurs.roi * 100 : indicateurs.roi),
+          roi_pct: num(indicateurs.roi),
           runway_mois: num(indicateurs.runway_mois),
           couverture_interets: num(indicateurs.couverture_interets),
           cycle_tresorerie_jours: num(indicateurs.cycle_tresorerie),
