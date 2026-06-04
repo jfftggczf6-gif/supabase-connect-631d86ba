@@ -44,7 +44,9 @@ serve(async (req) => {
 
     // 3. Adapt data → OVO format
     const ovoData = adaptPlanFinancierToOvoFormat(planData as Record<string, any>);
-    console.log(`[regenerate-excel-ovo] Sending to Railway: ${Object.keys(ovoData).length} keys, ${(ovoData.products || []).length} products`);
+    // Brief 0.24 — passer la devise top-level au worker Railway pour C2 + formats multi-devises
+    const currencyIso = (planData as any)?.currency || (planData as any)?.currency_iso || "XOF";
+    console.log(`[regenerate-excel-ovo] Sending to Railway: ${Object.keys(ovoData).length} keys, ${(ovoData.products || []).length} products, currency_iso=${currencyIso}`);
 
     // 4. Call Railway
     const railwayUrl = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
@@ -56,7 +58,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${parserApiKey}`,
       },
-      body: JSON.stringify({ data: ovoData, template_base64: templateBase64 }),
+      body: JSON.stringify({ data: ovoData, template_base64: templateBase64, currency_iso: currencyIso }),
       signal: AbortSignal.timeout(120_000),
     });
 

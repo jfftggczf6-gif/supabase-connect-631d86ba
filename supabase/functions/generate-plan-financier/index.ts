@@ -426,12 +426,14 @@ serve(async (req: Request) => {
         const templateBase64 = btoa(chunks.join(""));
 
         const ovoData = adaptPlanFinancierToOvoFormat(finalPlan);
-        console.log(`[plan-financier] Sending to Python: ${Object.keys(ovoData).length} keys, ${(ovoData.products||[]).length} products`);
+        // Brief 0.24 — passer la devise top-level au worker Railway pour qu'il écrive C2 et adapte les formats numériques
+        const currencyIso = (finalPlan as any)?.currency || fiscal.currency_iso || "XOF";
+        console.log(`[plan-financier] Sending to Python: ${Object.keys(ovoData).length} keys, ${(ovoData.products||[]).length} products, currency_iso=${currencyIso}`);
 
         const excelResp = await fetch(`${railwayUrl}/generate-ovo-excel`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parserApiKey}` },
-          body: JSON.stringify({ data: ovoData, template_base64: templateBase64 }),
+          body: JSON.stringify({ data: ovoData, template_base64: templateBase64, currency_iso: currencyIso }),
           signal: AbortSignal.timeout(120_000),
         });
 
