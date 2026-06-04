@@ -320,19 +320,46 @@ export default function PlanFinancierViewer({ data, enterpriseId, onUpdated }: P
               </Alert>
             )}
 
-            {/* Indicateurs de décision */}
+            {/* Brief 0.13 — Indicateurs séparés : Situation actuelle vs Après investissement */}
             <Card>
               <CardContent className="py-3">
-                <p className="text-sm font-semibold mb-3">Indicateurs de décision</p>
-                <div className="grid grid-cols-4 gap-2">
+                <p className="text-sm font-semibold mb-3">Situation actuelle <span className="text-xs text-muted-foreground font-normal">(état présent, indépendant du financement recherché)</span></p>
+                <div className="grid grid-cols-3 gap-2">
+                  <MetricBox label="Runway" value={indicateurs.runway_mois != null ? `${indicateurs.runway_mois} mois` : '—'} color={indicateurs.runway_mois != null && indicateurs.runway_mois < 2 ? 'text-red-600' : undefined} />
+                  <MetricBox label="Couv. intérêts" value={indicateurs.couverture_interets != null ? `${indicateurs.couverture_interets}x` : '—'} />
+                  <MetricBox label="Cycle tréso" value={`${indicateurs.cycle_tresorerie || 0}j`} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-3">
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-sm font-semibold">
+                    Après investissement
+                    {indicateurs._temporalite?.hypothese_investissement != null && (
+                      <span className="ml-1 text-muted-foreground font-normal">
+                        de {fmtM(indicateurs._temporalite.hypothese_investissement)}
+                      </span>
+                    )}
+                  </p>
+                  {indicateurs._temporalite?.duree_pret_utilisee != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Hypothèse : durée prêt {indicateurs._temporalite.duree_pret_utilisee} ans
+                      {data.wacc_metadata && (
+                        <span className={data.wacc_metadata.wacc_was_capped ? 'ml-2 text-amber-600 font-medium' : 'ml-2'}>
+                          · WACC {data.wacc_metadata.wacc_applique}%{data.wacc_metadata.wacc_was_capped ? ` (cappé depuis ${data.wacc_metadata.wacc_brut}%)` : ''}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-5 gap-2">
                   <MetricBox label="VAN" value={indicateurs.van != null ? fmtM(indicateurs.van) : '—'} color={indicateurs.van > 0 ? 'text-green-600' : 'text-red-600'} />
                   <MetricBox label="TRI" value={indicateurs.tri != null ? `${indicateurs.tri}%` : '—'} color={indicateurs.tri > 15 ? 'text-green-600' : 'text-amber-600'} />
                   <MetricBox label="Payback" value={indicateurs.payback_years != null ? `${indicateurs.payback_years} ans` : '—'} color={indicateurs.payback_years <= 3 ? 'text-green-600' : 'text-amber-600'} />
                   <MetricBox label="DSCR moy." value={indicateurs.dscr_moyen != null ? `${indicateurs.dscr_moyen}x` : '—'} color={indicateurs.dscr_moyen > 1.5 ? 'text-green-600' : 'text-amber-600'} />
                   <MetricBox label="ROI" value={indicateurs.roi != null ? `${indicateurs.roi}%` : '—'} color={indicateurs.roi > 20 ? 'text-green-600' : 'text-amber-600'} />
-                  <MetricBox label="Couv. intérêts" value={indicateurs.couverture_interets != null ? `${indicateurs.couverture_interets}x` : '—'} />
-                  <MetricBox label="Cycle tréso" value={`${indicateurs.cycle_tresorerie || 0}j`} />
-                  <MetricBox label="Runway" value={indicateurs.runway_mois != null ? `${indicateurs.runway_mois} mois` : '—'} color={indicateurs.runway_mois != null && indicateurs.runway_mois < 2 ? 'text-red-600' : undefined} />
                 </div>
               </CardContent>
             </Card>

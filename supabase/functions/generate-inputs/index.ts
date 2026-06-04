@@ -351,7 +351,19 @@ Analyse CHAQUE feuille/section du document. Extrais et retourne ce JSON COMPLET:
         "duree_mois": <number>,
         "differe_mois": <number>
       }
-    ]
+    ],
+
+    // brief 0.13 — Besoin de financement FUTUR (ce que l'entreprise cherche à lever)
+    // Ne pas confondre avec apports_capital + prêts (financement DÉJÀ obtenu).
+    // À extraire du business plan, pitch deck ou demande de financement.
+    "besoin_total_recherche": <number — 0 si non explicite>,
+    "composition_besoin": {
+      "capex": <number — investissements matériels prévus>,
+      "bfr_demarrage": <number — BFR de démarrage / amorçage>,
+      "restructuration_dette": <number — refinancement de dettes existantes>,
+      "commercialisation_lancement": <number — coûts de lancement commercial>
+    },
+    "restructuration_dette": <number — déjà existant : refinancement dette ancien>
   },
 
   "hypotheses_croissance": {
@@ -431,6 +443,9 @@ RÈGLES INVESTISSEMENTS :
 
 RÈGLES FINANCEMENT :
 - Extrais CHAQUE source de financement: capital, subventions, prêts (avec taux, durée, différé).
+- BRIEF 0.13 — Extrais le BESOIN DE FINANCEMENT FUTUR (besoin_total_recherche) que l'entreprise cherche à lever. Cherche dans : business plan section "Besoins de financement", pitch deck "Financement recherché", demande de prêt OVO, courrier au bailleur. Ne PAS confondre avec apports_capital + prêts (= financement DÉJÀ obtenu).
+- Si tu identifies ce montant : remplir besoin_total_recherche ET ventiler dans composition_besoin (capex / bfr_demarrage / restructuration_dette / commercialisation_lancement).
+- Si aucun montant explicite n'est trouvé : besoin_total_recherche = 0 (le moteur retombera sur CAPEX + BFR - financement_deja_obtenu).
 
 RÈGLES HYPOTHÈSES DE CROISSANCE :
 - Si le document contient des objectifs de CA sur 5 ans, extrais-les.
