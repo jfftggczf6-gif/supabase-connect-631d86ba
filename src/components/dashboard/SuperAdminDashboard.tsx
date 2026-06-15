@@ -33,6 +33,16 @@ import EntrepreneurDashboard from './EntrepreneurDashboard';
 import CoachDashboard from './CoachDashboard';
 import { ArrowLeft, Eye } from 'lucide-react';
 
+// Rôle org → rôle système (app role) déduit, pour ne pas demander deux fois la même chose.
+const ORG_TO_APP_ROLE: Record<string, string> = {
+  owner: 'admin', admin: 'admin', manager: 'chef_programme',
+  coach: 'coach', entrepreneur: 'entrepreneur',
+};
+const APP_ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrateur', chef_programme: 'Chef de programme',
+  coach: 'Coach', entrepreneur: 'Entrepreneur', super_admin: 'Super admin',
+};
+
 interface Profile {
   user_id: string;
   full_name: string | null;
@@ -552,7 +562,7 @@ export default function SuperAdminDashboard() {
                   <Label>Organisation de rattachement</Label>
                   <Select
                     value={newUser.organization_id || 'none'}
-                    onValueChange={(v) => setNewUser({ ...newUser, organization_id: v === 'none' ? '' : v, org_role: '' })}
+                    onValueChange={(v) => setNewUser({ ...newUser, organization_id: v === 'none' ? '' : v, org_role: '', roles: [], programme_ids: [] })}
                   >
                     <SelectTrigger><SelectValue placeholder="Choisir une organisation" /></SelectTrigger>
                     <SelectContent>
@@ -573,7 +583,7 @@ export default function SuperAdminDashboard() {
                   return (
                     <div className="space-y-1">
                       <Label>Rôle dans l'organisation *</Label>
-                      <Select value={newUser.org_role} onValueChange={(v) => setNewUser({ ...newUser, org_role: v })}>
+                      <Select value={newUser.org_role} onValueChange={(v) => setNewUser({ ...newUser, org_role: v, roles: ORG_TO_APP_ROLE[v] ? [ORG_TO_APP_ROLE[v]] : [] })}>
                         <SelectTrigger><SelectValue placeholder="Choisir un rôle" /></SelectTrigger>
                         <SelectContent>
                           {roleOptions.map(r => (
@@ -594,30 +604,45 @@ export default function SuperAdminDashboard() {
                     />
                   </div>
                 )}
-                <div className="space-y-2">
-                  <Label>Rôles système *</Label>
-                  {[
-                    { value: 'coach', label: 'Coach', desc: 'Accompagne les entrepreneurs' },
-                    { value: 'chef_programme', label: 'Chef de programme', desc: 'Gère les programmes et candidatures' },
-                    { value: 'entrepreneur', label: 'Entrepreneur', desc: 'Développe son business plan' },
-                  ].map(r => (
-                    <label key={r.value} className="flex items-start gap-3 p-2 rounded border cursor-pointer hover:bg-muted/50">
-                      <Checkbox
-                        checked={newUser.roles.includes(r.value)}
-                        onCheckedChange={(checked) => {
-                          setNewUser(prev => ({
-                            ...prev,
-                            roles: checked ? [...prev.roles, r.value] : prev.roles.filter(x => x !== r.value),
-                          }));
-                        }}
-                      />
-                      <div>
-                        <p className="text-sm font-medium">{r.label}</p>
-                        <p className="text-xs text-muted-foreground">{r.desc}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                {(() => {
+                  // Quand une org + un rôle org mappé sont choisis, le rôle système est déduit
+                  // automatiquement → on masque les cases et on affiche juste l'info.
+                  const derived = newUser.organization_id ? ORG_TO_APP_ROLE[newUser.org_role] : '';
+                  if (derived) {
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        Rôle système déduit automatiquement : <span className="font-medium">{APP_ROLE_LABELS[derived] || derived}</span>
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="space-y-2">
+                      <Label>Rôles système *</Label>
+                      {[
+                        { value: 'coach', label: 'Coach', desc: 'Accompagne les entrepreneurs' },
+                        { value: 'chef_programme', label: 'Chef de programme', desc: 'Gère les programmes et candidatures' },
+                        { value: 'entrepreneur', label: 'Entrepreneur', desc: 'Développe son business plan' },
+                        { value: 'super_admin', label: 'Super admin', desc: 'Accès complet à la plateforme' },
+                      ].map(r => (
+                        <label key={r.value} className="flex items-start gap-3 p-2 rounded border cursor-pointer hover:bg-muted/50">
+                          <Checkbox
+                            checked={newUser.roles.includes(r.value)}
+                            onCheckedChange={(checked) => {
+                              setNewUser(prev => ({
+                                ...prev,
+                                roles: checked ? [...prev.roles, r.value] : prev.roles.filter(x => x !== r.value),
+                              }));
+                            }}
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{r.label}</p>
+                            <p className="text-xs text-muted-foreground">{r.desc}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowCreateUser(false)}>Annuler</Button>
