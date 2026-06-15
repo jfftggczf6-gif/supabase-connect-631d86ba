@@ -28,6 +28,7 @@ import CostTrackingTab from './CostTrackingTab';
 import { useTranslation } from 'react-i18next';
 import { PIPELINE } from '@/lib/dashboard-config';
 import { getInvitableRoles } from '@/lib/roles';
+import ProgrammePicker from '@/components/programmes/ProgrammePicker';
 import EntrepreneurDashboard from './EntrepreneurDashboard';
 import CoachDashboard from './CoachDashboard';
 import { ArrowLeft, Eye } from 'lucide-react';
@@ -97,7 +98,7 @@ export default function SuperAdminDashboard() {
   const [viewingCoach, setViewingCoach] = useState<Profile | null>(null);
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[], organization_id: '', org_role: '' });
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[], organization_id: '', org_role: '', programme_ids: [] as string[] });
   const [creatingUser, setCreatingUser] = useState(false);
   const [managingRole, setManagingRole] = useState<{ userId: string; action: 'add' | 'remove'; role: string } | null>(null);
 
@@ -462,7 +463,7 @@ export default function SuperAdminDashboard() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input placeholder={t('admin.search')} className="pl-8" value={searchUsers} onChange={e => setSearchUsers(e.target.value)} />
                   </div>
-                  <Button size="sm" onClick={() => { setNewUser({ full_name: '', email: '', password: `ESONO-${Date.now().toString(36)}`, roles: [], organization_id: '', org_role: '' }); setShowCreateUser(true); }}>
+                  <Button size="sm" onClick={() => { setNewUser({ full_name: '', email: '', password: `ESONO-${Date.now().toString(36)}`, roles: [], organization_id: '', org_role: '', programme_ids: [] }); setShowCreateUser(true); }}>
                     <Plus className="h-4 w-4 mr-1" /> Créer un utilisateur
                   </Button>
                 </div>
@@ -583,6 +584,16 @@ export default function SuperAdminDashboard() {
                     </div>
                   );
                 })()}
+                {newUser.organization_id && newUser.org_role === 'manager' && (
+                  <div className="space-y-1">
+                    <Label>Programmes gérés (optionnel)</Label>
+                    <ProgrammePicker
+                      organizationId={newUser.organization_id}
+                      value={newUser.programme_ids}
+                      onChange={(ids) => setNewUser({ ...newUser, programme_ids: ids })}
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Rôles système *</Label>
                   {[

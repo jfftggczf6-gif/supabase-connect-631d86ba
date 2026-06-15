@@ -15,8 +15,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Loader2, UserPlus, Mail, Trash2, Clock, Send } from 'lucide-react';
+import { Loader2, UserPlus, Mail, Trash2, Clock, Send, FolderCog } from 'lucide-react';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
+import ProgrammePicker from '@/components/programmes/ProgrammePicker';
 
 type Row =
   | {
@@ -50,9 +51,15 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'coach', message: '' });
+  const [inviteProgrammeIds, setInviteProgrammeIds] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Dialogue « Programmes gérés » pour un membre chef de programme déjà présent
+  const [managedFor, setManagedFor] = useState<{ user_id: string; name: string } | null>(null);
+  const [managedIds, setManagedIds] = useState<string[]>([]);
+  const [managedBefore, setManagedBefore] = useState<string[]>([]);
+  const [savingManaged, setSavingManaged] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null));
@@ -117,6 +124,7 @@ export default function MembersPage() {
           role: inviteForm.role,
           organization_id: currentOrg.id,
           personal_message: inviteForm.message || undefined,
+          programme_ids: inviteForm.role === 'manager' ? inviteProgrammeIds : undefined,
         }),
       });
       const result = await resp.json();
@@ -137,11 +145,48 @@ export default function MembersPage() {
 
       setShowInvite(false);
       setInviteForm({ email: '', role: 'coach', message: '' });
+      setInviteProgrammeIds([]);
       fetchData();
     } catch (err: any) {
       toast.error(err.message);
     }
     setInviting(false);
+  };
+
+  // « Programmes gérés » — ouvre le dialogue en pré-cochant les programmes dont
+  // le membre est déjà chef.
+  const openManaged = async (member: { user_id: string; name: string }) => {
+    if (!currentOrg) return;
+    const { data } = await supabase
+      .from('programmes')
+      .select('id')
+      .eq('organization_id', currentOrg.id)
+      .eq('chef_programme_id', member.user_id);
+    const ids = (data || []).map((p: any) => p.id);
+    setManagedFor(member);
+    setManagedBefore(ids);
+    setManagedIds(ids);
+  };
+
+  const saveManaged = async () => {
+    if (!managedFor) return;
+    setSavingManaged(true);
+    try {
+      const toAdd = managedIds.filter(id => !managedBefore.includes(id));
+      const toRemove = managedBefore.filter(id => !managedIds.includes(id));
+      for (const id of toAdd) {
+        await supabase.functions.invoke('manage-programme', { body: { action: 'update', id, chef_programme_id: managedFor.user_id } });
+      }
+      for (const id of toRemove) {
+        await supabase.functions.invoke('manage-programme', { body: { action: 'update', id, chef_programme_id: null } });
+      }
+      toast.success(`Programmes mis à jour pour ${managedFor.name}`);
+      setManagedFor(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setSavingManaged(false);
   };
 
   const handleRemoveMember = async (member: { id: string; user_id: string; name: string }) => {
@@ -365,6 +410,18 @@ export default function MembersPage() {
                           <span className="text-[11px] text-muted-foreground italic">vous</span>
                         ) : (
                           <div className="flex items-center justify-end gap-0.5">
+                            {isMember && row.role === 'manager' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-primary hover:bg-primary/10"
+                                disabled={acting}
+                                title="Programmes gérés"
+                                onClick={() => openManaged({ user_id: row.user_id, name: row.name })}
+                              >
+                                <FolderCog className="h-4 w-4" />
+                              </Button>
+                            )}
                             {!isMember && (
                               <Button
                                 size="icon"
@@ -427,6 +484,13 @@ export default function MembersPage() {
                 </SelectContent>
               </Select>
             </div>
+            {inviteForm.role === 'manager' && currentOrg && (
+              <div>
+                <Label>Programmes gérés (optionnel)</Label>
+                <ProgrammePicker organizationId={currentOrg.id} value={inviteProgrammeIds} onChange={setInviteProgrammeIds} />
+                <p className="text-xs text-muted-foreground mt-1">Il ne verra que ces programmes. Il pourra aussi en créer de nouveaux.</p>
+              </div>
+            )}
             <div>
               <Label>Message personnel (optionnel)</Label>
               <Textarea rows={3} value={inviteForm.message} onChange={e => setInviteForm(f => ({ ...f, message: e.target.value }))} placeholder="Bienvenue dans l'équipe..." />
@@ -434,6 +498,24 @@ export default function MembersPage() {
             <Button className="w-full gap-2" onClick={handleInvite} disabled={!inviteForm.email || inviting}>
               {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               Envoyer l'invitation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!managedFor} onOpenChange={(o) => { if (!o) setManagedFor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Programmes gérés — {managedFor?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Coche les programmes dont cette personne est chef. Elle ne verra que ceux-ci.</p>
+            {currentOrg && managedFor && (
+              <ProgrammePicker organizationId={currentOrg.id} value={managedIds} onChange={setManagedIds} />
+            )}
+            <Button className="w-full gap-2" onClick={saveManaged} disabled={savingManaged}>
+              {savingManaged ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderCog className="h-4 w-4" />}
+              Enregistrer
             </Button>
           </div>
         </DialogContent>
