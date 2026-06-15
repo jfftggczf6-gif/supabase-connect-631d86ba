@@ -41,9 +41,10 @@ serve(async (req) => {
 
     // ═══════ CREATE USER ═══════
     if (action === "create_user") {
-      const { full_name, email, password, roles: selectedRoles } = body;
+      const { full_name, email, password, roles: selectedRoles, organization_id, org_role } = body;
       if (!full_name || !email || !password) return jsonRes({ error: "full_name, email et password requis" }, 400);
       if (!selectedRoles?.length) return jsonRes({ error: "Au moins un rôle requis" }, 400);
+      if (organization_id && !org_role) return jsonRes({ error: "org_role requis quand organization_id est fourni" }, 400);
 
       // Create auth user
       const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
@@ -67,6 +68,36 @@ serve(async (req) => {
         }).then(() => {}).catch(() => {}); // ignore duplicates
       }
 
+      // Rattachement à une organisation.
+      // CORRECTIF : sans cette étape, un compte créé ici n'avait AUCUNE
+      // organization_members → l'utilisateur se connectait mais ne voyait rien
+      // (cas chef de programme OVO). organization_id + org_role sont optionnels
+      // (un compte purement global, ex. super_admin, peut ne pas avoir d'org).
+      let membership: { organization_id: string; role: string } | null = null;
+      let membershipError: string | undefined;
+      if (organization_id && org_role) {
+        const { data: existingMem } = await supabase
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", organization_id)
+          .eq("user_id", newUserId)
+          .maybeSingle();
+        if (existingMem) {
+          const { error: upErr } = await supabase
+            .from("organization_members")
+            .update({ role: org_role, is_active: true })
+            .eq("id", existingMem.id);
+          membershipError = upErr?.message;
+        } else {
+          const { error: insErr } = await supabase
+            .from("organization_members")
+            .insert({ organization_id, user_id: newUserId, role: org_role, is_active: true, invited_by: user.id });
+          membershipError = insErr?.message;
+        }
+        if (membershipError) console.error("[admin-manage-users] membership error:", membershipError);
+        else membership = { organization_id, role: org_role };
+      }
+
       // Send welcome email (non-blocking)
       try {
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -88,8 +119,11 @@ serve(async (req) => {
         success: true,
         user_id: newUserId,
         roles: selectedRoles,
+        membership,
+        membership_error: membershipError,
         temp_password: password,
-        message: `Compte créé pour ${full_name} (${selectedRoles.join(", ")})`,
+        message: `Compte créé pour ${full_name} (${selectedRoles.join(", ")})`
+          + (membership ? ` — rattaché à l'organisation` : ""),
       });
     }
 

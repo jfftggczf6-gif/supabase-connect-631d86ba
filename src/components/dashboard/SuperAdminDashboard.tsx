@@ -27,6 +27,7 @@ import ExportTab from './ExportTab';
 import CostTrackingTab from './CostTrackingTab';
 import { useTranslation } from 'react-i18next';
 import { PIPELINE } from '@/lib/dashboard-config';
+import { getInvitableRoles } from '@/lib/roles';
 import EntrepreneurDashboard from './EntrepreneurDashboard';
 import CoachDashboard from './CoachDashboard';
 import { ArrowLeft, Eye } from 'lucide-react';
@@ -94,8 +95,9 @@ export default function SuperAdminDashboard() {
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
   const [viewingEnterprise, setViewingEnterprise] = useState<Enterprise | null>(null);
   const [viewingCoach, setViewingCoach] = useState<Profile | null>(null);
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[] });
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', roles: [] as string[], organization_id: '', org_role: '' });
   const [creatingUser, setCreatingUser] = useState(false);
   const [managingRole, setManagingRole] = useState<{ userId: string; action: 'add' | 'remove'; role: string } | null>(null);
 
@@ -105,14 +107,16 @@ export default function SuperAdminDashboard() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [pRes, rRes, eRes, dRes, cuRes, ecRes] = await Promise.all([
+    const [pRes, rRes, eRes, dRes, cuRes, ecRes, oRes] = await Promise.all([
       supabase.from('profiles').select('user_id, full_name, email, created_at'),
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('enterprises').select('id, name, user_id, coach_id, sector, country, phase, score_ir, last_activity, contact_email, created_at'),
       supabase.from('deliverables').select('id, enterprise_id, type, created_at, generated_by, coach_id, visibility, data').order('created_at', { ascending: false }).limit(500),
       supabase.from('coach_uploads').select('id, coach_id, enterprise_id, filename, category, created_at').order('created_at', { ascending: false }).limit(500),
       supabase.from('enterprise_coaches').select('enterprise_id, coach_id, is_active').eq('is_active', true),
+      supabase.from('organizations').select('id, name, type').order('name'),
     ]);
+    if (oRes.data) setOrganizations(oRes.data as Array<{ id: string; name: string; type: string }>);
     if (pRes.data) setProfiles(pRes.data);
     if (rRes.data) setRoles(rRes.data);
     if (eRes.data) setEnterprises(eRes.data);
@@ -458,7 +462,7 @@ export default function SuperAdminDashboard() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input placeholder={t('admin.search')} className="pl-8" value={searchUsers} onChange={e => setSearchUsers(e.target.value)} />
                   </div>
-                  <Button size="sm" onClick={() => { setNewUser({ full_name: '', email: '', password: `ESONO-${Date.now().toString(36)}`, roles: [] }); setShowCreateUser(true); }}>
+                  <Button size="sm" onClick={() => { setNewUser({ full_name: '', email: '', password: `ESONO-${Date.now().toString(36)}`, roles: [], organization_id: '', org_role: '' }); setShowCreateUser(true); }}>
                     <Plus className="h-4 w-4 mr-1" /> Créer un utilisateur
                   </Button>
                 </div>
@@ -543,8 +547,44 @@ export default function SuperAdminDashboard() {
                   <Label>Mot de passe temporaire</Label>
                   <Input value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
                 </div>
+                <div className="space-y-1">
+                  <Label>Organisation de rattachement</Label>
+                  <Select
+                    value={newUser.organization_id || 'none'}
+                    onValueChange={(v) => setNewUser({ ...newUser, organization_id: v === 'none' ? '' : v, org_role: '' })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Choisir une organisation" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune (compte global)</SelectItem>
+                      {organizations.map(o => (
+                        <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Sans organisation, l'utilisateur se connecte mais ne voit aucune donnée. Indispensable pour un chef de programme.
+                  </p>
+                </div>
+                {newUser.organization_id && (() => {
+                  const org = organizations.find(o => o.id === newUser.organization_id);
+                  const orgType = org?.type === 'banque_affaires' ? 'banque' : (org?.type || 'programme');
+                  const roleOptions = getInvitableRoles(orgType, null, true, true);
+                  return (
+                    <div className="space-y-1">
+                      <Label>Rôle dans l'organisation *</Label>
+                      <Select value={newUser.org_role} onValueChange={(v) => setNewUser({ ...newUser, org_role: v })}>
+                        <SelectTrigger><SelectValue placeholder="Choisir un rôle" /></SelectTrigger>
+                        <SelectContent>
+                          {roleOptions.map(r => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })()}
                 <div className="space-y-2">
-                  <Label>Rôles *</Label>
+                  <Label>Rôles système *</Label>
                   {[
                     { value: 'coach', label: 'Coach', desc: 'Accompagne les entrepreneurs' },
                     { value: 'chef_programme', label: 'Chef de programme', desc: 'Gère les programmes et candidatures' },
@@ -570,7 +610,7 @@ export default function SuperAdminDashboard() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowCreateUser(false)}>Annuler</Button>
-                <Button disabled={creatingUser || !newUser.full_name || !newUser.email || !newUser.roles.length} onClick={async () => {
+                <Button disabled={creatingUser || !newUser.full_name || !newUser.email || !newUser.roles.length || (!!newUser.organization_id && !newUser.org_role)} onClick={async () => {
                   setCreatingUser(true);
                   const { data, error } = await supabase.functions.invoke('admin-manage-users', {
                     body: { action: 'create_user', ...newUser },
@@ -579,7 +619,13 @@ export default function SuperAdminDashboard() {
                   if (error || data?.error) {
                     toast({ title: 'Erreur', description: data?.error || error?.message, variant: 'destructive' });
                   } else {
-                    toast({ title: 'Compte créé', description: `${newUser.full_name} — ${newUser.roles.join(', ')}. Mot de passe : ${newUser.password}` });
+                    const org = organizations.find(o => o.id === newUser.organization_id);
+                    const orgPart = data?.membership && org ? ` · rattaché à ${org.name} (${newUser.org_role})` : '';
+                    if (newUser.organization_id && data?.membership_error) {
+                      toast({ title: 'Compte créé, mais rattachement échoué', description: `${data.membership_error}. Rattache manuellement.`, variant: 'destructive' });
+                    } else {
+                      toast({ title: 'Compte créé', description: `${newUser.full_name} — ${newUser.roles.join(', ')}${orgPart}. Mot de passe : ${newUser.password}` });
+                    }
                     setShowCreateUser(false);
                     fetchAll();
                   }
