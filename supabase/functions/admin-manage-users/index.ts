@@ -41,7 +41,7 @@ serve(async (req) => {
 
     // ═══════ CREATE USER ═══════
     if (action === "create_user") {
-      const { full_name, email, password, roles: selectedRoles, organization_id, org_role } = body;
+      const { full_name, email, password, roles: selectedRoles, organization_id, org_role, programme_ids } = body;
       if (!full_name || !email || !password) return jsonRes({ error: "full_name, email et password requis" }, 400);
       if (!selectedRoles?.length) return jsonRes({ error: "Au moins un rôle requis" }, 400);
       if (organization_id && !org_role) return jsonRes({ error: "org_role requis quand organization_id est fourni" }, 400);
@@ -96,6 +96,17 @@ serve(async (req) => {
         }
         if (membershipError) console.error("[admin-manage-users] membership error:", membershipError);
         else membership = { organization_id, role: org_role };
+      }
+
+      // Assignation directe de programmes (chef de programme créé manuellement).
+      // Le compte existe déjà (id connu) → on pose chef_programme_id immédiatement.
+      if (organization_id && Array.isArray(programme_ids) && programme_ids.length) {
+        const { error: assignErr } = await supabase
+          .from("programmes")
+          .update({ chef_programme_id: newUserId })
+          .in("id", programme_ids)
+          .eq("organization_id", organization_id);
+        if (assignErr) console.error("[admin-manage-users] assignation programmes:", assignErr.message);
       }
 
       // Send welcome email (non-blocking)

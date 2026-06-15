@@ -33,7 +33,7 @@ serve(async (req: Request) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
-    const { email, role, organization_id, personal_message, enterprise_id } = await req.json();
+    const { email, role, organization_id, personal_message, enterprise_id, programme_ids } = await req.json();
     if (!email || !role || !organization_id) {
       return new Response(JSON.stringify({ error: "email, role, organization_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -101,6 +101,18 @@ serve(async (req: Request) => {
       }
     }
 
+    // Programmes à confier à un chef de programme (rôle manager). Sécurité : ne
+    // garder que les programmes de CETTE org (jamais d'assignation cross-tenant).
+    let safeProgrammeIds: string[] = [];
+    if (Array.isArray(programme_ids) && programme_ids.length) {
+      const { data: progs } = await adminClient
+        .from("programmes")
+        .select("id")
+        .eq("organization_id", organization_id)
+        .in("id", programme_ids);
+      safeProgrammeIds = (progs || []).map((p: any) => p.id);
+    }
+
     // Vérifier que l'email n'est pas déjà membre actif
     const { data: existingMember } = await adminClient
       .from("organization_members")
@@ -140,6 +152,7 @@ serve(async (req: Request) => {
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           role,
           enterprise_id: enterprise_id ?? null,
+          programme_ids: safeProgrammeIds,
         })
         .eq("id", existing.id)
         .select()
@@ -149,7 +162,7 @@ serve(async (req: Request) => {
     } else {
       const { data, error } = await adminClient
         .from("organization_invitations")
-        .insert({ organization_id, email, role, invited_by: user.id, personal_message, enterprise_id: enterprise_id ?? null })
+        .insert({ organization_id, email, role, invited_by: user.id, personal_message, enterprise_id: enterprise_id ?? null, programme_ids: safeProgrammeIds })
         .select()
         .single();
       if (error) throw error;

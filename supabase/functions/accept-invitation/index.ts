@@ -73,6 +73,25 @@ serve(async (req: Request) => {
       if (roleError) console.warn("[accept-invitation] user_roles upsert failed:", roleError.message);
     }
 
+    // Un chef de programme (org role manager) a besoin de l'app role chef_programme
+    // pour que le routeur l'oriente vers /programmes.
+    if (invitation.role === 'manager') {
+      const { error: cpErr } = await adminClient
+        .from("user_roles")
+        .upsert({ user_id: user.id, role: 'chef_programme' }, { onConflict: "user_id,role" });
+      if (cpErr) console.warn("[accept-invitation] chef_programme app role upsert failed:", cpErr.message);
+    }
+
+    // Assignation des programmes choisis à l'invitation : l'invité devient leur chef.
+    if (Array.isArray(invitation.programme_ids) && invitation.programme_ids.length) {
+      const { error: assignErr } = await adminClient
+        .from("programmes")
+        .update({ chef_programme_id: user.id })
+        .in("id", invitation.programme_ids)
+        .eq("organization_id", invitation.organization_id);
+      if (assignErr) console.warn("[accept-invitation] assignation programmes échouée:", assignErr.message);
+    }
+
     // Si l'invitation portait un enterprise_id : devenir propriétaire de ce dossier
     let linked_enterprise_id: string | null = null;
     if (invitation.enterprise_id) {
