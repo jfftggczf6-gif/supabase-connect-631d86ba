@@ -1279,9 +1279,15 @@ export function computeStaffProjections(
   }>,
   currentYear: number,
   taux_croissance_salariale: number = 0.05,
+  // Taux de charges patronales du pays (SSOT). Si fourni, il s'impose sur la valeur
+  // IA : c'est un fait légal (ex. INSS RDC 13%), pas un choix d'entreprise.
+  chargesSocialesPatronales?: number,
 ): StaffProjection[] {
   return aiStaff.map(s => {
     const sg = s.taux_croissance_salariale || taux_croissance_salariale;
+    const tcs = (chargesSocialesPatronales != null && chargesSocialesPatronales > 0)
+      ? chargesSocialesPatronales
+      : s.taux_charges_sociales;
     const effActuel = s.effectif_actuel;
     const effCible = s.effectif_cible_an5;
     const delta = effCible - effActuel;
@@ -1308,13 +1314,13 @@ export function computeStaffProjections(
       effectif: headcounts[i],
       salaire_mensuel_brut: roundK(s.salaire_mensuel * salaryMults[i]),
       primes_annuelles: roundK((s.primes_annuelles || 0) * salaryMults[i]),
-      charges_sociales_mensuelles: roundK(s.salaire_mensuel * salaryMults[i] * s.taux_charges_sociales),
+      charges_sociales_mensuelles: roundK(s.salaire_mensuel * salaryMults[i] * tcs),
     }));
 
     return {
       categorie: s.categorie,
       departement: s.departement || "GENERAL",
-      taux_charges_sociales: s.taux_charges_sociales,
+      taux_charges_sociales: tcs,
       par_annee,
     };
   });
@@ -1428,7 +1434,7 @@ export function computeFullPlan(
   company: string,
   country: string,
   currentYear: number,
-  fiscalParams: { tva: number; is: number; devise: string; currency_iso: string; exchange_rate_eur: number; is_pme?: number | null },
+  fiscalParams: { tva: number; is: number; devise: string; currency_iso: string; exchange_rate_eur: number; is_pme?: number | null; inflation_pct?: number; cotisations_sociales?: number },
   employeesCount?: number,
 ): PlanFinancierComputed {
 
@@ -1438,7 +1444,11 @@ export function computeFullPlan(
   const caN = safe(crData.chiffre_affaires || crData.ca || inputs.revenue);
   const caNm1 = safe(histData.n_moins_1?.ca_total);
   const caNm2 = safe(histData.n_moins_2?.ca_total);
-  const inflationDefault = 0.06; // 6% défaut Afrique subsaharienne
+  // Inflation = FAIT pays (SSOT knowledge_country_data via fiscalParams.inflation_pct),
+  // jamais une valeur inventée par l'IA. Fallback 6% seulement si pays absent de la SSOT.
+  const inflationDefault = (fiscalParams.inflation_pct != null && fiscalParams.inflation_pct > 0)
+    ? fiscalParams.inflation_pct / 100
+    : 0.06;
 
   let defaultGrowth: number[];
   if (caN > 0 && caNm1 > 0 && caNm2 > 0) {
@@ -1469,7 +1479,11 @@ export function computeFullPlan(
     taux_croissance_opex: aiAnalysis.hypotheses?.taux_croissance_opex || inflationDefault + 0.02,
     taux_croissance_salariale: aiAnalysis.hypotheses?.taux_croissance_salariale || inflationDefault,
     taux_cogs_cible: aiAnalysis.hypotheses?.taux_cogs_cible || defaultCogs,
-    inflation: aiAnalysis.hypotheses?.inflation || inflationDefault,
+    // Inflation imposée depuis la SSOT pays (inflationDefault), pas l'IA, quand la
+    // fiche pays existe. L'IA ne peut plus halluciner un taux d'inflation.
+    inflation: (fiscalParams.inflation_pct != null && fiscalParams.inflation_pct > 0)
+      ? inflationDefault
+      : (aiAnalysis.hypotheses?.inflation || inflationDefault),
   };
 
   // 0. Base year from historique
@@ -1846,7 +1860,14 @@ export function computeFullPlan(
   const services = computeProductProjections(aiAnalysis.services || [], baseYearEarly, hyp.inflation, inputs.historique_3ans);
 
   // 6. Staff projeté
-  const staff = computeStaffProjections(aiAnalysis.staff || [], baseYearEarly, hyp.taux_croissance_salariale);
+  const staff = computeStaffProjections(
+    aiAnalysis.staff || [],
+    baseYearEarly,
+    hyp.taux_croissance_salariale,
+    (fiscalParams.cotisations_sociales != null && fiscalParams.cotisations_sociales > 0)
+      ? fiscalParams.cotisations_sociales / 100
+      : undefined,
+  );
 
   // 7. OPEX expanded
   const opex = computeOpexExpanded(aiAnalysis.opex || {});

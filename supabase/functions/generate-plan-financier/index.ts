@@ -223,7 +223,7 @@ serve(async (req: Request) => {
         enterprise.name,
         country,
         currentYear,
-        { tva: fiscal.tva, is: fiscal.is, devise: fiscal.devise, currency_iso: fiscal.currency_iso, exchange_rate_eur: fiscal.exchange_rate_eur, is_pme: (fiscal as any).is_pme ?? null },
+        { tva: fiscal.tva, is: fiscal.is, devise: fiscal.devise, currency_iso: fiscal.currency_iso, exchange_rate_eur: fiscal.exchange_rate_eur, is_pme: (fiscal as any).is_pme ?? null, inflation_pct: (fiscal as any).inflation_pct ?? null, cotisations_sociales: fiscal.cotisations_sociales ?? null },
         enterprise.employees_count || 0,
       );
 
