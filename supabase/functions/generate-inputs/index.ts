@@ -176,6 +176,12 @@ PRODUITS_SERVICES — MÉTHODE DE CROISEMENT :
 RÈGLE : Si le rapport d'activités mentionne une activité avec un CA chiffré (même partiel),
 elle DOIT apparaître dans produits_services avec son CA. Même si le CdR ne la ventile pas.
 
+RÈGLE EXHAUSTIVITÉ MULTI-ANNÉES : balaye TOUTES les années des états financiers, pas seulement
+la dernière. Toute ligne de revenus présente dans une année quelconque (y compris une activité
+DISCONTINUÉE ou ponctuelle, ex. "ventes de services de cleaning" en 2023 absente en 2024) DOIT
+figurer dans produits_services, avec son type (Produit/Service) et l'année concernée. Ne JAMAIS
+ignorer une ligne de revenus sous prétexte qu'elle n'existe pas l'année la plus récente.
+
 Exemple de croisement :
 - CdR dit "Ventes marchandises = 238M" (poste agrégé)
 - Rapport dit "Distribution = 653M (commissions 157M + distribution 331M + ventes 106M + prestations 59M)"
