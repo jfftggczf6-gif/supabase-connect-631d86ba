@@ -756,7 +756,7 @@ export function computeOpexDetail(
 // ─── ECHEANCIER DETTE ────────────────────────────────────────────
 
 export function computeEcheancier(
-  loans: { ovo: { amount: number; rate: number; term_years: number }; family: { amount: number; rate: number; term_years: number }; bank: { amount: number; rate: number; term_years: number } },
+  loans: { ovo: { amount: number; rate: number; term_years: number; incomplet?: boolean }; family: { amount: number; rate: number; term_years: number; incomplet?: boolean }; bank: { amount: number; rate: number; term_years: number; incomplet?: boolean } },
   projections: Projection[],
   currentYear: number,
 ): Array<{ label: string; is_total?: boolean; is_dscr?: boolean; dim?: boolean; annees: Array<{ annee: number; valeur: string }> }> {
@@ -773,6 +773,11 @@ export function computeEcheancier(
   ].filter(l => l.amount > 0);
 
   for (const loan of allLoans) {
+    // Prêt réel mais taux/durée absents des documents → « à compléter », jamais de chiffre inventé.
+    if (loan.incomplet || loan.term_years <= 0 || loan.rate <= 0) {
+      rows.push({ label: loan.name, dim: true, annees: years.map(y => ({ annee: y, valeur: "à compléter" })) });
+      continue;
+    }
     const annuity = loan.term_years > 0 ? loan.amount / loan.term_years : 0;
     const annees = years.map((y, i) => {
       const remaining = Math.max(0, loan.term_years - i);
@@ -1947,13 +1952,19 @@ export function computeFullPlan(
   // Brief Aurélie #1 — un prêt absent (amount=0) ne doit PAS produire un échéancier fictif
   // avec un taux par défaut. Avant : family=10%/3ans visible même sans prêt famille.
   // Fix : si amount=0, on remet rate=0 et term_years=0 (l'échéancier sera vide pour ce poste).
-  const buildLoan = (loan: any, defaultRate: number, defaultTerm: number) => {
+  // Un prêt est une DONNÉE ENTREPRISE : taux et durée viennent des documents, jamais
+  // d'un défaut inventé. Si le montant existe mais que taux/durée manquent, on garde
+  // le montant et on marque `incomplet` (→ « à compléter », pas de chiffre fabriqué).
+  const buildLoan = (loan: any, _dr?: number, _dt?: number) => {
     const amount = safe(loan.montant);
-    if (amount <= 0) return { amount: 0, rate: 0, term_years: 0 };
+    if (amount <= 0) return { amount: 0, rate: 0, term_years: 0, incomplet: false };
+    const rateKnown = loan.taux_pct != null && safe(loan.taux_pct) > 0;
+    const termKnown = loan.duree_mois != null && safe(loan.duree_mois) > 0;
     return {
       amount,
-      rate: loan.taux_pct != null ? safe(loan.taux_pct) / 100 : defaultRate,
-      term_years: safe(loan.duree_mois) / 12 || defaultTerm,
+      rate: rateKnown ? safe(loan.taux_pct) / 100 : 0,
+      term_years: termKnown ? safe(loan.duree_mois) / 12 : 0,
+      incomplet: !rateKnown || !termKnown,
     };
   };
   const loansForEcheancier = {
