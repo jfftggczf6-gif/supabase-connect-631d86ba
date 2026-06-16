@@ -61,15 +61,16 @@ interface ValuationRow {
   generated_by_agent: string | null;
 }
 
-// Conventions PE Afrique francophone : les montants stockés sont en millions de la devise.
-// Ex: weighted_ev = 3464 signifie 3 464 M FCFA (= 3.46 Md FCFA).
+// Le moteur de valorisation (SSOT) stocke les montants en UNITÉS RÉELLES brutes
+// (ex: weighted_ev = 9 470 732 = 9,47 M EUR ; revenue = 2 314 000 = 2,31 M).
+// On met à l'échelle à l'affichage : Md (≥1e9), M (≥1e6), K (≥1e3), sinon brut.
 function fmtMoney(v: number | undefined | null, currency = 'FCFA'): string {
   if (v == null || isNaN(v as number)) return '—';
   const abs = Math.abs(v);
-  if (abs >= 1000) return `${(v / 1000).toFixed(2)} Md ${currency}`;
-  if (abs >= 1) return `${Math.round(v)} M ${currency}`;
-  if (abs >= 0.001) return `${Math.round(v * 1000)} K ${currency}`;
-  return `${Math.round(v * 1_000_000)} ${currency}`;
+  if (abs >= 1e9) return `${(v / 1e9).toFixed(2)} Md ${currency}`;
+  if (abs >= 1e6) return `${(v / 1e6).toFixed(2)} M ${currency}`;
+  if (abs >= 1e3) return `${(v / 1e3).toFixed(0)} K ${currency}`;
+  return `${Math.round(v)} ${currency}`;
 }
 function fmtPct(v: number | undefined | null, digits = 1): string {
   if (v == null || isNaN(v as number)) return '—';
