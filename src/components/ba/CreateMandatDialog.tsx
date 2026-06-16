@@ -181,17 +181,23 @@ export default function CreateMandatDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ticket">Ticket demandé (en M)</Label>
+            <Label htmlFor="ticket">Ticket demandé (en millions)</Label>
             <Input
               id="ticket"
               type="number"
               inputMode="decimal"
               value={ticket}
               onChange={(e) => setTicket(e.target.value)}
-              placeholder="Ex : 10"
+              placeholder="Ex : 1.5  (= 1,5 million)"
             />
+            {ticket && Number(ticket) > 0 && (
+              <p className={`text-[11px] ${Number(ticket) * 1_000_000 > 1_000_000_000 ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                Soit {(Number(ticket) * 1_000_000).toLocaleString('fr-FR')} (devise du pays)
+                {Number(ticket) * 1_000_000 > 1_000_000_000 && ' — montant anormalement élevé, vérifie l’unité (saisir en millions).'}
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
-              Devise déterminée automatiquement selon le pays.
+              Saisir en millions (ex. 1,5 pour 1 500 000). Devise déterminée automatiquement selon le pays.
             </p>
           </div>
 
