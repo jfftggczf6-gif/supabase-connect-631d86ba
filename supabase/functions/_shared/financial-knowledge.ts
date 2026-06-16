@@ -62,7 +62,7 @@ const SYSCOHADA_INVARIANTS = `
 | Côte d'Ivoire     | 25 %     |
 | Sénégal           | 30 %     |
 | Burkina Faso      | 27.5 %   |
-| RDC (Congo)       | 35 %     |
+| RDC (Congo)       | 30 %     |
 | Togo              | 27 %     |
 | Bénin             | 30 %     |
 | Cameroun          | 33 %     |
@@ -72,11 +72,15 @@ const SYSCOHADA_INVARIANTS = `
 ### Charges sociales patronales
 | Pays              | Patronal | Salarial | Base        |
 |-------------------|----------|----------|-------------|
-| Côte d'Ivoire     | ~18 %    | ~6.3 %   | Salaire brut|
+| Côte d'Ivoire     | ~18.5 %  | ~6.3 %   | Salaire brut|
 | Sénégal           | ~18 %    | ~7 %     | Salaire brut|
-| Burkina Faso      | ~16 %    | ~5.5 %   | Salaire brut|
-| RDC               | ~5.5 %   | ~5 %     | Salaire brut|
-| Bénin             | ~15.4 %  | ~3.6 %   | Salaire brut|
+| Burkina Faso      | ~16.5 %  | ~5.5 %   | Salaire brut|
+| RDC               | ~13 %    | ~5 %     | Salaire brut (INSS Décret 29.06.1961) |
+| Bénin             | ~24.5 %  | ~3.6 %   | Salaire brut|
+
+⚠️ Valeurs indicatives uniquement. **Les paramètres pays fournis dans le prompt
+(issus de `knowledge_country_data`) FONT FOI** et priment sur ce tableau ; ne pas
+recalculer ni substituer l'IS, la TVA, l'inflation ou les charges sociales.
 
 ### Devise par zone monétaire
 - UEMOA  (CI, SN, BF, TG, BJ, ML, NE) → XOF (FCFA)  |  1 USD ≈ 600 XOF  |  1 EUR = 655.957 XOF
