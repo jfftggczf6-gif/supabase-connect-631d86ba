@@ -66,6 +66,18 @@ export function useBaDealDocuments(
   return { documents, checklist, quality, loading, error, reload: load };
 }
 
+/**
+ * Nettoie le texte extrait avant insertion en base.
+ * PostgreSQL ne peut PAS stocker l'octet nul (erreur « unsupported Unicode
+ * escape sequence »), fréquent dans le texte extrait de certains PDF. On retire le
+ * NUL et les autres caractères de contrôle C0, en gardant tabulation/retours ligne.
+ */
+function sanitizeExtractedText(txt: string | null | undefined): string | null {
+  if (txt == null) return null;
+  // eslint-disable-next-line no-control-regex
+  return txt.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
 /** Upload + parse + insert un fichier. Retourne le row inséré ou throw. */
 export async function uploadAndParseBaDocument(
   file: File,
@@ -102,7 +114,7 @@ export async function uploadAndParseBaDocument(
       parse_quality: parsed?.quality ?? (parseError ? 'failed' : null),
       parse_error: parseError,
       chars_extracted: parsed?.charsExtracted ?? null,
-      content_extracted: parsed?.content ?? null,
+      content_extracted: sanitizeExtractedText(parsed?.content),
     })
     .select('id, filename, storage_path, mime_type, size_bytes, category, parse_quality, parse_error, chars_extracted, created_at')
     .single();
