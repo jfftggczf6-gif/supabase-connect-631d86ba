@@ -694,6 +694,9 @@ function buildUserPrompt(
 
   // Pre-compute product pricing (don't leave it to the AI)
   const prodServices = (inputs as any).produits_services || [];
+  const isService = (ps: any) => String(ps.type || '').trim().toLowerCase() === 'service';
+  const nProdItems = prodServices.filter((p: any) => !isService(p)).length;
+  const nServItems = prodServices.length - nProdItems;
   if (prodServices.length > 0) {
     blocks += `\nPRODUITS/SERVICES — DONNÉES PRÉ-CALCULÉES (utilise ces valeurs EXACTES) :\n`;
     for (const ps of prodServices) {
@@ -713,12 +716,12 @@ function buildUserPrompt(
       }
 
       const partCa = CA > 0 ? Math.round((caVal / CA) * 1000) / 10 : 0;
-      blocks += `  → ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} ${fp.devise || fp.currency_iso || 'FCFA'}, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
+      blocks += `  → [${isService(ps) ? 'SERVICE' : 'PRODUIT'}] ${ps.nom}: CA=${caVal > 0 ? caVal.toLocaleString("fr-FR") : '0'} ${fp.devise || fp.currency_iso || 'FCFA'}, prix_unitaire=${prix.toLocaleString("fr-FR")}, volume_annuel=${vol.toLocaleString("fr-FR")}, part_ca=${partCa}%\n`;
     }
-    blocks += `  ⚠️ CHAQUE produit ci-dessus DOIT apparaître dans "produits[]" avec les prix/volumes indiqués.\n`;
+    blocks += `  ⚠️ ROUTAGE PAR TYPE — chaque entrée [PRODUIT] va dans "produits[]", chaque entrée [SERVICE] va dans "services[]".\n`;
+    blocks += `     → Sors EXACTEMENT ${nProdItems} produit(s) dans "produits[]" ET ${nServItems} service(s) dans "services[]", ni plus ni moins.\n`;
     blocks += `  ⚠️ JAMAIS de prix_unitaire = 0. Les valeurs ci-dessus sont PRÉ-CALCULÉES.\n`;
     blocks += `  🚫 INTERDICTION ABSOLUE DE DUPLIQUER : la liste ci-dessus est EXHAUSTIVE et déjà dédoublonnée.\n`;
-    blocks += `     Tu dois sortir EXACTEMENT ${prodServices.length} produit(s), un par entrée ci-dessus, ni plus ni moins.\n`;
     blocks += `     NE crée JAMAIS un produit additionnel même si le document brut mentionne un nom proche\n`;
     blocks += `     (ex: si tu vois "Handwash cartons" dans les états financiers ET "Handwash (savon liquide) — cartons"\n`;
     blocks += `     dans la liste ci-dessus, c'est LE MÊME PRODUIT → 1 seule entrée). Les documents bruts servent\n`;
@@ -729,8 +732,9 @@ function buildUserPrompt(
 ⚠️⚠️⚠️ INSTRUCTION CRITIQUE — PRODUITS / ACTIVITÉS ⚠️⚠️⚠️
 
 ${prodServices.length > 0 ? `RÈGLE PRIORITAIRE — LISTE FERMÉE :
-La liste PRODUITS/SERVICES pré-calculée ci-dessus est la SOURCE DE VÉRITÉ UNIQUE pour produits[].
-- Tu sors EXACTEMENT ${prodServices.length} produit(s), copies fidèles des entrées ci-dessus
+La liste PRODUITS/SERVICES pré-calculée ci-dessus est la SOURCE DE VÉRITÉ UNIQUE pour produits[] ET services[].
+- Routage par TYPE : ${nProdItems} entrée(s) [PRODUIT] → produits[], ${nServItems} entrée(s) [SERVICE] → services[]
+- Tu sors EXACTEMENT ${nProdItems} produit(s) et ${nServItems} service(s), copies fidèles des entrées ci-dessus
 - Tu NE génères PAS de produit supplémentaire en relisant le rapport d'activités, le BMC ou les états financiers
 - Si tu hésites parce qu'un nom apparaît sous une forme légèrement différente dans le document brut,
   c'est le MÊME produit → tu réutilises l'entrée existante, tu n'en ajoutes pas
