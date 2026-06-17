@@ -79,7 +79,7 @@ const SYSCOHADA_INVARIANTS = `
 | Bénin             | ~24.5 %  | ~3.6 %   | Salaire brut|
 
 ⚠️ Valeurs indicatives uniquement. **Les paramètres pays fournis dans le prompt
-(issus de `knowledge_country_data`) FONT FOI** et priment sur ce tableau ; ne pas
+(issus de knowledge_country_data) FONT FOI** et priment sur ce tableau ; ne pas
 recalculer ni substituer l'IS, la TVA, l'inflation ou les charges sociales.
 
 ### Devise par zone monétaire
