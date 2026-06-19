@@ -7,15 +7,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, CheckCircle2, XCircle, Upload, X } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Upload, X, Globe } from 'lucide-react';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
+import { getSortedCountries } from '@/lib/countries';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export default function PublicCandidatureForm() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language || 'fr';
+  const isEn = lang.startsWith('en');
+  const dateLocale = isEn ? enUS : fr;
   const { slug } = useParams<{ slug: string }>();
   const [programme, setProgramme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -41,11 +45,11 @@ export default function PublicCandidatureForm() {
           body: JSON.stringify({ slug })
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error || 'Programme introuvable'); return; }
-        if (data.closed) { setError(data.reason || 'Cet appel à candidatures est clôturé.'); return; }
-        if (!data.success || !data.programme) { setError('Programme introuvable'); return; }
+        if (!res.ok) { setError(data.error || t('candidature.public_not_found')); return; }
+        if (data.closed) { setError(data.reason || t('candidature.public_closed')); return; }
+        if (!data.success || !data.programme) { setError(t('candidature.public_not_found')); return; }
         setProgramme(data.programme);
-      } catch { setError('Erreur de connexion'); }
+      } catch { setError(t('candidature.public_connection_error')); }
       finally { setLoading(false); }
     })();
   }, [slug]);
@@ -69,7 +73,7 @@ export default function PublicCandidatureForm() {
         })
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Erreur lors de la soumission'); setSubmitting(false); return; }
+      if (!res.ok) { setError(data.error || t('candidature.public_submit_error')); setSubmitting(false); return; }
 
       const candidatureId = data.candidature_id;
 
@@ -124,11 +128,10 @@ export default function PublicCandidatureForm() {
 
         // Si au moins un upload a échoué, on stoppe la soumission avec un message clair.
         if (failedUploads.length > 0) {
-          setError(
-            `Impossible de téléverser ${failedUploads.length} fichier(s) : ${failedUploads.slice(0, 3).join(', ')}` +
-            `${failedUploads.length > 3 ? '…' : ''}. ` +
-            `Ta candidature N'A PAS été enregistrée. Vérifie ta connexion et réessaie, ou contacte le support.`
-          );
+          setError(t('candidature.public_upload_error', {
+            count: failedUploads.length,
+            files: failedUploads.slice(0, 3).join(', ') + (failedUploads.length > 3 ? '…' : ''),
+          }));
           setSubmitting(false);
           return;
         }
@@ -147,7 +150,7 @@ export default function PublicCandidatureForm() {
           });
           if (!updateRes.ok) {
             const result = await updateRes.json().catch(() => ({}));
-            setError(`Erreur lors de l'enregistrement des documents : ${result.error || 'erreur inconnue'}. Réessaie.`);
+            setError(t('candidature.public_docs_error', { error: result.error || (isEn ? 'unknown error' : 'erreur inconnue') }));
             setSubmitting(false);
             return;
           }
@@ -157,7 +160,7 @@ export default function PublicCandidatureForm() {
       setSubmitted(true);
     } catch (e: any) {
       console.error('[PublicCandidatureForm] submit error:', e);
-      setError(e?.message ? `Erreur : ${e.message}` : 'Erreur de connexion');
+      setError(e?.message ? `${isEn ? 'Error' : 'Erreur'} : ${e.message}` : t('candidature.public_connection_error'));
     }
     finally { setSubmitting(false); }
   };
@@ -191,8 +194,8 @@ export default function PublicCandidatureForm() {
     <div className="min-h-screen bg-background flex items-center justify-center">
       <Card className="max-w-md w-full mx-4"><CardContent className="p-8 text-center">
         <CheckCircle2 className="h-12 w-12 mx-auto text-emerald-500 mb-4" />
-        <p className="text-lg font-medium">✅ Votre candidature a bien été enregistrée</p>
-        <p className="text-sm text-muted-foreground mt-2">Vous recevrez une confirmation par email.</p>
+        <p className="text-lg font-medium">✅ {t('candidature.public_success_title')}</p>
+        <p className="text-sm text-muted-foreground mt-2">{t('candidature.public_success_desc')}</p>
       </CardContent></Card>
     </div>
   );
@@ -202,6 +205,22 @@ export default function PublicCandidatureForm() {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto">
+        {/* Language switcher */}
+        <div className="flex justify-end mb-2">
+          <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-0.5 text-xs">
+            <Globe className="h-3.5 w-3.5 text-muted-foreground ml-1.5 mr-0.5" />
+            <button
+              type="button"
+              onClick={() => i18n.changeLanguage('fr')}
+              className={`px-2 py-1 rounded-md transition-colors ${!isEn ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >FR</button>
+            <button
+              type="button"
+              onClick={() => i18n.changeLanguage('en')}
+              className={`px-2 py-1 rounded-md transition-colors ${isEn ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >EN</button>
+          </div>
+        </div>
         {/* Header */}
         <div className="text-center mb-8">
           {programme.logo_url && <img src={programme.logo_url} alt="" className="h-16 mx-auto mb-4" />}
@@ -209,10 +228,10 @@ export default function PublicCandidatureForm() {
             <span className="text-sm font-bold text-primary-foreground">ES</span>
           </div>
           <h1 className="text-2xl font-display font-bold">🏢 {programme.name}</h1>
-          {programme.organization && <p className="text-muted-foreground mt-1">Organisation : {programme.organization}</p>}
+          {programme.organization && <p className="text-muted-foreground mt-1">{t('candidature.public_organization')} {programme.organization}</p>}
           {programme.description && <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{programme.description}</p>}
           {programme.end_date && (
-            <p className="text-sm mt-3 font-medium">📅 Date limite : {format(new Date(programme.end_date), 'd MMMM yyyy', { locale: fr })}</p>
+            <p className="text-sm mt-3 font-medium">📅 {t('candidature.public_deadline')} {format(new Date(programme.end_date), 'd MMMM yyyy', { locale: dateLocale })}</p>
           )}
         </div>
 
@@ -221,17 +240,17 @@ export default function PublicCandidatureForm() {
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Fixed fields */}
-              <div><Label>Nom de l'entreprise *</Label><Input required value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
-              <div><Label>Nom du contact *</Label><Input required value={contactName} onChange={e => setContactName(e.target.value)} /></div>
-              <div><Label>Email *</Label><Input type="email" required value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>
-              <div><Label>Téléphone</Label><Input value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>
+              <div><Label>{t('candidature.public_company_name')} *</Label><Input required value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
+              <div><Label>{t('candidature.public_contact_name')} *</Label><Input required value={contactName} onChange={e => setContactName(e.target.value)} /></div>
+              <div><Label>{t('candidature.public_email')} *</Label><Input type="email" required value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>
+              <div><Label>{t('candidature.public_phone')}</Label><Input value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>
               <div>
-                <Label>Pays</Label>
+                <Label>{t('candidature.public_country')}</Label>
                 <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner un pays..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('candidature.public_select_country')} /></SelectTrigger>
                   <SelectContent>
-                    {[...['Bénin', 'Burkina Faso', 'Cameroun', 'Comores', 'Congo', "Côte d'Ivoire", 'Djibouti', 'Gabon', 'Guinée', 'Kenya', 'Madagascar', 'Mali', 'Mauritanie', 'Niger', 'RDC', 'Rwanda', 'Sénégal', 'Tchad', 'Togo'].sort((a, b) => a.localeCompare(b, 'fr')), 'Autre'].map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {getSortedCountries(lang).map(c => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -279,7 +298,7 @@ export default function PublicCandidatureForm() {
                             </div>
                           ))}
                           <button type="button" onClick={() => fileInputRefs.current[field.label]?.click()} className="text-xs text-primary hover:underline mt-1">
-                            + Ajouter un fichier
+                            {t('candidature.public_add_file')}
                           </button>
                         </div>
                       ) : (
@@ -297,8 +316,8 @@ export default function PublicCandidatureForm() {
                           className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-all"
                         >
                           <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                          <p className="text-sm text-muted-foreground">Cliquez ou glissez vos fichiers</p>
-                          <p className="text-xs text-muted-foreground mt-1">PDF, Word, Excel, PowerPoint, Images — plusieurs fichiers acceptés</p>
+                          <p className="text-sm text-muted-foreground">{t('candidature.public_upload_cta')}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{t('candidature.public_upload_formats')}</p>
                         </div>
                       )}
                     </div>
@@ -306,7 +325,7 @@ export default function PublicCandidatureForm() {
                     <Textarea required={field.required} value={formData[field.label] || ''} onChange={e => setField(field.label, e.target.value)} rows={3} />
                   ) : field.type === 'select' && field.options?.length ? (
                     <Select value={formData[field.label] || ''} onValueChange={v => setField(field.label, v)}>
-                      <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('candidature.public_select_placeholder')} /></SelectTrigger>
                       <SelectContent>{field.options.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                     </Select>
                   ) : field.type === 'checkbox' && field.options?.length ? (
@@ -349,13 +368,13 @@ export default function PublicCandidatureForm() {
               ))}
 
               <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Soumettre ma candidature
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('candidature.public_submit')}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">ESONO © 2026 · Confidentialité</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">ESONO © 2026 · {t('candidature.public_privacy')}</p>
       </div>
     </div>
   );
