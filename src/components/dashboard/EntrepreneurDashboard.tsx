@@ -24,6 +24,7 @@ import SicViewer from './SicViewer';
 import DeliverableViewer from './DeliverableViewer';
 import BusinessPlanPreview from './BusinessPlanPreview';
 import PlanFinancierViewer from './PlanFinancierViewer';
+import { downloadPlanFinancierExcel } from '@/lib/planFinancierExcel';
 
 import ReconstructionUploader from './ReconstructionUploader';
 import ScreeningReportViewer from './ScreeningReportViewer';
@@ -1852,8 +1853,23 @@ export default function EntrepreneurDashboard({
                     downloadBtns.push(
                       <button key="html" onClick={() => handleDownload('plan_financier', 'html')} className={btnOutline}><Download className="h-3.5 w-3.5" /> HTML</button>,
                       <button key="pdf" onClick={() => handleDownloadPdf('plan_financier', `PlanFinancier_${entName}.pdf`)} className={btnPrimary}><Download className="h-3.5 w-3.5" /> PDF</button>,
-                      <button key="excel" onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className={btnSecondary} title="Regénère l'Excel à partir des données existantes (sans IA)">
+                      <button key="excel" onClick={handleRegenerateExcel} disabled={regeneratingExcel || !deliverables.find((d: any) => d.type === 'plan_financier')} className={btnSecondary} title="Regénère le gabarit OVO (.xlsm) à partir des données existantes (sans IA)">
                         {regeneratingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel OVO
+                      </button>,
+                      <button
+                        key="excel-data"
+                        onClick={() => {
+                          const planData = deliverables.find((d: any) => d.type === 'plan_financier')?.data;
+                          if (!planData) { toast.error('Aucune donnée de plan financier à exporter.'); return; }
+                          const safe = (enterprise?.name || 'entreprise').replace(/[^a-zA-Z0-9]/g, '_');
+                          downloadPlanFinancierExcel(planData, `Donnees_PlanFinancier_${safe}.xlsx`)
+                            .catch((e) => { console.error('[Excel données] export error:', e); toast.error("Échec de l'export Excel. Réessaie."); });
+                        }}
+                        disabled={!deliverables.find((d: any) => d.type === 'plan_financier')}
+                        className={btnSecondary}
+                        title="Exporte un Excel simple et lisible (un onglet par section, sans formules) à recopier dans le modèle OVO"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5" /> Excel données
                       </button>
                     );
                   } else if (selectedModule === 'plan_ovo') {
