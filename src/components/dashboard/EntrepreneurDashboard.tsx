@@ -1862,8 +1862,10 @@ export default function EntrepreneurDashboard({
                           const planData = deliverables.find((d: any) => d.type === 'plan_financier')?.data;
                           if (!planData) { toast.error('Aucune donnée de plan financier à exporter.'); return; }
                           const safe = (enterprise?.name || 'entreprise').replace(/[^a-zA-Z0-9]/g, '_');
+                          toast.info('Génération du fichier Excel...');
                           downloadPlanFinancierExcel(planData, `Donnees_PlanFinancier_${safe}.xlsx`)
-                            .catch((e) => { console.error('[Excel données] export error:', e); toast.error("Échec de l'export Excel. Réessaie."); });
+                            .then(() => toast.success('Excel téléchargé — vérifie ton dossier Téléchargements.'))
+                            .catch((e) => { console.error('[Excel données] export error:', e); toast.error(`Échec de l'export Excel : ${e?.message || 'erreur inconnue'}`); });
                         }}
                         disabled={!deliverables.find((d: any) => d.type === 'plan_financier')}
                         className={btnSecondary}

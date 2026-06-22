@@ -295,7 +295,13 @@ function colWidths(rows: Row[]): { wch: number }[] {
  * `xlsx` est importé dynamiquement (code-splitting).
  */
 export async function downloadPlanFinancierExcel(plan: any, fileName: string): Promise<void> {
-  const XLSX = await import('xlsx');
+  // Interop défensive : selon le bundler, l'import dynamique d'un module CJS
+  // peut exposer l'API sur le namespace OU sur `.default`.
+  const mod: any = await import('xlsx');
+  const XLSX: any = mod?.utils ? mod : (mod?.default ?? mod);
+  if (!XLSX?.utils || !XLSX?.writeFile) {
+    throw new Error('Librairie xlsx indisponible (utils/writeFile manquants)');
+  }
   const sheets = buildPlanFinancierSheets(plan);
   const wb = XLSX.utils.book_new();
   for (const s of sheets) {
