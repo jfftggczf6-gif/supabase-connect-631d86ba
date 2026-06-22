@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import SectionEditButton from './SectionEditButton';
 import BmcViewerComponent from './BmcViewer';
 import SicViewerComponent from './SicViewer';
@@ -165,6 +169,25 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
       <SectionEditButton enterpriseId={enterpriseId} deliverableType="inputs_data" sectionPath={path} sectionTitle={title} onUpdated={onUpdated} />
     ) : null;
 
+  const [anneeCourante, setAnneeCourante] = useState<string>(data.annee_courante != null ? String(data.annee_courante) : '');
+  const [savingYear, setSavingYear] = useState(false);
+  const saveAnneeCourante = async () => {
+    if (!enterpriseId) return;
+    const yr = parseInt(anneeCourante, 10);
+    if (!yr || yr < 2000 || yr > 2100) { toast.error('Année invalide (ex. 2026).'); return; }
+    setSavingYear(true);
+    try {
+      const { error } = await supabase.from('deliverables')
+        .update({ data: { ...data, annee_courante: yr } })
+        .eq('enterprise_id', enterpriseId).eq('type', 'inputs_data');
+      if (error) throw error;
+      toast.success(`Année courante fixée à ${yr}. Régénérez le plan financier pour l'appliquer.`);
+      onUpdated?.();
+    } catch (e: any) {
+      toast.error(`Échec de l'enregistrement : ${e?.message || 'erreur inconnue'}`);
+    } finally { setSavingYear(false); }
+  };
+
   return (
     <div className="space-y-4">
       <ScoreHeader
@@ -172,6 +195,18 @@ export function InputsViewer({ data, enterpriseId, onUpdated }: { data: any; ent
         score={data.score}
         subtitle={`${data.periode || ''} • Fiabilité: ${data.fiabilite || 'N/A'}`}
       />
+
+      {/* Année courante (axe des années) — éditable */}
+      {enterpriseId && onUpdated && (
+        <Card><CardContent className="py-3 flex items-center gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Année courante du plan</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Par défaut l'année du dernier bilan. À ajuster en cas de reprise d'activité ou d'exercice décalé (ex. 2026). Les années sans bilan apparaîtront « à compléter ».</p>
+          </div>
+          <Input type="number" inputMode="numeric" className="w-28 h-8" value={anneeCourante} onChange={(e) => setAnneeCourante(e.target.value)} placeholder="ex. 2026" />
+          <Button size="sm" disabled={savingYear} onClick={saveAnneeCourante}>{savingYear ? '…' : 'Enregistrer'}</Button>
+        </CardContent></Card>
+      )}
 
       {/* KPIs Bar */}
       {kpis.ca_annee_n && (
