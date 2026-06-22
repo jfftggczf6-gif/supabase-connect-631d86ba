@@ -223,6 +223,8 @@ async function createEnterpriseFromCandidature(
     const RAILWAY_URL = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
     const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
     const parsedContents: string[] = [];
+    // Fichiers parsés en format structuré (pour fusion avec l'existant, voir plus bas).
+    const newParsedFiles: Array<{ fileName: string; content: string; category: string; quality: string }> = [];
 
     // Skip-if-exists : on liste les docs déjà transférés pour ne pas re-traiter
     // ce qui a déjà été fait (cas retry après timeout / erreur partielle).
@@ -284,6 +286,7 @@ async function createEnterpriseFromCandidature(
             const parsed = await parseResp.json();
             if (parsed.content && parsed.content.length > 10) {
               parsedContents.push(`\n══════ ${doc.file_name} (${parsed.category || 'candidature'}) ══════\n${parsed.content}`);
+              newParsedFiles.push({ fileName: doc.file_name, content: parsed.content, category: parsed.category || 'candidature', quality: parsed.quality || 'high' });
             }
           }
         }
@@ -296,18 +299,50 @@ async function createEnterpriseFromCandidature(
 
     console.log(`[transfer-doc] Résumé : ${transferredCount} nouveaux, ${skippedCount} skippés (déjà là), ${failedDocs.length} échecs`);
 
-    // Save parsed content to enterprise
-    if (parsedContents.length > 0) {
+    // Save parsed content to enterprise — FUSION (ne JAMAIS écraser).
+    // Bug historique : ce bloc remplaçait document_content + le rapport par les SEULS
+    // documents du transfert courant, faisant disparaître les documents déjà ingérés
+    // (désync Savoki : un re-transfert de 2 fichiers a effacé l'Etats_Financiers, le Bilan,
+    // le Plan d'affaires…). On fusionne désormais : fichiers existants + nouveaux, dédup par
+    // nom (le nouveau gagne), puis reconstruction du contenu depuis l'union. Le rapport est
+    // stocké au format structuré compatible avec rebuild-document-content.
+    if (newParsedFiles.length > 0) {
+      const { data: entRow } = await supabase
+        .from("enterprises")
+        .select("document_parsing_report")
+        .eq("id", enterprise.id)
+        .single();
+      let existingReport: any = entRow?.document_parsing_report;
+      if (typeof existingReport === "string") {
+        try { existingReport = JSON.parse(existingReport); } catch { existingReport = null; }
+      }
+      const existingFiles = Array.isArray(existingReport?.files)
+        ? existingReport.files.filter((f: any) => f && typeof f === "object" && f.fileName && f.content)
+        : [];
+      const byName = new Map<string, any>();
+      for (const f of existingFiles) byName.set(f.fileName, f);
+      for (const f of newParsedFiles) byName.set(f.fileName, f); // nouveau écrase l'ancien homonyme
+      const mergedFiles = Array.from(byName.values());
+      const rebuilt = mergedFiles
+        .filter((f: any) => f.content && f.content.length >= 10)
+        .map((f: any) => {
+          const cat = f.category && f.category !== "autre" ? ` [${String(f.category).toUpperCase()}]` : "";
+          return `\n══════ ${f.fileName}${cat} ══════\n${f.content}`;
+        })
+        .join("\n")
+        .slice(0, 300000);
       await supabase.from("enterprises").update({
-        document_content: parsedContents.join("\n").slice(0, 300000),
-        document_parsing_report: JSON.stringify({
+        document_content: rebuilt,
+        document_parsing_report: {
           parsed_at: new Date().toISOString(),
           source: "candidature_transfer",
-          files: docs.map((d: any) => d.file_name),
-        }),
+          files: mergedFiles,
+          total_files: mergedFiles.length,
+        },
+        document_content_updated_at: new Date().toISOString(),
         data_changed_at: new Date().toISOString(),
       }).eq("id", enterprise.id);
-      console.log(`[transfer-doc] ${parsedContents.length} doc(s) parsed and saved to document_content`);
+      console.log(`[transfer-doc] MERGE: ${newParsedFiles.length} nouveau(x) + ${existingFiles.length} existant(s) = ${mergedFiles.length} fichier(s), ${rebuilt.length} chars`);
     }
   }
 
