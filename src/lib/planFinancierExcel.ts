@@ -11,8 +11,9 @@
 
 // ─── Modèle (pur, testable) ───────────────────────────────────────────
 
-export type Fmt = 'text' | 'int' | 'money' | 'fracPct' | 'pct';
+export type Fmt = 'text' | 'int' | 'money' | 'fracPct' | 'pct' | 'year';
 // money/int : nombre brut → séparateurs de milliers
+// year     : année → SANS séparateur (2026, pas 2 026)
 // fracPct : fraction stockée (0,30) → affichée 30 %
 // pct      : déjà en pourcentage (30) → affichée 30 %
 export interface Cell { v: string | number | null; fmt: Fmt; gap?: boolean; }
@@ -31,6 +32,7 @@ const safe = (v: unknown): number => {
 const T = (v: unknown, fb = ''): Cell => ({ v: v === null || v === undefined || v === '' ? fb : String(v), fmt: 'text' });
 const M = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'money' } : { v: TODO, fmt: 'text', gap: true }; };
 const I = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'int' } : { v: '—', fmt: 'text' }; };
+const Y = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'year' } : { v: '—', fmt: 'text' }; };
 const FP = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'fracPct' } : { v: '—', fmt: 'text' }; };
 const PC = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'pct' } : { v: '—', fmt: 'text' }; };
 const GAP: () => Cell = () => ({ v: TODO, fmt: 'text', gap: true });
@@ -65,7 +67,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
       spacer(),
       row('data', T('Pays'), T(p.country, '—')),
       row('data', T('Devise'), T(currency, '—')),
-      row('data', T('Année courante'), I(p.current_year)),
+      row('data', T('Année courante'), Y(p.current_year)),
       spacer(),
       row('section', T('Mode d\'emploi')),
       row('note', T('Recopiez ces valeurs dans le modèle OVO. Les cellules « à compléter » (en jaune) sont à renseigner.')),
@@ -86,7 +88,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
   }
 
   const projs: any[] = Array.isArray(p.projections) ? p.projections : [];
-  const yearCells = (): Cell[] => projs.map((pr) => (pr.annee_num ? I(pr.annee_num) : T(pr.annee, '')));
+  const yearCells = (): Cell[] => projs.map((pr) => (pr.annee_num ? Y(pr.annee_num) : T(pr.annee, '')));
   const typeCell = (pr: any): Cell =>
     pr.is_gap ? GAP() : pr.is_reel ? T('réel') : pr.annee === 'CURRENT YEAR' ? T('année courante') : T('projeté');
   const metricRow = (label: string, key: string, fmt: Fmt): Row =>
@@ -116,7 +118,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
     rows.push(row('data', T('TRI'), PC(ind.tri)));
     rows.push(row('data', T('Délai de retour (années)'), I(ind.payback_years)));
     rows.push(row('data', T('DSCR moyen'), { v: Number.isFinite(safe(ind.dscr_moyen)) ? safe(ind.dscr_moyen) : '—', fmt: Number.isFinite(safe(ind.dscr_moyen)) ? 'int' : 'text' }));
-    if (p.wacc_metadata) rows.push(row('data', T('WACC appliqué'), FP(p.wacc_metadata.wacc_applique)));
+    if (p.wacc_metadata) rows.push(row('data', T('WACC appliqué'), PC(p.wacc_metadata.wacc_applique)));
     sheets.push({ name: 'Synthèse', rows, widths: [30, 16, 16, 16, 16, 16, 16, 16, 16, 16], freezeRows: 5, freezeCols: 1 });
   }
 
@@ -139,11 +141,11 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
       row('data', T('TVA'), FP(p.vat_rate)),
       row('data', T('Régime fiscal 1 — IS PME (réduit)'), safe(p.tax_regime_1) > 0 ? FP(p.tax_regime_1) : T('non applicable')),
       row('data', T('Régime fiscal 2 — IS standard'), FP(p.tax_regime_2)),
-      row('data', T('Année courante'), I(p.current_year)),
+      row('data', T('Année courante'), Y(p.current_year)),
     ];
     if (p.years && typeof p.years === 'object') {
       rows.push(spacer(), row('section', T('Années du plan')));
-      for (const [label, val] of Object.entries(p.years)) rows.push(row('data', T(label), I(val)));
+      for (const [label, val] of Object.entries(p.years)) rows.push(row('data', T(label), Y(val)));
     }
     sheets.push({ name: 'Hypothèses & Pays', rows, widths: [36, 46] });
   }
@@ -260,7 +262,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
     if (Array.isArray(p.capex) && p.capex.length) {
       rows.push(spacer(), row('section', T('Investissements (CAPEX)')));
       rows.push(row('colheader', T('Libellé'), T('Catégorie'), T("Année d'acquisition"), T("Valeur d'acquisition"), T('Taux amortissement')));
-      for (const c of p.capex) rows.push(row('data', T(c.label, ''), T(c.categorie, ''), I(c.acquisition_year), M(c.acquisition_value), FP(c.amortisation_rate)));
+      for (const c of p.capex) rows.push(row('data', T(c.label, ''), T(c.categorie, ''), Y(c.acquisition_year), M(c.acquisition_value), FP(c.amortisation_rate)));
     }
     if (rows.length === 2) rows.push(spacer(), row('data', GAP()));
     sheets.push({ name: 'OPEX & CAPEX', rows, widths: [28, 28, 18, 18, 16], freezeRows: 2, freezeCols: 1 });
@@ -283,7 +285,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
     if (Array.isArray(p.echeancier) && p.echeancier.length) {
       const first = p.echeancier.find((e: any) => Array.isArray(e.annees) && e.annees.length);
       const years = first ? first.annees.map((a: any) => a.annee) : [];
-      rows.push(spacer(), row('section', T('Échéancier de remboursement')), row('colheader', T('Poste'), ...years.map((y: any) => I(y))));
+      rows.push(spacer(), row('section', T('Échéancier de remboursement')), row('colheader', T('Poste'), ...years.map((y: any) => Y(y))));
       for (const e of p.echeancier) {
         const byYear: Record<string, any> = {};
         for (const a of e.annees || []) byYear[String(a.annee)] = a.valeur;
@@ -316,7 +318,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
       row('data', T('Runway (mois)'), I(ind.runway_mois)),
     ];
     if (p.wacc_metadata) {
-      rows.push(spacer(), row('section', T('WACC')), row('data', T('WACC brut'), FP(p.wacc_metadata.wacc_brut)), row('data', T('WACC appliqué'), FP(p.wacc_metadata.wacc_applique)));
+      rows.push(spacer(), row('section', T('WACC')), row('data', T('WACC brut'), PC(p.wacc_metadata.wacc_brut)), row('data', T('WACC appliqué'), PC(p.wacc_metadata.wacc_applique)));
     }
     const bfr = p.bfr_detail;
     if (bfr) {
@@ -351,6 +353,7 @@ function numFmtFor(fmt: Fmt): string | undefined {
   switch (fmt) {
     case 'money': return '#,##0';
     case 'int': return '#,##0';
+    case 'year': return '0';
     case 'fracPct': return '0.0%';
     case 'pct': return '0.0"%"';
     default: return undefined;

@@ -118,6 +118,22 @@ describe('buildPlanFinancierModel', () => {
     expect(caRow.cells[2].gap).toBe(true);
   });
 
+  it('les années utilisent le format « year » (sans séparateur de milliers)', () => {
+    const m = buildPlanFinancierModel(samplePlan);
+    const hyp = sheet(m, 'Hypothèses & Pays');
+    const annee = rowByLabel(hyp, 'Année courante');
+    expect(annee.cells[1].fmt).toBe('year'); // 2026, pas 2 026 / 2.026
+    const proj = sheet(m, 'Projections');
+    const header = proj.rows.find((r: any) => r.cells[0]?.v === 'Année');
+    expect(header.cells.slice(1).every((c: any) => c.fmt === 'year')).toBe(true);
+  });
+
+  it('le WACC est formaté en pourcentage (déjà en %, pas fraction)', () => {
+    const ind = sheet(buildPlanFinancierModel(samplePlan), 'Indicateurs');
+    const wacc = rowByLabel(ind, 'WACC appliqué');
+    expect(wacc.cells[1].fmt).toBe('pct');
+  });
+
   it('ne plante pas sur un plan vide et renvoie quand même les 10 onglets', () => {
     const sheets = buildPlanFinancierModel({}).sheets;
     expect(sheets).toHaveLength(10);
