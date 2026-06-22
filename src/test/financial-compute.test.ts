@@ -270,6 +270,47 @@ describe("computeFullPlan — scénarios E2E (brief 0.13)", () => {
   /**
    * Cas pathologique : aucun investissement déclaré → warning + indicateurs marqués
    */
+  /**
+   * Axe des années — pivot current_year (Savoki : bilans 2022-2024, reprise 2026)
+   */
+  it("pivot : sans annee_courante → current_year = dernier bilan (inchangé)", () => {
+    const inputs: any = {
+      compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },
+      bilan: { actif: { tresorerie: 5_000 }, passif: { capitaux_propres: 50_000, dettes_financieres: 0 } },
+      historique_3ans: {
+        n_moins_2: { annee: 2022, ca_total: 80_000, resultat_net: 5_000, ebitda: 8_000 },
+        n_moins_1: { annee: 2023, ca_total: 90_000, resultat_net: 6_000, ebitda: 9_000 },
+        n: { annee: 2024, ca_total: 100_000, resultat_net: 6_000, ebitda: 10_000 },
+      },
+      financement: {}, bfr: { tresorerie_initiale: 5_000 },
+    };
+    const ai: any = { capex: [], produits: [], hypotheses: {} };
+    const result = computeFullPlan(inputs, ai, "Savoki", "RDC", 2030, fiscalRDC);
+    expect(result.current_year).toBe(2024);
+    expect(result.years.current_year).toBe(2024);
+    expect(result.years.year_minus_2).toBe(2022);
+  });
+
+  it("pivot : avec annee_courante=2026 → current_year=2026 et years décalés", () => {
+    const inputs: any = {
+      compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },
+      bilan: { actif: { tresorerie: 5_000 }, passif: { capitaux_propres: 50_000, dettes_financieres: 0 } },
+      historique_3ans: {
+        n_moins_2: { annee: 2022, ca_total: 80_000, resultat_net: 5_000, ebitda: 8_000 },
+        n_moins_1: { annee: 2023, ca_total: 90_000, resultat_net: 6_000, ebitda: 9_000 },
+        n: { annee: 2024, ca_total: 100_000, resultat_net: 6_000, ebitda: 10_000 },
+      },
+      annee_courante: 2026,
+      financement: {}, bfr: { tresorerie_initiale: 5_000 },
+    };
+    const ai: any = { capex: [], produits: [], hypotheses: {} };
+    const result = computeFullPlan(inputs, ai, "Savoki", "RDC", 2024, fiscalRDC);
+    expect(result.current_year).toBe(2026);
+    expect(result.years.current_year).toBe(2026);
+    expect(result.years.year_minus_2).toBe(2024);
+    expect(result.years.year6).toBe(2031);
+  });
+
   it("Aucun investissement déclaré : warning + fallback contrôlé", () => {
     const inputs: any = {
       compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },

@@ -1493,6 +1493,10 @@ export function computeFullPlan(
 
   // 0. Base year from historique
   const baseYearEarly = safe(inputs.historique_3ans?.n?.annee) || currentYear;
+  // Année courante "pivot" : si fournie explicitement (inputs.annee_courante), elle PRIME
+  // sur le dernier bilan (cas reprise/exercice décalé, ex. Savoki bilans 2022-2024 / reprise
+  // 2026). Absente → comportement historique (= dernière année de bilan), zéro régression.
+  const pivotYear = safe((inputs as any).annee_courante) || baseYearEarly;
 
   // 1. Ratios situation actuelle
   const ratios = computeRatios(inputs);
@@ -1925,11 +1929,11 @@ export function computeFullPlan(
   const total_fix = couts_fix.reduce((s, c) => s + c.montant, 0);
   const total_couts = total_var + total_fix || 1;
 
-  // 12. Years mapping (use baseYear from historique_3ans)
+  // 12. Years mapping (axe des années : pivot current_year, voir pivotYear plus haut)
   const years: Record<string, number> = {
-    year_minus_2: baseYear - 2, year_minus_1: baseYear - 1, current_year: baseYear,
-    year2: baseYear + 1, year3: baseYear + 2, year4: baseYear + 3,
-    year5: baseYear + 4, year6: baseYear + 5,
+    year_minus_2: pivotYear - 2, year_minus_1: pivotYear - 1, current_year: pivotYear,
+    year2: pivotYear + 1, year3: pivotYear + 2, year4: pivotYear + 3,
+    year5: pivotYear + 4, year6: pivotYear + 5,
   };
 
   // 13. Loans
@@ -2003,7 +2007,7 @@ export function computeFullPlan(
       ? fiscalParams.is_pme / 100
       : 0,
     tax_regime_2: fiscalParams.is / 100,
-    current_year: baseYearEarly,
+    current_year: pivotYear,
     years,
     kpis,
     compte_resultat_reel,
