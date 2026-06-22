@@ -4,6 +4,7 @@
 // document_content = derived view (concat + truncate).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext } from "../_shared/helpers_v5.ts";
 
 const MAX_CONTENT = 600_000;
@@ -38,8 +39,24 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const ctx = await verifyAndGetContext(req);
-    const { supabase, enterprise, enterprise_id } = ctx;
+    // Auth : session utilisateur normale, OU mode admin headless par token
+    // (X-Admin-Token == ADMIN_REBUILD_TOKEN) pour ré-synchroniser une entreprise
+    // côté serveur (récupération après désync). Bypass de verifyAndGetContext.
+    const adminToken = Deno.env.get("ADMIN_REBUILD_TOKEN");
+    const incomingAdmin = req.headers.get("X-Admin-Token");
+    let supabase: any, enterprise: any, enterprise_id: string;
+    if (adminToken && incomingAdmin === adminToken) {
+      const body = await req.json().catch(() => ({}));
+      enterprise_id = body?.enterprise_id;
+      if (!enterprise_id) return errorResponse("enterprise_id requis (admin)", 400);
+      supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: ent } = await supabase.from("enterprises").select("*").eq("id", enterprise_id).single();
+      if (!ent) return errorResponse("Entreprise introuvable", 404);
+      enterprise = ent;
+    } else {
+      const ctx = await verifyAndGetContext(req);
+      supabase = ctx.supabase; enterprise = ctx.enterprise; enterprise_id = ctx.enterprise_id;
+    }
 
     // 1. List storage /reconstruction/
     const { data: storageFiles, error: listErr } = await supabase.storage
@@ -110,6 +127,55 @@ serve(async (req) => {
     // 3. Detect files present in Storage but missing from report (legacy or never parsed)
     const reportNames = new Set(keptFiles.map((f) => f.fileName));
     const missingContentFiles = Array.from(validNames).filter((n) => !reportNames.has(n as string));
+
+    // 3b. RE-PARSE des fichiers présents en storage mais absents du cache.
+    // Récupération après l'ancien bug "remplace au lieu de fusionner" : on télécharge
+    // chaque fichier manquant, on le parse via Railway, et on l'ajoute au cache pour qu'il
+    // entre dans document_content. Best-effort (timeout par fichier, échecs ignorés) ;
+    // idempotent : un fichier re-parsé n'est plus "manquant" au prochain appel.
+    let reparsedCount = 0;
+    const reparseFailed: string[] = [];
+    if (missingContentFiles.length > 0) {
+      const RAILWAY_URL = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
+      const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
+      for (const storageName of missingContentFiles) {
+        const cleanName = stripLegacy(storageName as string);
+        try {
+          const { data: fileData } = await supabase.storage
+            .from("documents")
+            .download(`${enterprise_id}/reconstruction/${storageName}`);
+          if (!fileData) { reparseFailed.push(cleanName); continue; }
+          const fd = new FormData();
+          fd.append("file", fileData, cleanName);
+          const resp = await fetch(`${RAILWAY_URL}/parse`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${PARSER_API_KEY}` },
+            body: fd,
+            signal: AbortSignal.timeout(25_000),
+          });
+          if (!resp.ok) { console.warn(`[rebuild] parse échoué ${cleanName}: ${resp.status}`); reparseFailed.push(cleanName); continue; }
+          const parsed = await resp.json();
+          if (parsed.content && parsed.content.length >= 10) {
+            keptFiles.push({
+              fileName: cleanName,
+              content: parsed.content,
+              category: parsed.category || "autre",
+              quality: parsed.quality || "high",
+              charsExtracted: parsed.content.length,
+              method: parsed.method,
+            });
+            reportNames.add(cleanName);
+            reparsedCount++;
+            console.log(`[rebuild] re-parsé: ${cleanName} (${parsed.content.length} chars, ${parsed.category})`);
+          } else {
+            reparseFailed.push(cleanName);
+          }
+        } catch (e: any) {
+          console.warn(`[rebuild] erreur re-parse ${cleanName}:`, e?.message);
+          reparseFailed.push(cleanName);
+        }
+      }
+    }
 
     // 4. Legacy guard: if no file in the report has a `content` field (pre-extension state),
     //    DO NOT overwrite document_content — we'd erase the IA memory. Instead, preserve
@@ -196,6 +262,8 @@ serve(async (req) => {
       storage_count: validNames.size,
       removed_orphans: removedOrphans,
       cleaned_duplicates: cleanedDuplicates,
+      reparsed_count: reparsedCount,
+      reparse_failed: reparseFailed,
       missing_content_files: missingContentFiles,
     });
   } catch (e: any) {
