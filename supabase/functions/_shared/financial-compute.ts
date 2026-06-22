@@ -177,6 +177,9 @@ export interface Projection {
   annee: string;
   annee_num: number;
   is_reel: boolean;
+  // Année sans données ni projection (ex. année de cession sans activité entre le dernier
+  // bilan et l'année courante) → affichée « à compléter », jamais de chiffre fabriqué.
+  is_gap?: boolean;
   ca: number;
   cogs: number;
   marge_brute: number;
@@ -868,6 +871,7 @@ export function computeProjections(
   hyp: AIHypotheses,
   currentYear: number,
   taxRate: number = 0.25,
+  pivotYear?: number,
 ): Projection[] {
   const cr = inputs.compte_resultat || {};
   const hist = inputs.historique_3ans || {};
@@ -893,6 +897,97 @@ export function computeProjections(
   ];
 
   const projections: Projection[] = [];
+
+  // ═══ CAS DÉCALÉ (axe des années) ═══
+  // Si l'année courante (pivot) est postérieure au dernier bilan (reprise / exercice décalé,
+  // ex. Savoki : bilan 2024, reprise 2026), on construit la fenêtre [pivot-2 … pivot+5] :
+  //  - l'année du dernier bilan = réel ;
+  //  - les années entre le dernier bilan et le pivot (ex. 2025, cession sans activité) = gap
+  //    « à compléter », JAMAIS projetées ;
+  //  - le pivot et au-delà = prévisionnel, projeté depuis le dernier réel.
+  // Le cas normal (pivot ≤ baseYear) garde la boucle d'origine inchangée (zéro régression).
+  const pivot = (pivotYear && pivotYear > baseYear) ? pivotYear : baseYear;
+  if (pivot > baseYear) {
+    const lastReal = baseYear;
+    let fcastIdx = 0;
+    let prev = { ca: CA_reel, opex_total: OPEX_reel }; // base de croissance = dernier réel
+    const gapProj = (label: string, yearNum: number): Projection => ({
+      annee: label, annee_num: yearNum, is_reel: false, is_gap: true,
+      ca: 0, cogs: 0, marge_brute: 0, marge_brute_pct: 0, opex_total: 0, ebitda: 0,
+      ebitda_pct: 0, amortissements: 0, resultat_exploitation: 0, charges_financieres: 0,
+      impots: 0, resultat_net: 0, cashflow: 0,
+    });
+    for (let i = 0; i < 8; i++) {
+      const label = YEAR_LABELS[i];
+      const yearNum = pivot - 2 + i;
+
+      if (yearNum === lastReal) {
+        // ─── Année réelle (dernier bilan) ───
+        const ca = CA_reel, cogs = achats_reel, opex = OPEX_reel, amort = amort_reel, charges_fin = charges_fin_reel;
+        let impots_y = impots_reel || (RE_reel > RN_reel ? RE_reel - RN_reel - charges_fin_reel : 0);
+        const mb = ca - cogs, ebitda = mb - opex;
+        let re = ebitda - amort;
+        let rn = re - charges_fin - impots_y;
+        if (RE_reel > 0) re = RE_reel;
+        if (RN_reel > 0) { rn = RN_reel; impots_y = RE_reel > 0 ? RE_reel - RN_reel - charges_fin : Math.max(0, re - rn - charges_fin); }
+        const cf = rn + amort;
+        projections.push({
+          annee: label, annee_num: yearNum, is_reel: true,
+          ca: round(ca), cogs: round(cogs), marge_brute: round(mb), marge_brute_pct: round(pct(mb, ca), 1),
+          opex_total: round(opex), ebitda: round(ebitda), ebitda_pct: round(pct(ebitda, ca), 1),
+          amortissements: round(amort), resultat_exploitation: round(re), charges_financieres: round(charges_fin),
+          impots: round(impots_y), resultat_net: round(rn), cashflow: round(cf),
+        });
+        prev = { ca, opex_total: opex };
+      } else if (yearNum < pivot) {
+        // ─── Trou entre dernier bilan et pivot (ou avant) : à compléter, pas de projection ───
+        projections.push(gapProj(label, yearNum));
+      } else {
+        // ─── Prévisionnel (pivot et au-delà), depuis le dernier réel — formules du cas normal ───
+        const growthCa = hyp.taux_croissance_ca[Math.min(fcastIdx, hyp.taux_croissance_ca.length - 1)] || 0.08;
+        const cogsRate = hyp.taux_cogs_cible[Math.min(fcastIdx, hyp.taux_cogs_cible.length - 1)] || (achats_reel / (CA_reel || 1));
+        const ca = roundK(prev.ca * (1 + growthCa));
+        const cogs = roundK(ca * cogsRate);
+        const opex = roundK(prev.opex_total * (1 + hyp.taux_croissance_opex));
+        let amortCapex = 0;
+        for (const inv of (inputs.investissements || [])) {
+          const invMontant = safe(inv.montant);
+          const invDuree = safe(inv.duree_amortissement_ans) || 5;
+          const invAnnee = safe(inv.annee_achat) || pivot;
+          if (invMontant > 0 && yearNum >= invAnnee && yearNum < invAnnee + invDuree) amortCapex += invMontant / invDuree;
+        }
+        const amort = roundK(amort_reel + amortCapex);
+        let chargesFinPrets = 0, hasPrets = false;
+        for (const pr of (inputs.financement?.prets || [])) {
+          const montant = safe(pr.montant);
+          const duree_ans = safe(pr.duree_mois) / 12 || 3;
+          const taux = pr.taux_pct != null ? safe(pr.taux_pct) / 100 : 0.07;
+          if (montant > 0) { hasPrets = true; const capitalAnnuel = montant / duree_ans; const soldeRestant = Math.max(0, montant - capitalAnnuel * fcastIdx); chargesFinPrets += soldeRestant * taux; }
+        }
+        const charges_fin = hasPrets ? roundK(chargesFinPrets) : roundK(charges_fin_reel);
+        const re_proj = (ca - cogs) - opex - amort - charges_fin;
+        const impots_y = re_proj > 0 ? roundK(re_proj * taxRate) : 0;
+        const mb = ca - cogs, ebitda = mb - opex, re = ebitda - amort, rn = re - charges_fin - impots_y;
+        const bfrData = inputs.bfr;
+        const bfrJours = (safe(bfrData?.delai_clients_jours) || 30) + (safe(bfrData?.stock_moyen_jours) || 30) - (safe(bfrData?.delai_fournisseurs_jours) || 45);
+        const deltaBfr = roundK((ca - prev.ca) * bfrJours / 360);
+        const capexYear = (inputs.investissements || [])
+          .filter(inv => safe(inv.annee_achat) === yearNum || (fcastIdx === 0 && !inv.annee_achat))
+          .reduce((s, inv) => s + safe(inv.montant), 0);
+        const cf = roundK((rn + amort) - deltaBfr - capexYear);
+        projections.push({
+          annee: label, annee_num: yearNum, is_reel: false,
+          ca: round(ca), cogs: round(cogs), marge_brute: round(mb), marge_brute_pct: round(pct(mb, ca), 1),
+          opex_total: round(opex), ebitda: round(ebitda), ebitda_pct: round(pct(ebitda, ca), 1),
+          amortissements: round(amort), resultat_exploitation: round(re), charges_financieres: round(charges_fin),
+          impots: round(impots_y), resultat_net: round(rn), cashflow: round(cf),
+        });
+        fcastIdx++;
+        prev = { ca, opex_total: opex };
+      }
+    }
+    return projections;
+  }
 
   for (let i = 0; i < 8; i++) {
     const label = YEAR_LABELS[i];
@@ -1493,6 +1588,10 @@ export function computeFullPlan(
 
   // 0. Base year from historique
   const baseYearEarly = safe(inputs.historique_3ans?.n?.annee) || currentYear;
+  // Année courante "pivot" : si fournie explicitement (inputs.annee_courante), elle PRIME
+  // sur le dernier bilan (cas reprise/exercice décalé, ex. Savoki bilans 2022-2024 / reprise
+  // 2026). Absente → comportement historique (= dernière année de bilan), zéro régression.
+  const pivotYear = safe((inputs as any).annee_courante) || baseYearEarly;
 
   // 1. Ratios situation actuelle
   const ratios = computeRatios(inputs);
@@ -1500,7 +1599,7 @@ export function computeFullPlan(
   const seuil = computeSeuilRentabilite(inputs, sectorForSeuil);
 
   // 2. Projections 8 ans
-  const projections = computeProjections(inputs, hyp, baseYearEarly, fiscalParams.is / 100);
+  const projections = computeProjections(inputs, hyp, baseYearEarly, fiscalParams.is / 100, pivotYear);
 
   // 3. Investissement total — brief 0.13
   // Priorité : besoin_total_recherche (futur, déclaré explicite par l'IA dans generate-inputs)
@@ -1925,11 +2024,11 @@ export function computeFullPlan(
   const total_fix = couts_fix.reduce((s, c) => s + c.montant, 0);
   const total_couts = total_var + total_fix || 1;
 
-  // 12. Years mapping (use baseYear from historique_3ans)
+  // 12. Years mapping (axe des années : pivot current_year, voir pivotYear plus haut)
   const years: Record<string, number> = {
-    year_minus_2: baseYear - 2, year_minus_1: baseYear - 1, current_year: baseYear,
-    year2: baseYear + 1, year3: baseYear + 2, year4: baseYear + 3,
-    year5: baseYear + 4, year6: baseYear + 5,
+    year_minus_2: pivotYear - 2, year_minus_1: pivotYear - 1, current_year: pivotYear,
+    year2: pivotYear + 1, year3: pivotYear + 2, year4: pivotYear + 3,
+    year5: pivotYear + 4, year6: pivotYear + 5,
   };
 
   // 13. Loans
@@ -2003,7 +2102,7 @@ export function computeFullPlan(
       ? fiscalParams.is_pme / 100
       : 0,
     tax_regime_2: fiscalParams.is / 100,
-    current_year: baseYearEarly,
+    current_year: pivotYear,
     years,
     kpis,
     compte_resultat_reel,

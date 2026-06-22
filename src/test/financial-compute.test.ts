@@ -270,6 +270,79 @@ describe("computeFullPlan — scénarios E2E (brief 0.13)", () => {
   /**
    * Cas pathologique : aucun investissement déclaré → warning + indicateurs marqués
    */
+  /**
+   * Axe des années — pivot current_year (Savoki : bilans 2022-2024, reprise 2026)
+   */
+  it("pivot : sans annee_courante → current_year = dernier bilan (inchangé)", () => {
+    const inputs: any = {
+      compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },
+      bilan: { actif: { tresorerie: 5_000 }, passif: { capitaux_propres: 50_000, dettes_financieres: 0 } },
+      historique_3ans: {
+        n_moins_2: { annee: 2022, ca_total: 80_000, resultat_net: 5_000, ebitda: 8_000 },
+        n_moins_1: { annee: 2023, ca_total: 90_000, resultat_net: 6_000, ebitda: 9_000 },
+        n: { annee: 2024, ca_total: 100_000, resultat_net: 6_000, ebitda: 10_000 },
+      },
+      financement: {}, bfr: { tresorerie_initiale: 5_000 },
+    };
+    const ai: any = { capex: [], produits: [], hypotheses: {} };
+    const result = computeFullPlan(inputs, ai, "Savoki", "RDC", 2030, fiscalRDC);
+    expect(result.current_year).toBe(2024);
+    expect(result.years.current_year).toBe(2024);
+    expect(result.years.year_minus_2).toBe(2022);
+  });
+
+  it("pivot : avec annee_courante=2026 → current_year=2026 et years décalés", () => {
+    const inputs: any = {
+      compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },
+      bilan: { actif: { tresorerie: 5_000 }, passif: { capitaux_propres: 50_000, dettes_financieres: 0 } },
+      historique_3ans: {
+        n_moins_2: { annee: 2022, ca_total: 80_000, resultat_net: 5_000, ebitda: 8_000 },
+        n_moins_1: { annee: 2023, ca_total: 90_000, resultat_net: 6_000, ebitda: 9_000 },
+        n: { annee: 2024, ca_total: 100_000, resultat_net: 6_000, ebitda: 10_000 },
+      },
+      annee_courante: 2026,
+      financement: {}, bfr: { tresorerie_initiale: 5_000 },
+    };
+    const ai: any = { capex: [], produits: [], hypotheses: {} };
+    const result = computeFullPlan(inputs, ai, "Savoki", "RDC", 2024, fiscalRDC);
+    expect(result.current_year).toBe(2026);
+    expect(result.years.current_year).toBe(2026);
+    expect(result.years.year_minus_2).toBe(2024);
+    expect(result.years.year6).toBe(2031);
+  });
+
+  it("axe décalé Savoki : 2024 réel, 2025 gap (à compléter), 2026 projeté depuis 2024", () => {
+    const inputs: any = {
+      compte_resultat: { chiffre_affaires: 667_105, achats_matieres: 487_348, charges_personnel: 70_000, charges_externes: 41_918, dotations_amortissements: 0, charges_financieres: 0, impots: 30_128, resultat_net: 37_711, resultat_exploitation: 67_839 },
+      bilan: { actif: { tresorerie: 0 }, passif: { capitaux_propres: 100_000, dettes_financieres: 0 } },
+      historique_3ans: {
+        n_moins_2: { annee: 2022, ca_total: 0, resultat_net: 0 }, // société créée 2022, non documenté
+        n_moins_1: { annee: 2023, ca_total: 0, resultat_net: 0 }, // non documenté
+        n: { annee: 2024, ca_total: 667_105, resultat_net: 37_711, resultat_exploitation: 67_839, couts_variables: 487_348, charges_fixes: 111_918 },
+      },
+      annee_courante: 2026, // reprise 2026 (cession 2025)
+      financement: {}, bfr: { tresorerie_initiale: 0 },
+    };
+    const ai: any = { capex: [], produits: [], hypotheses: { taux_croissance_ca: [0.10, 0.10, 0.10, 0.10, 0.10], taux_cogs_cible: [0.73, 0.73, 0.73, 0.73, 0.73] } };
+    const result = computeFullPlan(inputs, ai, "Savoki", "RDC", 2024, fiscalRDC);
+
+    const p = (y: number) => result.projections.find((x: any) => x.annee_num === y);
+    // 2024 = réel
+    expect(p(2024)?.is_reel).toBe(true);
+    expect(p(2024)?.ca).toBeGreaterThan(600_000);
+    // 2025 = gap : aucune activité → pas de projection
+    expect(p(2025)?.is_gap).toBe(true);
+    expect(p(2025)?.ca).toBe(0);
+    // 2026 = année courante, projetée depuis 2024, NON réelle
+    expect(p(2026)?.annee).toBe("CURRENT YEAR");
+    expect(p(2026)?.is_reel).toBe(false);
+    expect(p(2026)?.ca).toBeGreaterThan(0);
+    // 2027 = prévisionnel
+    expect(p(2027)?.ca).toBeGreaterThan(0);
+    // current_year exposé = 2026
+    expect(result.current_year).toBe(2026);
+  });
+
   it("Aucun investissement déclaré : warning + fallback contrôlé", () => {
     const inputs: any = {
       compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },

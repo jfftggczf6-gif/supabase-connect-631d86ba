@@ -35,6 +35,15 @@ function txt(v: unknown, fallback = '—'): Cell {
 
 const TODO = 'à compléter';
 
+// Formate le taux inverse (1 devise locale = X EUR) avec une précision adaptée
+// (devises fortes type USD ~0,86 / devises faibles type XOF ~0,00152).
+function fmtInverse(inv: number): string {
+  if (!Number.isFinite(inv) || inv <= 0) return '?';
+  if (inv >= 1) return inv.toFixed(3);
+  if (inv >= 0.01) return inv.toFixed(2);
+  return inv.toPrecision(3);
+}
+
 /**
  * Construit la liste des onglets (sections) du classeur à partir du plan calculé.
  * Fonction PURE et testable — ne touche pas au DOM.
@@ -56,15 +65,17 @@ export function buildPlanFinancierSheets(plan: any): SheetDef[] {
       ['Devise', txt(p.currency, '')],
       [
         'Taux de change',
-        currency && Number.isFinite(Number(p.exchange_rate_eur))
-          ? `1 EUR = ${p.exchange_rate_eur} ${currency}`
+        currency && Number.isFinite(Number(p.exchange_rate_eur)) && Number(p.exchange_rate_eur) > 0
+          ? `1 EUR = ${p.exchange_rate_eur} ${currency} (soit 1 ${currency} = ${fmtInverse(1 / Number(p.exchange_rate_eur))} EUR)`
           : TODO,
       ],
       ['Inflation (taux)', num(p.inflation_rate)],
       ['TVA (taux)', num(p.vat_rate)],
-      ['Régime fiscal 1 — IS (taux)', num(p.tax_regime_1)],
-      ['Régime fiscal 2 (taux)', num(p.tax_regime_2)],
-      ['Année de référence', num(p.current_year)],
+      // tax_regime_1 = IS PME (taux réduit) ; 0 = pas de régime PME dans ce pays
+      // (cas RDC) → on affiche « non applicable » plutôt qu'un faux 0%.
+      ['Régime fiscal 1 — IS PME (taux réduit)', Number(p.tax_regime_1) > 0 ? num(p.tax_regime_1) : 'non applicable'],
+      ['Régime fiscal 2 — IS standard (taux)', num(p.tax_regime_2)],
+      ['Année courante', num(p.current_year)],
     ];
     if (p.years && typeof p.years === 'object') {
       rows.push([], ['Années du plan']);
@@ -116,9 +127,11 @@ export function buildPlanFinancierSheets(plan: any): SheetDef[] {
     const projs: any[] = Array.isArray(p.projections) ? p.projections : [];
     const rows: Row[] = [[`PROJECTIONS ${moneyNote}`.trim()]];
     if (projs.length) {
-      const years = projs.map((pr) => txt(pr.annee, ''));
-      rows.push([], ['', ...years]);
-      rows.push(['Type', ...projs.map((pr) => (pr.is_reel ? 'réel' : 'projeté'))]);
+      // En-tête = année réelle (2024, 2025, …) ; repli sur le libellé.
+      const years = projs.map((pr) => (pr.annee_num ? num(pr.annee_num) : txt(pr.annee, '')));
+      rows.push([], ['Année', ...years]);
+      rows.push(['Type', ...projs.map((pr) => (pr.is_gap ? TODO : pr.is_reel ? 'réel' : 'projeté'))]);
+      const cell = (pr: any, key: string): Cell => (pr.is_gap ? TODO : num(pr[key]));
       const metrics: Array<[string, string]> = [
         ["Chiffre d'affaires", 'ca'],
         ['COGS', 'cogs'],
@@ -135,7 +148,7 @@ export function buildPlanFinancierSheets(plan: any): SheetDef[] {
         ['Cashflow', 'cashflow'],
       ];
       for (const [label, key] of metrics) {
-        rows.push([label, ...projs.map((pr) => num(pr[key]))]);
+        rows.push([label, ...projs.map((pr) => cell(pr, key))]);
       }
     } else {
       rows.push([], [TODO]);
