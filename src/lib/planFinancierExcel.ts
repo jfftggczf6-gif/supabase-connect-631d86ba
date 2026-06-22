@@ -11,9 +11,10 @@
 
 // ─── Modèle (pur, testable) ───────────────────────────────────────────
 
-export type Fmt = 'text' | 'int' | 'money' | 'fracPct' | 'pct' | 'year';
+export type Fmt = 'text' | 'int' | 'money' | 'fracPct' | 'pct' | 'year' | 'dec';
 // money/int : nombre brut → séparateurs de milliers
 // year     : année → SANS séparateur (2026, pas 2 026)
+// dec      : ratio/décimal (DSCR, couverture, payback, runway) → 2 décimales
 // fracPct : fraction stockée (0,30) → affichée 30 %
 // pct      : déjà en pourcentage (30) → affichée 30 %
 export interface Cell { v: string | number | null; fmt: Fmt; gap?: boolean; }
@@ -33,6 +34,7 @@ const T = (v: unknown, fb = ''): Cell => ({ v: v === null || v === undefined || 
 const M = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'money' } : { v: TODO, fmt: 'text', gap: true }; };
 const I = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'int' } : { v: '—', fmt: 'text' }; };
 const Y = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'year' } : { v: '—', fmt: 'text' }; };
+const D = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'dec' } : { v: '—', fmt: 'text' }; };
 const FP = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'fracPct' } : { v: '—', fmt: 'text' }; };
 const PC = (v: unknown): Cell => { const n = safe(v); return Number.isFinite(n) ? { v: n, fmt: 'pct' } : { v: '—', fmt: 'text' }; };
 const GAP: () => Cell = () => ({ v: TODO, fmt: 'text', gap: true });
@@ -116,8 +118,8 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
     rows.push(spacer(), row('section', T('Indicateurs de décision')));
     rows.push(row('data', T('VAN'), M(ind.van)));
     rows.push(row('data', T('TRI'), PC(ind.tri)));
-    rows.push(row('data', T('Délai de retour (années)'), I(ind.payback_years)));
-    rows.push(row('data', T('DSCR moyen'), { v: Number.isFinite(safe(ind.dscr_moyen)) ? safe(ind.dscr_moyen) : '—', fmt: Number.isFinite(safe(ind.dscr_moyen)) ? 'int' : 'text' }));
+    rows.push(row('data', T('Délai de retour (années)'), D(ind.payback_years)));
+    rows.push(row('data', T('DSCR moyen'), D(ind.dscr_moyen)));
     if (p.wacc_metadata) rows.push(row('data', T('WACC appliqué'), PC(p.wacc_metadata.wacc_applique)));
     sheets.push({ name: 'Synthèse', rows, widths: [30, 16, 16, 16, 16, 16, 16, 16, 16, 16], freezeRows: 5, freezeCols: 1 });
   }
@@ -310,12 +312,12 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
       spacer(),
       row('data', T('VAN'), M(ind.van)),
       row('data', T('TRI'), PC(ind.tri)),
-      row('data', T('Délai de retour (années)'), I(ind.payback_years)),
-      row('data', T('DSCR moyen'), { v: Number.isFinite(safe(ind.dscr_moyen)) ? safe(ind.dscr_moyen) : '—', fmt: Number.isFinite(safe(ind.dscr_moyen)) ? 'int' : 'text' }),
+      row('data', T('Délai de retour (années)'), D(ind.payback_years)),
+      row('data', T('DSCR moyen'), D(ind.dscr_moyen)),
       row('data', T('ROI'), PC(ind.roi)),
-      row('data', T('Couverture des intérêts'), { v: Number.isFinite(safe(ind.couverture_interets)) ? safe(ind.couverture_interets) : '—', fmt: Number.isFinite(safe(ind.couverture_interets)) ? 'int' : 'text' }),
+      row('data', T('Couverture des intérêts'), D(ind.couverture_interets)),
       row('data', T('Cycle de trésorerie (jours)'), I(ind.cycle_tresorerie)),
-      row('data', T('Runway (mois)'), I(ind.runway_mois)),
+      row('data', T('Runway (mois)'), D(ind.runway_mois)),
     ];
     if (p.wacc_metadata) {
       rows.push(spacer(), row('section', T('WACC')), row('data', T('WACC brut'), PC(p.wacc_metadata.wacc_brut)), row('data', T('WACC appliqué'), PC(p.wacc_metadata.wacc_applique)));
@@ -354,6 +356,7 @@ function numFmtFor(fmt: Fmt): string | undefined {
     case 'money': return '#,##0';
     case 'int': return '#,##0';
     case 'year': return '0';
+    case 'dec': return '0.00';
     case 'fracPct': return '0.0%';
     case 'pct': return '0.0"%"';
     default: return undefined;
