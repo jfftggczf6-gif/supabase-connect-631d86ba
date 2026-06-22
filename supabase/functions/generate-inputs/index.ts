@@ -1,6 +1,7 @@
 // v4 — restore corsHeaders 2026-03-19
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, jsonResponse, verifyAndGetContext, callAI, saveDeliverable, buildRAGContext, getFiscalParams, preloadFiscalParams, getDocumentContentForAgent, getKnowledgeForAgent } from "../_shared/helpers_v5.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeInputs } from "../_shared/normalizers.ts";
 import { validateAndEnrich } from "../_shared/post-validator.ts";
 import { getExtractionKnowledgePrompt, getContextualBenchmarks } from "../_shared/financial-knowledge.ts";
@@ -181,6 +182,16 @@ la dernière. Toute ligne de revenus présente dans une année quelconque (y com
 DISCONTINUÉE ou ponctuelle, ex. "ventes de services de cleaning" en 2023 absente en 2024) DOIT
 figurer dans produits_services, avec son type (Produit/Service) et l'année concernée. Ne JAMAIS
 ignorer une ligne de revenus sous prétexte qu'elle n'existe pas l'année la plus récente.
+
+RÈGLE ANTI-DOUBLON / CONSOLIDATION (CRITIQUE) : un même produit physique peut apparaître sous des
+LIBELLÉS DIFFÉRENTS selon les documents ou les années — marque commerciale vs nom générique, ex.
+« ECLAT Laundry Bar Soap » = « Savon en dur LBS » ; « ECLAT Handwash » = « Handwash » ; « ECLAT
+Action Tile Cleaner » = « Tile Cleaner ». Tu DOIS les REGROUPER en UNE SEULE entrée produits_services
+(un produit physique = une seule entrée). Indice fort de doublon : CA identique ou quasi identique
+et/ou même nature de produit. NE crée JAMAIS deux entrées pour le même produit. Choisis le libellé
+le plus clair (de préférence celui des états financiers récents) et porte les données multi-années
+dessous. Cette règle s'applique AUSSI aux INPUTS EXISTANTS fournis pour la fusion : s'ils contiennent
+déjà des doublons, consolide-les dans ton résultat — le résultat final ne doit comporter AUCUN doublon.
 
 Exemple de croisement :
 - CdR dit "Ventes marchandises = 238M" (poste agrégé)
@@ -505,7 +516,25 @@ function computeInputsDiff(oldInputs: any, newInputs: any): any {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const ctx = await verifyAndGetContext(req);
+    // Auth : session utilisateur OU mode admin headless (X-Admin-Token == ADMIN_REBUILD_TOKEN)
+    // pour relancer l'extraction côté serveur (bouton UI parfois masqué).
+    const adminToken = Deno.env.get("ADMIN_REBUILD_TOKEN");
+    const incomingAdmin = req.headers.get("X-Admin-Token");
+    let ctx: any;
+    if (adminToken && incomingAdmin === adminToken) {
+      const body = await req.json().catch(() => ({}));
+      const eid = body?.enterprise_id;
+      if (!eid) return errorResponse("enterprise_id requis (admin)", 400);
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: entRow } = await sb.from("enterprises").select("*").eq("id", eid).single();
+      if (!entRow) return errorResponse("Entreprise introuvable", 404);
+      const { data: delivs } = await sb.from("deliverables").select("type, data").eq("enterprise_id", eid);
+      const deliverableMap: Record<string, any> = {};
+      for (const d of (delivs || [])) deliverableMap[d.type] = d.data;
+      ctx = { supabase: sb, enterprise: entRow, enterprise_id: eid, organization_id: entRow.organization_id, deliverableMap };
+    } else {
+      ctx = await verifyAndGetContext(req);
+    }
     const ent = ctx.enterprise;
     const bmcData = ctx.deliverableMap["bmc_analysis"] || {};
     // Précharge DB knowledge_country_data (Aurélie fixes RDC effectifs)
