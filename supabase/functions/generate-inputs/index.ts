@@ -460,6 +460,14 @@ RÈGLES INVESTISSEMENTS :
 
 RÈGLES FINANCEMENT :
 - Extrais CHAQUE source de financement: capital, subventions, prêts (avec taux, durée, différé).
+- RÈGLE PRÊTS — ZÉRO FABRICATION (CRITIQUE) : ne crée une entrée dans prets[] QUE si le document
+  indique explicitement un PRINCIPAL emprunté (le capital du prêt). N'invente JAMAIS un prêt à partir :
+  (a) d'une ligne de REMBOURSEMENT ou de charges financières du compte de résultat — un remboursement
+  annuel n'est PAS le principal ; (b) d'un solde de bilan égal à 0 (« Emprunt à long terme = 0 » → AUCUN
+  prêt) ; (c) d'une estimation ou d'une supposition sur le prêteur (jamais de « prêt non identifié /
+  probablement microfinance »). Si un remboursement est observé mais que le principal et le prêteur ne
+  sont PAS écrits, NE crée PAS de prêt — laisse prets vide (il sera complété manuellement). Le taux et
+  la durée ne s'extraient que s'ils figurent explicitement dans le document.
 - BRIEF 0.13 — Extrais le BESOIN DE FINANCEMENT FUTUR (besoin_total_recherche) que l'entreprise cherche à lever. Cherche dans : business plan section "Besoins de financement", pitch deck "Financement recherché", demande de prêt OVO, courrier au bailleur. Ne PAS confondre avec apports_capital + prêts (= financement DÉJÀ obtenu).
 - Si tu identifies ce montant : remplir besoin_total_recherche ET ventiler dans composition_besoin (capex / bfr_demarrage / restructuration_dette / commercialisation_lancement).
 - Si aucun montant explicite n'est trouvé : besoin_total_recherche = 0 (le moteur retombera sur CAPEX + BFR - financement_deja_obtenu).
