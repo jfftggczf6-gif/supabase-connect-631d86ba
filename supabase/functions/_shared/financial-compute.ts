@@ -1960,8 +1960,16 @@ export function computeFullPlan(
     }
   }
 
-  const produits = computeProductProjections(aiProds, baseYearEarly, hyp.inflation, inputs.historique_3ans);
+  const produitsAll = computeProductProjections(aiProds, baseYearEarly, hyp.inflation, inputs.historique_3ans);
   const services = computeProductProjections(aiAnalysis.services || [], baseYearEarly, hyp.inflation, inputs.historique_3ans);
+  // Dédup produits/services : un même poste ne doit pas figurer dans les deux listes.
+  // L'IA classe parfois la même ligne de revenu en produit ET en service (ex. Savoki
+  // « Contrats de distribution et dépôts »), ce qui double-compte le CA et affiche le poste
+  // deux fois. On garde la version Service (routée par type, généralement enrichie d'un coût)
+  // et on retire le doublon de produits[].
+  const _normNom = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+  const _serviceNoms = new Set(services.map((s: any) => _normNom(s.nom)).filter((n: string) => n.length > 0));
+  const produits = produitsAll.filter((p: any) => !_serviceNoms.has(_normNom(p.nom)));
 
   // 6. Staff projeté
   const staff = computeStaffProjections(

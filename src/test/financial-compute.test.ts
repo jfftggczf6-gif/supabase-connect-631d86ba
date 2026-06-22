@@ -343,6 +343,34 @@ describe("computeFullPlan — scénarios E2E (brief 0.13)", () => {
     expect(result.current_year).toBe(2026);
   });
 
+  it("dédup produits/services : un poste classé dans les deux n'apparaît qu'en service", () => {
+    const inputs: any = {
+      compte_resultat: { chiffre_affaires: 667_105, achats_matieres: 487_348, charges_personnel: 70_000, charges_externes: 41_918, resultat_net: 37_711, resultat_exploitation: 67_839 },
+      bilan: { actif: { tresorerie: 0 }, passif: { capitaux_propres: 100_000, dettes_financieres: 0 } },
+      historique_3ans: { n: { annee: 2024, ca_total: 667_105, resultat_net: 37_711 } },
+      financement: {}, bfr: {},
+    };
+    const ai: any = {
+      hypotheses: {},
+      produits: [
+        { nom: 'Savon en dur', prix_unitaire: 10, cout_unitaire: 6, volume_annuel: 50000, part_ca: 0.89 },
+        { nom: 'Contrats de distribution et dépôts', prix_unitaire: 5150, cout_unitaire: 0, volume_annuel: 1, part_ca: 0.007 },
+      ],
+      services: [
+        { nom: 'Contrats de distribution et dépôts', prix_unitaire: 5150, cout_unitaire: 3759, volume_annuel: 1, part_ca: 0.008 },
+      ],
+    };
+    const result = computeFullPlan(inputs, ai, "Savoki", "RDC", 2024, fiscalRDC);
+    const prodNoms = result.produits.map((p: any) => p.nom);
+    const servNoms = result.services.map((s: any) => s.nom);
+    // Le doublon ne doit plus être dans produits…
+    expect(prodNoms).not.toContain('Contrats de distribution et dépôts');
+    // …mais rester dans services
+    expect(servNoms).toContain('Contrats de distribution et dépôts');
+    // Le vrai produit reste
+    expect(prodNoms).toContain('Savon en dur');
+  });
+
   it("Aucun investissement déclaré : warning + fallback contrôlé", () => {
     const inputs: any = {
       compte_resultat: { chiffre_affaires: 100_000, achats_matieres: 50_000, charges_personnel: 30_000, charges_externes: 10_000, dotations_amortissements: 2_000, charges_financieres: 0, impots: 2_000, resultat_net: 6_000 },
