@@ -607,6 +607,12 @@ EXEMPLES :
     const normalized = normalizeInputs(rawData);
     const data = validateAndEnrich(normalized, ent.country, ent.sector);
 
+    // Préserver l'année courante saisie/posée manuellement (axe des années) : elle n'est pas
+    // extraite par l'IA, donc une ré-extraction ne doit pas l'effacer.
+    if ((existingInputs as any)?.annee_courante != null && (data as any).annee_courante == null) {
+      (data as any).annee_courante = (existingInputs as any).annee_courante;
+    }
+
     // ── Compute diff and save to inputs_history ──
     const diff = hasExistingInputs ? computeInputsDiff(existingInputs, data) : null;
 
