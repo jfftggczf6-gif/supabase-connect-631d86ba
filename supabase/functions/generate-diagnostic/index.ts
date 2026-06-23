@@ -297,7 +297,7 @@ Indique lesquels sont levés et lesquels persistent.
         + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}\n\n${contextBenchmarks}`
         + ragContext + kbContext
         + "\n" + buildOvoRedFlagsPromptContext() + "\n" + buildOvoCompliancePromptContext(),
-      16384, "claude-sonnet-4-20250514", 0.3,
+      16384, "claude-sonnet-4-6", 0.3,
       { functionName: "generate-diagnostic", enterpriseId: ctx.enterprise_id }
     );
 

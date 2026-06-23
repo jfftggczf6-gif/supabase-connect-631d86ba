@@ -232,7 +232,7 @@ Important : sois chiffré, concret, et fidèle aux données. Si une dimension n'
       method: "POST",
       headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 16384,
         temperature: 0.3,
         system: injectGuardrails(systemPrompt),

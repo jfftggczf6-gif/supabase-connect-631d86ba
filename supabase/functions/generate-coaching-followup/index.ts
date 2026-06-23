@@ -181,7 +181,7 @@ Important : le rapport reflète l'ÉTAT ACTUEL (snapshot), pas une session ponct
       method: "POST",
       headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 12288,
         temperature: 0.3,
         system: injectGuardrails(systemPrompt),

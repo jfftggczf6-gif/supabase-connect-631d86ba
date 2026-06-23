@@ -188,7 +188,7 @@ Génère le Compliance Feedback Report au format JSON avec cette structure exact
       injectGuardrails(SYSTEM_PROMPT, ent.country),
       userPrompt,
       16384,
-      "claude-sonnet-4-20250514",
+      "claude-sonnet-4-6",
       0.2,
       { functionName: "generate-compliance-report", enterpriseId: enterprise_id }
     );

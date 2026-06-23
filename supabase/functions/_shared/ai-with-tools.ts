@@ -14,7 +14,7 @@ export async function callAIWithCalculator(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number = 16384,
-  model: string = "claude-sonnet-4-20250514",  // Sonnet 4 — 4.6 gets stuck in tool loops
+  model: string = "claude-sonnet-4-6",  // ex-claude-sonnet-4-20250514 (snapshot retiré le 23/06/2026)
   temperature: number = 0,
   options: { enableCache?: boolean } = {},
 ): Promise<Record<string, any>> {

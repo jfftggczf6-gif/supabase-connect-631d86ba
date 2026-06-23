@@ -130,7 +130,7 @@ Génère le IC Decision Report au format JSON :
       injectGuardrails(SYSTEM_PROMPT, ent.country),
       userPrompt,
       8192,
-      "claude-sonnet-4-20250514",
+      "claude-sonnet-4-6",
       0.2,
       { functionName: "generate-ic-decision-report", enterpriseId: enterprise_id }
     );

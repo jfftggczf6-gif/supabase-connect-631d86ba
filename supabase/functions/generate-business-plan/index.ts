@@ -886,7 +886,7 @@ serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": anthropicKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 4096,
           tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5,
             user_location: { type: "approximate", country: countryCode, region: country } }],
