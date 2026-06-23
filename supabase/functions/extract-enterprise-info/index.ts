@@ -95,7 +95,7 @@ Si une information n'est pas trouvable, mets null pour ce champ.`;
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 512,
+        max_tokens: 3072, // marge anti-troncature (Sonnet 4.6 plus verbeux) — ex-512
         system: systemPrompt,
         messages: [
           { role: "user", content: `Extrais les informations de l'entreprise depuis ces documents :\n\n${documentContent.substring(0, 15000)}` }

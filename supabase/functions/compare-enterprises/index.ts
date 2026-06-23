@@ -166,7 +166,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 1024,
+          max_tokens: 3072, // marge anti-troncature (Sonnet 4.6 plus verbeux) — ex-1024
           messages: [{
             role: "user",
             content: `Synthèse comparative en 3-4 phrases pour cette cohorte de ${comparatif.length} entreprises d'un programme d'accompagnement PME en Afrique :\n${JSON.stringify(comparatif.map(c => ({ nom: c.enterprise, secteur: c.sector, score_initial: c.score_initial, score_final: c.score_final, progression: c.progression, completion: c.completion_pct })), null, 2)}\nRéponds en texte brut, pas en JSON.`,
