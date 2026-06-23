@@ -172,7 +172,7 @@ serve(async (req) => {
             content: `Synthèse comparative en 3-4 phrases pour cette cohorte de ${comparatif.length} entreprises d'un programme d'accompagnement PME en Afrique :\n${JSON.stringify(comparatif.map(c => ({ nom: c.enterprise, secteur: c.sector, score_initial: c.score_initial, score_final: c.score_final, progression: c.progression, completion: c.completion_pct })), null, 2)}\nRéponds en texte brut, pas en JSON.`,
           }],
         }),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(90_000), // ex-15s, trop court depuis max_tokens 1024→3072 + Sonnet 4.6
       });
       if (aiResp.ok) {
         const r = await aiResp.json();
