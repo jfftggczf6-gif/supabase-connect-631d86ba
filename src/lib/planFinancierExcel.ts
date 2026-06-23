@@ -236,6 +236,50 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
     sheets.push({ name: 'Produits & Services', rows, widths: [42, 15, 15, 15, 12], freezeRows: 2, freezeCols: 1 });
   }
 
+  // ── 5b. Volumes par produit / par année (pour le modèle OVO) ──────────
+  // Le modèle OVO (RevenueData) recalcule le CA = prix × volume, produit par produit
+  // et par année. On fournit donc le VOLUME par produit/an, calculé pour reconstituer
+  // exactement le CA total du compte de résultat : volume = (CA_année × part normalisée)
+  // ÷ prix. Mix produit constant, prix/coûts constants (montée en CA = montée en volume).
+  {
+    const items: any[] = [
+      ...(Array.isArray(p.produits) ? p.produits : []),
+      ...(Array.isArray(p.services) ? p.services : []),
+    ];
+    const rows: Row[] = [
+      row('title', T('Volumes (modèle OVO)')),
+      row('note', T('Modèle OVO → RevenueData : CA = prix × volume, par produit et par année. Volumes calculés pour reconstituer le CA total (mix produit constant). Saisis prix, coût et volumes par an.')),
+    ];
+    const sumPart = items.reduce((s, it) => s + (Number.isFinite(safe(it.part_ca)) ? safe(it.part_ca) : 0), 0) || 1;
+    if (items.length && projs.length) {
+      rows.push(spacer(), row('colheader', T('Produit / Service'), T('Prix'), T('Coût'), ...yearCells()));
+      for (const it of items) {
+        const prix = safe(it.prix_unitaire);
+        const norm = (Number.isFinite(safe(it.part_ca)) ? safe(it.part_ca) : 0) / sumPart;
+        const cells = projs.map((pr) => {
+          if (pr.is_gap) return GAP();
+          if (!(prix > 0) || norm <= 0) return I(0);
+          return I(Math.round((safe(pr.ca) || 0) * norm / prix));
+        });
+        rows.push(row('data', T(it.nom, ''), M(it.prix_unitaire), M(it.cout_unitaire), ...cells));
+      }
+      // Ligne de contrôle : CA reconstitué (somme prix × volume) ≈ CA du compte de résultat
+      const ctrl = projs.map((pr) => {
+        if (pr.is_gap) return GAP();
+        const total = items.reduce((s, it) => {
+          const prix = safe(it.prix_unitaire);
+          const norm = (Number.isFinite(safe(it.part_ca)) ? safe(it.part_ca) : 0) / sumPart;
+          return prix > 0 && norm > 0 ? s + Math.round((safe(pr.ca) || 0) * norm / prix) * prix : s;
+        }, 0);
+        return M(total);
+      });
+      rows.push(row('total', T('CA total reconstitué'), E, E, ...ctrl));
+    } else {
+      rows.push(spacer(), row('data', GAP()));
+    }
+    sheets.push({ name: 'Volumes (modèle OVO)', rows, widths: [42, 13, 13, ...projs.map(() => 13)], freezeRows: 2, freezeCols: 1 });
+  }
+
   // ── 6. Ressources humaines ────────────────────────────────────────────
   {
     const staff: any[] = Array.isArray(p.staff) ? p.staff : [];

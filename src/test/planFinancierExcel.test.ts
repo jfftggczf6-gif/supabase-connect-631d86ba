@@ -50,6 +50,7 @@ describe('buildPlanFinancierModel', () => {
       'Situation actuelle',
       'Projections',
       'Produits & Services',
+      'Volumes (modèle OVO)',
       'Ressources humaines',
       'OPEX & CAPEX',
       'Financement & Prêts',
@@ -134,9 +135,22 @@ describe('buildPlanFinancierModel', () => {
     expect(wacc.cells[1].fmt).toBe('pct');
   });
 
-  it('ne plante pas sur un plan vide et renvoie quand même les 10 onglets', () => {
+  it('feuille Volumes (modèle OVO) : volume = CA × part normalisée ÷ prix, somme = CA', () => {
+    const vol = sheet(buildPlanFinancierModel(samplePlan), 'Volumes (modèle OVO)');
+    // samplePlan : Produit A (prix 10, part_ca 0.8) + Cleaning (prix 30000, part_ca 0.2), somme parts = 1
+    const pA = rowByLabel(vol, 'Produit A');
+    // colonnes : [nom, prix, coût, 2026, 2027] → 2026 ca=100000 → vol = 100000×0.8/10 = 8000
+    expect(pA.cells[3].v).toBe(8000);
+    expect(pA.cells[4].v).toBe(10400); // 2027 ca=130000 → 130000×0.8/10
+    // ligne de contrôle CA reconstitué ≈ CA P&L
+    const ctrl = rowByLabel(vol, 'CA total reconstitué');
+    expect(Number(ctrl.cells[3].v)).toBeGreaterThan(95000); // ≈ 100000 (à l'arrondi près)
+    expect(Number(ctrl.cells[3].v)).toBeLessThanOrEqual(100000 + 30000);
+  });
+
+  it('ne plante pas sur un plan vide et renvoie quand même les 11 onglets', () => {
     const sheets = buildPlanFinancierModel({}).sheets;
-    expect(sheets).toHaveLength(10);
+    expect(sheets).toHaveLength(11);
   });
 
   it('ne plante pas sur null/undefined', () => {
