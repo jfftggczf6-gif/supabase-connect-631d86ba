@@ -154,7 +154,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 4096,
+        max_tokens: 8192, // marge anti-troncature (Sonnet 4.6 verbeux, liste de champs) — ex-4096
         temperature: 0,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `DOCUMENT DU FORMULAIRE :\n\n${rawText.substring(0, 50000)}` }],
