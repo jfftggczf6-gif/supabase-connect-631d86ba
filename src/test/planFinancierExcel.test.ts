@@ -16,12 +16,15 @@ const samplePlan = {
   years: { 'CURRENT YEAR': 2026, YEAR2: 2027 },
   kpis: { ca: 100000, resultat_net: 12000, tresorerie: 5000, effectif: 8 },
   projections: [
-    { annee: 'CURRENT YEAR', annee_num: 2026, is_reel: false, ca: 100000, cogs: 60000, marge_brute: 40000, resultat_net: 12000, cashflow: 9000 },
-    { annee: 'YEAR2', annee_num: 2027, is_reel: false, ca: 130000, cogs: 75000, marge_brute: 55000, resultat_net: 18000, cashflow: 14000 },
+    { annee: 'CURRENT YEAR', annee_num: 2026, is_reel: false, ca: 100000, cogs: 60000, marge_brute: 40000, opex_total: 30000, resultat_net: 12000, cashflow: 9000 },
+    { annee: 'YEAR2', annee_num: 2027, is_reel: false, ca: 130000, cogs: 75000, marge_brute: 55000, opex_total: 35000, resultat_net: 18000, cashflow: 14000 },
   ],
   produits: [{ nom: 'Produit A', prix_unitaire: 10, cout_unitaire: 6, volume_annuel: 5000, part_ca: 0.8 }],
   services: [{ nom: 'Cleaning', prix_unitaire: 30000, cout_unitaire: 12000, volume_annuel: 1, part_ca: 0.2 }],
-  staff: [{ categorie: 'Direction', departement: 'Admin', taux_charges_sociales: 0.13 }],
+  staff: [{ categorie: 'Direction', departement: 'Admin', taux_charges_sociales: 0.13, par_annee: [{ annee: 'CURRENT YEAR', effectif: 1 }, { annee: 'YEAR2', effectif: 2 }] }],
+  ranges: [{ name: 'ECLAT', slot: 1 }, { name: '-', slot: 2 }],
+  channels: [{ name: 'B2B', slot: 1 }],
+  opex_detail: [{ categorie: 'Charges fixes', sous_poste: 'Loyer usine', montant_cy: 1000, montant_y5: 1200 }],
   capex: [{ label: 'Machine', categorie: 'Équipement', acquisition_year: 2026, acquisition_value: 20000, amortisation_rate: 0.2 }],
   loans: {
     ovo: { amount: 0, rate: 0, term_years: 0 },
@@ -146,6 +149,24 @@ describe('buildPlanFinancierModel', () => {
     const ctrl = rowByLabel(vol, 'CA total reconstitué');
     expect(Number(ctrl.cells[3].v)).toBeGreaterThan(95000); // ≈ 100000 (à l'arrondi près)
     expect(Number(ctrl.cells[3].v)).toBeLessThanOrEqual(100000 + 30000);
+  });
+
+  it('enrichissements : gammes/canaux, OPEX par année, effectifs RH', () => {
+    const m = buildPlanFinancierModel(samplePlan);
+    // Gammes & canaux dans Hypothèses
+    const hyp = sheet(m, 'Hypothèses & Pays');
+    expect(rowByLabel(hyp, 'Gamme 1')?.cells[1].v).toBe('ECLAT');
+    expect(rowByLabel(hyp, 'Canal 1')?.cells[1].v).toBe('B2B');
+    // OPEX total par année dans OPEX & CAPEX
+    const opex = sheet(m, 'OPEX & CAPEX');
+    const opexTotal = rowByLabel(opex, 'OPEX total');
+    expect(vals(opexTotal)).toEqual(['OPEX total', 30000, 35000]);
+    // Effectifs RH par année
+    const rh = sheet(m, 'Ressources humaines');
+    const dir = rowByLabel(rh, 'Direction');
+    // colonnes : [Catégorie, Département, Charges, 2026, 2027] → effectifs 1, 2
+    expect(dir.cells[3].v).toBe(1);
+    expect(dir.cells[4].v).toBe(2);
   });
 
   it('ne plante pas sur un plan vide et renvoie quand même les 11 onglets', () => {

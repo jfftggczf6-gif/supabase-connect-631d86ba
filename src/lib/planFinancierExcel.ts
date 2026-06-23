@@ -149,7 +149,14 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
       rows.push(spacer(), row('section', T('Années du plan')));
       for (const [label, val] of Object.entries(p.years)) rows.push(row('data', T(label), Y(val)));
     }
-    sheets.push({ name: 'Hypothèses & Pays', rows, widths: [36, 46] });
+    const ranges = (Array.isArray(p.ranges) ? p.ranges : []).filter((r: any) => r?.name && r.name !== '-');
+    const channels = (Array.isArray(p.channels) ? p.channels : []).filter((c: any) => c?.name && c.name !== '-');
+    if (ranges.length || channels.length) {
+      rows.push(spacer(), row('section', T('Gammes & Canaux (InputsData OVO)')));
+      ranges.forEach((r: any, i: number) => rows.push(row('data', T(`Gamme ${i + 1}`), T(r.name))));
+      channels.forEach((c: any, i: number) => rows.push(row('data', T(`Canal ${i + 1}`), T(c.name))));
+    }
+    sheets.push({ name: 'Hypothèses & Pays', rows, widths: [36, 50] });
   }
 
   // ── 3. Situation actuelle ─────────────────────────────────────────────
@@ -283,23 +290,44 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
   // ── 6. Ressources humaines ────────────────────────────────────────────
   {
     const staff: any[] = Array.isArray(p.staff) ? p.staff : [];
-    const rows: Row[] = [row('title', T('Ressources humaines'))];
-    if (staff.length) {
+    const rows: Row[] = [
+      row('title', T('Ressources humaines')),
+      row('note', T('Effectifs par année ci-dessous. ⚠ Salaires non extraits des documents → à compléter dans l\'OVO (charges de personnel).')),
+    ];
+    if (staff.length && projs.length) {
+      rows.push(spacer(), row('section', T('Effectifs par année')));
+      rows.push(row('colheader', T('Catégorie'), T('Département'), T('Charges (taux)'), ...yearCells()));
+      for (const s of staff) {
+        const pa = Array.isArray(s.par_annee) ? s.par_annee : [];
+        const cells = projs.map((pr, i) => (pr.is_gap ? GAP() : I(pa[i]?.effectif)));
+        rows.push(row('data', T(s.categorie, ''), T(s.departement, ''), FP(s.taux_charges_sociales), ...cells));
+      }
+      rows.push(spacer(), row('section', T('Salaires mensuels bruts (à compléter)')));
+      for (const s of staff) rows.push(row('data', T(s.categorie, ''), GAP()));
+    } else if (staff.length) {
       rows.push(spacer(), row('colheader', T('Catégorie'), T('Département'), T('Charges sociales')));
       for (const s of staff) rows.push(row('data', T(s.categorie, ''), T(s.departement, ''), FP(s.taux_charges_sociales)));
     } else {
       rows.push(spacer(), row('data', GAP()));
     }
-    sheets.push({ name: 'Ressources humaines', rows, widths: [30, 24, 16], freezeRows: 2, freezeCols: 1 });
+    sheets.push({ name: 'Ressources humaines', rows, widths: [30, 22, 14, ...projs.map(() => 12)], freezeRows: 3, freezeCols: 1 });
   }
 
   // ── 7. OPEX & CAPEX ───────────────────────────────────────────────────
   {
     const rows: Row[] = [row('title', T('OPEX & CAPEX')), row('subtitle', T(moneyNote))];
-    if (Array.isArray(p.opex_detail) && p.opex_detail.length) {
-      rows.push(spacer(), row('section', T('Charges opérationnelles (OPEX)')));
-      rows.push(row('colheader', T('Catégorie'), T('Sous-poste'), T('Année courante'), T('Année 5')));
-      for (const o of p.opex_detail) rows.push(row('data', T(o.categorie, ''), T(o.sous_poste, ''), M(o.montant_cy), M(o.montant_y5)));
+    if (Array.isArray(p.opex_detail) && p.opex_detail.length && projs.length) {
+      // OPEX par année : réparti selon le mix année courante, calé sur l'OPEX total du
+      // compte de résultat (projections.opex_total) → cohérent avec le P&L.
+      const totalCy = p.opex_detail.reduce((s: number, o: any) => s + (safe(o.montant_cy) || 0), 0) || 1;
+      rows.push(spacer(), row('section', T('OPEX par année')));
+      rows.push(row('colheader', T('Poste'), ...yearCells()));
+      for (const o of p.opex_detail) {
+        const share = (safe(o.montant_cy) || 0) / totalCy;
+        const cells = projs.map((pr) => (pr.is_gap ? GAP() : M(Math.round((safe(pr.opex_total) || 0) * share))));
+        rows.push(row('data', T(o.sous_poste || o.categorie, ''), ...cells));
+      }
+      rows.push(row('total', T('OPEX total'), ...projs.map((pr) => (pr.is_gap ? GAP() : M(pr.opex_total)))));
     } else if (Array.isArray(p.opex_categories) && p.opex_categories.length) {
       rows.push(spacer(), row('section', T('Charges opérationnelles (OPEX)')));
       rows.push(row('colheader', T('Poste'), T('Montant'), T('% ')));
@@ -311,7 +339,7 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
       for (const c of p.capex) rows.push(row('data', T(c.label, ''), T(c.categorie, ''), Y(c.acquisition_year), M(c.acquisition_value), FP(c.amortisation_rate)));
     }
     if (rows.length === 2) rows.push(spacer(), row('data', GAP()));
-    sheets.push({ name: 'OPEX & CAPEX', rows, widths: [28, 28, 18, 18, 16], freezeRows: 2, freezeCols: 1 });
+    sheets.push({ name: 'OPEX & CAPEX', rows, widths: [34, ...Array.from({ length: Math.max(projs.length, 5) }, () => 14)], freezeRows: 2, freezeCols: 1 });
   }
 
   // ── 8. Financement & Prêts ────────────────────────────────────────────
@@ -344,6 +372,11 @@ export function buildPlanFinancierModel(plan: any): { sheets: SheetModel[] } {
         rows.push(row(e.is_total ? 'total' : 'data', T(e.label, ''), ...cells));
       }
     }
+    // Apports en capital & subventions — non extraits dans le plan → à compléter.
+    const fin = p.financing && typeof p.financing === 'object' ? p.financing : {};
+    rows.push(spacer(), row('section', T('Apports & subventions')));
+    rows.push(row('data', T('Apports en capital'), safe(fin.apports_capital) > 0 ? M(fin.apports_capital) : GAP()));
+    rows.push(row('data', T('Subventions'), safe(fin.subventions) > 0 ? M(fin.subventions) : GAP()));
     const ny = (Array.isArray(p.echeancier) && p.echeancier[0]?.annees?.length) || 4;
     sheets.push({ name: 'Financement & Prêts', rows, widths: [30, ...Array.from({ length: Math.max(ny, 3) }, () => 15)], freezeRows: 2, freezeCols: 1 });
   }
