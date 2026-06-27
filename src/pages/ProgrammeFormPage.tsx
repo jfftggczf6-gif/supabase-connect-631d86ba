@@ -22,6 +22,9 @@ import { Loader2, Plus, X, Upload, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DefaultFieldsEditor } from '@/components/programme/DefaultFieldsEditor';
 import { mergeDefaultFields, type DefaultFieldConfig } from '@/lib/default-fields';
+import { SingleLogoUploader } from '@/components/programme/SingleLogoUploader';
+import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
+import type { PartnerLogo } from '@/components/programme/PartnerLogos';
 
 interface FormField {
   id: string;
@@ -73,6 +76,8 @@ export default function ProgrammeFormPage() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([]);
   const [defaultFields, setDefaultFields] = useState<DefaultFieldConfig[]>(() => mergeDefaultFields(null));
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [startDate, setStartDate] = useState('');
@@ -87,7 +92,7 @@ export default function ProgrammeFormPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('programmes')
-        .select('id, name, organization, status, form_slug, form_fields, default_fields, description, start_date, end_date')
+        .select('id, name, organization, status, form_slug, form_fields, default_fields, description, logo_url, partner_logos, start_date, end_date')
         .eq('id', id)
         .maybeSingle();
       if (error || !data) {
@@ -98,6 +103,8 @@ export default function ProgrammeFormPage() {
       setProgramme(data);
       setTitle(data.name || '');
       setDescription(data.description || '');
+      setLogoUrl((data as any).logo_url || null);
+      setPartnerLogos(Array.isArray((data as any).partner_logos) ? (data as any).partner_logos as PartnerLogo[] : []);
       setDefaultFields(mergeDefaultFields((data as any).default_fields));
       const existing: FormField[] = Array.isArray(data.form_fields) && data.form_fields.length > 0
         ? data.form_fields as FormField[]
@@ -171,6 +178,8 @@ export default function ProgrammeFormPage() {
       .update({
         name: title.trim(),
         description: description.trim() || null,
+        logo_url: logoUrl,
+        partner_logos: partnerLogos as any,
         default_fields: defaultFields.map(({ key, label, enabled, required }) => ({ key, label, enabled, required })) as any,
         form_fields: JSON.parse(JSON.stringify(formFields)),
         start_date: startDate || null,
@@ -221,12 +230,18 @@ export default function ProgrammeFormPage() {
       </div>
 
       <div className="max-w-3xl space-y-4">
-          {/* 1. Titre du formulaire */}
+          {/* 1. Titre du formulaire + logo en-tête */}
           <Card>
             <CardHeader><CardTitle className="text-base">Titre du formulaire</CardTitle></CardHeader>
-            <CardContent>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Appel à candidatures — Programme OVO Sénégal 2026" />
-              <p className="text-xs text-muted-foreground mt-1.5">S'affiche en tête du formulaire public (c'est aussi le nom du programme).</p>
+            <CardContent className="space-y-4">
+              <div>
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Appel à candidatures — Programme OVO Sénégal 2026" />
+                <p className="text-xs text-muted-foreground mt-1.5">S'affiche en tête du formulaire public (c'est aussi le nom du programme).</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Logo en-tête <span className="text-muted-foreground">(optionnel — haut du formulaire public)</span></Label>
+                <SingleLogoUploader programmeId={id!} value={logoUrl} onChange={setLogoUrl} />
+              </div>
             </CardContent>
           </Card>
 
@@ -375,6 +390,14 @@ export default function ProgrammeFormPage() {
                 </Select>
                 <Button variant="outline" onClick={addField}><Plus className="h-4 w-4" /></Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* 6. Logos partenaires (bas du formulaire public) */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Logos partenaires</CardTitle></CardHeader>
+            <CardContent>
+              <PartnerLogosEditor programmeId={id!} value={partnerLogos} onChange={setPartnerLogos} />
             </CardContent>
           </Card>
       </div>
