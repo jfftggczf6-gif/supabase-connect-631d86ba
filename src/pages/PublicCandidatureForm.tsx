@@ -247,9 +247,6 @@ export default function PublicCandidatureForm() {
         {/* Header */}
         <div className="text-center mb-8">
           {programme.logo_url && <img src={programme.logo_url} alt="" className="h-16 mx-auto mb-4" />}
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center mx-auto mb-3">
-            <span className="text-sm font-bold text-primary-foreground">ES</span>
-          </div>
           <h1 className="text-2xl font-display font-bold">🏢 {programme.name}</h1>
           {programme.organization && <p className="text-muted-foreground mt-1">{t('candidature.public_organization')} {programme.organization}</p>}
           {programme.end_date && (
