@@ -676,6 +676,36 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   </CardContent>
                 </Card>
 
+                {/* Réponses au formulaire (champs personnalisés) — gère texte ET choix multiples (tableau) */}
+                {(() => {
+                  const fd = (detail.form_data || {}) as Record<string, any>;
+                  const SKIP = new Set(['pays', 'secteur', 'effectif', 'ca']);
+                  const entries = Object.entries(fd).filter(([k, v]) =>
+                    !SKIP.has(k)
+                    && v != null
+                    && !(Array.isArray(v) && v.length === 0)
+                    && String(v).trim() !== '',
+                  );
+                  if (entries.length === 0) return null;
+                  return (
+                    <Card>
+                      <CardContent className="p-4">
+                        <h4 className="font-semibold text-sm mb-2">Réponses au formulaire</h4>
+                        <div className="space-y-2.5 text-sm">
+                          {entries.map(([k, v]) => (
+                            <div key={k}>
+                              <p className="text-xs font-medium text-muted-foreground">{k}</p>
+                              {Array.isArray(v)
+                                ? <ul className="list-disc pl-4 space-y-0.5">{v.map((x, i) => <li key={i}>{String(x)}</li>)}</ul>
+                                : <p className="whitespace-pre-wrap">{String(v)}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
                 {/* Documents */}
                 {Array.isArray(detail.documents) && detail.documents.length > 0 && (
                   <Card>

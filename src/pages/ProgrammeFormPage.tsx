@@ -25,6 +25,7 @@ import { mergeDefaultFields, type DefaultFieldConfig } from '@/lib/default-field
 import { SingleLogoUploader } from '@/components/programme/SingleLogoUploader';
 import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
 import type { PartnerLogo } from '@/components/programme/PartnerLogos';
+import { FieldOptionsEditor } from '@/components/programme/FieldOptionsEditor';
 
 interface FormField {
   id: string;
@@ -181,7 +182,12 @@ export default function ProgrammeFormPage() {
         logo_url: logoUrl,
         partner_logos: partnerLogos as any,
         default_fields: defaultFields.map(({ key, label, enabled, required }) => ({ key, label, enabled, required })) as any,
-        form_fields: JSON.parse(JSON.stringify(formFields)),
+        // Nettoie les options vides des champs à choix avant sauvegarde.
+        form_fields: JSON.parse(JSON.stringify(
+          formFields.map(f => ['select', 'checkbox', 'radio'].includes(f.type)
+            ? { ...f, options: (f.options || []).map(o => o.trim()).filter(Boolean) }
+            : f),
+        )),
         start_date: startDate || null,
         end_date: endDate || null,
       })
@@ -353,15 +359,13 @@ export default function ProgrammeFormPage() {
                     </Button>
                   </div>
                   {['select', 'checkbox', 'radio'].includes(f.type) && (
-                    <div className="ml-4">
-                      <Input
-                        placeholder="Options (séparées par des virgules)"
-                        value={(f.options || []).join(', ')}
-                        onChange={e => {
-                          const opts = e.target.value.split(',').map(o => o.trim()).filter(Boolean);
-                          setFormFields(fields => fields.map(ff => ff.id === f.id ? { ...ff, options: opts } : ff));
-                        }}
-                        className="h-7 text-xs"
+                    <div className="ml-4 mt-1 rounded-md border bg-muted/30 p-2.5">
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                        {f.type === 'checkbox' ? 'Options (le candidat peut en choisir plusieurs)' : 'Options (le candidat en choisit une)'}
+                      </p>
+                      <FieldOptionsEditor
+                        value={f.options || []}
+                        onChange={opts => setFormFields(fields => fields.map(ff => ff.id === f.id ? { ...ff, options: opts } : ff))}
                       />
                     </div>
                   )}
@@ -377,15 +381,15 @@ export default function ProgrammeFormPage() {
                   className="flex-1"
                 />
                 <Select value={newFieldType} onValueChange={v => setNewFieldType(v as FormField['type'])}>
-                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-[210px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="text">Texte court</SelectItem>
-                    <SelectItem value="number">Nombre</SelectItem>
                     <SelectItem value="textarea">Texte long</SelectItem>
-                    <SelectItem value="select">Liste déroulante</SelectItem>
-                    <SelectItem value="checkbox">Cases à cocher</SelectItem>
-                    <SelectItem value="radio">Choix unique</SelectItem>
+                    <SelectItem value="number">Nombre</SelectItem>
                     <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="radio">Choix unique (une réponse)</SelectItem>
+                    <SelectItem value="checkbox">Choix multiples (plusieurs réponses)</SelectItem>
+                    <SelectItem value="select">Liste déroulante (une réponse)</SelectItem>
                     <SelectItem value="file">Fichier</SelectItem>
                   </SelectContent>
                 </Select>
