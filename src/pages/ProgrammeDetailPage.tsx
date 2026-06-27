@@ -24,6 +24,8 @@ import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceT
 import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
+import type { PartnerLogo } from '@/components/programme/PartnerLogos';
 import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Plus, Trash2, Save, FileText, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -62,6 +64,7 @@ export default function ProgrammeDetailPage() {
     name: string;
     organization: string;
     description: string;
+    partner_logos: PartnerLogo[];
     budget: string;
     currency: string;
     nb_places: string;
@@ -73,7 +76,7 @@ export default function ProgrammeDetailPage() {
     programme_end: string;
   };
   const [progForm, setProgForm] = useState<ProgrammeForm>({
-    name: '', organization: '', description: '',
+    name: '', organization: '', description: '', partner_logos: [],
     budget: '', currency: '', nb_places: '',
     countries: '', sectors: '',
     start_date: '', end_date: '',
@@ -168,6 +171,7 @@ export default function ProgrammeDetailPage() {
       name: programme.name || '',
       organization: programme.organization || '',
       description: programme.description || '',
+      partner_logos: Array.isArray((programme as any).partner_logos) ? (programme as any).partner_logos as PartnerLogo[] : [],
       budget: programme.budget != null ? String(programme.budget) : '',
       currency: programme.currency || '',
       nb_places: programme.nb_places != null ? String(programme.nb_places) : '',
@@ -199,6 +203,7 @@ export default function ProgrammeDetailPage() {
       name: progForm.name.trim(),
       organization: progForm.organization.trim() || null,
       description: progForm.description.trim() || null,
+      partner_logos: progForm.partner_logos as any,
       budget: progForm.budget ? Number(progForm.budget) : null,
       currency: progForm.currency.trim() || null,
       nb_places: progForm.nb_places ? Number(progForm.nb_places) : null,
@@ -654,8 +659,16 @@ export default function ProgrammeDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Description</Label>
-                  <Textarea rows={3} value={progForm.description} onChange={e => setProgForm(f => ({ ...f, description: e.target.value }))} />
+                  <Label>Description / présentation</Label>
+                  <Textarea rows={14} className="font-mono text-xs leading-relaxed" value={progForm.description} onChange={e => setProgForm(f => ({ ...f, description: e.target.value }))} placeholder={"# Titre du programme\n\nParagraphe de présentation...\n\n## Déroulement du programme\n\n- premier point\n- deuxième point"} />
+                  <p className="text-[11px] text-muted-foreground">Mise en forme <strong>Markdown</strong> : <code>#</code> / <code>##</code> pour les titres, <code>-</code> pour les puces, <code>**gras**</code>. Le rendu structuré s'affiche sur le formulaire public.</p>
+                </div>
+                <div className="pt-1">
+                  <PartnerLogosEditor
+                    programmeId={id!}
+                    value={progForm.partner_logos}
+                    onChange={logos => setProgForm(f => ({ ...f, partner_logos: logos }))}
+                  />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1.5">

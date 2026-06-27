@@ -2026,6 +2026,7 @@ export type Database = {
           nb_places: number | null
           organization: string | null
           organization_id: string
+          partner_logos: Json
           programme_end: string | null
           programme_start: string | null
           sector_filter: string[] | null
@@ -2055,6 +2056,7 @@ export type Database = {
           nb_places?: number | null
           organization?: string | null
           organization_id: string
+          partner_logos?: Json
           programme_end?: string | null
           programme_start?: string | null
           sector_filter?: string[] | null
@@ -2084,6 +2086,7 @@ export type Database = {
           nb_places?: number | null
           organization?: string | null
           organization_id?: string
+          partner_logos?: Json
           programme_end?: string | null
           programme_start?: string | null
           sector_filter?: string[] | null

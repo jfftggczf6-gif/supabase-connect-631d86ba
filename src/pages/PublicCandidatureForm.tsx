@@ -11,6 +11,8 @@ import { Loader2, CheckCircle2, XCircle, Upload, X, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { getSortedCountries } from '@/lib/countries';
+import { Markdown } from '@/components/ui/markdown';
+import { PartnerLogos } from '@/components/programme/PartnerLogos';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -229,11 +231,19 @@ export default function PublicCandidatureForm() {
           </div>
           <h1 className="text-2xl font-display font-bold">🏢 {programme.name}</h1>
           {programme.organization && <p className="text-muted-foreground mt-1">{t('candidature.public_organization')} {programme.organization}</p>}
-          {programme.description && <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{programme.description}</p>}
           {programme.end_date && (
             <p className="text-sm mt-3 font-medium">📅 {t('candidature.public_deadline')} {format(new Date(programme.end_date), 'd MMMM yyyy', { locale: dateLocale })}</p>
           )}
         </div>
+
+        {/* Présentation du programme — structure interprétée (titres, paragraphes, listes) */}
+        {programme.description && (
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <Markdown>{programme.description}</Markdown>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Form */}
         <Card>
@@ -373,6 +383,12 @@ export default function PublicCandidatureForm() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Bande « Partenaires » (Option B) — logos regroupés, séparés du texte */}
+        <PartnerLogos
+          logos={programme.partner_logos}
+          label={t('candidature.public_partners', { defaultValue: 'Avec le soutien de' })}
+        />
 
         <p className="text-center text-xs text-muted-foreground mt-6">ESONO © 2026 · {t('candidature.public_privacy')}</p>
       </div>
