@@ -14,11 +14,14 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, X, Upload, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { DefaultFieldsEditor } from '@/components/programme/DefaultFieldsEditor';
+import { mergeDefaultFields, type DefaultFieldConfig } from '@/lib/default-fields';
 
 interface FormField {
   id: string;
@@ -68,6 +71,9 @@ export default function ProgrammeFormPage() {
   const [extractingForm, setExtractingForm] = useState(false);
   const [programme, setProgramme] = useState<any>(null);
 
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [defaultFields, setDefaultFields] = useState<DefaultFieldConfig[]>(() => mergeDefaultFields(null));
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -81,7 +87,7 @@ export default function ProgrammeFormPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('programmes')
-        .select('id, name, organization, status, form_slug, form_fields, start_date, end_date')
+        .select('id, name, organization, status, form_slug, form_fields, default_fields, description, start_date, end_date')
         .eq('id', id)
         .maybeSingle();
       if (error || !data) {
@@ -90,6 +96,9 @@ export default function ProgrammeFormPage() {
         return;
       }
       setProgramme(data);
+      setTitle(data.name || '');
+      setDescription(data.description || '');
+      setDefaultFields(mergeDefaultFields((data as any).default_fields));
       const existing: FormField[] = Array.isArray(data.form_fields) && data.form_fields.length > 0
         ? data.form_fields as FormField[]
         : [{ id: 'default-file', type: 'file', label: 'Documents à joindre (business plan, états financiers, etc.)', required: false }];
@@ -150,12 +159,19 @@ export default function ProgrammeFormPage() {
   // Dans tous les cas, redirige vers le volet Candidature.
   const handleSave = async () => {
     if (!id) return;
+    if (!title.trim()) {
+      toast({ title: 'Titre requis', description: 'Donne un titre au formulaire.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
 
-    // 1) Sauve les champs + dates
+    // 1) Sauve titre + présentation + champs par défaut + champs perso + dates
     const { error: saveErr } = await supabase
       .from('programmes')
       .update({
+        name: title.trim(),
+        description: description.trim() || null,
+        default_fields: defaultFields.map(({ key, label, enabled, required }) => ({ key, label, enabled, required })) as any,
         form_fields: JSON.parse(JSON.stringify(formFields)),
         start_date: startDate || null,
         end_date: endDate || null,
@@ -192,10 +208,8 @@ export default function ProgrammeFormPage() {
   if (loading) return <DashboardLayout title="Formulaire"><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></DashboardLayout>;
   if (!programme) return <DashboardLayout title="Formulaire"><p className="text-muted-foreground">Programme introuvable</p></DashboardLayout>;
 
-  const FIXED_FIELDS = ['Nom de l\'entreprise *', 'Nom du contact *', 'Email *', 'Téléphone'];
-
   return (
-    <DashboardLayout title={`Formulaire — ${programme.name}`} subtitle={programme.organization || ''}>
+    <DashboardLayout title={`Formulaire — ${title || programme.name}`} subtitle={programme.organization || ''}>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <Button variant="outline" onClick={() => nav(`/programmes/${id}?tab=candidature`)} className="gap-2">
           <ArrowLeft className="h-4 w-4" /> Retour au programme
@@ -206,10 +220,34 @@ export default function ProgrammeFormPage() {
         </Button>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_380px] gap-6">
-        {/* Édition */}
-        <div className="space-y-4">
-          {/* Dates de candidatures */}
+      <div className="max-w-3xl space-y-4">
+          {/* 1. Titre du formulaire */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Titre du formulaire</CardTitle></CardHeader>
+            <CardContent>
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Appel à candidatures — Programme OVO Sénégal 2026" />
+              <p className="text-xs text-muted-foreground mt-1.5">S'affiche en tête du formulaire public (c'est aussi le nom du programme).</p>
+            </CardContent>
+          </Card>
+
+          {/* 2. Présentation de l'appel (public) */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Présentation de l'appel</CardTitle></CardHeader>
+            <CardContent>
+              <Textarea
+                rows={12}
+                className="font-mono text-xs leading-relaxed"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder={"# Titre de l'appel\n\nParagraphe de présentation…\n\n## Déroulement du programme\n\n- premier point\n- deuxième point"}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Visible en haut du formulaire public. Mise en forme <strong>Markdown</strong> : <code>#</code>/<code>##</code> titres, <code>-</code> puces, <code>**gras**</code>.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* 3. Dates de candidatures */}
           <Card>
             <CardHeader><CardTitle className="text-base">Dates de candidatures</CardTitle></CardHeader>
             <CardContent>
@@ -229,9 +267,17 @@ export default function ProgrammeFormPage() {
             </CardContent>
           </Card>
 
-          {/* Drag-drop modèle + champs */}
+          {/* 4. Champs par défaut (éditables) */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Champs du formulaire</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Champs par défaut</CardTitle></CardHeader>
+            <CardContent>
+              <DefaultFieldsEditor value={defaultFields} onChange={setDefaultFields} />
+            </CardContent>
+          </Card>
+
+          {/* 5. Champs personnalisés */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Champs personnalisés</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div
                 className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
@@ -271,7 +317,7 @@ export default function ProgrammeFormPage() {
               </div>
 
               <p className="text-xs text-muted-foreground italic">
-                Champs fixes inclus automatiquement : nom entreprise, nom contact, email, téléphone.
+                Ces champs s'ajoutent aux champs par défaut ci-dessus. Glisse un modèle pour les extraire automatiquement, ou ajoute-les à la main.
               </p>
 
               {formFields.map(f => (
@@ -331,47 +377,6 @@ export default function ProgrammeFormPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Preview */}
-        <div>
-          <Card className="sticky top-20 max-h-[calc(100vh-120px)] overflow-y-auto">
-            <CardHeader><CardTitle className="text-base">Aperçu du formulaire public</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground italic">Champs fixes (obligatoires) :</p>
-              {FIXED_FIELDS.map(f => (
-                <div key={f} className="space-y-1">
-                  <Label className="text-xs">{f}</Label>
-                  <Input disabled placeholder={f.replace(' *', '')} />
-                </div>
-              ))}
-              {formFields.length > 0 && <p className="text-xs text-muted-foreground italic pt-2">Champs personnalisés :</p>}
-              {formFields.map(f => (
-                <div key={f.id} className="space-y-1">
-                  <Label className="text-xs">{f.label}{f.required && ' *'}</Label>
-                  {f.type === 'textarea' ? <textarea disabled className="w-full px-3 py-2 border rounded-md text-xs bg-muted/30" rows={3} /> :
-                    f.type === 'select' ? (
-                      <select disabled className="w-full px-3 py-2 border rounded-md text-xs bg-muted/30">
-                        {(f.options || []).map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    ) :
-                    f.type === 'checkbox' || f.type === 'radio' ? (
-                      <div className="space-y-1">
-                        {(f.options || []).map(o => (
-                          <label key={o} className="flex items-center gap-2 text-xs">
-                            <input type={f.type} disabled />
-                            {o}
-                          </label>
-                        ))}
-                      </div>
-                    ) :
-                    <Input disabled type={f.type} />}
-                </div>
-              ))}
-              <Button disabled className="w-full mt-4">Soumettre la candidature</Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </DashboardLayout>
   );

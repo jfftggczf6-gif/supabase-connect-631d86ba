@@ -2013,6 +2013,7 @@ export type Database = {
           created_by: string
           criteria_id: string | null
           currency: string | null
+          default_fields: Json
           description: string | null
           end_date: string | null
           form_fields: Json | null
@@ -2043,6 +2044,7 @@ export type Database = {
           created_by: string
           criteria_id?: string | null
           currency?: string | null
+          default_fields?: Json
           description?: string | null
           end_date?: string | null
           form_fields?: Json | null
@@ -2073,6 +2075,7 @@ export type Database = {
           created_by?: string
           criteria_id?: string | null
           currency?: string | null
+          default_fields?: Json
           description?: string | null
           end_date?: string | null
           form_fields?: Json | null

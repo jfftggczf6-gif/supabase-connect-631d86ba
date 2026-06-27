@@ -11,6 +11,8 @@ import { Loader2, CheckCircle2, XCircle, Upload, X, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { getSortedCountries } from '@/lib/countries';
+import { SECTORS } from '@/lib/sectors';
+import { mergeDefaultFields } from '@/lib/default-fields';
 import { Markdown } from '@/components/ui/markdown';
 import { PartnerLogos } from '@/components/programme/PartnerLogos';
 
@@ -58,7 +60,25 @@ export default function PublicCandidatureForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName || !contactName || !contactEmail) return;
+    // Validation des champs par défaut requis (cœur + pays/secteur/téléphone si activés requis)
+    const reqCfg = mergeDefaultFields(programme?.default_fields).filter(f => f.enabled && f.required);
+    const valueFor = (key: string) =>
+      key === 'company_name' ? companyName
+      : key === 'contact_name' ? contactName
+      : key === 'contact_email' ? contactEmail
+      : key === 'contact_phone' ? contactPhone
+      : key === 'pays' ? (formData.pays || '')
+      : key === 'secteur' ? (formData.secteur || '')
+      : '';
+    const missing = reqCfg.filter(f => !String(valueFor(f.key)).trim());
+    if (missing.length > 0) {
+      setError(t('candidature.public_required_missing', {
+        defaultValue: 'Merci de renseigner : {{fields}}',
+        fields: missing.map(f => f.label).join(', '),
+      }));
+      return;
+    }
+    setError(null);
     setSubmitting(true);
     try {
       // 1. Submit candidature first to get the ID
@@ -203,6 +223,7 @@ export default function PublicCandidatureForm() {
   );
 
   const formFields = programme?.form_fields || [];
+  const defaultFieldsConfig = mergeDefaultFields(programme?.default_fields).filter(f => f.enabled);
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -249,22 +270,46 @@ export default function PublicCandidatureForm() {
         <Card>
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Fixed fields */}
-              <div><Label>{t('candidature.public_company_name')} *</Label><Input required value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
-              <div><Label>{t('candidature.public_contact_name')} *</Label><Input required value={contactName} onChange={e => setContactName(e.target.value)} /></div>
-              <div><Label>{t('candidature.public_email')} *</Label><Input type="email" required value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>
-              <div><Label>{t('candidature.public_phone')}</Label><Input value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>
-              <div>
-                <Label>{t('candidature.public_country')}</Label>
-                <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
-                  <SelectTrigger><SelectValue placeholder={t('candidature.public_select_country')} /></SelectTrigger>
-                  <SelectContent>
-                    {getSortedCountries(lang).map(c => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Champs par défaut (config par programme : libellé / activé / requis) */}
+              {defaultFieldsConfig.map(f => {
+                const star = f.required ? ' *' : '';
+                switch (f.key) {
+                  case 'company_name':
+                    return <div key={f.key}><Label>{f.label}{star}</Label><Input required={f.required} value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>;
+                  case 'contact_name':
+                    return <div key={f.key}><Label>{f.label}{star}</Label><Input required={f.required} value={contactName} onChange={e => setContactName(e.target.value)} /></div>;
+                  case 'contact_email':
+                    return <div key={f.key}><Label>{f.label}{star}</Label><Input type="email" required={f.required} value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>;
+                  case 'contact_phone':
+                    return <div key={f.key}><Label>{f.label}{star}</Label><Input type="tel" required={f.required} value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>;
+                  case 'pays':
+                    return (
+                      <div key={f.key}>
+                        <Label>{f.label}{star}</Label>
+                        <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
+                          <SelectTrigger><SelectValue placeholder={t('candidature.public_select_country')} /></SelectTrigger>
+                          <SelectContent>
+                            {getSortedCountries(lang).map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  case 'secteur':
+                    return (
+                      <div key={f.key}>
+                        <Label>{f.label}{star}</Label>
+                        <Select value={formData.secteur || ''} onValueChange={v => setField('secteur', v)}>
+                          <SelectTrigger><SelectValue placeholder={t('candidature.public_select_sector', { defaultValue: "Sélectionner un secteur" })} /></SelectTrigger>
+                          <SelectContent>
+                            {SECTORS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  default:
+                    return null;
+                }
+              })}
 
               {/* Dynamic fields */}
               {formFields.length > 0 && <hr className="my-4" />}
