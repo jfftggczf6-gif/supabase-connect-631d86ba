@@ -36,7 +36,7 @@ serve(async (req) => {
 
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, name, description, organization, logo_url, partner_logos, default_fields, country_filter, sector_filter, start_date, end_date, status, form_fields, nb_places")
+      .select("id, name, description, form_presentation, organization, logo_url, partner_logos, default_fields, country_filter, sector_filter, start_date, end_date, status, form_fields, nb_places")
       .eq("form_slug", slug)
       .single();
 
@@ -76,6 +76,7 @@ serve(async (req) => {
       programme: {
         name: prog.name,
         description: prog.description,
+        form_presentation: prog.form_presentation,
         organization: prog.organization,
         logo_url: prog.logo_url,
         partner_logos: prog.partner_logos || [],

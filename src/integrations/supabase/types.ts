@@ -2017,6 +2017,7 @@ export type Database = {
           description: string | null
           end_date: string | null
           form_fields: Json | null
+          form_presentation: string | null
           form_slug: string | null
           id: string
           last_report: Json | null
@@ -2048,6 +2049,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           form_fields?: Json | null
+          form_presentation?: string | null
           form_slug?: string | null
           id?: string
           last_report?: Json | null
@@ -2079,6 +2081,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           form_fields?: Json | null
+          form_presentation?: string | null
           form_slug?: string | null
           id?: string
           last_report?: Json | null

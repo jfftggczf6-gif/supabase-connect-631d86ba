@@ -663,9 +663,9 @@ export default function ProgrammeDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Description / présentation</Label>
-                  <Textarea rows={14} className="font-mono text-xs leading-relaxed" value={progForm.description} onChange={e => setProgForm(f => ({ ...f, description: e.target.value }))} placeholder={"# Titre du programme\n\nParagraphe de présentation...\n\n## Déroulement du programme\n\n- premier point\n- deuxième point"} />
-                  <p className="text-[11px] text-muted-foreground">Mise en forme <strong>Markdown</strong> : <code>#</code> / <code>##</code> pour les titres, <code>-</code> pour les puces, <code>**gras**</code>. Le rendu structuré s'affiche sur le formulaire public.</p>
+                  <Label>Description <span className="text-muted-foreground font-normal">(interne — non visible par les candidats)</span></Label>
+                  <Textarea rows={3} value={progForm.description} onChange={e => setProgForm(f => ({ ...f, description: e.target.value }))} placeholder="Notes internes sur le programme (objet, contexte, périmètre…)" />
+                  <p className="text-[11px] text-muted-foreground">La présentation vue par les candidats se règle dans <strong>Formulaire → Présentation de l'appel</strong>.</p>
                 </div>
                 <div className="space-y-1.5 pt-1">
                   <Label>Logo en-tête <span className="text-muted-foreground font-normal">(optionnel — haut du formulaire public)</span></Label>

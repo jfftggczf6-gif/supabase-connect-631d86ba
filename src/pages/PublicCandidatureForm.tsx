@@ -257,11 +257,11 @@ export default function PublicCandidatureForm() {
           )}
         </div>
 
-        {/* Présentation du programme — structure interprétée (titres, paragraphes, listes) */}
-        {programme.description && (
+        {/* Présentation PUBLIQUE du formulaire (form_presentation) — distincte de la description interne. */}
+        {(programme.form_presentation || programme.description) && (
           <Card className="mb-6">
             <CardContent className="p-6">
-              <Markdown>{programme.description}</Markdown>
+              <Markdown>{programme.form_presentation || programme.description}</Markdown>
             </CardContent>
           </Card>
         )}
