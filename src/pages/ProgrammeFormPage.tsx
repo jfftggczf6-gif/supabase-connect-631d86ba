@@ -35,6 +35,18 @@ interface FormField {
   options?: string[];
 }
 
+// Types de champ proposés (libellés FR), partagés par l'ajout et l'édition en ligne.
+const FIELD_TYPE_OPTIONS: { value: FormField['type']; label: string }[] = [
+  { value: 'text', label: 'Texte court' },
+  { value: 'textarea', label: 'Texte long' },
+  { value: 'number', label: 'Nombre' },
+  { value: 'date', label: 'Date' },
+  { value: 'radio', label: 'Choix unique (une réponse)' },
+  { value: 'checkbox', label: 'Choix multiples (plusieurs réponses)' },
+  { value: 'select', label: 'Liste déroulante (une réponse)' },
+  { value: 'file', label: 'Fichier' },
+];
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -125,6 +137,8 @@ export default function ProgrammeFormPage() {
 
   const removeField = (fid: string) => setFormFields(f => f.filter(ff => ff.id !== fid));
   const toggleFieldRequired = (fid: string) => setFormFields(f => f.map(ff => ff.id === fid ? { ...ff, required: !ff.required } : ff));
+  const updateFieldLabel = (fid: string, label: string) => setFormFields(f => f.map(ff => ff.id === fid ? { ...ff, label } : ff));
+  const updateFieldType = (fid: string, type: FormField['type']) => setFormFields(f => f.map(ff => ff.id === fid ? { ...ff, type } : ff));
 
   const handleFileUpload = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -345,16 +359,28 @@ export default function ProgrammeFormPage() {
               {formFields.map(f => (
                 <div key={f.id} className="space-y-1">
                   <div className="flex items-center gap-2 p-2 border rounded-md">
-                    <span className="text-sm flex-1">{f.label}</span>
-                    <Badge variant="outline" className="text-[10px]">{f.type}</Badge>
+                    <Input
+                      value={f.label}
+                      onChange={e => updateFieldLabel(f.id, e.target.value)}
+                      placeholder="Libellé de la question"
+                      className="flex-1 h-8 text-sm"
+                    />
+                    <Select value={f.type} onValueChange={v => updateFieldType(f.id, v as FormField['type'])}>
+                      <SelectTrigger className="w-[190px] h-8 text-xs shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {FIELD_TYPE_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Badge
                       variant={f.required ? 'default' : 'outline'}
-                      className="cursor-pointer text-[10px]"
+                      className="cursor-pointer text-[10px] shrink-0"
                       onClick={() => toggleFieldRequired(f.id)}
                     >
                       {f.required ? 'Obligatoire' : 'Optionnel'}
                     </Badge>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeField(f.id)}>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => removeField(f.id)}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
@@ -383,14 +409,9 @@ export default function ProgrammeFormPage() {
                 <Select value={newFieldType} onValueChange={v => setNewFieldType(v as FormField['type'])}>
                   <SelectTrigger className="w-[210px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="text">Texte court</SelectItem>
-                    <SelectItem value="textarea">Texte long</SelectItem>
-                    <SelectItem value="number">Nombre</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="radio">Choix unique (une réponse)</SelectItem>
-                    <SelectItem value="checkbox">Choix multiples (plusieurs réponses)</SelectItem>
-                    <SelectItem value="select">Liste déroulante (une réponse)</SelectItem>
-                    <SelectItem value="file">Fichier</SelectItem>
+                    {FIELD_TYPE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Button variant="outline" onClick={addField}><Plus className="h-4 w-4" /></Button>
