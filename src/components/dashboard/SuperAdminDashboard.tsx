@@ -28,6 +28,7 @@ import CostTrackingTab from './CostTrackingTab';
 import { useTranslation } from 'react-i18next';
 import { PIPELINE } from '@/lib/dashboard-config';
 import { getInvitableRoles } from '@/lib/roles';
+import { extractEdgeError } from '@/lib/edge-error';
 import ProgrammePicker from '@/components/programmes/ProgrammePicker';
 import EntrepreneurDashboard from './EntrepreneurDashboard';
 import CoachDashboard from './CoachDashboard';
@@ -652,8 +653,9 @@ export default function SuperAdminDashboard() {
                     body: { action: 'create_user', ...newUser },
                   });
                   setCreatingUser(false);
-                  if (error || data?.error) {
-                    toast({ title: 'Erreur', description: data?.error || error?.message, variant: 'destructive' });
+                  const errMsg = await extractEdgeError(error, data);
+                  if (errMsg) {
+                    toast({ title: 'Erreur', description: errMsg, variant: 'destructive' });
                   } else {
                     const org = organizations.find(o => o.id === newUser.organization_id);
                     const orgPart = data?.membership && org ? ` · rattaché à ${org.name} (${newUser.org_role})` : '';
