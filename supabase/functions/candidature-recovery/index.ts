@@ -1,13 +1,16 @@
-// candidature-recovery — gestion des liens de rattrapage pour les candidatures
-// dont les fichiers ont été perdus (cas FoodSen — uploads échoués silencieusement).
+// candidature-recovery — liens de complétion de dossier : un candidat peut
+// (re)déposer les documents demandés (formulaire + sur-mesure) et des pièces
+// supplémentaires, via un lien sécurisé à usage unique (7 jours).
 //
 // Actions :
-//   - "generate"     : super_admin uniquement. Crée un token + 7j d'expiration. Renvoie l'URL.
-//   - "info"         : public. Vérifie le token et renvoie les infos minimales.
-//   - "upload_url"   : public + token. Crée une signed upload URL pour un fichier donné.
-//                      Évite d'avoir à autoriser les uploads anon directs (RLS bypass via service_role).
-//   - "submit"       : public. Reçoit la liste des nouveaux storage_paths et met à jour documents[].
-//                      Marque le token comme utilisé (recovery_used_at).
+//   - "generate"   : super_admin OU chef_programme propriétaire. Crée un token +
+//                    7j d'expiration, stocke les demandes sur-mesure, renvoie l'URL
+//                    et les infos candidat (pour l'email).
+//   - "info"        : public + token. Renvoie la checklist (docs formulaire +
+//                     sur-mesure + déjà fournis).
+//   - "upload_url"  : public + token. Crée une signed upload URL pour un fichier.
+//   - "submit"      : public + token. Reçoit la liste FUSIONNÉE des documents et
+//                     met à jour documents[]. Marque le token comme utilisé.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -41,7 +44,10 @@ serve(async (req: Request) => {
     const action = body.action as 'generate' | 'info' | 'submit';
 
     // ───────────────────────────────────────────────────────────────────────
-    // ACTION : generate (super_admin only)
+    // ACTION : generate
+    // Autorisé au super_admin (global) OU au chef_programme propriétaire du
+    // programme de la candidature — même modèle d'auth que update-candidature
+    // (boutons Pré-sélectionner / Sélectionner / Rejeter du même drawer).
     // ───────────────────────────────────────────────────────────────────────
     if (action === 'generate') {
       const authHeader = req.headers.get("Authorization");
@@ -53,15 +59,33 @@ serve(async (req: Request) => {
       const { data: { user } } = await userClient.auth.getUser();
       if (!user) return jsonRes({ error: "Non authentifié" }, 401);
 
-      // Vérifie que c'est un super_admin
-      const { data: roleData } = await adminClient
-        .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      if (roleData?.role !== 'super_admin') {
-        return jsonRes({ error: "Réservé au super admin" }, 403);
-      }
-
       const candidatureId = body.candidature_id as string;
       if (!candidatureId) return jsonRes({ error: "candidature_id requis" }, 400);
+
+      // Demandes de documents sur-mesure (libellés saisis par le chef pour CE candidat)
+      const requestedDocs: string[] = Array.isArray(body.requested_docs)
+        ? body.requested_docs.map((s: any) => String(s).trim()).filter(Boolean).slice(0, 30)
+        : [];
+
+      // Rôle applicatif
+      const { data: roleData } = await adminClient
+        .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+      const isAdmin = roleData?.role === 'super_admin';
+      const isChef = roleData?.role === 'chef_programme';
+      if (!isAdmin && !isChef) return jsonRes({ error: "Accès refusé" }, 403);
+
+      // Charge la candidature + son programme (pour l'ownership chef + l'email)
+      const { data: cand } = await adminClient
+        .from("candidatures")
+        .select("id, company_name, contact_name, contact_email, programmes:programme_id(name, chef_programme_id)")
+        .eq("id", candidatureId)
+        .maybeSingle();
+      if (!cand) return jsonRes({ error: "Candidature non trouvée" }, 404);
+
+      const programme = cand.programmes as any;
+      if (isChef && !isAdmin && programme?.chef_programme_id !== user.id) {
+        return jsonRes({ error: "Accès refusé à ce programme" }, 403);
+      }
 
       // Génère le token + 7 jours d'expiration
       const token = generateToken();
@@ -73,6 +97,7 @@ serve(async (req: Request) => {
           recovery_token: token,
           recovery_expires_at: expiresAt,
           recovery_used_at: null, // reset si on régénère
+          recovery_requested_docs: requestedDocs,
         })
         .eq("id", candidatureId);
       if (updErr) return jsonRes({ error: updErr.message }, 500);
@@ -85,7 +110,16 @@ serve(async (req: Request) => {
         || 'https://esono.tech';
       const recoveryUrl = `${origin}/candidature/recovery/${token}`;
 
-      return jsonRes({ success: true, token, recovery_url: recoveryUrl, expires_at: expiresAt });
+      return jsonRes({
+        success: true,
+        token,
+        recovery_url: recoveryUrl,
+        expires_at: expiresAt,
+        contact_email: cand.contact_email,
+        contact_name: cand.contact_name,
+        company_name: cand.company_name,
+        programme_name: programme?.name || null,
+      });
     }
 
     // ───────────────────────────────────────────────────────────────────────
@@ -97,7 +131,7 @@ serve(async (req: Request) => {
 
       const { data: cand } = await adminClient
         .from("candidatures")
-        .select("id, company_name, contact_name, contact_email, documents, recovery_expires_at, recovery_used_at, programmes:programme_id(name)")
+        .select("id, company_name, contact_name, contact_email, documents, recovery_requested_docs, recovery_expires_at, recovery_used_at, programmes:programme_id(name, form_fields)")
         .eq("recovery_token", token)
         .maybeSingle();
 
@@ -107,13 +141,28 @@ serve(async (req: Request) => {
         return jsonRes({ error: "Ce lien a expiré. Demande un nouveau lien à ton chef de programme." }, 410);
       }
 
-      // On retourne juste ce dont la page recovery a besoin (pas d'infos sensibles)
-      const expectedFiles = Array.isArray(cand.documents)
+      // Documents déjà attachés (on renvoie storage_path : la page renverra la
+      // liste FUSIONNÉE complète à la soumission, sans perdre l'existant).
+      const existingDocuments = Array.isArray(cand.documents)
         ? (cand.documents as any[]).map((d: any) => ({
             field_label: d.field_label,
             file_name: d.file_name,
-            file_size: d.file_size,
+            file_size: d.file_size ?? null,
+            storage_path: d.storage_path,
           }))
+        : [];
+
+      // Pièces demandées par le formulaire du programme (champs de type "file").
+      const formFields = Array.isArray((cand.programmes as any)?.form_fields)
+        ? (cand.programmes as any).form_fields
+        : [];
+      const formFileLabels = formFields
+        .filter((f: any) => f?.type === 'file' && f?.label)
+        .map((f: any) => String(f.label));
+
+      // Pièces demandées sur-mesure par le chef pour CE candidat.
+      const customRequestedLabels = Array.isArray(cand.recovery_requested_docs)
+        ? (cand.recovery_requested_docs as any[]).map((s: any) => String(s))
         : [];
 
       return jsonRes({
@@ -122,7 +171,11 @@ serve(async (req: Request) => {
         company_name: cand.company_name,
         contact_name: cand.contact_name,
         programme_name: (cand.programmes as any)?.name || null,
-        expected_files: expectedFiles,
+        form_file_labels: formFileLabels,
+        custom_requested_labels: customRequestedLabels,
+        existing_documents: existingDocuments,
+        // Rétro-compat : ancienne page recovery
+        expected_files: existingDocuments.map(({ field_label, file_name, file_size }) => ({ field_label, file_name, file_size })),
         expires_at: cand.recovery_expires_at,
       });
     }
@@ -196,9 +249,14 @@ serve(async (req: Request) => {
         return jsonRes({ error: "Ce lien a expiré" }, 410);
       }
 
-      // Validation des storage_paths : doivent être dans candidature-documents/
+      // Validation des storage_paths : doivent pointer vers un bucket candidature
+      // connu. On accepte les documents fraîchement uploadés (candidature-documents/)
+      // ET les documents existants re-renvoyés par la page de complétion, qui
+      // peuvent dater d'un bucket historique (candidature_uploads/).
+      const ALLOWED_BUCKETS = ['candidature-documents/', 'candidature_uploads/'];
       for (const doc of newDocuments) {
-        if (!doc.storage_path || !String(doc.storage_path).startsWith('candidature-documents/')) {
+        const path = String(doc.storage_path || '');
+        if (!ALLOWED_BUCKETS.some(b => path.startsWith(b))) {
           return jsonRes({ error: `Chemin invalide pour ${doc.file_name}` }, 400);
         }
         if (!doc.field_label || !doc.file_name) {

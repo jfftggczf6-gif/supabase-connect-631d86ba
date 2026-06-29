@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, Building2, TrendingUp, Users, Target, ShieldAlert, BarChart3, Briefcase } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, Building2, TrendingUp, Users, Target, ShieldAlert, BarChart3, Briefcase, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import CompletionLinkDialog from './CompletionLinkDialog';
 
 interface Props {
   candidatureId: string | null;
@@ -40,6 +41,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   const [selectedCoach, setSelectedCoach] = useState('');
   const [saving, setSaving] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showCompletionLink, setShowCompletionLink] = useState(false);
 
   useEffect(() => {
     if (!candidatureId || !open) { setDetail(null); setShowMore(false); return; }
@@ -102,6 +104,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   const hasEnrichedData = fiche || indFin || marche || equipe || impact || besoin || risques.length > 0 || traction || benchmark;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
@@ -185,6 +188,10 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   </Button>
                 ) : (
                   <>
+                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowCompletionLink(true)} disabled={saving} title="Envoyer au candidat un lien pour re-déposer ses documents">
+                      <Mail className="h-3.5 w-3.5" />
+                      Lien pour compléter
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
                     <Button size="sm" onClick={() => updateCandidature('move', { new_status: 'selected' })} disabled={saving}>{t('candidature.select')}</Button>
                     <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
@@ -768,5 +775,14 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
         ) : null}
       </DialogContent>
     </Dialog>
+
+    <CompletionLinkDialog
+      candidatureId={candidatureId}
+      contactEmail={detail?.contact_email ?? null}
+      contactName={detail?.contact_name ?? null}
+      open={showCompletionLink}
+      onOpenChange={setShowCompletionLink}
+    />
+    </>
   );
 }
