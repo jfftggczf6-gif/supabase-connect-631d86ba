@@ -1,13 +1,16 @@
-// candidature-recovery — gestion des liens de rattrapage pour les candidatures
-// dont les fichiers ont été perdus (cas FoodSen — uploads échoués silencieusement).
+// candidature-recovery — liens de complétion de dossier : un candidat peut
+// (re)déposer les documents demandés (formulaire + sur-mesure) et des pièces
+// supplémentaires, via un lien sécurisé à usage unique (7 jours).
 //
 // Actions :
-//   - "generate"     : super_admin uniquement. Crée un token + 7j d'expiration. Renvoie l'URL.
-//   - "info"         : public. Vérifie le token et renvoie les infos minimales.
-//   - "upload_url"   : public + token. Crée une signed upload URL pour un fichier donné.
-//                      Évite d'avoir à autoriser les uploads anon directs (RLS bypass via service_role).
-//   - "submit"       : public. Reçoit la liste des nouveaux storage_paths et met à jour documents[].
-//                      Marque le token comme utilisé (recovery_used_at).
+//   - "generate"   : super_admin OU chef_programme propriétaire. Crée un token +
+//                    7j d'expiration, stocke les demandes sur-mesure, renvoie l'URL
+//                    et les infos candidat (pour l'email).
+//   - "info"        : public + token. Renvoie la checklist (docs formulaire +
+//                     sur-mesure + déjà fournis).
+//   - "upload_url"  : public + token. Crée une signed upload URL pour un fichier.
+//   - "submit"      : public + token. Reçoit la liste FUSIONNÉE des documents et
+//                     met à jour documents[]. Marque le token comme utilisé.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
