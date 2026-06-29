@@ -41,7 +41,10 @@ serve(async (req: Request) => {
     const action = body.action as 'generate' | 'info' | 'submit';
 
     // ───────────────────────────────────────────────────────────────────────
-    // ACTION : generate (super_admin only)
+    // ACTION : generate
+    // Autorisé au super_admin (global) OU au chef_programme propriétaire du
+    // programme de la candidature — même modèle d'auth que update-candidature
+    // (boutons Pré-sélectionner / Sélectionner / Rejeter du même drawer).
     // ───────────────────────────────────────────────────────────────────────
     if (action === 'generate') {
       const authHeader = req.headers.get("Authorization");
@@ -53,15 +56,28 @@ serve(async (req: Request) => {
       const { data: { user } } = await userClient.auth.getUser();
       if (!user) return jsonRes({ error: "Non authentifié" }, 401);
 
-      // Vérifie que c'est un super_admin
-      const { data: roleData } = await adminClient
-        .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      if (roleData?.role !== 'super_admin') {
-        return jsonRes({ error: "Réservé au super admin" }, 403);
-      }
-
       const candidatureId = body.candidature_id as string;
       if (!candidatureId) return jsonRes({ error: "candidature_id requis" }, 400);
+
+      // Rôle applicatif
+      const { data: roleData } = await adminClient
+        .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+      const isAdmin = roleData?.role === 'super_admin';
+      const isChef = roleData?.role === 'chef_programme';
+      if (!isAdmin && !isChef) return jsonRes({ error: "Accès refusé" }, 403);
+
+      // Charge la candidature + son programme (pour l'ownership chef + l'email)
+      const { data: cand } = await adminClient
+        .from("candidatures")
+        .select("id, company_name, contact_name, contact_email, programmes:programme_id(name, chef_programme_id)")
+        .eq("id", candidatureId)
+        .maybeSingle();
+      if (!cand) return jsonRes({ error: "Candidature non trouvée" }, 404);
+
+      const programme = cand.programmes as any;
+      if (isChef && !isAdmin && programme?.chef_programme_id !== user.id) {
+        return jsonRes({ error: "Accès refusé à ce programme" }, 403);
+      }
 
       // Génère le token + 7 jours d'expiration
       const token = generateToken();
@@ -85,7 +101,16 @@ serve(async (req: Request) => {
         || 'https://esono.tech';
       const recoveryUrl = `${origin}/candidature/recovery/${token}`;
 
-      return jsonRes({ success: true, token, recovery_url: recoveryUrl, expires_at: expiresAt });
+      return jsonRes({
+        success: true,
+        token,
+        recovery_url: recoveryUrl,
+        expires_at: expiresAt,
+        contact_email: cand.contact_email,
+        contact_name: cand.contact_name,
+        company_name: cand.company_name,
+        programme_name: programme?.name || null,
+      });
     }
 
     // ───────────────────────────────────────────────────────────────────────
