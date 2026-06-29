@@ -59,6 +59,11 @@ serve(async (req: Request) => {
       const candidatureId = body.candidature_id as string;
       if (!candidatureId) return jsonRes({ error: "candidature_id requis" }, 400);
 
+      // Demandes de documents sur-mesure (libellés saisis par le chef pour CE candidat)
+      const requestedDocs: string[] = Array.isArray(body.requested_docs)
+        ? body.requested_docs.map((s: any) => String(s).trim()).filter(Boolean).slice(0, 30)
+        : [];
+
       // Rôle applicatif
       const { data: roleData } = await adminClient
         .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
@@ -89,6 +94,7 @@ serve(async (req: Request) => {
           recovery_token: token,
           recovery_expires_at: expiresAt,
           recovery_used_at: null, // reset si on régénère
+          recovery_requested_docs: requestedDocs,
         })
         .eq("id", candidatureId);
       if (updErr) return jsonRes({ error: updErr.message }, 500);
@@ -122,7 +128,7 @@ serve(async (req: Request) => {
 
       const { data: cand } = await adminClient
         .from("candidatures")
-        .select("id, company_name, contact_name, contact_email, documents, recovery_expires_at, recovery_used_at, programmes:programme_id(name)")
+        .select("id, company_name, contact_name, contact_email, documents, recovery_requested_docs, recovery_expires_at, recovery_used_at, programmes:programme_id(name, form_fields)")
         .eq("recovery_token", token)
         .maybeSingle();
 
@@ -132,13 +138,28 @@ serve(async (req: Request) => {
         return jsonRes({ error: "Ce lien a expiré. Demande un nouveau lien à ton chef de programme." }, 410);
       }
 
-      // On retourne juste ce dont la page recovery a besoin (pas d'infos sensibles)
-      const expectedFiles = Array.isArray(cand.documents)
+      // Documents déjà attachés (on renvoie storage_path : la page renverra la
+      // liste FUSIONNÉE complète à la soumission, sans perdre l'existant).
+      const existingDocuments = Array.isArray(cand.documents)
         ? (cand.documents as any[]).map((d: any) => ({
             field_label: d.field_label,
             file_name: d.file_name,
-            file_size: d.file_size,
+            file_size: d.file_size ?? null,
+            storage_path: d.storage_path,
           }))
+        : [];
+
+      // Pièces demandées par le formulaire du programme (champs de type "file").
+      const formFields = Array.isArray((cand.programmes as any)?.form_fields)
+        ? (cand.programmes as any).form_fields
+        : [];
+      const formFileLabels = formFields
+        .filter((f: any) => f?.type === 'file' && f?.label)
+        .map((f: any) => String(f.label));
+
+      // Pièces demandées sur-mesure par le chef pour CE candidat.
+      const customRequestedLabels = Array.isArray(cand.recovery_requested_docs)
+        ? (cand.recovery_requested_docs as any[]).map((s: any) => String(s))
         : [];
 
       return jsonRes({
@@ -147,7 +168,11 @@ serve(async (req: Request) => {
         company_name: cand.company_name,
         contact_name: cand.contact_name,
         programme_name: (cand.programmes as any)?.name || null,
-        expected_files: expectedFiles,
+        form_file_labels: formFileLabels,
+        custom_requested_labels: customRequestedLabels,
+        existing_documents: existingDocuments,
+        // Rétro-compat : ancienne page recovery
+        expected_files: existingDocuments.map(({ field_label, file_name, file_size }) => ({ field_label, file_name, file_size })),
         expires_at: cand.recovery_expires_at,
       });
     }
@@ -221,9 +246,14 @@ serve(async (req: Request) => {
         return jsonRes({ error: "Ce lien a expiré" }, 410);
       }
 
-      // Validation des storage_paths : doivent être dans candidature-documents/
+      // Validation des storage_paths : doivent pointer vers un bucket candidature
+      // connu. On accepte les documents fraîchement uploadés (candidature-documents/)
+      // ET les documents existants re-renvoyés par la page de complétion, qui
+      // peuvent dater d'un bucket historique (candidature_uploads/).
+      const ALLOWED_BUCKETS = ['candidature-documents/', 'candidature_uploads/'];
       for (const doc of newDocuments) {
-        if (!doc.storage_path || !String(doc.storage_path).startsWith('candidature-documents/')) {
+        const path = String(doc.storage_path || '');
+        if (!ALLOWED_BUCKETS.some(b => path.startsWith(b))) {
           return jsonRes({ error: `Chemin invalide pour ${doc.file_name}` }, 400);
         }
         if (!doc.field_label || !doc.file_name) {

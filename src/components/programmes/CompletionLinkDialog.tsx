@@ -10,11 +10,12 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, Copy, CheckCircle2, Mail, AlertTriangle } from 'lucide-react';
+import { Loader2, Send, Copy, CheckCircle2, Mail, AlertTriangle, Plus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { extractEdgeError } from '@/lib/edge-error';
 import { buildCompletionEmail } from '@/lib/completion-email';
+import { COMMON_REQUESTED_DOCUMENTS } from '@/lib/common-documents';
 
 interface Props {
   candidatureId: string | null;
@@ -29,8 +30,24 @@ export default function CompletionLinkDialog({ candidatureId, contactEmail, cont
   const [link, setLink] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [requested, setRequested] = useState<string[]>([]);
+  const [customInput, setCustomInput] = useState('');
 
-  const reset = () => { setLink(null); setEmailSent(false); setCopied(false); setSending(false); };
+  const reset = () => {
+    setLink(null); setEmailSent(false); setCopied(false); setSending(false);
+    setRequested([]); setCustomInput('');
+  };
+
+  const toggleDoc = (label: string) =>
+    setRequested(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]);
+
+  const addCustom = () => {
+    const l = customInput.trim();
+    if (l && !requested.includes(l)) setRequested(prev => [...prev, l]);
+    setCustomInput('');
+  };
+
+  const customSelected = requested.filter(l => !COMMON_REQUESTED_DOCUMENTS.includes(l));
 
   const handleClose = (o: boolean) => {
     if (!o) reset();
@@ -43,7 +60,7 @@ export default function CompletionLinkDialog({ candidatureId, contactEmail, cont
 
     // 1. Génère le lien (permission vérifiée côté EF)
     const { data, error } = await supabase.functions.invoke('candidature-recovery', {
-      body: { action: 'generate', candidature_id: candidatureId, origin: window.location.origin },
+      body: { action: 'generate', candidature_id: candidatureId, origin: window.location.origin, requested_docs: requested },
     });
     const errMsg = await extractEdgeError(error, data);
     if (errMsg || !data?.recovery_url) {
@@ -115,6 +132,55 @@ export default function CompletionLinkDialog({ candidatureId, contactEmail, cont
                 <span>Aucun email candidat connu — le lien sera juste affiché pour copie.</span>
               </p>
             )}
+
+            {/* Documents à demander en plus du formulaire */}
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-medium">Documents à demander en plus (optionnel)</p>
+              <p className="text-[11px] text-muted-foreground">
+                Les documents déjà demandés par le formulaire sont inclus automatiquement.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {COMMON_REQUESTED_DOCUMENTS.map(d => {
+                  const on = requested.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleDoc(d)}
+                      className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
+                        on ? 'bg-violet-600 text-white border-violet-600' : 'bg-background hover:bg-muted border-input'
+                      }`}
+                    >
+                      {on ? '✓ ' : '+ '}{d}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={customInput}
+                  onChange={e => setCustomInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
+                  placeholder="Autre document…"
+                  className="text-xs h-8"
+                />
+                <Button type="button" size="sm" variant="outline" onClick={addCustom} disabled={!customInput.trim()} className="gap-1">
+                  <Plus className="h-3.5 w-3.5" /> Ajouter
+                </Button>
+              </div>
+              {customSelected.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {customSelected.map(l => (
+                    <span key={l} className="inline-flex items-center gap-1 text-xs rounded-full bg-violet-100 text-violet-800 px-2.5 py-1">
+                      {l}
+                      <button type="button" onClick={() => toggleDoc(l)} className="hover:text-violet-950">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-3 text-sm">

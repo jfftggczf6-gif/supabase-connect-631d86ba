@@ -1,67 +1,40 @@
-// CandidatureRecovery — page publique de rattrapage des fichiers de candidature.
-// Drag & drop global : le candidat dépose tous ses fichiers d'un coup, le code
-// matche automatiquement les noms avec la liste des fichiers attendus pour
-// retrouver le field_label original. Les fichiers non matchés sont taggés
-// "Document supplémentaire".
-import { useEffect, useState, useRef } from 'react';
+// CandidatureRecovery — page publique de complétion du dossier de candidature.
+//
+// Le candidat voit une checklist structurée :
+//   1. Documents demandés (champs "document" du formulaire + demandes sur-mesure
+//      du chef de programme), avec statut fourni / manquant et upload par pièce.
+//   2. Documents supplémentaires libres (drag & drop).
+//
+// À la soumission, la liste FUSIONNÉE (existant + nouveaux) est renvoyée :
+// les documents déjà fournis ne sont jamais perdus (voir mergeDocuments).
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Upload, CheckCircle2, AlertTriangle, FileText, Send, X } from 'lucide-react';
+import { Loader2, Upload, CheckCircle2, AlertTriangle, FileText, Send, X, Paperclip } from 'lucide-react';
+import { mergeDocuments, FREE_DOC_LABEL, type CandidatureDoc } from '@/lib/merge-documents';
+import { buildRequestedDocuments } from '@/lib/requested-documents';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-interface ExpectedFile {
-  field_label: string;
-  file_name: string;
-  file_size: number | null;
-}
 
 interface RecoveryInfo {
   candidature_id: string;
   company_name: string;
   contact_name: string | null;
   programme_name: string | null;
-  expected_files: ExpectedFile[];
+  form_file_labels: string[];
+  custom_requested_labels: string[];
+  existing_documents: CandidatureDoc[];
   expires_at: string | null;
 }
 
-interface DroppedFile {
-  file: File;
-  matched: ExpectedFile | null;
-}
-
-// Normalize un nom de fichier pour comparaison : lowercase, retire extension,
-// remplace _- par espace, retire ponctuation. Conserve les mots > 2 lettres.
-function normalize(s: string): Set<string> {
-  const cleaned = s.toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // retire les accents
-    .replace(/\.[^.]+$/, '')                   // retire l'extension
-    .replace(/[_\-]/g, ' ')
-    .replace(/[^\w\s]/g, ' ')
-    .trim();
-  return new Set(cleaned.split(/\s+/).filter(w => w.length > 2));
-}
-
-// Match un fichier droppé avec un des fichiers attendus.
-// Score : nombre de mots communs / total mots distincts. Match si >= 50%.
-function matchFileToExpected(fileName: string, expected: ExpectedFile[]): ExpectedFile | null {
-  const fileWords = normalize(fileName);
-  if (fileWords.size === 0) return null;
-
-  let best: { exp: ExpectedFile; score: number } | null = null;
-  for (const exp of expected) {
-    const expWords = normalize(exp.file_name);
-    if (expWords.size === 0) continue;
-    const common = [...fileWords].filter(w => expWords.has(w)).length;
-    const total = new Set([...fileWords, ...expWords]).size;
-    const score = total > 0 ? common / total : 0;
-    if (score >= 0.5 && (!best || score > best.score)) {
-      best = { exp, score };
-    }
-  }
-  return best?.exp ?? null;
+function api(body: Record<string, unknown>) {
+  return fetch(`${SUPABASE_URL}/functions/v1/candidature-recovery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify(body),
+  });
 }
 
 export default function CandidatureRecovery() {
@@ -70,22 +43,22 @@ export default function CandidatureRecovery() {
   const [info, setInfo] = useState<RecoveryInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
+  // Un fichier sélectionné par pièce demandée (clé = libellé du slot).
+  const [slotFiles, setSlotFiles] = useState<Record<string, File>>({});
+  // Documents supplémentaires libres.
+  const [freeFiles, setFreeFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const slotInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const freeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!token) { setError('Lien invalide'); setLoading(false); return; }
     (async () => {
       try {
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/candidature-recovery`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-          body: JSON.stringify({ action: 'info', token }),
-        });
+        const resp = await api({ action: 'info', token });
         const data = await resp.json();
         if (!resp.ok) { setError(data.error || 'Lien invalide'); setLoading(false); return; }
         setInfo(data);
@@ -96,68 +69,52 @@ export default function CandidatureRecovery() {
     })();
   }, [token]);
 
-  const addFiles = (newFiles: File[]) => {
-    if (!info) return;
-    const enriched: DroppedFile[] = newFiles.map(file => ({
-      file,
-      matched: matchFileToExpected(file.name, info.expected_files),
-    }));
-    setDroppedFiles(prev => [...prev, ...enriched]);
+  const requested = info
+    ? buildRequestedDocuments({
+        formFileLabels: info.form_file_labels || [],
+        customLabels: info.custom_requested_labels || [],
+        existingDocs: info.existing_documents || [],
+      })
+    : [];
+
+  const setSlotFile = (label: string, file: File | null) => {
+    setSlotFiles(prev => {
+      const next = { ...prev };
+      if (file) next[label] = file; else delete next[label];
+      return next;
+    });
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) addFiles(files);
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) addFiles(files);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeFile = (index: number) => {
-    setDroppedFiles(prev => prev.filter((_, i) => i !== index));
-  };
+  const addFreeFiles = (files: File[]) => setFreeFiles(prev => [...prev, ...files]);
 
   const handleSubmit = async () => {
-    if (!info || !token || droppedFiles.length === 0) return;
+    if (!info || !token) return;
+    const staged: { label: string; file: File }[] = [
+      ...Object.entries(slotFiles).map(([label, file]) => ({ label, file })),
+      ...freeFiles.map(file => ({ label: FREE_DOC_LABEL, file })),
+    ];
+    if (staged.length === 0) return;
+
     setUploading(true);
     setError(null);
-
     try {
-      const newDocuments: any[] = [];
+      const newDocs: CandidatureDoc[] = [];
       const failedUploads: string[] = [];
 
-      for (const dropped of droppedFiles) {
-        const file = dropped.file;
-        // 1. Demande signed URL
-        const urlRes = await fetch(`${SUPABASE_URL}/functions/v1/candidature-recovery`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-          body: JSON.stringify({ action: 'upload_url', token, filename: file.name }),
-        });
+      for (const { label, file } of staged) {
+        const urlRes = await api({ action: 'upload_url', token, filename: file.name });
         const urlData = await urlRes.json();
-        if (!urlRes.ok || !urlData.signed_url) {
-          failedUploads.push(file.name);
-          continue;
-        }
+        if (!urlRes.ok || !urlData.signed_url) { failedUploads.push(file.name); continue; }
 
-        // 2. PUT sur signed URL
         const putRes = await fetch(urlData.signed_url, {
           method: 'PUT',
           headers: { 'Content-Type': file.type || 'application/octet-stream' },
           body: file,
         });
-        if (!putRes.ok) {
-          failedUploads.push(file.name);
-          continue;
-        }
+        if (!putRes.ok) { failedUploads.push(file.name); continue; }
 
-        newDocuments.push({
-          field_label: dropped.matched?.field_label || 'Document supplémentaire',
+        newDocs.push({
+          field_label: label,
           file_name: file.name,
           file_size: file.size,
           storage_path: urlData.storage_path,
@@ -170,14 +127,13 @@ export default function CandidatureRecovery() {
         return;
       }
 
-      const submitRes = await fetch(`${SUPABASE_URL}/functions/v1/candidature-recovery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-        body: JSON.stringify({ action: 'submit', token, documents: newDocuments }),
-      });
+      // Fusion avec l'existant → on ne perd jamais les documents déjà fournis.
+      const finalDocs = mergeDocuments(info.existing_documents || [], newDocs);
+
+      const submitRes = await api({ action: 'submit', token, documents: finalDocs });
       const data = await submitRes.json();
       if (!submitRes.ok) {
-        setError(data.error || 'Erreur lors de l\'enregistrement');
+        setError(data.error || "Erreur lors de l'enregistrement");
         setUploading(false);
         return;
       }
@@ -219,10 +175,10 @@ export default function CandidatureRecovery() {
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center space-y-3">
             <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
-            <h1 className="text-xl font-semibold">Documents enregistrés ✓</h1>
+            <h1 className="text-xl font-semibold">Dossier complété ✓</h1>
             <p className="text-sm text-muted-foreground">
-              Merci ! Tes pièces justificatives ont été correctement transmises et sont
-              maintenant attachées à ta candidature.
+              Merci ! Tes documents ont bien été transmis et sont maintenant
+              attachés à ta candidature.
             </p>
           </CardContent>
         </Card>
@@ -230,9 +186,7 @@ export default function CandidatureRecovery() {
     );
   }
 
-  const matchedCount = droppedFiles.filter(d => d.matched).length;
-  const unmatchedCount = droppedFiles.length - matchedCount;
-  const expectedCount = info?.expected_files.length ?? 0;
+  const stagedCount = Object.keys(slotFiles).length + freeFiles.length;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -241,105 +195,119 @@ export default function CandidatureRecovery() {
           <CardContent className="p-6 space-y-2">
             <div className="flex items-center gap-2">
               <Upload className="h-5 w-5 text-violet-600" />
-              <h1 className="text-xl font-semibold">Renvoi de tes pièces justificatives</h1>
+              <h1 className="text-xl font-semibold">Compléter mon dossier</h1>
             </div>
             <p className="text-sm text-muted-foreground">
-              Merci de renvoyer les pièces justificatives ci-dessous.
+              {info?.company_name ? <>Candidature de <strong>{info.company_name}</strong>. </> : null}
+              Merci de déposer les documents demandés ci-dessous.
             </p>
             {info?.expires_at && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
                 ⏳ Ce lien expire le {new Date(info.expires_at).toLocaleDateString('fr-FR')} à {new Date(info.expires_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
-            {expectedCount > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {expectedCount} fichier{expectedCount > 1 ? 's' : ''} attendu{expectedCount > 1 ? 's' : ''} (à la première soumission). Tu peux en envoyer plus ou moins.
-              </p>
-            )}
           </CardContent>
         </Card>
 
+        {/* Documents demandés (formulaire + sur-mesure) */}
+        {requested.length > 0 && (
+          <Card>
+            <CardContent className="p-6 space-y-3">
+              <h2 className="font-semibold text-sm">Documents demandés</h2>
+              <ul className="space-y-2">
+                {requested.map(doc => {
+                  const staged = slotFiles[doc.label];
+                  const filled = !!staged || doc.provided;
+                  return (
+                    <li key={doc.label} className="flex items-center gap-3 border rounded-lg px-3 py-2.5">
+                      <FileText className={`h-4 w-4 shrink-0 ${filled ? 'text-emerald-500' : 'text-amber-500'}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium">{doc.label}</p>
+                          <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-muted text-muted-foreground">
+                            {doc.source === 'form' ? 'Formulaire' : 'Sur-mesure'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {staged
+                            ? `${staged.name} · ${Math.round(staged.size / 1024)} KB`
+                            : doc.provided
+                              ? `✓ Déjà fourni : ${doc.fileName}`
+                              : '⚠ Manquant'}
+                        </p>
+                      </div>
+                      <input
+                        ref={el => { slotInputRefs.current[doc.label] = el; }}
+                        type="file"
+                        className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) setSlotFile(doc.label, f); e.currentTarget.value = ''; }}
+                      />
+                      {staged ? (
+                        <button type="button" onClick={() => setSlotFile(doc.label, null)} className="text-muted-foreground hover:text-red-500 p-1">
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <Button size="sm" variant={doc.provided ? 'ghost' : 'outline'} className="shrink-0" onClick={() => slotInputRefs.current[doc.label]?.click()}>
+                          {doc.provided ? 'Remplacer' : 'Ajouter'}
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Documents supplémentaires libres */}
         <Card>
           <CardContent className="p-6 space-y-4">
-            {/* Drop zone */}
+            <h2 className="font-semibold text-sm flex items-center gap-2">
+              <Paperclip className="h-4 w-4" /> Documents supplémentaires {requested.length === 0 ? '' : '(optionnel)'}
+            </h2>
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = Array.from(e.dataTransfer.files); if (f.length) addFreeFiles(f); }}
+              onClick={() => freeInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                 isDragging ? 'border-violet-500 bg-violet-50' : 'border-muted-foreground/30 hover:border-violet-400 hover:bg-muted/30'
               }`}
             >
-              <Upload className="h-10 w-10 text-violet-600 mx-auto mb-2" />
-              <p className="font-medium">
-                {isDragging ? 'Dépose tes fichiers ici' : 'Glisse tes fichiers ici ou clique pour sélectionner'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                PDF, DOCX, XLSX, images — tous formats acceptés
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileInput}
-                className="hidden"
-              />
+              <Upload className="h-8 w-8 text-violet-600 mx-auto mb-2" />
+              <p className="text-sm font-medium">{isDragging ? 'Dépose tes fichiers ici' : 'Glisse d\'autres fichiers ici ou clique'}</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, XLSX, images — tous formats acceptés</p>
+              <input ref={freeInputRef} type="file" multiple className="hidden" onChange={(e) => { const f = Array.from(e.target.files || []); if (f.length) addFreeFiles(f); if (freeInputRef.current) freeInputRef.current.value = ''; }} />
             </div>
 
-            {/* Liste des fichiers droppés */}
-            {droppedFiles.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{droppedFiles.length} fichier{droppedFiles.length > 1 ? 's' : ''} ajouté{droppedFiles.length > 1 ? 's' : ''}</span>
-                  <span>
-                    {matchedCount > 0 && <span className="text-emerald-600">{matchedCount} ✓ reconnu{matchedCount > 1 ? 's' : ''}</span>}
-                    {unmatchedCount > 0 && <span className="text-amber-600 ml-2">{unmatchedCount} ⚠ supplémentaire{unmatchedCount > 1 ? 's' : ''}</span>}
-                  </span>
-                </div>
-                <ul className="space-y-1.5">
-                  {droppedFiles.map((d, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm bg-muted/40 rounded px-3 py-2">
-                      <FileText className={`h-4 w-4 shrink-0 ${d.matched ? 'text-emerald-500' : 'text-amber-500'}`} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">{d.file.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {d.matched
-                            ? `→ ${d.matched.field_label}`
-                            : 'Document supplémentaire (non reconnu)'}
-                          {' · '}{Math.round(d.file.size / 1024)} KB
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => removeFile(i)}
-                        type="button"
-                        className="text-muted-foreground hover:text-red-500 p-1"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {freeFiles.length > 0 && (
+              <ul className="space-y-1.5">
+                {freeFiles.map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm bg-muted/40 rounded px-3 py-2">
+                    <FileText className="h-4 w-4 shrink-0 text-violet-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{f.name}</p>
+                      <p className="text-xs text-muted-foreground">{Math.round(f.size / 1024)} KB</p>
+                    </div>
+                    <button type="button" onClick={() => setFreeFiles(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-red-500 p-1">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">
-                {error}
-              </p>
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>
             )}
 
-            <Button
-              onClick={handleSubmit}
-              disabled={droppedFiles.length === 0 || uploading}
-              className="w-full bg-violet-600 hover:bg-violet-700 gap-2"
-            >
+            <Button onClick={handleSubmit} disabled={stagedCount === 0 || uploading} className="w-full bg-violet-600 hover:bg-violet-700 gap-2">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {uploading
                 ? 'Envoi en cours...'
-                : droppedFiles.length === 0
-                  ? 'Ajoute des fichiers pour envoyer'
-                  : `Envoyer mes ${droppedFiles.length} fichier${droppedFiles.length > 1 ? 's' : ''}`}
+                : stagedCount === 0
+                  ? 'Ajoute des documents pour envoyer'
+                  : `Envoyer ${stagedCount} document${stagedCount > 1 ? 's' : ''}`}
             </Button>
           </CardContent>
         </Card>
