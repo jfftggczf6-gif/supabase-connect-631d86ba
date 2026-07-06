@@ -780,6 +780,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
       candidatureId={candidatureId}
       contactEmail={detail?.contact_email ?? null}
       contactName={detail?.contact_name ?? null}
+      companyName={detail?.company_name ?? null}
+      programmeName={detail?.programme?.name ?? null}
       open={showCompletionLink}
       onOpenChange={setShowCompletionLink}
     />
