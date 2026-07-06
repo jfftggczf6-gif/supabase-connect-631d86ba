@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Tarifs Claude Haiku 4.5 (USD / million de tokens).
+const HAIKU_IN_PER_MTOK = 1;
+const HAIKU_OUT_PER_MTOK = 5;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -12,7 +17,7 @@ serve(async (req) => {
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
 
-    const { text, target_lang } = await req.json();
+    const { text, target_lang, organization_id } = await req.json();
     if (!text || !target_lang) {
       return new Response(JSON.stringify({ error: "text and target_lang required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -67,6 +72,29 @@ ${text}`;
 
     const result = await resp.json();
     const translated = result.content?.[0]?.text || "";
+
+    // Trace obligatoire de l'appel LLM (CLAUDE.md). Non bloquant : un échec de log
+    // ne doit pas faire échouer la traduction.
+    const usage = result.usage;
+    if (usage) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (supabaseUrl && serviceKey) {
+          const supabase = createClient(supabaseUrl, serviceKey);
+          const cost = (usage.input_tokens || 0) * HAIKU_IN_PER_MTOK / 1_000_000
+            + (usage.output_tokens || 0) * HAIKU_OUT_PER_MTOK / 1_000_000;
+          await supabase.from("ai_cost_log").insert({
+            function_name: "translate-content",
+            organization_id: organization_id || null,
+            model: "claude-haiku-4-5",
+            input_tokens: usage.input_tokens || 0,
+            output_tokens: usage.output_tokens || 0,
+            cost_usd: cost,
+          });
+        }
+      } catch (_) { /* log best-effort */ }
+    }
 
     return new Response(JSON.stringify({ translated }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -36,7 +36,7 @@ serve(async (req) => {
 
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, name, description, form_presentation, organization, logo_url, partner_logos, default_fields, country_filter, sector_filter, start_date, end_date, status, form_fields, nb_places")
+      .select("id, name, description, form_presentation, organization, logo_url, partner_logos, default_fields, country_filter, sector_filter, start_date, end_date, status, form_fields, nb_places, form_base_lang, form_translations")
       .eq("form_slug", slug)
       .single();
 
@@ -86,6 +86,8 @@ serve(async (req) => {
         end_date: prog.end_date,
         form_fields: prog.form_fields || [],
         nb_places: prog.nb_places,
+        form_base_lang: prog.form_base_lang || 'fr',
+        form_translations: prog.form_translations || {},
         candidatures_count: count || 0,
       },
     });
