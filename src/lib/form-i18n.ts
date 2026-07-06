@@ -136,3 +136,105 @@ export function computeLangCompleteness(
 
   return { complete: missing.length === 0, missing };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Traduction automatique au save : découpe le contenu de base en segments
+// courts (une ligne chacun, compatible avec le format à marqueurs de
+// translate-content), puis reconstruit un objet FormLangTranslations à partir de
+// la réponse. Fonctions PURES → la partie fragile (le round-trip) est testée.
+// La présentation Markdown est découpée LIGNE par LIGNE (les lignes vides sont
+// préservées telles quelles, non traduites) pour rester dans le contrat
+// « un segment par ligne ».
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SegmentDescriptor =
+  | { kind: 'presentation'; line: number }
+  | { kind: 'field_label'; id: string }
+  | { kind: 'field_option'; id: string; value: string }
+  | { kind: 'default_label'; key: string };
+
+export interface TranslationSegment {
+  descriptor: SegmentDescriptor;
+  text: string;
+}
+
+/** Découpe la surface de base en segments traduisibles (texte non vide uniquement). */
+export function collectTranslatableSegments(surface: TranslatableSurface): TranslationSegment[] {
+  const segments: TranslationSegment[] = [];
+
+  const presLines = (surface.presentation || '').split('\n');
+  presLines.forEach((line, i) => {
+    if (norm(line)) segments.push({ descriptor: { kind: 'presentation', line: i }, text: line });
+  });
+
+  for (const f of surface.fields) {
+    if (norm(f.label)) segments.push({ descriptor: { kind: 'field_label', id: f.id }, text: f.label });
+    for (const o of f.options || []) {
+      if (norm(o)) segments.push({ descriptor: { kind: 'field_option', id: f.id, value: o }, text: o });
+    }
+  }
+
+  for (const [key, label] of Object.entries(surface.defaultOverrides || {})) {
+    if (norm(label)) segments.push({ descriptor: { kind: 'default_label', key }, text: label });
+  }
+
+  return segments;
+}
+
+/** Construit le prompt à marqueurs attendu par translate-content : « [0] …\n[1] … ». */
+export function buildMarkedPrompt(segments: TranslationSegment[]): string {
+  return segments.map((s, i) => `[${i}] ${s.text}`).join('\n');
+}
+
+/**
+ * Reconstruit FormLangTranslations depuis la réponse marquée. `surface` sert à
+ * réassembler la présentation (positions des lignes vides). Un segment sans
+ * traduction récupérable est simplement omis (le rendu retombe alors sur la base).
+ */
+export function parseMarkedResponse(
+  raw: string,
+  segments: TranslationSegment[],
+  surface: TranslatableSurface,
+): FormLangTranslations {
+  // Map index -> texte traduit
+  const byIndex = new Map<number, string>();
+  for (const rawLine of (raw || '').split('\n')) {
+    const m = rawLine.match(/^\s*\[(\d+)\]\s?(.*)$/);
+    if (m) byIndex.set(Number(m[1]), m[2]);
+  }
+
+  const out: FormLangTranslations = {};
+  const presByLine = new Map<number, string>();
+
+  segments.forEach((seg, i) => {
+    const translated = byIndex.get(i);
+    if (translated === undefined || !norm(translated)) return;
+    const d = seg.descriptor;
+    switch (d.kind) {
+      case 'presentation':
+        presByLine.set(d.line, translated);
+        break;
+      case 'field_label':
+        (out.form_fields ||= {})[d.id] = { ...(out.form_fields?.[d.id] || {}), label: translated };
+        break;
+      case 'field_option': {
+        const ff = (out.form_fields ||= {});
+        const entry = (ff[d.id] ||= {});
+        (entry.options ||= {})[d.value] = translated;
+        break;
+      }
+      case 'default_label':
+        (out.default_fields ||= {})[d.key] = translated;
+        break;
+    }
+  });
+
+  // Réassemble la présentation : ligne traduite si dispo, sinon ligne d'origine
+  // (préserve les lignes vides et la structure Markdown).
+  if (presByLine.size > 0) {
+    const original = (surface.presentation || '').split('\n');
+    out.presentation = original.map((line, i) => presByLine.get(i) ?? line).join('\n');
+  }
+
+  return out;
+}

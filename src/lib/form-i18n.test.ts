@@ -5,8 +5,12 @@ import {
   resolvePresentation,
   resolveDefaultFieldOverride,
   computeLangCompleteness,
+  collectTranslatableSegments,
+  buildMarkedPrompt,
+  parseMarkedResponse,
   type FormTranslations,
   type TranslatableField,
+  type TranslatableSurface,
 } from './form-i18n';
 
 const field: TranslatableField = {
@@ -103,5 +107,66 @@ describe('computeLangCompleteness (garde-fou anti-mélange)', () => {
     const res = computeLangCompleteness(surface, 'en', 'fr', {});
     expect(res.complete).toBe(false);
     expect(res.missing.length).toBeGreaterThanOrEqual(4); // présentation + question + 2 options + override
+  });
+});
+
+describe('traduction auto : round-trip segments <-> réponse marquée', () => {
+  const surface: TranslatableSurface = {
+    presentation: '# Appel Ghana\n\nRejoignez le programme.\n\n- point un',
+    fields: [
+      { id: 'q1', label: 'Ville du projet ?', type: 'select', options: ['Dakar', 'Thiès'] },
+      { id: 'q2', label: 'Décrivez votre activité', type: 'textarea' },
+    ],
+    defaultOverrides: { secteur: "Domaine d'activité" },
+  };
+
+  it('collecte les segments non vides, présentation découpée par ligne (lignes vides ignorées)', () => {
+    const segs = collectTranslatableSegments(surface);
+    const presSegs = segs.filter(s => s.descriptor.kind === 'presentation');
+    // 3 lignes non vides sur 5 (2 vides ignorées)
+    expect(presSegs.length).toBe(3);
+    expect(segs.some(s => s.descriptor.kind === 'field_label' && s.descriptor.id === 'q1')).toBe(true);
+    expect(segs.filter(s => s.descriptor.kind === 'field_option').length).toBe(2);
+    expect(segs.some(s => s.descriptor.kind === 'default_label')).toBe(true);
+  });
+
+  it('buildMarkedPrompt numérote les segments [0]…[N]', () => {
+    const segs = collectTranslatableSegments(surface);
+    const prompt = buildMarkedPrompt(segs);
+    expect(prompt.startsWith('[0] ')).toBe(true);
+    expect(prompt.split('\n').length).toBe(segs.length);
+  });
+
+  it('parseMarkedResponse reconstruit un FormLangTranslations complet + réassemble la présentation', () => {
+    const segs = collectTranslatableSegments(surface);
+    // Réponse simulée : on renvoie chaque marqueur avec un texte "EN:<i>"
+    const raw = segs.map((_, i) => `[${i}] EN${i}`).join('\n');
+    const tr = parseMarkedResponse(raw, segs, surface);
+    // structure
+    expect(tr.form_fields?.q1?.label).toBeTruthy();
+    expect(tr.form_fields?.q1?.options?.['Dakar']).toBeTruthy();
+    expect(tr.form_fields?.q1?.options?.['Thiès']).toBeTruthy();
+    expect(tr.form_fields?.q2?.label).toBeTruthy();
+    expect(tr.default_fields?.secteur).toBeTruthy();
+    // présentation réassemblée : même nombre de lignes que l'original (lignes vides préservées)
+    expect(tr.presentation!.split('\n').length).toBe(surface.presentation!.split('\n').length);
+    expect(tr.presentation).toContain('\n\n'); // conserve les lignes vides (structure Markdown)
+  });
+
+  it('round-trip complet → langue jugée complète par le garde-fou', () => {
+    const segs = collectTranslatableSegments(surface);
+    const raw = segs.map((_, i) => `[${i}] translated ${i}`).join('\n');
+    const tr = parseMarkedResponse(raw, segs, surface);
+    const res = computeLangCompleteness(surface, 'en', 'fr', { en: tr });
+    expect(res.complete).toBe(true);
+  });
+
+  it('réponse partielle (marqueurs manquants) → segments omis → langue incomplète (fail-safe)', () => {
+    const segs = collectTranslatableSegments(surface);
+    // On ne renvoie que le premier segment
+    const raw = `[0] only first`;
+    const tr = parseMarkedResponse(raw, segs, surface);
+    const res = computeLangCompleteness(surface, 'en', 'fr', { en: tr });
+    expect(res.complete).toBe(false);
   });
 });

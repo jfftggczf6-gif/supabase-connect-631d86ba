@@ -21,7 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Plus, X, Upload, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DefaultFieldsEditor } from '@/components/programme/DefaultFieldsEditor';
-import { mergeDefaultFields, type DefaultFieldConfig } from '@/lib/default-fields';
+import { mergeDefaultFields, DEFAULT_FIELDS, type DefaultFieldConfig } from '@/lib/default-fields';
+import { collectTranslatableSegments, buildMarkedPrompt, parseMarkedResponse, type FormTranslations, type TranslatableSurface } from '@/lib/form-i18n';
 import { SingleLogoUploader } from '@/components/programme/SingleLogoUploader';
 import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
 import type { PartnerLogo } from '@/components/programme/PartnerLogos';
@@ -88,6 +89,7 @@ export default function ProgrammeFormPage() {
   const [programme, setProgramme] = useState<any>(null);
 
   const [title, setTitle] = useState('');
+  const [formBaseLang, setFormBaseLang] = useState<'fr' | 'en'>('fr');
   const [formPresentation, setFormPresentation] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([]);
@@ -105,7 +107,7 @@ export default function ProgrammeFormPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('programmes')
-        .select('id, name, organization, status, form_slug, form_fields, default_fields, form_presentation, logo_url, partner_logos, start_date, end_date')
+        .select('id, name, organization, organization_id, status, form_slug, form_fields, default_fields, form_presentation, form_base_lang, logo_url, partner_logos, start_date, end_date')
         .eq('id', id)
         .maybeSingle();
       if (error || !data) {
@@ -115,6 +117,7 @@ export default function ProgrammeFormPage() {
       }
       setProgramme(data);
       setTitle(data.name || '');
+      setFormBaseLang(((data as any).form_base_lang === 'en' ? 'en' : 'fr'));
       setFormPresentation((data as any).form_presentation || '');
       setLogoUrl((data as any).logo_url || null);
       setPartnerLogos(Array.isArray((data as any).partner_logos) ? (data as any).partner_logos as PartnerLogo[] : []);
@@ -187,21 +190,66 @@ export default function ProgrammeFormPage() {
     }
     setSaving(true);
 
-    // 1) Sauve titre + présentation + champs par défaut + champs perso + dates
+    // Nettoie les options vides des champs à choix avant sauvegarde.
+    const cleanedFields = JSON.parse(JSON.stringify(
+      formFields.map(f => ['select', 'checkbox', 'radio'].includes(f.type)
+        ? { ...f, options: (f.options || []).map(o => o.trim()).filter(Boolean) }
+        : f),
+    ));
+
+    // Traduction AUTOMATIQUE au save : on traduit tout le contenu perso (présentation,
+    // libellés/options des questions, overrides de libellés par défaut) vers l'AUTRE
+    // langue et on stocke le résultat dans form_translations. Le toggle côté candidat
+    // « marche tout seul » ensuite. Fail-safe : si la traduction échoue, on laisse
+    // form_translations vide pour cette langue → le garde-fou masque la langue
+    // incomplète (jamais de formulaire à moitié traduit).
+    const otherLang = formBaseLang === 'fr' ? 'en' : 'fr';
+    const canonLabel = new Map(DEFAULT_FIELDS.map(d => [d.key, d.label]));
+    const defaultOverrides: Record<string, string> = {};
+    for (const d of defaultFields) {
+      if (d.label && d.label.trim() && d.label.trim() !== canonLabel.get(d.key)) {
+        defaultOverrides[d.key] = d.label.trim();
+      }
+    }
+    const surface: TranslatableSurface = {
+      presentation: formPresentation,
+      fields: cleanedFields.map((f: FormField) => ({ id: f.id, label: f.label, type: f.type, options: f.options })),
+      defaultOverrides,
+    };
+    let formTranslations: FormTranslations = {};
+    const segments = collectTranslatableSegments(surface);
+    if (segments.length > 0) {
+      try {
+        const res = await invokeLong('translate-content', {
+          text: buildMarkedPrompt(segments),
+          target_lang: otherLang,
+          organization_id: (programme as any)?.organization_id || null,
+        });
+        const langTr = parseMarkedResponse(res?.translated || '', segments, surface);
+        formTranslations = { [otherLang]: langTr };
+      } catch (err: any) {
+        // Fail-safe : pas de traduction → la langue ne sera pas proposée au candidat.
+        console.error('[ProgrammeFormPage] auto-translation failed:', err?.message);
+        toast({
+          title: 'Formulaire enregistré — traduction auto indisponible',
+          description: `La version ${otherLang.toUpperCase()} n'a pas pu être générée cette fois. Le formulaire reste en ${formBaseLang.toUpperCase()}. Réenregistre pour réessayer.`,
+          variant: 'destructive',
+        });
+      }
+    }
+
+    // 1) Sauve titre + présentation + champs par défaut + champs perso + dates + traductions
     const { error: saveErr } = await supabase
       .from('programmes')
       .update({
         name: title.trim(),
+        form_base_lang: formBaseLang,
+        form_translations: formTranslations as any,
         form_presentation: formPresentation.trim() || null,
         logo_url: logoUrl,
         partner_logos: partnerLogos as any,
         default_fields: defaultFields.map(({ key, label, enabled, required }) => ({ key, label, enabled, required })) as any,
-        // Nettoie les options vides des champs à choix avant sauvegarde.
-        form_fields: JSON.parse(JSON.stringify(
-          formFields.map(f => ['select', 'checkbox', 'radio'].includes(f.type)
-            ? { ...f, options: (f.options || []).map(o => o.trim()).filter(Boolean) }
-            : f),
-        )),
+        form_fields: cleanedFields,
         start_date: startDate || null,
         end_date: endDate || null,
       })
@@ -245,7 +293,7 @@ export default function ProgrammeFormPage() {
         </Button>
         <Button onClick={handleSave} disabled={saving} className="gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Enregistrer
+          {saving ? 'Enregistrement + traduction…' : 'Enregistrer'}
         </Button>
       </div>
 
@@ -257,6 +305,20 @@ export default function ProgrammeFormPage() {
               <div>
                 <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Appel à candidatures — Programme OVO Sénégal 2026" />
                 <p className="text-xs text-muted-foreground mt-1.5">S'affiche en tête du formulaire public (c'est aussi le nom du programme).</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Langue du formulaire</Label>
+                <Select value={formBaseLang} onValueChange={v => setFormBaseLang(v as 'fr' | 'en')}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fr">Français — traduit automatiquement en anglais</SelectItem>
+                    <SelectItem value="en">English — traduit automatiquement en français</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Rédige le formulaire dans cette langue. À l'enregistrement, tout le contenu (présentation, questions, options)
+                  est traduit automatiquement dans l'autre langue ; les candidats basculent via le sélecteur FR/EN en haut du formulaire.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Logo en-tête <span className="text-muted-foreground">(optionnel — haut du formulaire public)</span></Label>

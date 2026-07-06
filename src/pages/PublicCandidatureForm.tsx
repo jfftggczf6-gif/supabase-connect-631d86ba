@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { fr, enUS } from 'date-fns/locale';
 import { getSortedCountries } from '@/lib/countries';
 import { SECTORS } from '@/lib/sectors';
 import { mergeDefaultFields } from '@/lib/default-fields';
-import { resolveFieldLabel, resolveOptionLabel, resolvePresentation, resolveDefaultFieldOverride } from '@/lib/form-i18n';
+import { resolveFieldLabel, resolveOptionLabel, resolvePresentation, resolveDefaultFieldOverride, computeLangCompleteness } from '@/lib/form-i18n';
 import { Markdown } from '@/components/ui/markdown';
 import { PartnerLogos } from '@/components/programme/PartnerLogos';
 
@@ -23,8 +23,6 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export default function PublicCandidatureForm() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language || 'fr';
-  const isEn = lang.startsWith('en');
-  const dateLocale = isEn ? enUS : fr;
   const { slug } = useParams<{ slug: string }>();
   const [programme, setProgramme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +42,30 @@ export default function PublicCandidatureForm() {
   // si absentes → comportement identique à aujourd'hui). Utilisé au rendu ET à la validation.
   const baseLang = programme?.form_base_lang || 'fr';
   const formTr = programme?.form_translations || null;
+
+  // Garde-fou anti-mélange : une langue autre que la base n'est proposée au toggle
+  // QUE si sa traduction est complète (présentation + questions + options + overrides).
+  // Sinon on ne l'affiche pas → jamais de formulaire à moitié traduit.
+  const otherLang = baseLang === 'fr' ? 'en' : 'fr';
+  const availableLangs = useMemo(() => {
+    if (!programme) return [baseLang];
+    const cfg = mergeDefaultFields(programme.default_fields).filter((f: any) => f.enabled);
+    const surface = {
+      presentation: programme.form_presentation,
+      fields: (programme.form_fields || []) as any[],
+      defaultOverrides: Object.fromEntries(
+        cfg.filter((f: any) => f.labelIsOverride).map((f: any) => [f.key, f.label]),
+      ),
+    };
+    const complete = computeLangCompleteness(surface, otherLang, baseLang, formTr).complete;
+    return complete ? [baseLang, otherLang] : [baseLang];
+  }, [programme, baseLang, otherLang, formTr]);
+
+  // Langue effectivement affichée : la langue courante si disponible, sinon la base.
+  const currentShort = (lang || 'fr').slice(0, 2);
+  const effectiveLang = availableLangs.includes(currentShort) ? currentShort : baseLang;
+  const isEn = effectiveLang === 'en';
+  const dateLocale = isEn ? enUS : fr;
 
   useEffect(() => {
     if (!slug) return;
@@ -81,7 +103,7 @@ export default function PublicCandidatureForm() {
       setError(t('candidature.public_required_missing', {
         defaultValue: 'Merci de renseigner : {{fields}}',
         fields: missing.map(f => f.labelIsOverride
-          ? (resolveDefaultFieldOverride(f.key, f.label, lang, baseLang, formTr) ?? f.label)
+          ? (resolveDefaultFieldOverride(f.key, f.label, effectiveLang, baseLang, formTr) ?? f.label)
           : t(f.labelKey)).join(', '),
       }));
       return;
@@ -232,27 +254,27 @@ export default function PublicCandidatureForm() {
 
   const formFields = programme?.form_fields || [];
   const defaultFieldsConfig = mergeDefaultFields(programme?.default_fields).filter(f => f.enabled);
-  const presentation = resolvePresentation(programme?.form_presentation, lang, baseLang, formTr) || programme?.description;
+  const presentation = resolvePresentation(programme?.form_presentation, effectiveLang, baseLang, formTr) || programme?.description;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Language switcher */}
-        <div className="flex justify-end mb-2">
-          <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-0.5 text-xs">
-            <Globe className="h-3.5 w-3.5 text-muted-foreground ml-1.5 mr-0.5" />
-            <button
-              type="button"
-              onClick={() => i18n.changeLanguage('fr')}
-              className={`px-2 py-1 rounded-md transition-colors ${!isEn ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >FR</button>
-            <button
-              type="button"
-              onClick={() => i18n.changeLanguage('en')}
-              className={`px-2 py-1 rounded-md transition-colors ${isEn ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >EN</button>
+        {/* Language switcher — n'affiche que les langues COMPLÈTES (garde-fou anti-mélange). */}
+        {availableLangs.length > 1 && (
+          <div className="flex justify-end mb-2">
+            <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-0.5 text-xs">
+              <Globe className="h-3.5 w-3.5 text-muted-foreground ml-1.5 mr-0.5" />
+              {(['fr', 'en'] as const).filter(l => availableLangs.includes(l)).map(l => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => i18n.changeLanguage(l)}
+                  className={`px-2 py-1 rounded-md transition-colors ${effectiveLang === l ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >{l.toUpperCase()}</button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         {/* Header */}
         <div className="text-center mb-8">
           {programme.logo_url && <img src={programme.logo_url} alt="" className="h-16 mx-auto mb-4" />}
@@ -282,7 +304,7 @@ export default function PublicCandidatureForm() {
                 // Libellé multilingue : clé i18n canonique, sauf si le programme a
                 // personnalisé le libellé (override) → alors traduction bilingue de l'override.
                 const lbl = f.labelIsOverride
-                  ? (resolveDefaultFieldOverride(f.key, f.label, lang, baseLang, formTr) ?? f.label)
+                  ? (resolveDefaultFieldOverride(f.key, f.label, effectiveLang, baseLang, formTr) ?? f.label)
                   : t(f.labelKey);
                 switch (f.key) {
                   case 'company_name':
@@ -300,7 +322,7 @@ export default function PublicCandidatureForm() {
                         <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
                           <SelectTrigger><SelectValue placeholder={t('candidature.public_select_country')} /></SelectTrigger>
                           <SelectContent>
-                            {getSortedCountries(lang).map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                            {getSortedCountries(effectiveLang).map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -325,8 +347,8 @@ export default function PublicCandidatureForm() {
               {/* Dynamic fields */}
               {formFields.length > 0 && <hr className="my-4" />}
               {formFields.map((field: any) => {
-                const qLabel = resolveFieldLabel(field, lang, baseLang, formTr);
-                const optLabel = (o: string) => resolveOptionLabel(field, o, lang, baseLang, formTr);
+                const qLabel = resolveFieldLabel(field, effectiveLang, baseLang, formTr);
+                const optLabel = (o: string) => resolveOptionLabel(field, o, effectiveLang, baseLang, formTr);
                 return (
                 <div key={field.id || field.label}>
                   <Label>{qLabel} {field.required ? '*' : ''}</Label>
