@@ -56,3 +56,29 @@ describe("mergeDefaultFields", () => {
     expect(merged.find(f => f.key === "pays")!.label).toBe("Pays d'opération");
   });
 });
+
+describe("libellé multilingue (labelKey / labelIsOverride)", () => {
+  it("chaque champ canonique porte une clé i18n candidature.public_*", () => {
+    for (const f of DEFAULT_FIELDS) {
+      expect(f.labelKey).toMatch(/^candidature\.public_/);
+    }
+  });
+
+  it("sans override : labelIsOverride=false → le rendu doit passer par la clé i18n", () => {
+    for (const f of mergeDefaultFields(null)) {
+      expect(f.labelIsOverride).toBe(false);
+    }
+  });
+
+  it("avec override : labelIsOverride=true et label = valeur personnalisée", () => {
+    const merged = mergeDefaultFields([{ key: "secteur", label: "Domaine d'activité" }]);
+    const sect = merged.find(f => f.key === "secteur")!;
+    expect(sect.labelIsOverride).toBe(true);
+    expect(sect.label).toBe("Domaine d'activité");
+  });
+
+  it("override vide/blanc → traité comme absence d'override (labelIsOverride=false)", () => {
+    const merged = mergeDefaultFields([{ key: "secteur", label: "   " }]);
+    expect(merged.find(f => f.key === "secteur")!.labelIsOverride).toBe(false);
+  });
+});

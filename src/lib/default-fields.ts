@@ -24,15 +24,19 @@ export interface DefaultFieldConfig {
   required: boolean;
   locked: boolean; // cœur : toujours présent + requis, non désactivable
   control: DefaultFieldControl;
+  /** Clé i18n du libellé canonique — utilisée pour l'affichage multilingue tant qu'il n'y a pas d'override. */
+  labelKey: string;
+  /** true quand un libellé a été personnalisé par le programme (override en base). */
+  labelIsOverride?: boolean;
 }
 
 export const DEFAULT_FIELDS: DefaultFieldConfig[] = [
-  { key: "company_name", label: "Nom de l'entreprise", enabled: true, required: true, locked: true, control: "text" },
-  { key: "contact_name", label: "Nom du contact", enabled: true, required: true, locked: true, control: "text" },
-  { key: "contact_email", label: "Email", enabled: true, required: true, locked: true, control: "email" },
-  { key: "contact_phone", label: "Téléphone", enabled: true, required: false, locked: false, control: "tel" },
-  { key: "pays", label: "Pays", enabled: true, required: true, locked: false, control: "country" },
-  { key: "secteur", label: "Secteur d'activité", enabled: true, required: true, locked: false, control: "sector" },
+  { key: "company_name", label: "Nom de l'entreprise", labelKey: "candidature.public_company_name", enabled: true, required: true, locked: true, control: "text" },
+  { key: "contact_name", label: "Nom du contact", labelKey: "candidature.public_contact_name", enabled: true, required: true, locked: true, control: "text" },
+  { key: "contact_email", label: "Email", labelKey: "candidature.public_email", enabled: true, required: true, locked: true, control: "email" },
+  { key: "contact_phone", label: "Téléphone", labelKey: "candidature.public_phone", enabled: true, required: false, locked: false, control: "tel" },
+  { key: "pays", label: "Pays", labelKey: "candidature.public_country", enabled: true, required: true, locked: false, control: "country" },
+  { key: "secteur", label: "Secteur d'activité", labelKey: "candidature.public_sector", enabled: true, required: true, locked: false, control: "sector" },
 ];
 
 /**
@@ -53,13 +57,15 @@ export function mergeDefaultFields(stored: unknown): DefaultFieldConfig[] {
   }
   return DEFAULT_FIELDS.map((def) => {
     const s = byKey.get(def.key) || {};
-    const label = typeof s.label === "string" && s.label.trim() ? s.label : def.label;
+    const hasOverride = typeof s.label === "string" && s.label.trim().length > 0;
+    const label = hasOverride ? (s.label as string) : def.label;
     if (def.locked) {
-      return { ...def, label, enabled: true, required: true };
+      return { ...def, label, labelIsOverride: hasOverride, enabled: true, required: true };
     }
     return {
       ...def,
       label,
+      labelIsOverride: hasOverride,
       enabled: typeof s.enabled === "boolean" ? s.enabled : def.enabled,
       required: typeof s.required === "boolean" ? s.required : def.required,
     };

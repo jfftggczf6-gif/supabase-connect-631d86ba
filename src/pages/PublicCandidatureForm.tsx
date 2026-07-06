@@ -74,7 +74,7 @@ export default function PublicCandidatureForm() {
     if (missing.length > 0) {
       setError(t('candidature.public_required_missing', {
         defaultValue: 'Merci de renseigner : {{fields}}',
-        fields: missing.map(f => f.label).join(', '),
+        fields: missing.map(f => f.labelIsOverride ? f.label : t(f.labelKey)).join(', '),
       }));
       return;
     }
@@ -270,19 +270,22 @@ export default function PublicCandidatureForm() {
               {/* Champs par défaut (config par programme : libellé / activé / requis) */}
               {defaultFieldsConfig.map(f => {
                 const star = f.required ? ' *' : '';
+                // Libellé multilingue : clé i18n canonique, sauf si le programme a
+                // personnalisé le libellé (override). Suit le toggle FR/EN.
+                const lbl = f.labelIsOverride ? f.label : t(f.labelKey);
                 switch (f.key) {
                   case 'company_name':
-                    return <div key={f.key}><Label>{f.label}{star}</Label><Input required={f.required} value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>;
+                    return <div key={f.key}><Label>{lbl}{star}</Label><Input required={f.required} value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>;
                   case 'contact_name':
-                    return <div key={f.key}><Label>{f.label}{star}</Label><Input required={f.required} value={contactName} onChange={e => setContactName(e.target.value)} /></div>;
+                    return <div key={f.key}><Label>{lbl}{star}</Label><Input required={f.required} value={contactName} onChange={e => setContactName(e.target.value)} /></div>;
                   case 'contact_email':
-                    return <div key={f.key}><Label>{f.label}{star}</Label><Input type="email" required={f.required} value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>;
+                    return <div key={f.key}><Label>{lbl}{star}</Label><Input type="email" required={f.required} value={contactEmail} onChange={e => setContactEmail(e.target.value)} /></div>;
                   case 'contact_phone':
-                    return <div key={f.key}><Label>{f.label}{star}</Label><Input type="tel" required={f.required} value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>;
+                    return <div key={f.key}><Label>{lbl}{star}</Label><Input type="tel" required={f.required} value={contactPhone} onChange={e => setContactPhone(e.target.value)} /></div>;
                   case 'pays':
                     return (
                       <div key={f.key}>
-                        <Label>{f.label}{star}</Label>
+                        <Label>{lbl}{star}</Label>
                         <Select value={formData.pays || ''} onValueChange={v => setField('pays', v)}>
                           <SelectTrigger><SelectValue placeholder={t('candidature.public_select_country')} /></SelectTrigger>
                           <SelectContent>
@@ -294,11 +297,11 @@ export default function PublicCandidatureForm() {
                   case 'secteur':
                     return (
                       <div key={f.key}>
-                        <Label>{f.label}{star}</Label>
+                        <Label>{lbl}{star}</Label>
                         <Select value={formData.secteur || ''} onValueChange={v => setField('secteur', v)}>
                           <SelectTrigger><SelectValue placeholder={t('candidature.public_select_sector', { defaultValue: "Sélectionner un secteur" })} /></SelectTrigger>
                           <SelectContent>
-                            {SECTORS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                            {SECTORS.map(s => <SelectItem key={s.value} value={s.value}>{t(`candidature.public_sector_options.${s.value}`, { defaultValue: s.label })}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
