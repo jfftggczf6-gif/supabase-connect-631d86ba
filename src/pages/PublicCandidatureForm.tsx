@@ -13,6 +13,7 @@ import { fr, enUS } from 'date-fns/locale';
 import { getSortedCountries } from '@/lib/countries';
 import { SECTORS } from '@/lib/sectors';
 import { mergeDefaultFields } from '@/lib/default-fields';
+import { resolveFieldLabel, resolveOptionLabel, resolvePresentation, resolveDefaultFieldOverride } from '@/lib/form-i18n';
 import { Markdown } from '@/components/ui/markdown';
 import { PartnerLogos } from '@/components/programme/PartnerLogos';
 
@@ -38,6 +39,11 @@ export default function PublicCandidatureForm() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [fileUploads, setFileUploads] = useState<Record<string, File>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Bilingue : langue de rédaction du formulaire + traductions (repli sur la base
+  // si absentes → comportement identique à aujourd'hui). Utilisé au rendu ET à la validation.
+  const baseLang = programme?.form_base_lang || 'fr';
+  const formTr = programme?.form_translations || null;
 
   useEffect(() => {
     if (!slug) return;
@@ -74,7 +80,9 @@ export default function PublicCandidatureForm() {
     if (missing.length > 0) {
       setError(t('candidature.public_required_missing', {
         defaultValue: 'Merci de renseigner : {{fields}}',
-        fields: missing.map(f => f.labelIsOverride ? f.label : t(f.labelKey)).join(', '),
+        fields: missing.map(f => f.labelIsOverride
+          ? (resolveDefaultFieldOverride(f.key, f.label, lang, baseLang, formTr) ?? f.label)
+          : t(f.labelKey)).join(', '),
       }));
       return;
     }
@@ -224,6 +232,7 @@ export default function PublicCandidatureForm() {
 
   const formFields = programme?.form_fields || [];
   const defaultFieldsConfig = mergeDefaultFields(programme?.default_fields).filter(f => f.enabled);
+  const presentation = resolvePresentation(programme?.form_presentation, lang, baseLang, formTr) || programme?.description;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -255,10 +264,10 @@ export default function PublicCandidatureForm() {
         </div>
 
         {/* Présentation PUBLIQUE du formulaire (form_presentation) — distincte de la description interne. */}
-        {(programme.form_presentation || programme.description) && (
+        {presentation && (
           <Card className="mb-6">
             <CardContent className="p-6">
-              <Markdown>{programme.form_presentation || programme.description}</Markdown>
+              <Markdown>{presentation}</Markdown>
             </CardContent>
           </Card>
         )}
@@ -271,8 +280,10 @@ export default function PublicCandidatureForm() {
               {defaultFieldsConfig.map(f => {
                 const star = f.required ? ' *' : '';
                 // Libellé multilingue : clé i18n canonique, sauf si le programme a
-                // personnalisé le libellé (override). Suit le toggle FR/EN.
-                const lbl = f.labelIsOverride ? f.label : t(f.labelKey);
+                // personnalisé le libellé (override) → alors traduction bilingue de l'override.
+                const lbl = f.labelIsOverride
+                  ? (resolveDefaultFieldOverride(f.key, f.label, lang, baseLang, formTr) ?? f.label)
+                  : t(f.labelKey);
                 switch (f.key) {
                   case 'company_name':
                     return <div key={f.key}><Label>{lbl}{star}</Label><Input required={f.required} value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>;
@@ -313,9 +324,12 @@ export default function PublicCandidatureForm() {
 
               {/* Dynamic fields */}
               {formFields.length > 0 && <hr className="my-4" />}
-              {formFields.map((field: any) => (
+              {formFields.map((field: any) => {
+                const qLabel = resolveFieldLabel(field, lang, baseLang, formTr);
+                const optLabel = (o: string) => resolveOptionLabel(field, o, lang, baseLang, formTr);
+                return (
                 <div key={field.id || field.label}>
-                  <Label>{field.label} {field.required ? '*' : ''}</Label>
+                  <Label>{qLabel} {field.required ? '*' : ''}</Label>
                   {field.type === 'file' ? (
                     <div className="mt-1">
                       <input
@@ -381,7 +395,7 @@ export default function PublicCandidatureForm() {
                   ) : field.type === 'select' && field.options?.length ? (
                     <Select value={formData[field.label] || ''} onValueChange={v => setField(field.label, v)}>
                       <SelectTrigger><SelectValue placeholder={t('candidature.public_select_placeholder')} /></SelectTrigger>
-                      <SelectContent>{field.options.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                      <SelectContent>{field.options.map((o: string) => <SelectItem key={o} value={o}>{optLabel(o)}</SelectItem>)}</SelectContent>
                     </Select>
                   ) : field.type === 'checkbox' && field.options?.length ? (
                     <div className="space-y-2 mt-1">
@@ -396,7 +410,7 @@ export default function PublicCandidatureForm() {
                             }}
                             className="rounded border-gray-300"
                           />
-                          {o}
+                          {optLabel(o)}
                         </label>
                       ))}
                     </div>
@@ -412,7 +426,7 @@ export default function PublicCandidatureForm() {
                             onChange={() => setField(field.label, o)}
                             className="border-gray-300"
                           />
-                          {o}
+                          {optLabel(o)}
                         </label>
                       ))}
                     </div>
@@ -420,7 +434,8 @@ export default function PublicCandidatureForm() {
                     <Input type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} required={field.required} value={formData[field.label] || ''} onChange={e => setField(field.label, e.target.value)} />
                   )}
                 </div>
-              ))}
+                );
+              })}
 
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('candidature.public_submit')}
