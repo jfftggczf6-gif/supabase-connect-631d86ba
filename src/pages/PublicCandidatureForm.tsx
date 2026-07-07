@@ -67,6 +67,15 @@ export default function PublicCandidatureForm() {
   const isEn = effectiveLang === 'en';
   const dateLocale = isEn ? enUS : fr;
 
+  // Aligne l'interface statique (libellés via t()) sur la langue réellement
+  // affichée : sans ça, t() suivrait i18n.language qui peut diverger d'effectiveLang
+  // (formulaire mono-langue affiché dans l'autre langue) → mélange FR/EN.
+  useEffect(() => {
+    if (effectiveLang && currentShort !== effectiveLang) {
+      i18n.changeLanguage(effectiveLang);
+    }
+  }, [effectiveLang, currentShort]);
+
   useEffect(() => {
     if (!slug) return;
     (async () => {

@@ -77,6 +77,16 @@ describe("libellé multilingue (labelKey / labelIsOverride)", () => {
     expect(sect.label).toBe("Domaine d'activité");
   });
 
+  it("libellé stocké ÉGAL au canon → PAS un override (passe par i18n)", () => {
+    // Cas réel : ProgrammeFormPage sauvegarde toujours les libellés canon dans
+    // default_fields. Ils ne doivent pas être traités comme des overrides, sinon
+    // le garde-fou anti-mélange exige une traduction jamais générée.
+    const stored = DEFAULT_FIELDS.map(d => ({ key: d.key, label: d.label, enabled: d.enabled, required: d.required }));
+    for (const f of mergeDefaultFields(stored)) {
+      expect(f.labelIsOverride).toBe(false);
+    }
+  });
+
   it("override vide/blanc → traité comme absence d'override (labelIsOverride=false)", () => {
     const merged = mergeDefaultFields([{ key: "secteur", label: "   " }]);
     expect(merged.find(f => f.key === "secteur")!.labelIsOverride).toBe(false);

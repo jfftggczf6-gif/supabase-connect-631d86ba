@@ -57,8 +57,14 @@ export function mergeDefaultFields(stored: unknown): DefaultFieldConfig[] {
   }
   return DEFAULT_FIELDS.map((def) => {
     const s = byKey.get(def.key) || {};
-    const hasOverride = typeof s.label === "string" && s.label.trim().length > 0;
-    const label = hasOverride ? (s.label as string) : def.label;
+    const rawLabel = typeof s.label === "string" ? s.label.trim() : "";
+    // « Override » = libellé RÉELLEMENT personnalisé (différent du canon). Un
+    // libellé stocké égal au canon n'est PAS un override → il passe par i18n
+    // (t(labelKey)) et suit la langue. Cette définition doit rester alignée avec
+    // celle du save (ProgrammeFormPage) qui ne traduit que ce qui diffère du canon,
+    // sinon le garde-fou anti-mélange exigerait des traductions jamais générées.
+    const hasOverride = rawLabel.length > 0 && rawLabel !== def.label;
+    const label = rawLabel.length > 0 ? rawLabel : def.label;
     if (def.locked) {
       return { ...def, label, labelIsOverride: hasOverride, enabled: true, required: true };
     }
