@@ -22,7 +22,6 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export default function PublicCandidatureForm() {
   const { t, i18n } = useTranslation();
-  const lang = i18n.language || 'fr';
   const { slug } = useParams<{ slug: string }>();
   const [programme, setProgramme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +36,9 @@ export default function PublicCandidatureForm() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [fileUploads, setFileUploads] = useState<Record<string, File>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Langue choisie par le candidat sur CE formulaire (null = pas encore choisi
+  // → on affiche la langue de base du formulaire).
+  const [displayLang, setDisplayLang] = useState<string | null>(null);
 
   // Bilingue : langue de rédaction du formulaire + traductions (repli sur la base
   // si absentes → comportement identique à aujourd'hui). Utilisé au rendu ET à la validation.
@@ -61,20 +63,21 @@ export default function PublicCandidatureForm() {
     return complete ? [baseLang, otherLang] : [baseLang];
   }, [programme, baseLang, otherLang, formTr]);
 
-  // Langue effectivement affichée : la langue courante si disponible, sinon la base.
-  const currentShort = (lang || 'fr').slice(0, 2);
-  const effectiveLang = availableLangs.includes(currentShort) ? currentShort : baseLang;
+  // Langue effectivement affichée. Par défaut = langue de BASE du formulaire
+  // (un formulaire rédigé en anglais s'ouvre en anglais), pas le repli global.
+  // Le candidat peut basculer via le toggle → displayLang prend le relais.
+  const effectiveLang = displayLang && availableLangs.includes(displayLang) ? displayLang : baseLang;
   const isEn = effectiveLang === 'en';
   const dateLocale = isEn ? enUS : fr;
 
   // Aligne l'interface statique (libellés via t()) sur la langue réellement
   // affichée : sans ça, t() suivrait i18n.language qui peut diverger d'effectiveLang
-  // (formulaire mono-langue affiché dans l'autre langue) → mélange FR/EN.
+  // → mélange FR/EN. Ne dépend PAS de i18n.language pour choisir la langue.
   useEffect(() => {
-    if (effectiveLang && currentShort !== effectiveLang) {
+    if (effectiveLang && (i18n.language || '').slice(0, 2) !== effectiveLang) {
       i18n.changeLanguage(effectiveLang);
     }
-  }, [effectiveLang, currentShort]);
+  }, [effectiveLang]);
 
   useEffect(() => {
     if (!slug) return;
@@ -277,7 +280,7 @@ export default function PublicCandidatureForm() {
                 <button
                   key={l}
                   type="button"
-                  onClick={() => i18n.changeLanguage(l)}
+                  onClick={() => setDisplayLang(l)}
                   className={`px-2 py-1 rounded-md transition-colors ${effectiveLang === l ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >{l.toUpperCase()}</button>
               ))}
