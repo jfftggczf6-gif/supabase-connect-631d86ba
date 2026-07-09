@@ -13,6 +13,7 @@
 //                     met à jour documents[]. Marque le token comme utilisé.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadCandidatureManageContext, canManageProgrammeCandidatures } from "../_shared/candidature-permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,24 +68,21 @@ serve(async (req: Request) => {
         ? body.requested_docs.map((s: any) => String(s).trim()).filter(Boolean).slice(0, 30)
         : [];
 
-      // Rôle applicatif
-      const { data: roleData } = await adminClient
-        .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      const isAdmin = roleData?.role === 'super_admin';
-      const isChef = roleData?.role === 'chef_programme';
-      if (!isAdmin && !isChef) return jsonRes({ error: "Accès refusé" }, 403);
-
-      // Charge la candidature + son programme (pour l'ownership chef + l'email)
+      // Charge la candidature + son programme (pour la permission + l'email)
       const { data: cand } = await adminClient
         .from("candidatures")
-        .select("id, company_name, contact_name, contact_email, programmes:programme_id(name, chef_programme_id)")
+        .select("id, company_name, contact_name, contact_email, programmes:programme_id(name, chef_programme_id, organization_id)")
         .eq("id", candidatureId)
         .maybeSingle();
       if (!cand) return jsonRes({ error: "Candidature non trouvée" }, 404);
 
       const programme = cand.programmes as any;
-      if (isChef && !isAdmin && programme?.chef_programme_id !== user.id) {
-        return jsonRes({ error: "Accès refusé à ce programme" }, 403);
+
+      // Permission d'écriture : super_admin OU chef propriétaire OU owner/admin/manager
+      // de l'org du programme (règle partagée, alignée sur l'accès en lecture).
+      const ctx = await loadCandidatureManageContext(adminClient, user.id);
+      if (!canManageProgrammeCandidatures(ctx, programme)) {
+        return jsonRes({ error: "Accès refusé" }, 403);
       }
 
       // Génère le token + 7 jours d'expiration

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadCandidatureManageContext, canManageProgrammeCandidatures } from "../_shared/candidature-permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -385,11 +386,11 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Check role
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-    const isAdmin = roleData?.role === "super_admin";
-    const isChef = roleData?.role === "chef_programme";
-    if (!isAdmin && !isChef) return jsonRes({ error: "Accès refusé" }, 403);
+    // Permission d'écriture : contexte de rôles chargé une fois, décision par
+    // programme via le helper partagé (super_admin OU chef propriétaire OU
+    // owner/admin/manager de l'org du programme). La barrière fine est appliquée
+    // par action ci-dessous (chaque action charge son/ses programme(s)).
+    const manageCtx = await loadCandidatureManageContext(supabase, user.id);
 
     const body = await req.json();
     const { candidature_id, action, new_status, coach_id, committee_notes, candidature_ids } = body;
@@ -406,15 +407,15 @@ serve(async (req) => {
 
       if (!cands?.length) return jsonRes({ error: "Aucune candidature trouvée" }, 404);
 
-      // Check programme ownership for all
-      if (isChef) {
-        const progIds = [...new Set(cands.map(c => c.programme_id))];
-        const { data: progs } = await supabase
-          .from("programmes")
-          .select("id, chef_programme_id")
-          .in("id", progIds);
-        const unauthorized = progs?.find(p => p.chef_programme_id !== user.id);
-        if (unauthorized) return jsonRes({ error: "Accès refusé à un des programmes" }, 403);
+      // Permission : l'utilisateur doit pouvoir gérer CHAQUE programme concerné.
+      const progIds = [...new Set(cands.map(c => c.programme_id))];
+      const { data: progs } = await supabase
+        .from("programmes")
+        .select("id, chef_programme_id, organization_id")
+        .in("id", progIds);
+      const unauthorized = (progs || []).find(p => !canManageProgrammeCandidatures(manageCtx, p));
+      if (unauthorized || (progs || []).length !== progIds.length) {
+        return jsonRes({ error: "Accès refusé à un des programmes" }, 403);
       }
 
       // Validate transitions
@@ -441,14 +442,14 @@ serve(async (req) => {
     // Get candidature + programme
     const { data: candidature } = await supabase
       .from("candidatures")
-      .select("*, programmes:programme_id(id, name, chef_programme_id)")
+      .select("*, programmes:programme_id(id, name, chef_programme_id, organization_id)")
       .eq("id", candidature_id)
       .single();
 
     if (!candidature) return jsonRes({ error: "Candidature non trouvée" }, 404);
 
     const programme = candidature.programmes;
-    if (isChef && programme?.chef_programme_id !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
+    if (!canManageProgrammeCandidatures(manageCtx, programme)) return jsonRes({ error: "Accès refusé" }, 403);
 
     // ═══════ RETRY DOC TRANSFER ═══════
     // Réservé aux candidatures déjà sélectionnées dont le transfer initial a
