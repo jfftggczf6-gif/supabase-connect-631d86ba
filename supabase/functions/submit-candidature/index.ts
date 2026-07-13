@@ -124,8 +124,19 @@ async function parseDocFromStorage(supabase: any, storagePath: string, fileName:
 }
 
 async function autoScreen(supabase: any, candidatureId: string, candidature: any, programmeId: string) {
+  // Trace toute sortie anticipée en base : sinon un échec (clé absente, API KO,
+  // pas de JSON) laisse screening_data à NULL, indistinguable d'un diagnostic
+  // jamais lancé — la panne devient invisible côté UI.
+  const recordFailure = async (reason: string) => {
+    console.error(`[auto-screen] ❌ ${candidature.company_name}: ${reason}`);
+    await supabase.from("candidatures").update({
+      screening_data: { _error: reason?.slice(0, 500), _at: new Date().toISOString(), _source: "auto_screen" },
+      updated_at: new Date().toISOString(),
+    }).eq("id", candidatureId);
+  };
+
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) { console.warn("[auto-screen] No ANTHROPIC_API_KEY"); return; }
+  if (!anthropicKey) { await recordFailure("ANTHROPIC_API_KEY manquante"); return; }
 
   // Fetch programme + criteria
   const { data: programme } = await supabase
@@ -134,7 +145,7 @@ async function autoScreen(supabase: any, candidatureId: string, candidature: any
     .eq("id", programmeId)
     .single();
 
-  if (!programme) { console.warn("[auto-screen] Programme not found"); return; }
+  if (!programme) { await recordFailure("Programme introuvable"); return; }
   const criteria = programme.programme_criteria;
 
   const docs = Array.isArray(candidature.documents)
@@ -238,7 +249,7 @@ ${SCREENING_SCHEMA}`;
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error(`[auto-screen] AI error ${resp.status}: ${errText.slice(0, 200)}`);
+    await recordFailure(`Erreur API ${resp.status}: ${errText.slice(0, 200)}`);
     return;
   }
 
@@ -252,7 +263,7 @@ ${SCREENING_SCHEMA}`;
     try {
       await supabase.from("ai_cost_log").insert({
         function_name: "auto-screen-candidature",
-        organization_id: prog?.organization_id || null,
+        organization_id: programme?.organization_id || null,
         model: "claude-sonnet-4-6",
         input_tokens: usage.input_tokens || 0,
         output_tokens: usage.output_tokens || 0,
@@ -264,7 +275,7 @@ ${SCREENING_SCHEMA}`;
   let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1) { console.error("[auto-screen] No JSON in response"); return; }
+  if (start === -1 || end === -1) { await recordFailure("Réponse IA sans JSON exploitable"); return; }
 
   const diagnostic = JSON.parse(cleaned.substring(start, end + 1));
 
