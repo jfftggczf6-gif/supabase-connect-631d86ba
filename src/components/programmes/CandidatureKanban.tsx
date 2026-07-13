@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { getRecoveryStatus, recoveryBadgeClass, recoveryBadgeIcon } from '@/lib/recovery-status';
 
 const COLUMN_IDS = [
   { id: 'received', labelKey: 'candidature.received', color: 'bg-violet-50 border-violet-200' },
@@ -29,6 +30,21 @@ interface Candidature {
   screening_score?: number | null;
   contact_email?: string;
   assigned_coach_id?: string | null;
+  // Lien pour compléter (recovery) — déjà renvoyés par list-candidatures (select *)
+  recovery_token?: string | null;
+  recovery_used_at?: string | null;
+  recovery_expires_at?: string | null;
+}
+
+// Badge « lien pour compléter » — n'affiche rien si aucun lien n'a été envoyé.
+function RecoveryBadge({ c }: { c: Candidature }) {
+  const rs = getRecoveryStatus(c);
+  if (rs.state === 'none') return null;
+  return (
+    <Badge variant="outline" className={`text-[10px] ${recoveryBadgeClass(rs.state)}`}>
+      {recoveryBadgeIcon(rs.state)} {rs.label}
+    </Badge>
+  );
 }
 
 function DroppableColumn({ col, children }: { col: typeof COLUMN_IDS[number]; children: React.ReactNode }) {
@@ -58,12 +74,13 @@ function KanbanCard({ c, onClick }: { c: Candidature; onClick: () => void }) {
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card className="p-3 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow" onClick={onClick}>
         <p className="font-medium text-sm truncate">{c.company_name || 'Sans nom'}</p>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {c.screening_score != null && (
             <Badge variant="outline" className={c.screening_score >= 70 ? 'border-emerald-300 text-emerald-700' : c.screening_score >= 40 ? 'border-amber-300 text-amber-700' : 'border-red-300 text-red-700'}>
               {c.screening_score}
             </Badge>
           )}
+          <RecoveryBadge c={c} />
         </div>
       </Card>
     </div>

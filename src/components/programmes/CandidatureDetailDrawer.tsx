@@ -11,6 +11,7 @@ import { Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, D
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import CompletionLinkDialog from './CompletionLinkDialog';
+import { getRecoveryStatus, recoveryBadgeClass } from '@/lib/recovery-status';
 
 interface Props {
   candidatureId: string | null;
@@ -164,6 +165,22 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 </div>
               )}
               {s.classification && <Badge variant="outline" className="text-sm h-8">{s.classification}</Badge>}
+              {(() => {
+                // Statut du « lien pour compléter » : dérivé des colonnes recovery_* de la candidature.
+                const rs = getRecoveryStatus(detail);
+                if (rs.state === 'none') return null;
+                const d = rs.date ? new Date(rs.date).toLocaleDateString('fr-FR') : '';
+                const text = rs.state === 'completed'
+                  ? `✓ Complété le ${d}`
+                  : rs.state === 'pending'
+                    ? `🕓 Complétion en attente (expire le ${d})`
+                    : `⚠ Lien expiré le ${d} — sans réponse`;
+                return (
+                  <Badge variant="outline" className={`text-xs h-8 ${recoveryBadgeClass(rs.state)}`}>
+                    {text}
+                  </Badge>
+                );
+              })()}
               <div className="ml-auto flex items-center gap-2">
                 {detail?.status === 'selected' ? (
                   <Button
