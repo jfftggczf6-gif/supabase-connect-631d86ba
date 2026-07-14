@@ -14,6 +14,7 @@ const ALLOWED_MIMES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel.sheet.macroEnabled.12", // .xlsm (Excel avec macros)
   "application/msword", // .doc
   "application/vnd.ms-excel", // .xls
   "text/csv", "text/plain", "text/markdown",
