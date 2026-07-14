@@ -14,7 +14,7 @@ import {
   AlertTriangle, RotateCcw, Download, Trash2
 } from 'lucide-react';
 
-const ACCEPTED_EXTENSIONS = '.csv,.txt,.md,.xlsx,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.webp,.pptx,.ppt';
+const ACCEPTED_EXTENSIONS = '.csv,.txt,.md,.xlsx,.xlsm,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.webp,.pptx,.ppt';
 const MAX_FILES = 20;
 
 interface ReconstructionUploaderProps {

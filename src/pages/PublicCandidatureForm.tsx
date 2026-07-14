@@ -370,7 +370,7 @@ export default function PublicCandidatureForm() {
                         ref={el => { fileInputRefs.current[field.label] = el; }}
                         type="file"
                         multiple
-                        accept=".pdf,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png,.pptx,.ppt,.csv,.txt"
+                        accept=".pdf,.docx,.doc,.xlsx,.xlsm,.xls,.jpg,.jpeg,.png,.pptx,.ppt,.csv,.txt"
                         className="hidden"
                         onChange={e => {
                           const files = e.target.files;

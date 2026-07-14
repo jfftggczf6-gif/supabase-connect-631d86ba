@@ -303,7 +303,7 @@ export default function KnowledgeBaseManager({ isAdmin = false }: { isAdmin?: bo
                   <span className="text-xs">PDF, Word, Excel, PowerPoint</span>
                 </div>
               )}
-              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg" onChange={async (e) => {
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg" onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 setParsing(true);
