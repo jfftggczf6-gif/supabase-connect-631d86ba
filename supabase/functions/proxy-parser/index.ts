@@ -31,6 +31,17 @@ const BLOCKED_EXTENSIONS = new Set([
   ".zip", ".tar", ".gz", ".7z", ".rar",
 ]);
 
+// Extensions de documents supportées par le parser. Sert de garde-fou robuste :
+// les navigateurs/OS attribuent des MIME incohérents aux fichiers Office (casse,
+// variantes macroEnabled/macroenabled, ou MIME xlsx pour un .xlsm). On autorise
+// donc par extension quand le MIME ne matche pas l'allowlist — le vrai contrôle
+// de format est fait par le parser Railway.
+const ALLOWED_EXTENSIONS = new Set([
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".csv", ".tsv",
+  ".txt", ".md", ".ppt", ".pptx",
+  ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff",
+]);
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -93,8 +104,14 @@ Deno.serve(async (req: Request) => {
         return errorResponse(`File type not allowed: ${ext}`, 400);
       }
 
-      // Check MIME type
-      if (file.type && !ALLOWED_MIMES.has(file.type) && file.type !== "application/octet-stream") {
+      // Check MIME type — autorisé si MIME connu OU extension connue (les MIME
+      // Office sont incohérents selon navigateur/OS ; l'extension est fiable).
+      if (
+        file.type &&
+        !ALLOWED_MIMES.has(file.type) &&
+        file.type !== "application/octet-stream" &&
+        !ALLOWED_EXTENSIONS.has(ext)
+      ) {
         return errorResponse(`MIME type not allowed: ${file.type}`, 400);
       }
 
