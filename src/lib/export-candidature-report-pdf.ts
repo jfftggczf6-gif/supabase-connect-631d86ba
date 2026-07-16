@@ -195,26 +195,6 @@ function blockBenchmark(bk: any): string {
   return card('Benchmark sectoriel', inner);
 }
 
-// Réponses au formulaire — clés = questions en clair. Skip les doublons déjà
-// montrés dans Contact. Valeurs tableau → liste.
-const FORM_SKIP = new Set(['pays', 'secteur', 'effectif', 'ca']);
-function blockFormData(fd: any): string {
-  const entries = Object.entries(fd || {}).filter(([k, v]) =>
-    !FORM_SKIP.has(k) &&
-    v != null &&
-    !(Array.isArray(v) && v.length === 0) &&
-    String(v).trim() !== '');
-  if (entries.length === 0) return '';
-  const rows = entries.map(([k, v]) => `
-    <div class="fd">
-      <p class="fd-q">${esc(k)}</p>
-      ${Array.isArray(v)
-        ? bulletList(v)
-        : `<p class="fd-a">${esc(String(v))}</p>`}
-    </div>`).join('');
-  return card('Réponses au formulaire', rows);
-}
-
 function blockContact(c: any): string {
   const inner =
     kvLine('Nom', c.contact_name) +
@@ -236,10 +216,18 @@ function ficheHtml(c: any, index: number): string {
     : `<div class="score-badge na">—</div>`;
   const tag = s.classification ? `<span class="class-tag">${esc(s.classification)}</span>` : '';
 
-  const diagBlocks = [
+  // Blocs primaires (pleine largeur) : l'arbitrage de tête.
+  const primary = [
     s.resume_comite ? card('Résumé comité', `<p>${esc(s.resume_comite)}</p>`) : '',
     blockFicheEntreprise(s.fiche_entreprise),
     blockDimensions(dims),
+  ].filter(Boolean).join('');
+
+  // Blocs secondaires ("voir plus") + contact : rendus en 2 COLONNES pour tenir
+  // la fiche sur ~2 pages A4 sans rien couper (colonnes multiples CSS +
+  // break-inside:avoid par carte → compression, jamais troncature).
+  const contactBlock = blockContact(c);
+  const secondaryDiag = [
     blockIndicateurs(s.indicateurs_financiers),
     blockMarche(s.marche_positionnement),
     blockEquipe(s.equipe_gouvernance),
@@ -251,7 +239,8 @@ function ficheHtml(c: any, index: number): string {
   ].filter(Boolean).join('');
 
   // Garde-fou : screening incomplet/absent → mention, jamais de page vide.
-  const noDiag = (!diagBlocks || !diagBlocks.trim())
+  const hasDiag = !!(primary || secondaryDiag);
+  const noDiag = !hasDiag
     ? `<div class="card"><p class="muted">Diagnostic IA ${hasError ? 'en erreur' : 'non disponible'} — données non disponibles pour cette candidature.</p></div>`
     : '';
 
@@ -271,10 +260,9 @@ function ficheHtml(c: any, index: number): string {
         </div>
       </div>
     </div>
-    ${diagBlocks}
+    ${primary}
     ${noDiag}
-    ${blockContact(c)}
-    ${blockFormData(c.form_data)}
+    <div class="grid2">${contactBlock}${secondaryDiag}</div>
   </section>`;
 }
 
@@ -353,7 +341,7 @@ function dashboardHtml(candidatures: any[]): string {
 }
 
 // ── Assemblage + styles ───────────────────────────────────────────
-function buildHtml(candidatures: any[], programmeName: string): string {
+export function buildHtml(candidatures: any[], programmeName: string): string {
   const date = new Date().toLocaleDateString('fr-FR');
   const fiches = candidatures.length
     ? [...candidatures]
@@ -371,13 +359,13 @@ function buildHtml(candidatures: any[], programmeName: string): string {
 <style>
   @page { size: A4; margin: 18mm; }
   * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #333; line-height: 1.5; margin: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.5px; color: #333; line-height: 1.35; margin: 0; }
   .header { background: ${NAVY}; color: #fff; padding: 22px 24px; margin: -18mm -18mm 16px -18mm; }
   .header h1 { margin: 0; font-size: 20px; }
   .header p { margin: 4px 0 0; color: #8BB8E8; font-size: 12px; }
   h2 { font-size: 16px; color: ${NAVY}; margin: 0; }
   h3 { font-size: 13px; color: ${NAVY}; margin: 18px 0 8px; }
-  h4 { font-size: 12px; color: ${NAVY}; margin: 0 0 6px; }
+  h4 { font-size: 11px; color: ${NAVY}; margin: 0 0 3px; }
   ul { padding-left: 18px; margin: 4px 0; }
   li { margin: 2px 0; }
   .muted { color: #6b7280; }
@@ -415,11 +403,14 @@ function buildHtml(candidatures: any[], programmeName: string): string {
   .class-tag { border: 1px solid ${NAVY}; color: ${NAVY}; border-radius: 4px; padding: 1px 6px; font-size: 9px; font-weight: 600; width: fit-content; }
   .status-lbl { font-size: 9px; color: #6b7280; }
 
-  .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; page-break-inside: avoid; }
-  .kv { margin: 3px 0; }
+  .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 9px; margin-bottom: 6px; page-break-inside: avoid; }
+  /* "Voir plus" en 2 colonnes : multicol = pagination propre entre pages + chaque carte insécable */
+  .grid2 { column-count: 2; column-gap: 10px; }
+  .grid2 > .card { break-inside: avoid; margin-top: 0; }
+  .kv { margin: 2px 0; }
   .kv strong { color: ${NAVY}; }
-  .tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-  .tile { background: #f3f4f6; border-radius: 6px; padding: 6px 10px; text-align: center; min-width: 70px; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
+  .tile { background: #f3f4f6; border-radius: 6px; padding: 4px 8px; text-align: center; min-width: 66px; }
   .tile-v { font-weight: 700; font-size: 12px; margin: 0; color: ${NAVY}; }
   .tile-l { font-size: 9px; color: #6b7280; margin: 0; }
   .pill { display: inline-block; border: 1px solid #d1d5db; border-radius: 10px; padding: 1px 8px; font-size: 9px; margin: 0 4px 4px 0; }
@@ -430,14 +421,9 @@ function buildHtml(candidatures: any[], programmeName: string): string {
   .dim-score { font-weight: 600; }
   .bar { background: #e5e7eb; border-radius: 4px; height: 6px; overflow: hidden; margin: 2px 0 4px; }
   .bar-fill { background: ${NAVY}; height: 6px; }
-  .risk { background: #f9fafb; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; }
+  .risk { background: #f9fafb; border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; }
   .risk p { margin: 2px 0; }
   .mitig { color: #6d28d9; }
-  .fd { margin-bottom: 8px; }
-  .fd-q { font-weight: 600; font-size: 10px; color: #6b7280; margin: 0 0 2px; }
-  .fd-a { margin: 0; white-space: pre-wrap; }
-
-  .footer { position: running(footer); }
 </style>
 </head><body>
   <div class="header">
