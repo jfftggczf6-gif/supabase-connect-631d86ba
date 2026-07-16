@@ -271,22 +271,6 @@ export default function PublicCandidatureForm() {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Language switcher — n'affiche que les langues COMPLÈTES (garde-fou anti-mélange). */}
-        {availableLangs.length > 1 && (
-          <div className="flex justify-end mb-2">
-            <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-0.5 text-xs">
-              <Globe className="h-3.5 w-3.5 text-muted-foreground ml-1.5 mr-0.5" />
-              {(['fr', 'en'] as const).filter(l => availableLangs.includes(l)).map(l => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setDisplayLang(l)}
-                  className={`px-2 py-1 rounded-md transition-colors ${effectiveLang === l ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >{l.toUpperCase()}</button>
-              ))}
-            </div>
-          </div>
-        )}
         {/* Header */}
         <div className="text-center mb-8">
           {programme.logo_url && <img src={programme.logo_url} alt="" className="h-16 mx-auto mb-4" />}
@@ -294,6 +278,24 @@ export default function PublicCandidatureForm() {
           {programme.organization && <p className="text-muted-foreground mt-1">{t('candidature.public_organization')} {programme.organization}</p>}
           {programme.end_date && (
             <p className="text-sm mt-3 font-medium">📅 {t('candidature.public_deadline')} {format(new Date(programme.end_date), 'd MMMM yyyy', { locale: dateLocale })}</p>
+          )}
+          {/* Language switcher — placé sous le titre (centré) pour ne pas être raté :
+              en haut à droite, beaucoup d'utilisateurs ne le voyaient pas.
+              N'affiche que les langues COMPLÈTES (garde-fou anti-mélange). */}
+          {availableLangs.length > 1 && (
+            <div className="flex justify-center mt-4">
+              <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-0.5 text-xs">
+                <Globe className="h-3.5 w-3.5 text-muted-foreground ml-1.5 mr-0.5" />
+                {(['fr', 'en'] as const).filter(l => availableLangs.includes(l)).map(l => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setDisplayLang(l)}
+                    className={`px-2 py-1 rounded-md transition-colors ${effectiveLang === l ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >{l.toUpperCase()}</button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
