@@ -78,6 +78,22 @@ Deno.serve(async (req: Request) => {
         body: body.payload ? JSON.stringify(body.payload) : undefined,
       });
 
+      // Passthrough binaire : certains endpoints (ex. /generate-pdf) renvoient du
+      // binaire (application/pdf), pas du JSON. Faire resp.json() dessus le
+      // corrompait en {} → PDF illisible côté client. On détecte via le
+      // content-type amont : tout ce qui n'est PAS du JSON est renvoyé tel quel.
+      const upstreamType = resp.headers.get("content-type") || "";
+      if (!upstreamType.includes("application/json")) {
+        const buf = await resp.arrayBuffer();
+        const passHeaders: Record<string, string> = {
+          ...corsHeaders,
+          "Content-Type": upstreamType || "application/octet-stream",
+        };
+        const cd = resp.headers.get("content-disposition");
+        if (cd) passHeaders["Content-Disposition"] = cd;
+        return new Response(buf, { status: resp.status, headers: passHeaders });
+      }
+
       const data = await resp.json().catch(() => ({}));
       return new Response(JSON.stringify(data), {
         status: resp.status,

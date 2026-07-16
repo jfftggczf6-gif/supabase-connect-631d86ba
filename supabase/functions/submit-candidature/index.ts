@@ -1,33 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSectorKnowledgePrompt, getDonorCriteriaPrompt, getValidationRulesPrompt } from "../_shared/financial-knowledge.ts";
-
-/** Lightweight RAG: fetch relevant knowledge base entries without embedding search */
-async function fetchRAGContext(supabase: any, country: string, sector: string): Promise<string> {
-  try {
-    const { data: entries } = await supabase
-      .from("knowledge_base")
-      .select("title, content, category, source")
-      .in("category", ["benchmarks", "fiscal", "secteur", "bailleurs"])
-      .limit(30);
-    if (!entries?.length) return "";
-    const countryLower = (country || "").toLowerCase();
-    const sectorLower = (sector || "").toLowerCase();
-    const relevant = entries.filter((e: any) => {
-      const mc = !e.country || (e.country || "").toLowerCase().includes(countryLower) || countryLower.includes((e.country || "").toLowerCase());
-      const ms = !e.sector || (e.sector || "").toLowerCase().includes(sectorLower) || sectorLower.includes((e.sector || "").toLowerCase());
-      return mc || ms;
-    });
-    const final = relevant.length > 0 ? relevant.slice(0, 15) : entries.slice(0, 10);
-    let text = "\n\n══════ BASE DE CONNAISSANCES ══════\n";
-    for (const e of final) {
-      text += `\n--- ${(e.category || "").toUpperCase()}: ${e.title} ---\n${(e.content || "").substring(0, 2000)}\n`;
-      if (e.source) text += `(Source: ${e.source})\n`;
-    }
-    text += "══════════════════════════════════════════\n";
-    return text;
-  } catch { return ""; }
-}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,252 +13,78 @@ function jsonRes(data: any, status = 200) {
   });
 }
 
-// ── Screening prompt (same as screen-candidatures) ──
-const SCREENING_SYSTEM_PROMPT = `Tu es un consultant senior en accompagnement PME en Afrique subsaharienne (15 ans, UEMOA/CEMAC). Tu travailles pour un bailleur de fonds et tu évalues des candidatures à un programme d'accompagnement.
+/**
+ * Dispatch le diagnostic (screening) au worker Railway via ai_jobs + /run-agent.
+ *
+ * Remplace l'ancien autoScreen exécuté inline dans EdgeRuntime.waitUntil : ce
+ * contexte d'arrière-plan était recyclé par Supabase AVANT la fin de la chaîne
+ * (télécharger N docs + parser/OCR chacun + appel Claude ~60-120s), laissant les
+ * candidatures en screening_data NULL. Sur Railway : pas de plafond 400s, pas
+ * d'éviction, parsing OCR/vision jusqu'au bout. Le worker écrit lui-même
+ * screening_score/screening_data (et un _error en cas d'échec).
+ *
+ * prefer_vision : false pour l'auto-screen (Tesseract + fallback Claude, coût
+ * maîtrisé sur chaque soumission) ; le re-screen manuel force true.
+ * Retourne true si le dispatch a été accepté.
+ */
+async function dispatchScreening(
+  supabase: any,
+  opts: { programmeId: string; candidatureIds: string[]; organizationId?: string | null; preferVision?: boolean },
+): Promise<boolean> {
+  const railwayUrl = Deno.env.get("RAILWAY_AI_URL");
+  const railwayKey = Deno.env.get("RAILWAY_AI_KEY");
+  if (!railwayUrl || !railwayKey) {
+    console.error("[dispatch-screening] RAILWAY_AI_URL / RAILWAY_AI_KEY non configurés");
+    return false;
+  }
 
-Tu reçois :
-- Les réponses du formulaire de candidature (données DÉCLARATIVES de l'entrepreneur)
-- Les critères d'éligibilité du programme
-- Le CONTENU EXTRAIT des documents joints quand disponible
-
-Tu dois produire un DIAGNOSTIC COMPLET pour le comité de sélection.
-
-RÈGLES :
-- CHIFFRES PRÉCIS — pas "le CA est élevé" mais "CA 460M en 2024"
-- Documents joints = source la plus fiable — privilégie-les sur le déclaratif
-- Sois DIRECT et HONNÊTE
-- Si une donnée manque, dis-le clairement
-- L'analyse doit rester OBJECTIVE et FACTUELLE. Tu donnes un avis analytique, pas une décision. C'est le chef de programme qui décide.
-
-IMPORTANT: Réponds UNIQUEMENT en JSON valide.`;
-
-const SCREENING_SCHEMA = `{
-  "score": <0-100>, "classification": "ÉLIGIBLE | POTENTIEL | HORS_CIBLE",
-  "resume_executif": { "synthese": "string — 5-8 lignes", "points_forts": ["string"], "points_faibles": ["string"], "potentiel_estime": "string" },
-  "matching_criteres": { "criteres_ok": [{"critere": "string", "detail": "string"}], "criteres_ko": [{"critere": "string", "detail": "string", "comment_corriger": "string"}], "criteres_partiels": [{"critere": "string", "detail": "string", "manque": "string"}] },
-  "diagnostic_dimensions": {
-    "maturite_business": { "score": <number>, "label": "string", "constats": ["string"], "donnees_manquantes": ["string"] },
-    "capacite_financiere": { "score": <number>, "label": "string", "constats": ["string"], "donnees_manquantes": ["string"] },
-    "potentiel_croissance": { "score": <number>, "label": "string", "constats": ["string"], "donnees_manquantes": ["string"] },
-    "impact_social": { "score": <number>, "label": "string", "constats": ["string"], "donnees_manquantes": ["string"] },
-    "qualite_dossier": { "score": <number>, "label": "string", "constats": ["string"] }
-  },
-  "fiche_entreprise": { "anciennete_ans": <number|null>, "stade": "string", "forme_juridique": "string|null", "ca_declare": <number|null>, "ca_devise": "string", "effectif_declare": <number|null>, "secteur_activite": "string", "pays": "string", "ville": "string|null", "description_activite": "string" },
-  "contexte_entreprise": { "histoire": "string — 3-5 phrases avec chiffres", "marche": "string — 3-5 phrases", "activite": "string — 3-5 phrases" },
-  "constats_par_scope": {
-    "financier": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
-    "commercial": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
-    "operationnel": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
-    "equipe_rh": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }],
-    "legal_conformite": [{ "titre": "string", "severite": "urgent | attention | positif", "constat": "string", "piste": "string", "source": "string" }]
-  },
-  "indicateurs_financiers": { "ca_annuel": <number|null>, "croissance_ca_pct": <number|null>, "marge_estimee_pct": <number|null>, "rentabilite": "string", "tresorerie_estimee": "string", "niveau_endettement": "string", "source_donnees": "string", "fiabilite": "string", "commentaire": "string" },
-  "sante_financiere": { "ca_estime": <number|null>, "marge_brute_pct": <number|null>, "marge_nette_pct": <number|null>, "ratio_endettement_pct": <number|null>, "tresorerie_nette": <number|null>, "benchmark_comparison": [{ "indicateur": "string", "valeur_entreprise": "string", "benchmark_secteur": "string", "verdict": "conforme | optimiste | alerte | critique", "source": "string" }], "health_label": "Saine | Fragile | Critique | Non evaluable", "health_detail": "string" },
-  "cross_validation": { "ca_coherent": true|false, "ca_declared": <number|null>, "ca_from_documents": <number|null>, "ca_ecart_pct": <number|null>, "ca_detail": "string", "bilan_equilibre": true|false, "bilan_detail": "string", "charges_vs_effectifs": true|false, "charges_vs_effectifs_detail": "string", "tresorerie_coherent": true|false, "tresorerie_detail": "string", "dates_coherentes": true|false, "dates_detail": "string" },
-  "qualite_dossier": { "score_qualite": <0-100>, "total_documents": <number>, "documents_exploitables": <number>, "documents_illisibles": <number>, "niveau_preuve": "N0 Declaratif | N1 Faible | N2 Intermediaire | N3 Solide", "couverture": { "finance": { "couvert": true|false, "documents_trouves": ["string"], "manquants_critiques": ["string"] }, "legal": { "couvert": true|false, "documents_trouves": ["string"], "manquants_critiques": ["string"] }, "commercial": { "couvert": true|false, "documents_trouves": ["string"], "manquants_critiques": ["string"] }, "rh": { "couvert": true|false, "documents_trouves": ["string"], "manquants_critiques": ["string"] } }, "note_qualite": "string" },
-  "marche_positionnement": { "marche_cible": "string", "taille_estimee": "string", "positionnement": "string", "concurrence": "string", "avantage_competitif": "string|null", "barriere_entree": "string" },
-  "equipe_gouvernance": { "profil_dirigeant": "string", "equipe_direction": "string", "gouvernance": "string", "key_man_risk": true|false, "commentaire": "string" },
-  "impact_mesurable": { "emplois_actuels": <number|null>, "emplois_projetes": "string", "pct_femmes": <number|null>, "pct_jeunes": <number|null>, "beneficiaires_directs": "string", "odd_potentiels": ["string"], "mesurabilite": "string", "commentaire": "string" },
-  "besoin_financement": { "montant_demande": <number|null>, "montant_devise": "string", "utilisation_prevue": ["string"], "coherence_vs_ca": "string", "type_adapte": "string", "capacite_absorption": "string", "commentaire": "string" },
-  "risques_programme": [{ "risque": "string", "type": "string", "probabilite": "string", "impact_programme": "string", "mitigation": "string" }],
-  "traction": { "anciennete": "string", "evolution_ca": "string", "preuves_tangibles": ["string"], "niveau_preuve": "string" },
-  "benchmark_declaratif": { "position_vs_secteur": "string", "commentaire": "string" },
-  "analyse_narrative": { "comparaison_sectorielle": { "positionnement_global": "string", "benchmark_detail": [{ "indicateur": "string", "valeur_entreprise": "string", "mediane_secteur": "string", "position": "string", "commentaire": "string" }] }, "scenarios_prospectifs": { "scenario_pessimiste": { "description": "string", "ca_estime": "string", "probabilite": "string" }, "scenario_base": { "description": "string", "ca_estime": "string", "probabilite": "string" }, "scenario_optimiste": { "description": "string", "ca_estime": "string", "probabilite": "string" } }, "verdict_analyste": { "synthese_pour_comite": "string", "deal_breakers": ["string"], "conditions_sine_qua_non": ["string"], "quick_wins": ["string"] } },
-  "points_forts": [{"titre": "string", "detail": "string", "impact": "string"}],
-  "points_vigilance": [{"titre": "string", "detail": "string", "risque": "string", "mitigation": "string"}],
-  "incoherences_detectees": [{"observation": "string", "severite": "INFO | ATTENTION | BLOQUANT"}],
-  "recommandation_accompagnement": { "avis": "FAVORABLE | FAVORABLE SOUS RÉSERVE | À APPROFONDIR | DÉFAVORABLE", "justification": "string", "priorites_si_selectionnee": ["string"], "conditions_prealables": ["string"], "potentiel_6_mois": "string", "profil_coach_ideal": "string" },
-  "resume_comite": "string — 4-5 phrases pour décider en 30 secondes"
-}`;
-
-/** Download a file from Storage and parse it via Railway /parse endpoint */
-async function parseDocFromStorage(supabase: any, storagePath: string, fileName: string): Promise<string> {
-  const RAILWAY_URL = Deno.env.get("RAILWAY_URL") || "https://esono-parser-production-8f89.up.railway.app";
-  const PARSER_API_KEY = Deno.env.get("PARSER_API_KEY") || "";
-  const parts = storagePath.split("/");
-  const bucket = parts[0];
-  const filePath = parts.slice(1).join("/");
-  const { data: fileData, error } = await supabase.storage.from(bucket).download(filePath);
-  if (error || !fileData) { console.warn(`[parse-doc] Download failed ${storagePath}:`, error?.message); return ""; }
-  const arrayBuf = await fileData.arrayBuffer();
-  const blob = new Blob([new Uint8Array(arrayBuf)]);
-  const formData = new FormData();
-  formData.append("file", blob, fileName);
-  const resp = await fetch(`${RAILWAY_URL}/parse`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${PARSER_API_KEY}` },
-    body: formData,
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!resp.ok) { console.warn(`[parse-doc] Railway failed for ${fileName}: ${resp.status}`); return ""; }
-  const result = await resp.json();
-  return result.text || result.content || "";
-}
-
-async function autoScreen(supabase: any, candidatureId: string, candidature: any, programmeId: string) {
-  // Trace toute sortie anticipée en base : sinon un échec (clé absente, API KO,
-  // pas de JSON) laisse screening_data à NULL, indistinguable d'un diagnostic
-  // jamais lancé — la panne devient invisible côté UI.
-  const recordFailure = async (reason: string) => {
-    console.error(`[auto-screen] ❌ ${candidature.company_name}: ${reason}`);
-    await supabase.from("candidatures").update({
-      screening_data: { _error: reason?.slice(0, 500), _at: new Date().toISOString(), _source: "auto_screen" },
-      updated_at: new Date().toISOString(),
-    }).eq("id", candidatureId);
+  const payload = {
+    programme_id: opts.programmeId,
+    candidature_ids: opts.candidatureIds,
+    prefer_vision: opts.preferVision ?? false,
   };
 
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) { await recordFailure("ANTHROPIC_API_KEY manquante"); return; }
-
-  // Fetch programme + criteria
-  const { data: programme } = await supabase
-    .from("programmes")
-    .select("name, organization, programme_criteria:criteria_id(*)")
-    .eq("id", programmeId)
+  // 1. INSERT ai_jobs (le worker fait un .select() pour vérifier l'existence)
+  const { data: job, error: jobErr } = await supabase
+    .from("ai_jobs")
+    .insert({
+      agent_name: "screen-candidatures",
+      payload,
+      status: "pending",
+      organization_id: opts.organizationId ?? null,
+    })
+    .select("id")
     .single();
-
-  if (!programme) { await recordFailure("Programme introuvable"); return; }
-  const criteria = programme.programme_criteria;
-
-  const docs = Array.isArray(candidature.documents)
-    ? candidature.documents
-    : Object.entries(candidature.documents || {}).map(([k, v]: any) => ({
-        field_label: k, file_name: v?.filename || v?.file_name || k, file_size: v?.file_size || 0,
-      }));
-
-  // Extract document contents — parsing parallélisé par batches de 5 pour
-  // ne pas dépasser la limite d'execution edge function (400s Pro). Sans ça,
-  // 20+ docs × 30s timeout chacun pouvaient bloquer le re-screen.
-  let documentContents = "";
-  const docsWithPath = docs.filter((d: any) => d.storage_path);
-  if (docsWithPath.length > 0) {
-    try {
-      const BATCH_SIZE = 5;
-      const results: string[] = [];
-      for (let i = 0; i < docsWithPath.length; i += BATCH_SIZE) {
-        const batch = docsWithPath.slice(i, i + BATCH_SIZE);
-        const settled = await Promise.allSettled(
-          batch.map((doc: any) =>
-            parseDocFromStorage(supabase, doc.storage_path, doc.file_name || "document")
-              .then((text: string) => ({ doc, text }))
-          )
-        );
-        for (const r of settled) {
-          if (r.status === 'fulfilled' && r.value.text?.trim()) {
-            const { doc, text } = r.value;
-            results.push(`══════ ${doc.field_label || doc.file_name || 'Document'} ══════\n${text.slice(0, 15000)}`);
-          } else if (r.status === 'rejected') {
-            console.warn(`[auto-screen] doc parse rejected:`, r.reason?.message);
-          }
-        }
-      }
-      documentContents = results.join("\n\n");
-      console.log(`[auto-screen] Extracted ${documentContents.length} chars from ${docsWithPath.length} doc(s) in ${Math.ceil(docsWithPath.length / BATCH_SIZE)} batch(es)`);
-    } catch (e: any) {
-      console.warn("[auto-screen] Document extraction failed:", e.message);
-    }
+  if (jobErr || !job) {
+    console.error("[dispatch-screening] INSERT ai_jobs failed:", jobErr?.message);
+    return false;
   }
 
-  const userPrompt = `PROGRAMME : ${programme.name}
-ORGANISATION : ${programme.organization || "Non spécifiée"}
-
-CRITÈRES D'ÉLIGIBILITÉ :
-${criteria ? JSON.stringify({
-  min_revenue: criteria.min_revenue, sector_filter: criteria.sector_filter,
-  country_filter: criteria.country_filter, max_debt_ratio: criteria.max_debt_ratio,
-  min_margin: criteria.min_margin, custom_criteria: criteria.custom_criteria,
-  raw_criteria_text: criteria.raw_criteria_text,
-}, null, 2) : "Aucun critère spécifique défini"}
-
-CANDIDATURE :
-- Entreprise : ${candidature.company_name}
-- Contact : ${candidature.contact_name || "Non fourni"} (${candidature.contact_email})
-
-RÉPONSES AU FORMULAIRE :
-${JSON.stringify(candidature.form_data || {}, null, 2)}
-
-DOCUMENTS JOINTS : ${docs.length === 0
-  ? '0 fichier(s)\n⚠️ AUCUN DOCUMENT FOURNI'
-  : `${docs.length} fichier(s)\n${docs.map((d: any) => `- ${d.field_label || 'Document'}: ${d.file_name || d.filename} (${Math.round((d.file_size || 0)/1024)} KB)`).join('\n')}`
+  // 2. POST /run-agent avec le job_id inséré
+  try {
+    const resp = await fetch(`${railwayUrl}/run-agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Worker-API-Key": railwayKey },
+      body: JSON.stringify({ agent_name: "screen-candidatures", job_id: job.id, payload }),
+    });
+    if (!resp.ok && resp.status !== 202) {
+      const text = await resp.text().catch(() => "");
+      console.error(`[dispatch-screening] worker dispatch failed: ${resp.status} ${text.slice(0, 200)}`);
+      return false;
+    }
+    return true;
+  } catch (e: any) {
+    console.error("[dispatch-screening] worker unreachable:", e.message);
+    return false;
+  }
 }
 
-${documentContents ? `══════ CONTENU DES DOCUMENTS ══════\n${documentContents}\n══════ FIN DES DOCUMENTS ══════\n\nIMPORTANT : Compare les données du formulaire avec le contenu des documents. Signale toute incohérence.` : ''}
-
-CONSTATS PAR SCOPE : regroupe TOUS tes constats par domaine (financier, commercial, opérationnel, RH, legal). Chaque constat classé par sévérité.
-
-Produis le diagnostic complet selon ce schéma JSON :
-${SCREENING_SCHEMA}`;
-
-  // RAG context + benchmarks
-  const sector = candidature.form_data?.sector || candidature.form_data?.secteur || "";
-  const country = candidature.form_data?.country || candidature.form_data?.pays || "";
-  const ragContext = await fetchRAGContext(supabase, country, sector);
-  const sectorBenchmarks = getSectorKnowledgePrompt(sector || "services_b2b");
-  const donorCriteria = getDonorCriteriaPrompt();
-  const validationRules = getValidationRulesPrompt();
-
-  const enrichedPrompt = userPrompt
-    + `\n\n══════ BENCHMARKS SECTORIELS ══════\n${sectorBenchmarks}`
-    + `\n\n══════ CRITÈRES BAILLEURS DE RÉFÉRENCE ══════\n${donorCriteria}`
-    + `\n\n══════ RÈGLES DE VALIDATION CROISÉE ══════\n${validationRules}`
-    + ragContext;
-
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 24576,
-      temperature: 0,
-      system: SCREENING_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: enrichedPrompt }],
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    await recordFailure(`Erreur API ${resp.status}: ${errText.slice(0, 200)}`);
-    return;
-  }
-
-  const result = await resp.json();
-  const content = result.content?.[0]?.text || "";
-
-  // Log cost
-  const usage = result.usage;
-  if (usage) {
-    const cost = (usage.input_tokens || 0) * 3 / 1_000_000 + (usage.output_tokens || 0) * 15 / 1_000_000;
-    try {
-      await supabase.from("ai_cost_log").insert({
-        function_name: "auto-screen-candidature",
-        organization_id: programme?.organization_id || null,
-        model: "claude-sonnet-4-6",
-        input_tokens: usage.input_tokens || 0,
-        output_tokens: usage.output_tokens || 0,
-        cost_usd: cost,
-      });
-    } catch (_) {}
-  }
-
-  let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1) { await recordFailure("Réponse IA sans JSON exploitable"); return; }
-
-  const diagnostic = JSON.parse(cleaned.substring(start, end + 1));
-
+/** Marque une candidature en erreur de screening (panne visible côté UI). */
+async function markScreeningError(supabase: any, candidatureId: string, reason: string) {
   await supabase.from("candidatures").update({
-    screening_score: diagnostic.score || 0,
-    screening_data: diagnostic,
-    screening_date: new Date().toISOString(),
+    screening_data: { _error: reason.slice(0, 500), _at: new Date().toISOString(), _source: "dispatch" },
     updated_at: new Date().toISOString(),
   }).eq("id", candidatureId);
-
-  console.log(`[auto-screen] ✅ ${candidature.company_name}: score=${diagnostic.score} (${diagnostic.classification})`);
 }
 
 // ── Main serve ──
@@ -334,23 +132,21 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", body.candidature_id);
 
-      // Re-screen with documents info (non-blocking)
-      // @ts-ignore
-      EdgeRuntime.waitUntil((async () => {
-        try {
-          const { data: cand } = await supabase.from("candidatures").select("*").eq("id", body.candidature_id).single();
-          if (cand) {
-            await autoScreen(supabase, cand.id, cand, cand.programme_id);
-            console.log(`[update_documents] Re-screened ${cand.company_name} with ${(body.documents || []).length} docs`);
-          }
-        } catch (e: any) {
-          console.error("[update_documents] re-screen failed:", e.message);
-          await supabase.from("candidatures").update({
-            screening_data: { _error: e.message?.slice(0, 500), _at: new Date().toISOString(), _source: "update_documents" },
-            updated_at: new Date().toISOString(),
-          }).eq("id", body.candidature_id);
-        }
-      })());
+      // Re-screen avec les documents fraîchement uploadés → dispatch worker.
+      const { data: cand } = await supabase
+        .from("candidatures")
+        .select("id, programme_id, organization_id")
+        .eq("id", body.candidature_id)
+        .single();
+      if (cand?.programme_id) {
+        const ok = await dispatchScreening(supabase, {
+          programmeId: cand.programme_id,
+          candidatureIds: [cand.id],
+          organizationId: cand.organization_id,
+          preferVision: false,
+        });
+        if (!ok) await markScreeningError(supabase, cand.id, "Dispatch worker échoué (update_documents)");
+      }
 
       return jsonRes({ success: true });
     }
@@ -425,19 +221,17 @@ serve(async (req) => {
 
     console.log(`[submit-candidature] ✅ ${company_name} → ${prog.name} (${candidature.id})`);
 
-    // Auto-screen in background
-    // @ts-ignore
-    EdgeRuntime.waitUntil((async () => {
-      try {
-        await autoScreen(supabase, candidature.id, { ...candidatureData, company_name, contact_name, contact_email }, prog.id);
-      } catch (e: any) {
-        console.error("[auto-screen] failed:", e.message);
-        await supabase.from("candidatures").update({
-          screening_data: { _error: e.message?.slice(0, 500), _at: new Date().toISOString(), _source: "auto_screen" },
-          updated_at: new Date().toISOString(),
-        }).eq("id", candidature.id);
-      }
-    })());
+    // Auto-screen → dispatch worker Railway (parsing OCR + Claude jusqu'au bout,
+    // sans l'éviction du waitUntil qui laissait les candidatures en NULL).
+    const dispatched = await dispatchScreening(supabase, {
+      programmeId: prog.id,
+      candidatureIds: [candidature.id],
+      organizationId: prog.organization_id,
+      preferVision: false,
+    });
+    if (!dispatched) {
+      await markScreeningError(supabase, candidature.id, "Dispatch worker échoué (auto-screen)");
+    }
 
     return jsonRes({ success: true, candidature_id: candidature.id });
 
