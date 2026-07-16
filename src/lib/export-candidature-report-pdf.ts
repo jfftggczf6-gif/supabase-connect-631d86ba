@@ -195,6 +195,26 @@ function blockBenchmark(bk: any): string {
   return card('Benchmark sectoriel', inner);
 }
 
+// Matching critères programme — 3 colonnes (validés / partiels / non remplis),
+// miroir du drawer. Bloc pleine largeur (3 colonnes internes).
+function blockMatching(m: any): string {
+  if (!m) return '';
+  const col = (title: string, items: any[], cls: string, mark: string): string => {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    const li = items
+      .map((it) => `<div class="mc-item ${cls}"><span class="mc-mark">${mark}</span><span>${esc(safeText(it))}</span></div>`)
+      .join('');
+    return `<div class="mc-col"><p class="mc-h ${cls}">${esc(title)} (${items.length})</p>${li}</div>`;
+  };
+  const cols = [
+    col('Validés', m.criteres_ok, 'ok', '✓'),
+    col('Partiels', m.criteres_partiels, 'partial', '~'),
+    col('Non remplis', m.criteres_ko, 'ko', '✗'),
+  ].filter(Boolean).join('');
+  if (!cols) return '';
+  return card('Matching critères programme', `<div class="mc">${cols}</div>`);
+}
+
 function blockContact(c: any): string {
   const inner =
     kvLine('Nom', c.contact_name) +
@@ -218,9 +238,10 @@ function ficheHtml(c: any, index: number): string {
 
   // Blocs primaires (pleine largeur) : l'arbitrage de tête.
   const primary = [
-    s.resume_comite ? card('Résumé comité', `<p>${esc(s.resume_comite)}</p>`) : '',
+    s.resume_comite ? card('Synthèse', `<p>${esc(s.resume_comite)}</p>`) : '',
     blockFicheEntreprise(s.fiche_entreprise),
     blockDimensions(dims),
+    blockMatching(s.matching_criteres),
   ].filter(Boolean).join('');
 
   // Blocs secondaires ("voir plus") + contact : rendus en 2 COLONNES pour tenir
@@ -424,6 +445,18 @@ export function buildHtml(candidatures: any[], programmeName: string): string {
   .risk { background: #f9fafb; border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; }
   .risk p { margin: 2px 0; }
   .mitig { color: #6d28d9; }
+  /* Matching critères programme (3 colonnes) */
+  .mc { display: flex; gap: 12px; }
+  .mc-col { flex: 1; }
+  .mc-h { font-weight: 600; font-size: 10px; margin: 0 0 4px; }
+  .mc-h.ok { color: #059669; }
+  .mc-h.partial { color: #d97706; }
+  .mc-h.ko { color: #dc2626; }
+  .mc-item { display: flex; gap: 4px; font-size: 9.5px; margin-bottom: 3px; }
+  .mc-mark { flex-shrink: 0; font-weight: 700; }
+  .mc-item.ok .mc-mark { color: #10b981; }
+  .mc-item.partial .mc-mark { color: #f59e0b; }
+  .mc-item.ko .mc-mark { color: #ef4444; }
 </style>
 </head><body>
   <div class="header">
