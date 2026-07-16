@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ProgrammeStatusBadge from '@/components/programmes/ProgrammeStatusBadge';
 import CandidatureKanban from '@/components/programmes/CandidatureKanban';
 import CandidatureDetailDrawer from '@/components/programmes/CandidatureDetailDrawer';
@@ -22,12 +23,13 @@ import CohorteEnterprisesTab from '@/components/programmes/CohorteEnterprisesTab
 import ProgrammeImpactTab from '@/components/programmes/ProgrammeImpactTab';
 import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceTab';
 import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
+import { exportCandidatureReportPdf, exportCandidatureReportWord } from '@/lib/export-candidature-report-pdf';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
 import { SingleLogoUploader } from '@/components/programme/SingleLogoUploader';
 import type { PartnerLogo } from '@/components/programme/PartnerLogos';
-import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Plus, Trash2, Save, FileText, Activity } from 'lucide-react';
+import { Loader2, Copy, Bot, ExternalLink, Eye, CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Plus, Trash2, Save, FileText, Activity, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -52,6 +54,7 @@ export default function ProgrammeDetailPage() {
   const [candidatures, setCandidatures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [screening, setScreening] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedCandidature, setSelectedCandidature] = useState<string | null>(null);
@@ -281,6 +284,25 @@ export default function ProgrammeDetailPage() {
       toast({ title: 'Erreur', description: err.message || 'Impossible de créer le jeu de critères', variant: 'destructive' });
     } finally {
       setCreatingCrit(false);
+    }
+  };
+
+  const handleReport = async (format: 'pdf' | 'word') => {
+    if (!candidatures.length) {
+      toast({ title: 'Aucune candidature', description: 'Rien à reporter pour le moment.' });
+      return;
+    }
+    setReporting(true);
+    try {
+      if (format === 'word') {
+        exportCandidatureReportWord(candidatures, programme?.name || 'Programme');
+      } else {
+        await exportCandidatureReportPdf(candidatures, programme?.name || 'Programme');
+      }
+    } catch (e: any) {
+      toast({ title: 'Erreur', description: e?.message || 'Génération du reporting impossible', variant: 'destructive' });
+    } finally {
+      setReporting(false);
     }
   };
 
@@ -587,6 +609,19 @@ export default function ProgrammeDetailPage() {
                   {screening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
                   {screening ? t('programme.screening_running') : t('programme.screening_ia')}
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2" disabled={reporting} title="Télécharger le reporting de toutes les candidatures (tableau de bord + une fiche par candidature)">
+                      {reporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                      {reporting ? 'Génération…' : 'Générer le reporting'}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleReport('pdf')}>PDF</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleReport('word')}>Word (.doc)</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
               <details className="mt-2">

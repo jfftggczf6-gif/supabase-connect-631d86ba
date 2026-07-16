@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import CompletionLinkDialog from './CompletionLinkDialog';
 import { getRecoveryStatus, recoveryBadgeClass } from '@/lib/recovery-status';
+import { safeText, fmt } from '@/lib/candidature-format';
 
 interface Props {
   candidatureId: string | null;
@@ -21,17 +22,6 @@ interface Props {
   onUpdated: () => void;
   candidatureIds?: string[];
   onNavigate?: (candidatureId: string) => void;
-}
-
-function safeText(v: any): string {
-  if (!v) return '';
-  if (typeof v === 'string') return v;
-  return v.titre || v.label || v.detail || v.description || v.name || JSON.stringify(v);
-}
-
-function fmt(v: number | null | undefined, suffix = ''): string {
-  if (v == null) return '—';
-  return v.toLocaleString('fr-FR') + (suffix ? ` ${suffix}` : '');
 }
 
 export default function CandidatureDetailDrawer({ candidatureId, open, onOpenChange, coaches, onUpdated, candidatureIds = [], onNavigate }: Props) {
