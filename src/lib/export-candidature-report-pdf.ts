@@ -215,6 +215,57 @@ function blockMatching(m: any): string {
   return card('Matching critères programme', `<div class="mc">${cols}</div>`);
 }
 
+// Points forts — miroir du drawer (titre + détail si dispo).
+function blockPointsForts(items: any[]): string {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const li = items.map((p) => {
+    const t = esc(safeText(p));
+    const d = (p && typeof p === 'object' && p.detail && p.detail !== safeText(p)) ? `<span class="pf-d"> — ${esc(p.detail)}</span>` : '';
+    return t ? `<li>${t}${d}</li>` : '';
+  }).filter(Boolean).join('');
+  return li ? card('Points forts', `<ul class="pf">${li}</ul>`) : '';
+}
+
+// Points de vigilance — titre + risque/détail si dispo.
+function blockPointsVigilance(items: any[]): string {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const li = items.map((p) => {
+    const t = esc(safeText(p));
+    const r = (p && typeof p === 'object') ? (p.risque ? ` — Risque : ${esc(p.risque)}` : (p.detail ? ` — ${esc(p.detail)}` : '')) : '';
+    return t ? `<li>${t}${r ? `<span class="pf-d">${r}</span>` : ''}</li>` : '';
+  }).filter(Boolean).join('');
+  return li ? card('Points de vigilance', `<ul class="pf">${li}</ul>`) : '';
+}
+
+// Incohérences détectées — badge sévérité + observation.
+function blockIncoherences(items: any[]): string {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const li = items.map((inc) => {
+    const sev = (inc && inc.severite) ? String(inc.severite) : 'INFO';
+    const obs = (inc && inc.observation) ? esc(inc.observation) : esc(safeText(inc));
+    if (!obs) return '';
+    const cls = sev.includes('BLOQUANT') ? 'sev-ko' : sev.includes('ATTENTION') ? 'sev-warn' : 'sev-info';
+    return `<div class="inc"><span class="sev ${cls}">${esc(sev)}</span><span>${obs}</span></div>`;
+  }).filter(Boolean).join('');
+  return li ? card('Incohérences détectées', li) : '';
+}
+
+// Recommandation d'accompagnement — l'encart de décision (pleine largeur).
+function blockRecommandation(r: any): string {
+  if (!r || typeof r !== 'object') {
+    return (typeof r === 'string' && r.trim()) ? `<div class="card reco"><h4>Recommandation d'accompagnement</h4><p>${esc(r)}</p></div>` : '';
+  }
+  const avis = r.avis || r.verdict;
+  const inner =
+    (avis ? `<span class="reco-avis">${esc(avis)}</span>` : '') +
+    (r.justification ? `<p>${esc(r.justification)}</p>` : '') +
+    (Array.isArray(r.priorites_si_selectionnee) && r.priorites_si_selectionnee.length ? `<p class="kv"><strong>Priorités si sélectionnée :</strong></p>${bulletList(r.priorites_si_selectionnee)}` : '') +
+    (Array.isArray(r.conditions_prealables) && r.conditions_prealables.length ? `<p class="kv"><strong>Conditions préalables :</strong></p>${bulletList(r.conditions_prealables)}` : '') +
+    (r.potentiel_6_mois ? `<p class="kv"><strong>Potentiel 6 mois :</strong> ${esc(r.potentiel_6_mois)}</p>` : '') +
+    (r.profil_coach_ideal ? `<p class="kv"><strong>Profil coach idéal :</strong> ${esc(r.profil_coach_ideal)}</p>` : '');
+  return inner ? `<div class="card reco"><h4>Recommandation d'accompagnement</h4>${inner}</div>` : '';
+}
+
 function blockContact(c: any): string {
   const inner =
     kvLine('Nom', c.contact_name) +
@@ -236,19 +287,26 @@ function ficheHtml(c: any, index: number): string {
     : `<div class="score-badge na">—</div>`;
   const tag = s.classification ? `<span class="class-tag">${esc(s.classification)}</span>` : '';
 
-  // Blocs primaires (pleine largeur) : l'arbitrage de tête.
+  const reco = s.recommandation_accompagnement || s.recommandation;
+
+  // Blocs primaires (pleine largeur) : l'arbitrage de tête + l'encart recommandation.
   const primary = [
     s.resume_comite ? card('Synthèse', `<p>${esc(s.resume_comite)}</p>`) : '',
     blockFicheEntreprise(s.fiche_entreprise),
     blockDimensions(dims),
     blockMatching(s.matching_criteres),
+    blockRecommandation(reco),
   ].filter(Boolean).join('');
 
-  // Blocs secondaires ("voir plus") + contact : rendus en 2 COLONNES pour tenir
-  // la fiche sur ~2 pages A4 sans rien couper (colonnes multiples CSS +
-  // break-inside:avoid par carte → compression, jamais troncature).
+  // Blocs secondaires + contact : rendus en 2 COLONNES pour tenir la fiche sur
+  // ~2 pages A4 sans rien couper (colonnes multiples CSS + break-inside:avoid
+  // par carte → compression, jamais troncature). Points forts / vigilance /
+  // incohérences en tête, puis les sections enrichies ("voir plus").
   const contactBlock = blockContact(c);
   const secondaryDiag = [
+    blockPointsForts(s.points_forts),
+    blockPointsVigilance(s.points_vigilance),
+    blockIncoherences(s.incoherences_detectees || s.incoherences),
     blockIndicateurs(s.indicateurs_financiers),
     blockMarche(s.marche_positionnement),
     blockEquipe(s.equipe_gouvernance),
@@ -457,6 +515,19 @@ export function buildHtml(candidatures: any[], programmeName: string): string {
   .mc-item.ok .mc-mark { color: #10b981; }
   .mc-item.partial .mc-mark { color: #f59e0b; }
   .mc-item.ko .mc-mark { color: #ef4444; }
+  /* Points forts / vigilance */
+  .pf { padding-left: 15px; margin: 2px 0; }
+  .pf li { margin-bottom: 3px; }
+  .pf-d { color: #6b7280; }
+  /* Incohérences */
+  .inc { display: flex; gap: 6px; font-size: 9.5px; margin-bottom: 4px; align-items: baseline; }
+  .sev { flex-shrink: 0; font-size: 8px; font-weight: 700; border-radius: 4px; padding: 1px 5px; border: 1px solid; }
+  .sev-info { color: #6b7280; border-color: #d1d5db; }
+  .sev-warn { color: #b45309; border-color: #fcd34d; }
+  .sev-ko { color: #b91c1c; border-color: #fca5a5; }
+  /* Recommandation (encart) */
+  .card.reco { border-color: ${NAVY}; background: #f5f7fb; }
+  .reco-avis { display: inline-block; background: ${NAVY}; color: #fff; font-weight: 700; font-size: 10px; border-radius: 4px; padding: 2px 8px; margin-bottom: 5px; }
 </style>
 </head><body>
   <div class="header">
