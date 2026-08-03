@@ -290,9 +290,17 @@ export default function ProgrammeCreatePage() {
       // 1. Create programme_criteria if custom criteria exist
       let criteriaId: string | undefined;
       if (criteresEligibilite.length || criteresSelection.length || conditionsSpecifiques.length) {
+        // organization_id est OBLIGATOIRE (colonne NOT NULL). Sans lui, l'insert
+        // échouait et — l'erreur étant avalée — le programme se créait sans ses
+        // critères (bug « critères non pris en compte à la création »).
+        const orgId = currentOrg?.id || null;
+        if (!orgId) {
+          throw new Error(t('programme.criteria_org_required', { defaultValue: "Impossible d'enregistrer les critères : organisation introuvable." }));
+        }
         const { data: crit, error: critErr } = await supabase.from('programme_criteria').insert({
           name: form.name,
           description: form.description || null,
+          organization_id: orgId,
           created_by: session.user.id,
           country_filter: form.country_filter,
           sector_filter: form.sector_filter,
@@ -302,8 +310,11 @@ export default function ProgrammeCreatePage() {
             conditions_specifiques: conditionsSpecifiques,
           },
         }).select('id').single();
-        if (critErr) console.error('Criteria insert error:', critErr);
-        criteriaId = crit?.id;
+        // On remonte l'erreur au lieu de l'avaler : plus jamais de critères perdus en silence.
+        if (critErr || !crit?.id) {
+          throw new Error(critErr?.message || t('programme.criteria_save_error', { defaultValue: "Impossible d'enregistrer les critères du programme." }));
+        }
+        criteriaId = crit.id;
       }
 
       // 2. Insert programme
