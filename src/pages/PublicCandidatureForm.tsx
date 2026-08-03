@@ -13,7 +13,8 @@ import { fr, enUS } from 'date-fns/locale';
 import { getSortedCountries } from '@/lib/countries';
 import { SECTORS } from '@/lib/sectors';
 import { mergeDefaultFields } from '@/lib/default-fields';
-import { resolveFieldLabel, resolveOptionLabel, resolvePresentation, resolveDefaultFieldOverride, computeLangCompleteness } from '@/lib/form-i18n';
+import { FreeTextPrecision } from '@/components/programme/FreeTextPrecision';
+import { resolveFieldLabel, resolveOptionLabel, resolveFreeTextLabel, resolvePresentation, resolveDefaultFieldOverride, computeLangCompleteness } from '@/lib/form-i18n';
 import { Markdown } from '@/components/ui/markdown';
 import { PartnerLogos } from '@/components/programme/PartnerLogos';
 
@@ -118,6 +119,19 @@ export default function PublicCandidatureForm() {
           ? (resolveDefaultFieldOverride(f.key, f.label, effectiveLang, baseLang, formTr) ?? f.label)
           : t(f.labelKey)).join(', '),
       }));
+      return;
+    }
+    // Précision « champ libre » obligatoire : champ requis + option à champ libre
+    // sélectionnée mais texte vide.
+    const precisionMissing = (formFields || []).find((f: any) => {
+      if (!f.required || !f.freeTextOptions) return false;
+      const val = formData[f.label];
+      const sel = Array.isArray(val) ? val : val ? [val] : [];
+      const prec = formData[`${f.label}__precisions`] || {};
+      return sel.some((o: string) => o in f.freeTextOptions && !String(prec[o] || '').trim());
+    });
+    if (precisionMissing) {
+      setError(t('candidature.public_precision_required', { defaultValue: 'Merci de préciser votre réponse.' }));
       return;
     }
     setError(null);
@@ -230,6 +244,11 @@ export default function PublicCandidatureForm() {
   };
 
   const setField = (key: string, val: any) => setFormData(f => ({ ...f, [key]: val }));
+
+  // Précisions « champ libre » : stockées dans la clé sœur `{label}__precisions`,
+  // { valeur d'option → texte saisi }. Réponse principale inchangée.
+  const setPrecision = (key: string, opt: string, val: string) =>
+    setFormData(f => ({ ...f, [`${key}__precisions`]: { ...(f[`${key}__precisions`] || {}), [opt]: val } }));
 
   const handleFileSelect = (fieldLabel: string, file: File | null) => {
     if (file) {
@@ -468,6 +487,18 @@ export default function PublicCandidatureForm() {
                     </div>
                   ) : (
                     <Input type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} required={field.required} value={formData[field.label] || ''} onChange={e => setField(field.label, e.target.value)} />
+                  )}
+                  {['select', 'radio', 'checkbox'].includes(field.type) && field.freeTextOptions && (
+                    <FreeTextPrecision
+                      field={field}
+                      selected={field.type === 'checkbox'
+                        ? (Array.isArray(formData[field.label]) ? formData[field.label] : [])
+                        : (formData[field.label] ? [formData[field.label]] : [])}
+                      precisions={formData[`${field.label}__precisions`] || {}}
+                      onChange={(opt, val) => setPrecision(field.label, opt, val)}
+                      defaultLabel={t('candidature.public_precise', { defaultValue: 'Précisez…' })}
+                      labelFor={(opt) => resolveFreeTextLabel(field, opt, effectiveLang, baseLang, formTr) || t('candidature.public_precise', { defaultValue: 'Précisez…' })}
+                    />
                   )}
                 </div>
                 );

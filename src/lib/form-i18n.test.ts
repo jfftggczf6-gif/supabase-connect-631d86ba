@@ -8,6 +8,7 @@ import {
   collectTranslatableSegments,
   buildMarkedPrompt,
   parseMarkedResponse,
+  resolveFreeTextLabel,
   type FormTranslations,
   type TranslatableField,
   type TranslatableSurface,
@@ -44,6 +45,43 @@ describe('resolveFieldLabel', () => {
   });
   it('base=en → un affichage fr sans traduction retombe sur la base anglaise', () => {
     expect(resolveFieldLabel({ ...field, label: 'City?' }, 'fr', 'en', null)).toBe('City?');
+  });
+});
+
+describe('freeTextOptions i18n', () => {
+  it('collecte les libellés freeText comme segments traduisibles', () => {
+    const segs = collectTranslatableSegments({
+      presentation: '',
+      fields: [{ id: 'f1', label: 'Q', options: ['Autre'], freeTextOptions: { Autre: 'Précisez la source' } }],
+      defaultOverrides: {},
+    } as any);
+    expect(segs).toContainEqual(
+      expect.objectContaining({
+        descriptor: { kind: 'field_freetext_label', id: 'f1', value: 'Autre' },
+        text: 'Précisez la source',
+      }),
+    );
+  });
+
+  it('parseMarkedResponse écrit la traduction dans form_fields[id].freeTextOptions', () => {
+    const surface = {
+      presentation: '',
+      fields: [{ id: 'f1', label: 'Q', options: ['Autre'], freeTextOptions: { Autre: 'Précisez' } }],
+      defaultOverrides: {},
+    } as any;
+    const segs = collectTranslatableSegments(surface);
+    const idx = segs.findIndex((s) => (s.descriptor as any).kind === 'field_freetext_label');
+    const raw = segs.map((_, i) => `[${i}] ${i === idx ? 'Please specify' : 'x'}`).join('\n');
+    const out = parseMarkedResponse(raw, segs, surface);
+    expect(out.form_fields?.f1?.freeTextOptions?.Autre).toBe('Please specify');
+  });
+
+  it('resolveFreeTextLabel : repli base, puis traduction si présente', () => {
+    const field = { id: 'f1', label: 'Q', freeTextOptions: { Autre: 'Précisez' } } as any;
+    const tr = { en: { form_fields: { f1: { freeTextOptions: { Autre: 'Please specify' } } } } } as any;
+    expect(resolveFreeTextLabel(field, 'Autre', 'fr', 'fr', tr)).toBe('Précisez'); // langue de base
+    expect(resolveFreeTextLabel(field, 'Autre', 'en', 'fr', tr)).toBe('Please specify'); // traduit
+    expect(resolveFreeTextLabel(field, 'Autre', 'en', 'fr', {} as any)).toBe('Précisez'); // repli
   });
 });
 

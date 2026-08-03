@@ -41,4 +41,53 @@ describe("FieldOptionsEditor", () => {
     render(<FieldOptionsEditor value={["A"]} onChange={() => {}} />);
     expect(screen.getByLabelText(/Retirer l'option 1/i)).toBeDisabled();
   });
+
+  it("coche « champ libre » sur une option → onFreeTextChange reçoit l'option", () => {
+    const onChange = vi.fn();
+    const onFreeTextChange = vi.fn();
+    render(
+      <FieldOptionsEditor
+        value={["OVO", "Autre"]}
+        onChange={onChange}
+        freeTextOptions={{}}
+        onFreeTextChange={onFreeTextChange}
+      />,
+    );
+    const checks = screen.getAllByRole("checkbox");
+    expect(checks).toHaveLength(2);
+    fireEvent.click(checks[1]); // coche « Autre »
+    expect(onFreeTextChange).toHaveBeenCalledWith({ Autre: "" });
+  });
+
+  it("bouton « Ajouter une option Autre » ajoute l'option + la pré-coche", () => {
+    const onChange = vi.fn();
+    const onFreeTextChange = vi.fn();
+    render(
+      <FieldOptionsEditor value={["OVO"]} onChange={onChange} freeTextOptions={{}} onFreeTextChange={onFreeTextChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /ajouter une option .*autre/i }));
+    expect(onChange).toHaveBeenCalledWith(["OVO", "Autre"]);
+    expect(onFreeTextChange).toHaveBeenCalledWith({ Autre: "" });
+  });
+
+  it("renommer une option à champ libre migre la clé", () => {
+    const onChange = vi.fn();
+    const onFreeTextChange = vi.fn();
+    render(
+      <FieldOptionsEditor
+        value={["Autre"]}
+        onChange={onChange}
+        freeTextOptions={{ Autre: "Précisez" }}
+        onFreeTextChange={onFreeTextChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Option 1"), { target: { value: "Autres" } });
+    expect(onFreeTextChange).toHaveBeenCalledWith({ Autres: "Précisez" });
+  });
+
+  it("sans onFreeTextChange : pas de case ni de bouton Autre (compat)", () => {
+    render(<FieldOptionsEditor value={["A", "B"]} onChange={() => {}} />);
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /autre/i })).toBeNull();
+  });
 });
