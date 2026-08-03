@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { getValidAccessToken } from '@/lib/getValidAccessToken';
 import { parseFile, buildParsingReport, type ParsedDocument, type ParsingReport } from '@/lib/document-parser';
 import { DocumentConflictDialog, type ConflictChoice } from './DocumentConflictDialog';
+import { DownloadAllZipButton } from '@/components/common/DownloadAllZipButton';
 import {
   Wand2, X, FileText, Loader2, CheckCircle2,
   AlertTriangle, RotateCcw, Download, Trash2
@@ -19,6 +20,7 @@ const MAX_FILES = 20;
 
 interface ReconstructionUploaderProps {
   enterpriseId: string;
+  enterpriseName?: string;
   session: any;
   navigate: (path: string) => void;
   onComplete: () => void;
@@ -43,7 +45,7 @@ interface StorageFile {
   metadata?: { size?: number };
 }
 
-export default function ReconstructionUploader({ enterpriseId, session, navigate, onComplete }: ReconstructionUploaderProps) {
+export default function ReconstructionUploader({ enterpriseId, enterpriseName, session, navigate, onComplete }: ReconstructionUploaderProps) {
   const { t } = useTranslation();
   const [files, setFiles] = useState<File[]>([]);
   const [existingFiles, setExistingFiles] = useState<StorageFile[]>([]);
@@ -577,9 +579,21 @@ export default function ReconstructionUploader({ enterpriseId, session, navigate
         {/* Existing files from storage */}
         {existingFiles.length > 0 && files.length === 0 && !uploading && (
           <div className="mb-4 space-y-1">
-            <p className="text-xs font-medium text-emerald-700 mb-1 flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" /> {existingFiles.length} document(s) déjà intégré(s)
-            </p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> {existingFiles.length} document(s) déjà intégré(s)
+              </p>
+              <DownloadAllZipButton
+                zipBaseName={enterpriseName || 'documents'}
+                files={existingFiles.map((f) => ({
+                  name: f.name.replace(/^\d+_/, ''),
+                  fetch: async () => {
+                    const { data } = await supabase.storage.from('documents').download(`${enterpriseId}/reconstruction/${f.name}`);
+                    return data ?? null;
+                  },
+                }))}
+              />
+            </div>
             <p className="text-[10px] text-muted-foreground mb-2">Les nouveaux fichiers viendront compléter ces documents. Rien n'est perdu.</p>
             <div className="max-h-48 overflow-y-auto space-y-1">
               {existingFiles.map((f, i) => (

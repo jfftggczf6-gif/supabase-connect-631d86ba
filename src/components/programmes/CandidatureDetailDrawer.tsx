@@ -16,6 +16,7 @@ import { safeText, fmt } from '@/lib/candidature-format';
 import { CandidatureDocumentsUploader } from './CandidatureDocumentsUploader';
 import { mergeDocuments, type CandidatureDoc } from '@/lib/candidature-docs';
 import { exportSingleCandidaturePdf, exportSingleCandidatureWord } from '@/lib/export-candidature-report-pdf';
+import { DownloadAllZipButton } from '@/components/common/DownloadAllZipButton';
 
 interface Props {
   candidatureId: string | null;
@@ -750,7 +751,24 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   return (
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">{t('candidature.documents')} ({docs.length})</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-sm">{t('candidature.documents')} ({docs.length})</h4>
+                        {docs.length > 0 && (
+                          <DownloadAllZipButton
+                            zipBaseName={detail.company_name || 'candidature'}
+                            files={docs.map((doc: any) => ({
+                              name: doc.file_name,
+                              fetch: async () => {
+                                const path = (doc.storage_path || '').replace('candidature-documents/', '');
+                                const { data: signed } = await supabase.storage.from('candidature-documents').createSignedUrl(path, 300);
+                                if (!signed?.signedUrl) return null;
+                                const res = await fetch(signed.signedUrl);
+                                return res.ok ? await res.blob() : null;
+                              },
+                            }))}
+                          />
+                        )}
+                      </div>
                       {docs.length > 0 && (
                         <div className="space-y-1.5 mb-3">
                           {docs.map((doc: any, i: number) => (
