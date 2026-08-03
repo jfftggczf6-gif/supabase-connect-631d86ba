@@ -53,7 +53,20 @@ export function getProjectSourcing(candidature: any): string {
     const low = k.toLowerCase();
     return low.includes('recommand') || (low.includes('organisation') && low.includes('postul'));
   });
-  const val = key ? fd[key] : undefined;
-  const s = (val == null ? '' : String(val)).trim();
-  return s || '—';
+  if (!key) return '—';
+  const raw = fd[key];
+  // Si l'option choisie est un « champ libre » (ex. « Autre »), la vraie valeur est
+  // dans la clé sœur des précisions (feature champ-libre) → on affiche le vrai nom.
+  const precisions = (fd[`${key}__precisions`] && typeof fd[`${key}__precisions`] === 'object')
+    ? fd[`${key}__precisions`]
+    : {};
+  const resolveOne = (v: string): string => {
+    const p = precisions[v];
+    const pTrim = (p == null ? '' : String(p)).trim();
+    return pTrim || v;
+  };
+  const out = Array.isArray(raw)
+    ? raw.map((v) => resolveOne(String(v))).map((x) => x.trim()).filter(Boolean).join(', ')
+    : resolveOne(raw == null ? '' : String(raw)).trim();
+  return out || '—';
 }

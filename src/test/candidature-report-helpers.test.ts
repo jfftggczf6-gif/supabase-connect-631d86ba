@@ -18,6 +18,31 @@ describe("getProjectSourcing", () => {
     expect(getProjectSourcing({})).toBe("—");
     expect(getProjectSourcing(null)).toBe("—");
   });
+
+  it("résout la précision quand la réponse est 'Autre' (champ libre)", () => {
+    const c = {
+      form_data: {
+        "Quelle organisation vous a recommandé de postuler ?": "Autre",
+        "Quelle organisation vous a recommandé de postuler ?__precisions": { Autre: "Fondation Sococim" },
+      },
+    };
+    expect(getProjectSourcing(c)).toBe("Fondation Sococim");
+  });
+
+  it("garde la réponse brute si pas de précision associée", () => {
+    const c = { form_data: { "Qui vous a recommandé ?": "OVO", "Qui vous a recommandé ?__precisions": { Autre: "X" } } };
+    expect(getProjectSourcing(c)).toBe("OVO");
+  });
+
+  it("choix multiple : joint les valeurs en résolvant les précisions", () => {
+    const c = {
+      form_data: {
+        "Qui vous a recommandé ?": ["OVO", "Autre"],
+        "Qui vous a recommandé ?__precisions": { Autre: "Fondation X" },
+      },
+    };
+    expect(getProjectSourcing(c)).toBe("OVO, Fondation X");
+  });
 });
 
 describe("isRetainedForReport", () => {
