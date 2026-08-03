@@ -27,6 +27,7 @@ import { SingleLogoUploader } from '@/components/programme/SingleLogoUploader';
 import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
 import type { PartnerLogo } from '@/components/programme/PartnerLogos';
 import { FieldOptionsEditor } from '@/components/programme/FieldOptionsEditor';
+import { cleanFreeTextOptions } from '@/lib/form-fields';
 
 interface FormField {
   id: string;
@@ -192,11 +193,14 @@ export default function ProgrammeFormPage() {
     }
     setSaving(true);
 
-    // Nettoie les options vides des champs à choix avant sauvegarde.
+    // Nettoie les options vides des champs à choix + les entrées freeTextOptions
+    // orphelines (option renommée/supprimée) avant sauvegarde.
     const cleanedFields = JSON.parse(JSON.stringify(
-      formFields.map(f => ['select', 'checkbox', 'radio'].includes(f.type)
-        ? { ...f, options: (f.options || []).map(o => o.trim()).filter(Boolean) }
-        : f),
+      formFields.map(f => {
+        if (!['select', 'checkbox', 'radio'].includes(f.type)) return f;
+        const options = (f.options || []).map(o => o.trim()).filter(Boolean);
+        return { ...f, options, freeTextOptions: cleanFreeTextOptions({ options, freeTextOptions: f.freeTextOptions }) };
+      }),
     ));
 
     // Traduction AUTOMATIQUE au save : on traduit tout le contenu perso (présentation,
@@ -456,6 +460,8 @@ export default function ProgrammeFormPage() {
                       <FieldOptionsEditor
                         value={f.options || []}
                         onChange={opts => setFormFields(fields => fields.map(ff => ff.id === f.id ? { ...ff, options: opts } : ff))}
+                        freeTextOptions={f.freeTextOptions || {}}
+                        onFreeTextChange={ft => setFormFields(fields => fields.map(ff => ff.id === f.id ? { ...ff, freeTextOptions: ft } : ff))}
                       />
                     </div>
                   )}
