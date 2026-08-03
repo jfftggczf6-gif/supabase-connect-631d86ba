@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { dispatchScreening, markScreeningError } from "../_shared/dispatch-screening.ts";
+import { sendEmail, escapeHtml } from "../_shared/send-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,53 @@ function jsonRes(data: any, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+/**
+ * Notifie l'équipe (chef de programme + owner/admin/manager de l'org) qu'une
+ * nouvelle candidature est arrivée. Emails dédupliqués, envoi en parallèle,
+ * NON bloquant (toute erreur est avalée pour ne jamais casser la soumission).
+ */
+async function notifyTeamNewCandidature(
+  supabase: any,
+  prog: { id: string; name: string; organization_id: string | null; chef_programme_id: string | null },
+  cand: { company_name: string; contact_name: string | null; contact_email: string },
+): Promise<void> {
+  try {
+    const emails = new Set<string>();
+    if (prog.chef_programme_id) {
+      const { data } = await supabase.from("profiles").select("email").eq("user_id", prog.chef_programme_id).maybeSingle();
+      if (data?.email) emails.add(data.email);
+    }
+    if (prog.organization_id) {
+      const { data: mems } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", prog.organization_id)
+        .eq("is_active", true)
+        .in("role", ["owner", "admin", "manager"]);
+      const ids = (mems || []).map((m: any) => m.user_id).filter(Boolean);
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("email").in("user_id", ids);
+        for (const p of profs || []) if (p?.email) emails.add(p.email);
+      }
+    }
+    if (emails.size === 0) {
+      console.log("[notify] aucun destinataire pour la notification de candidature");
+      return;
+    }
+    const link = `https://esono.tech/programmes/${prog.id}`;
+    const subject = `Nouvelle candidature — ${cand.company_name}`;
+    const html =
+      `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.5">` +
+      `<p><strong>${escapeHtml(cand.company_name)}</strong> a soumis une candidature au programme <strong>${escapeHtml(prog.name)}</strong>.</p>` +
+      `<p>Contact : ${escapeHtml(cand.contact_name || "—")} (${escapeHtml(cand.contact_email)})</p>` +
+      `<p><a href="${link}" style="color:#6d28d9">Voir dans ESONO →</a></p>` +
+      `</div>`;
+    await Promise.all([...emails].map((to) => sendEmail({ to, subject, html })));
+  } catch (e) {
+    console.error("[notify] erreur (non bloquante):", (e as Error).message);
+  }
 }
 
 // ── Main serve ──
@@ -88,7 +136,7 @@ serve(async (req) => {
     // Find programme by slug
     const { data: prog, error: progErr } = await supabase
       .from("programmes")
-      .select("id, status, start_date, end_date, name, organization_id")
+      .select("id, status, start_date, end_date, name, organization_id, chef_programme_id")
       .eq("form_slug", programme_slug)
       .single();
 
@@ -147,6 +195,9 @@ serve(async (req) => {
     }
 
     console.log(`[submit-candidature] ✅ ${company_name} → ${prog.name} (${candidature.id})`);
+
+    // Notifier l'équipe (chef de programme + managers de l'org). Non bloquant.
+    await notifyTeamNewCandidature(supabase, prog, { company_name, contact_name: contact_name || null, contact_email });
 
     // Auto-screen → dispatch worker Railway (parsing OCR + Claude jusqu'au bout,
     // sans l'éviction du waitUntil qui laissait les candidatures en NULL).
