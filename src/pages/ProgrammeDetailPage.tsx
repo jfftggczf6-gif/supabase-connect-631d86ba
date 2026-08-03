@@ -24,6 +24,7 @@ import ProgrammeImpactTab from '@/components/programmes/ProgrammeImpactTab';
 import ProgrammeComplianceTab from '@/components/programmes/ProgrammeComplianceTab';
 import ProgrammeODDPortfolioTab from '@/components/programmes/ProgrammeODDPortfolioTab';
 import { exportCandidatureReportPdf, exportCandidatureReportWord } from '@/lib/export-candidature-report-pdf';
+import { isRetainedForReport } from '@/lib/candidature-format';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
@@ -288,16 +289,19 @@ export default function ProgrammeDetailPage() {
   };
 
   const handleReport = async (format: 'pdf' | 'word') => {
-    if (!candidatures.length) {
-      toast({ title: 'Aucune candidature', description: 'Rien à reporter pour le moment.' });
+    // Reporting basé sur les candidatures pré-sélectionnées et au-delà (exclut les
+    // 'reçues' non triées = doublons potentiels, et les 'rejetées'). Retour Nathalie.
+    const reportCands = candidatures.filter((c: any) => isRetainedForReport(c.status));
+    if (!reportCands.length) {
+      toast({ title: 'Aucune candidature à reporter', description: 'Le reporting porte sur les candidatures pré-sélectionnées et au-delà.' });
       return;
     }
     setReporting(true);
     try {
       if (format === 'word') {
-        exportCandidatureReportWord(candidatures, programme?.name || 'Programme');
+        exportCandidatureReportWord(reportCands, programme?.name || 'Programme');
       } else {
-        await exportCandidatureReportPdf(candidatures, programme?.name || 'Programme');
+        await exportCandidatureReportPdf(reportCands, programme?.name || 'Programme');
       }
     } catch (e: any) {
       toast({ title: 'Erreur', description: e?.message || 'Génération du reporting impossible', variant: 'destructive' });

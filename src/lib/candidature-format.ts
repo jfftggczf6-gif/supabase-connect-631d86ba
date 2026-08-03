@@ -30,3 +30,43 @@ export function escapeHtml(v: any): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+/**
+ * Statuts inclus dans le rapport agrégé de candidatures. On exclut 'received'
+ * (les soumissions non triées, sources de doublons) et 'rejected' (refusées).
+ */
+export const REPORT_RETAINED_STATUSES = ['pre_selected', 'selected', 'enterprise'];
+
+export function isRetainedForReport(status: string | null | undefined): boolean {
+  return REPORT_RETAINED_STATUSES.includes(String(status));
+}
+
+/**
+ * « Sourcing projet » : par quelle organisation l'entreprise est arrivée.
+ * Cherche dans form_data la question « Quelle organisation vous a recommandé… »
+ * par mot-clé (robuste aux formulations/programmes). '—' si absent.
+ */
+export function getProjectSourcing(candidature: any): string {
+  const fd = candidature?.form_data;
+  if (!fd || typeof fd !== 'object') return '—';
+  const key = Object.keys(fd).find((k) => {
+    const low = k.toLowerCase();
+    return low.includes('recommand') || (low.includes('organisation') && low.includes('postul'));
+  });
+  if (!key) return '—';
+  const raw = fd[key];
+  // Si l'option choisie est un « champ libre » (ex. « Autre »), la vraie valeur est
+  // dans la clé sœur des précisions (feature champ-libre) → on affiche le vrai nom.
+  const precisions = (fd[`${key}__precisions`] && typeof fd[`${key}__precisions`] === 'object')
+    ? fd[`${key}__precisions`]
+    : {};
+  const resolveOne = (v: string): string => {
+    const p = precisions[v];
+    const pTrim = (p == null ? '' : String(p)).trim();
+    return pTrim || v;
+  };
+  const out = Array.isArray(raw)
+    ? raw.map((v) => resolveOne(String(v))).map((x) => x.trim()).filter(Boolean).join(', ')
+    : resolveOne(raw == null ? '' : String(raw)).trim();
+  return out || '—';
+}
