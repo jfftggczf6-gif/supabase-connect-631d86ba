@@ -13,6 +13,8 @@ import { toast } from '@/hooks/use-toast';
 import CompletionLinkDialog from './CompletionLinkDialog';
 import { getRecoveryStatus, recoveryBadgeClass } from '@/lib/recovery-status';
 import { safeText, fmt } from '@/lib/candidature-format';
+import { CandidatureDocumentsUploader } from './CandidatureDocumentsUploader';
+import { mergeDocuments, type CandidatureDoc } from '@/lib/candidature-docs';
 
 interface Props {
   candidatureId: string | null;
@@ -33,9 +35,12 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   const [saving, setSaving] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [showCompletionLink, setShowCompletionLink] = useState(false);
+  // Docs ajoutés par le coordinateur pendant cette session (affichage optimiste,
+  // fusionnés avec detail.documents ; la source de vérité revient au prochain reload).
+  const [optimisticDocs, setOptimisticDocs] = useState<CandidatureDoc[]>([]);
 
   useEffect(() => {
-    if (!candidatureId || !open) { setDetail(null); setShowMore(false); return; }
+    if (!candidatureId || !open) { setDetail(null); setShowMore(false); setOptimisticDocs([]); return; }
     setLoading(true);
     (async () => {
       try {
@@ -721,47 +726,62 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 })()}
 
                 {/* Documents */}
-                {Array.isArray(detail.documents) && detail.documents.length > 0 && (
+                {(() => {
+                  const docs = mergeDocuments(Array.isArray(detail.documents) ? detail.documents : [], optimisticDocs);
+                  return (
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm mb-2">{t('candidature.documents')} ({detail.documents.length})</h4>
-                      <div className="space-y-1.5">
-                        {detail.documents.map((doc: any, i: number) => (
-                          <div key={i} className="flex items-center justify-between p-2 bg-muted rounded text-xs">
-                            <div className="min-w-0">
-                              <p className="font-medium truncate">{doc.file_name}</p>
-                              <p className="text-muted-foreground">{doc.field_label} — {Math.round((doc.file_size || 0) / 1024)} KB</p>
+                      <h4 className="font-semibold text-sm mb-2">{t('candidature.documents')} ({docs.length})</h4>
+                      {docs.length > 0 && (
+                        <div className="space-y-1.5 mb-3">
+                          {docs.map((doc: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between p-2 bg-muted rounded text-xs">
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">{doc.file_name}</p>
+                                <p className="text-muted-foreground">{doc.field_label} — {Math.round((doc.file_size || 0) / 1024)} KB</p>
+                                {doc.source === 'coordinator' && (
+                                  <p className="text-[10px] text-primary mt-0.5">
+                                    Ajouté par {doc.added_by_name || 'coordinateur'}{doc.added_at ? ` le ${new Date(doc.added_at).toLocaleDateString('fr-FR')}` : ''}
+                                  </p>
+                                )}
+                              </div>
+                              <Button size="sm" variant="ghost" className="h-6 text-xs shrink-0" onClick={async () => {
+                                // Bucket candidature-documents = privé en prod. On génère une URL signée
+                                // (valide 5 min) plutôt qu'une URL publique qui renverrait 404.
+                                const path = (doc.storage_path || '').replace('candidature-documents/', '');
+                                const { data: signed, error } = await supabase.storage
+                                  .from('candidature-documents')
+                                  .createSignedUrl(path, 300, { download: doc.file_name });
+                                if (error || !signed?.signedUrl) {
+                                  toast({
+                                    title: 'Téléchargement impossible',
+                                    description: error?.message || 'Lien introuvable',
+                                    variant: 'destructive',
+                                  });
+                                  return;
+                                }
+                                const a = document.createElement('a');
+                                a.href = signed.signedUrl;
+                                a.download = doc.file_name;
+                                a.target = '_blank';
+                                a.rel = 'noopener';
+                                a.click();
+                              }}>
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
-                            <Button size="sm" variant="ghost" className="h-6 text-xs shrink-0" onClick={async () => {
-                              // Bucket candidature-documents = privé en prod. On génère une URL signée
-                              // (valide 5 min) plutôt qu'une URL publique qui renverrait 404.
-                              const path = (doc.storage_path || '').replace('candidature-documents/', '');
-                              const { data: signed, error } = await supabase.storage
-                                .from('candidature-documents')
-                                .createSignedUrl(path, 300, { download: doc.file_name });
-                              if (error || !signed?.signedUrl) {
-                                toast({
-                                  title: 'Téléchargement impossible',
-                                  description: error?.message || 'Lien introuvable',
-                                  variant: 'destructive',
-                                });
-                                return;
-                              }
-                              const a = document.createElement('a');
-                              a.href = signed.signedUrl;
-                              a.download = doc.file_name;
-                              a.target = '_blank';
-                              a.rel = 'noopener';
-                              a.click();
-                            }}>
-                              <Download className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Ajout de docs par le coordinateur (entreprise n'ayant pas pu uploader) */}
+                      <CandidatureDocumentsUploader
+                        candidatureId={candidatureId!}
+                        onDone={(added) => { setOptimisticDocs(prev => mergeDocuments(prev, added)); onUpdated(); }}
+                      />
                     </CardContent>
                   </Card>
-                )}
+                  );
+                })()}
 
                 {/* La sélection du coach se fait depuis le volet Entreprises
                     après création de l'entreprise (transition selected → enterprise) */}
