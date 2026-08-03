@@ -1629,6 +1629,7 @@ export default function EntrepreneurDashboard({
                 <div>
                   <ReconstructionUploader
                     enterpriseId={enterprise.id}
+                    enterpriseName={enterprise.name}
                     session={authSession}
                     navigate={navigate}
                     onComplete={fetchData}
