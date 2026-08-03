@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dispatchScreening, markScreeningError } from "../_shared/dispatch-screening.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,80 +12,6 @@ function jsonRes(data: any, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-/**
- * Dispatch le diagnostic (screening) au worker Railway via ai_jobs + /run-agent.
- *
- * Remplace l'ancien autoScreen exécuté inline dans EdgeRuntime.waitUntil : ce
- * contexte d'arrière-plan était recyclé par Supabase AVANT la fin de la chaîne
- * (télécharger N docs + parser/OCR chacun + appel Claude ~60-120s), laissant les
- * candidatures en screening_data NULL. Sur Railway : pas de plafond 400s, pas
- * d'éviction, parsing OCR/vision jusqu'au bout. Le worker écrit lui-même
- * screening_score/screening_data (et un _error en cas d'échec).
- *
- * prefer_vision : false pour l'auto-screen (Tesseract + fallback Claude, coût
- * maîtrisé sur chaque soumission) ; le re-screen manuel force true.
- * Retourne true si le dispatch a été accepté.
- */
-async function dispatchScreening(
-  supabase: any,
-  opts: { programmeId: string; candidatureIds: string[]; organizationId?: string | null; preferVision?: boolean },
-): Promise<boolean> {
-  const railwayUrl = Deno.env.get("RAILWAY_AI_URL");
-  const railwayKey = Deno.env.get("RAILWAY_AI_KEY");
-  if (!railwayUrl || !railwayKey) {
-    console.error("[dispatch-screening] RAILWAY_AI_URL / RAILWAY_AI_KEY non configurés");
-    return false;
-  }
-
-  const payload = {
-    programme_id: opts.programmeId,
-    candidature_ids: opts.candidatureIds,
-    prefer_vision: opts.preferVision ?? false,
-  };
-
-  // 1. INSERT ai_jobs (le worker fait un .select() pour vérifier l'existence)
-  const { data: job, error: jobErr } = await supabase
-    .from("ai_jobs")
-    .insert({
-      agent_name: "screen-candidatures",
-      payload,
-      status: "pending",
-      organization_id: opts.organizationId ?? null,
-    })
-    .select("id")
-    .single();
-  if (jobErr || !job) {
-    console.error("[dispatch-screening] INSERT ai_jobs failed:", jobErr?.message);
-    return false;
-  }
-
-  // 2. POST /run-agent avec le job_id inséré
-  try {
-    const resp = await fetch(`${railwayUrl}/run-agent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Worker-API-Key": railwayKey },
-      body: JSON.stringify({ agent_name: "screen-candidatures", job_id: job.id, payload }),
-    });
-    if (!resp.ok && resp.status !== 202) {
-      const text = await resp.text().catch(() => "");
-      console.error(`[dispatch-screening] worker dispatch failed: ${resp.status} ${text.slice(0, 200)}`);
-      return false;
-    }
-    return true;
-  } catch (e: any) {
-    console.error("[dispatch-screening] worker unreachable:", e.message);
-    return false;
-  }
-}
-
-/** Marque une candidature en erreur de screening (panne visible côté UI). */
-async function markScreeningError(supabase: any, candidatureId: string, reason: string) {
-  await supabase.from("candidatures").update({
-    screening_data: { _error: reason.slice(0, 500), _at: new Date().toISOString(), _source: "dispatch" },
-    updated_at: new Date().toISOString(),
-  }).eq("id", candidatureId);
 }
 
 // ── Main serve ──
