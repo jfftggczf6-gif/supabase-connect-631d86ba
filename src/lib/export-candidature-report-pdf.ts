@@ -8,7 +8,7 @@
 //             Pages 2..N = une fiche par candidature (miroir du drawer de détail).
 
 import { exportToPdf } from './export-pdf';
-import { safeText, fmt, escapeHtml } from './candidature-format';
+import { safeText, fmt, escapeHtml, getProjectSourcing } from './candidature-format';
 
 const NAVY = '#1B2A4A';
 
@@ -392,6 +392,7 @@ function dashboardHtml(candidatures: any[]): string {
       <td class="center">${scoreCell}</td>
       <td>${esc(statusLabel(c.status))}</td>
       <td>${esc(ville)}</td>
+      <td>${esc(getProjectSourcing(c))}</td>
     </tr>`;
   }).join('');
 
@@ -412,9 +413,9 @@ function dashboardHtml(candidatures: any[]): string {
     <h3 class="tbl-title">Récapitulatif — trié par Score IA</h3>
     <table class="recap">
       <thead><tr>
-        <th>Entreprise</th><th>Secteur</th><th class="center">Score IA</th><th>Statut</th><th>Localisation</th>
+        <th>Entreprise</th><th>Secteur</th><th class="center">Score IA</th><th>Statut</th><th>Localisation</th><th>Sourcing projet</th>
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="5" class="center muted">Aucune candidature</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="6" class="center muted">Aucune candidature</td></tr>'}</tbody>
     </table>
   </section>`;
 }

@@ -42,6 +42,20 @@ describe("buildHtml (agrégé) — zéro régression", () => {
   });
 });
 
+describe("buildHtml — colonne Sourcing projet", () => {
+  it("ajoute la colonne et la valeur depuis form_data", () => {
+    const c = {
+      company_name: "X SARL",
+      screening_score: 50,
+      screening_data: {},
+      form_data: { "Quelle organisation vous a recommandé de postuler ?": "OVO" },
+    };
+    const html = buildHtml([c], "P");
+    expect(html).toContain("Sourcing projet");
+    expect(html).toContain("OVO");
+  });
+});
+
 describe("singleExtractFilename", () => {
   it("nom de fichier lisible + repli", () => {
     expect(singleExtractFilename("ABEL FOOD SAS", "pdf")).toMatch(/^Extract_ABEL_FOOD_SAS_\d{4}-\d{2}-\d{2}\.pdf$/);
