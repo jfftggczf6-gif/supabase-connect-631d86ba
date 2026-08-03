@@ -13,6 +13,7 @@
 export interface FormFieldTranslation {
   label?: string;
   options?: Record<string, string>; // clé = valeur d'option (langue de base) -> libellé traduit
+  freeTextOptions?: Record<string, string>; // clé = valeur d'option -> libellé d'invite traduit
 }
 
 export interface FormLangTranslations {
@@ -28,6 +29,7 @@ export interface TranslatableField {
   label: string;
   type?: string;
   options?: string[];
+  freeTextOptions?: Record<string, string>;
 }
 
 const norm = (s: unknown): string => (typeof s === 'string' ? s.trim() : '');
@@ -54,6 +56,19 @@ export function resolveOptionLabel(
 ): string {
   if (baseOf(lang) === baseOf(baseLang)) return optionValue;
   return norm(tr?.[baseOf(lang)]?.form_fields?.[field.id]?.options?.[optionValue]) || optionValue;
+}
+
+/** Libellé d'invite « champ libre » d'une option, dans la langue d'affichage (repli = base). */
+export function resolveFreeTextLabel(
+  field: TranslatableField,
+  optionValue: string,
+  lang: string,
+  baseLang: string,
+  tr?: FormTranslations | null,
+): string {
+  const base = (field.freeTextOptions || {})[optionValue] || '';
+  if (baseOf(lang) === baseOf(baseLang)) return base;
+  return norm(tr?.[baseOf(lang)]?.form_fields?.[field.id]?.freeTextOptions?.[optionValue]) || base;
 }
 
 /** Présentation Markdown dans la langue d'affichage (repli = base). */
@@ -151,6 +166,7 @@ export type SegmentDescriptor =
   | { kind: 'presentation'; line: number }
   | { kind: 'field_label'; id: string }
   | { kind: 'field_option'; id: string; value: string }
+  | { kind: 'field_freetext_label'; id: string; value: string }
   | { kind: 'default_label'; key: string };
 
 export interface TranslationSegment {
@@ -171,6 +187,9 @@ export function collectTranslatableSegments(surface: TranslatableSurface): Trans
     if (norm(f.label)) segments.push({ descriptor: { kind: 'field_label', id: f.id }, text: f.label });
     for (const o of f.options || []) {
       if (norm(o)) segments.push({ descriptor: { kind: 'field_option', id: f.id, value: o }, text: o });
+    }
+    for (const [optVal, label] of Object.entries(f.freeTextOptions || {})) {
+      if (norm(label)) segments.push({ descriptor: { kind: 'field_freetext_label', id: f.id, value: optVal }, text: label });
     }
   }
 
@@ -221,6 +240,12 @@ export function parseMarkedResponse(
         const ff = (out.form_fields ||= {});
         const entry = (ff[d.id] ||= {});
         (entry.options ||= {})[d.value] = translated;
+        break;
+      }
+      case 'field_freetext_label': {
+        const ff = (out.form_fields ||= {});
+        const entry = (ff[d.id] ||= {});
+        (entry.freeTextOptions ||= {})[d.value] = translated;
         break;
       }
       case 'default_label':

@@ -417,6 +417,8 @@
       "mines_extraction": "Mines & Extraction"
     },
     "public_select_placeholder": "Sélectionner...",
+    "public_precise": "Précisez…",
+    "public_precision_required": "Merci de préciser votre réponse.",
     "public_upload_cta": "Cliquez ou glissez vos fichiers",
     "public_upload_formats": "PDF, Word, Excel, PowerPoint, Images — plusieurs fichiers acceptés",
     "public_add_file": "+ Ajouter un fichier",

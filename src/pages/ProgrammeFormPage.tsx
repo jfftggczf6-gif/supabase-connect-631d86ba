@@ -219,7 +219,7 @@ export default function ProgrammeFormPage() {
     }
     const surface: TranslatableSurface = {
       presentation: formPresentation,
-      fields: cleanedFields.map((f: FormField) => ({ id: f.id, label: f.label, type: f.type, options: f.options })),
+      fields: cleanedFields.map((f: FormField) => ({ id: f.id, label: f.label, type: f.type, options: f.options, freeTextOptions: f.freeTextOptions })),
       defaultOverrides,
     };
     let formTranslations: FormTranslations = {};

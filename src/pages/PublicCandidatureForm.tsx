@@ -14,7 +14,7 @@ import { getSortedCountries } from '@/lib/countries';
 import { SECTORS } from '@/lib/sectors';
 import { mergeDefaultFields } from '@/lib/default-fields';
 import { FreeTextPrecision } from '@/components/programme/FreeTextPrecision';
-import { resolveFieldLabel, resolveOptionLabel, resolvePresentation, resolveDefaultFieldOverride, computeLangCompleteness } from '@/lib/form-i18n';
+import { resolveFieldLabel, resolveOptionLabel, resolveFreeTextLabel, resolvePresentation, resolveDefaultFieldOverride, computeLangCompleteness } from '@/lib/form-i18n';
 import { Markdown } from '@/components/ui/markdown';
 import { PartnerLogos } from '@/components/programme/PartnerLogos';
 
@@ -497,6 +497,7 @@ export default function PublicCandidatureForm() {
                       precisions={formData[`${field.label}__precisions`] || {}}
                       onChange={(opt, val) => setPrecision(field.label, opt, val)}
                       defaultLabel={t('candidature.public_precise', { defaultValue: 'Précisez…' })}
+                      labelFor={(opt) => resolveFreeTextLabel(field, opt, effectiveLang, baseLang, formTr) || t('candidature.public_precise', { defaultValue: 'Précisez…' })}
                     />
                   )}
                 </div>
