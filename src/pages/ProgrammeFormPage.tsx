@@ -27,7 +27,10 @@ import { SingleLogoUploader } from '@/components/programme/SingleLogoUploader';
 import { PartnerLogosEditor } from '@/components/programme/PartnerLogosEditor';
 import type { PartnerLogo } from '@/components/programme/PartnerLogos';
 import { FieldOptionsEditor } from '@/components/programme/FieldOptionsEditor';
-import { cleanFreeTextOptions } from '@/lib/form-fields';
+import { cleanFreeTextOptions, reorderById } from '@/lib/form-fields';
+import { SortableFormField } from '@/components/programme/SortableFormField';
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 interface FormField {
   id: string;
@@ -145,6 +148,18 @@ export default function ProgrammeFormPage() {
   const toggleFieldRequired = (fid: string) => setFormFields(f => f.map(ff => ff.id === fid ? { ...ff, required: !ff.required } : ff));
   const updateFieldLabel = (fid: string, label: string) => setFormFields(f => f.map(ff => ff.id === fid ? { ...ff, label } : ff));
   const updateFieldType = (fid: string, type: FormField['type']) => setFormFields(f => f.map(ff => ff.id === fid ? { ...ff, type } : ff));
+
+  // Glisser-déposer pour réordonner les champs personnalisés (souris + clavier).
+  const fieldSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const handleFieldDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (over && active.id !== over.id) {
+      setFormFields(fields => reorderById(fields, String(active.id), String(over.id)));
+    }
+  };
 
   const handleFileUpload = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -424,8 +439,10 @@ export default function ProgrammeFormPage() {
                 Ces champs s'ajoutent aux champs par défaut ci-dessus. Glisse un modèle pour les extraire automatiquement, ou ajoute-les à la main.
               </p>
 
+              <DndContext sensors={fieldSensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd}>
+              <SortableContext items={formFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
               {formFields.map(f => (
-                <div key={f.id} className="space-y-1">
+                <SortableFormField key={f.id} id={f.id}>
                   <div className="flex items-center gap-2 p-2 border rounded-md">
                     <Input
                       value={f.label}
@@ -465,8 +482,10 @@ export default function ProgrammeFormPage() {
                       />
                     </div>
                   )}
-                </div>
+                </SortableFormField>
               ))}
+              </SortableContext>
+              </DndContext>
 
               <div className="flex gap-2">
                 <Input
