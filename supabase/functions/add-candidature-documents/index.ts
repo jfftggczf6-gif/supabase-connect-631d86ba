@@ -85,7 +85,7 @@ serve(async (req) => {
 
       // Nom lisible de qui ajoute (traçabilité serveur, non falsifiable).
       const { data: profile } = await supabase
-        .from("profiles").select("full_name, email").eq("id", user.id).maybeSingle();
+        .from("profiles").select("full_name, email").eq("user_id", user.id).maybeSingle();
       const byName = (profile?.full_name || profile?.email || user.email || "Coordinateur").toString();
       const now = new Date().toISOString();
 
