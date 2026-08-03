@@ -34,6 +34,8 @@ interface FormField {
   label: string;
   required: boolean;
   options?: string[];
+  /** Options ouvrant un champ libre : { valeur d'option → libellé d'invite ("" = « Précisez… ») }. */
+  freeTextOptions?: Record<string, string>;
 }
 
 // Types de champ proposés (libellés FR), partagés par l'ajout et l'édition en ligne.
