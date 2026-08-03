@@ -15,6 +15,7 @@ import { getRecoveryStatus, recoveryBadgeClass } from '@/lib/recovery-status';
 import { safeText, fmt } from '@/lib/candidature-format';
 import { CandidatureDocumentsUploader } from './CandidatureDocumentsUploader';
 import { mergeDocuments, type CandidatureDoc } from '@/lib/candidature-docs';
+import { exportSingleCandidaturePdf, exportSingleCandidatureWord } from '@/lib/export-candidature-report-pdf';
 
 interface Props {
   candidatureId: string | null;
@@ -38,9 +39,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   // Docs ajoutés par le coordinateur pendant cette session (affichage optimiste,
   // fusionnés avec detail.documents ; la source de vérité revient au prochain reload).
   const [optimisticDocs, setOptimisticDocs] = useState<CandidatureDoc[]>([]);
+  const [programmeName, setProgrammeName] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
-    if (!candidatureId || !open) { setDetail(null); setShowMore(false); setOptimisticDocs([]); return; }
+    if (!candidatureId || !open) { setDetail(null); setShowMore(false); setOptimisticDocs([]); setProgrammeName(''); return; }
     setLoading(true);
     (async () => {
       try {
@@ -48,6 +51,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
         if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
         const cand = data?.candidature || data;
         setDetail(cand || null);
+        setProgrammeName(data?.programme?.name || cand?.programme_name || '');
         setNotes(cand?.committee_notes || '');
         setSelectedCoach(cand?.assigned_coach_id || '');
       } catch (e: any) {
@@ -177,6 +181,21 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 );
               })()}
               <div className="ml-auto flex items-center gap-2">
+                {/* Extract de CETTE fiche (PDF/Word), indépendant du reporting agrégé */}
+                <Button size="sm" variant="outline" className="gap-1.5" disabled={exportingPdf} title="Exporter cette fiche en PDF" onClick={async () => {
+                  setExportingPdf(true);
+                  try { await exportSingleCandidaturePdf(detail, programmeName); }
+                  catch (e: any) { toast({ title: 'Export PDF impossible', description: e?.message, variant: 'destructive' }); }
+                  finally { setExportingPdf(false); }
+                }}>
+                  {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Extract PDF
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5" title="Exporter cette fiche en Word" onClick={() => {
+                  try { exportSingleCandidatureWord(detail, programmeName); }
+                  catch (e: any) { toast({ title: 'Export Word impossible', description: e?.message, variant: 'destructive' }); }
+                }}>
+                  <FileText className="h-3.5 w-3.5" /> Extract Word
+                </Button>
                 {detail?.status === 'selected' ? (
                   <Button
                     size="sm"

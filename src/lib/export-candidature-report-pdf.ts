@@ -420,7 +420,8 @@ function dashboardHtml(candidatures: any[]): string {
 }
 
 // ── Assemblage + styles ───────────────────────────────────────────
-export function buildHtml(candidatures: any[], programmeName: string): string {
+export function buildHtml(candidatures: any[], programmeName: string, opts?: { single?: boolean }): string {
+  const single = !!opts?.single;
   const date = new Date().toLocaleDateString('fr-FR');
   const fiches = candidatures.length
     ? [...candidatures]
@@ -433,8 +434,17 @@ export function buildHtml(candidatures: any[], programmeName: string): string {
         .join('')
     : '';
 
+  // Extract d'une seule fiche : en-tête dédié, pas de page cohorte agrégée, et la
+  // fiche ne saute pas à la page 2 (page-break-before neutralisé).
+  const singleName = single ? esc(candidatures[0]?.company_name || 'Candidature') : '';
+  const docTitle = single ? `Extract — ${singleName}` : `Reporting de candidatures — ${esc(programmeName)}`;
+  const headerTitle = single ? 'Extract candidature' : 'Reporting de candidatures';
+  const headerSub = single
+    ? `${esc(programmeName)} — ${singleName} — ${esc(date)}`
+    : `${esc(programmeName)} — ${candidatures.length} candidature(s) — ${esc(date)}`;
+
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Reporting de candidatures — ${esc(programmeName)}</title>
+<title>${docTitle}</title>
 <style>
   @page { size: A4; margin: 18mm; }
   * { box-sizing: border-box; }
@@ -528,16 +538,29 @@ export function buildHtml(candidatures: any[], programmeName: string): string {
   /* Recommandation (encart) */
   .card.reco { border-color: ${NAVY}; background: #f5f7fb; }
   .reco-avis { display: inline-block; background: ${NAVY}; color: #fff; font-weight: 700; font-size: 10px; border-radius: 4px; padding: 2px 8px; margin-bottom: 5px; }
+  ${single ? '.fiche { page-break-before: auto; }' : ''}
 </style>
 </head><body>
   <div class="header">
-    <h1>Reporting de candidatures</h1>
-    <p>${esc(programmeName)} — ${candidatures.length} candidature(s) — ${esc(date)}</p>
+    <h1>${headerTitle}</h1>
+    <p>${headerSub}</p>
   </div>
-  ${dashboardHtml(candidatures)}
+  ${single ? '' : dashboardHtml(candidatures)}
   ${fiches}
   <p class="tiny center" style="margin-top:24px;">Généré par ESONO BIS Studio — Document confidentiel — ${esc(date)}</p>
 </body></html>`;
+}
+
+/** HTML d'un extract d'UNE seule candidature (fiche diagnostic, sans page cohorte). */
+export function buildSingleHtml(candidature: any, programmeName: string): string {
+  return buildHtml(candidature ? [candidature] : [], programmeName, { single: true });
+}
+
+/** Nom de fichier lisible pour un extract solo : Extract_[Entreprise]_AAAA-MM-JJ.ext */
+export function singleExtractFilename(companyName: string | undefined, ext: string): string {
+  const safe = (companyName || 'candidature').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const date = new Date().toISOString().slice(0, 10);
+  return `Extract_${safe}_${date}.${ext}`;
 }
 
 function reportFilename(programmeName: string, ext: string): string {
@@ -564,10 +587,14 @@ export async function exportCandidatureReportPdf(candidatures: any[], programmeN
  * Aucun serveur, aucune EF.
  */
 export function exportCandidatureReportWord(candidatures: any[], programmeName: string): void {
-  const html = buildHtml(candidatures || [], programmeName || 'Programme');
+  downloadHtmlAsWord(buildHtml(candidatures || [], programmeName || 'Programme'), reportFilename(programmeName, 'doc'));
+}
+
+/** Télécharge un HTML sous forme de .doc (trick namespaces Office, 100% client). */
+function downloadHtmlAsWord(html: string, filename: string): void {
   const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const headInner = headMatch ? headMatch[1] : `<title>Reporting de candidatures</title>`;
+  const headInner = headMatch ? headMatch[1] : `<title>Document</title>`;
   const bodyInner = bodyMatch ? bodyMatch[1] : html;
   const wordHtml =
     `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
@@ -577,9 +604,25 @@ export function exportCandidatureReportWord(candidatures: any[], programmeName: 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = reportFilename(programmeName, 'doc');
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/** Extract PDF d'une seule candidature (fiche diagnostic), depuis sa fiche. */
+export async function exportSingleCandidaturePdf(candidature: any, programmeName: string): Promise<void> {
+  await exportToPdf(
+    buildSingleHtml(candidature, programmeName || 'Programme'),
+    singleExtractFilename(candidature?.company_name, 'pdf'),
+  );
+}
+
+/** Extract Word (.doc) d'une seule candidature, depuis sa fiche. */
+export function exportSingleCandidatureWord(candidature: any, programmeName: string): void {
+  downloadHtmlAsWord(
+    buildSingleHtml(candidature, programmeName || 'Programme'),
+    singleExtractFilename(candidature?.company_name, 'doc'),
+  );
 }
