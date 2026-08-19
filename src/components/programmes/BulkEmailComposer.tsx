@@ -12,6 +12,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { computeSignature } from '@/lib/email-identity';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +58,7 @@ export default function BulkEmailComposer({
   onSent?: () => void;
 }) {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
   const programmeName: string | null = programme?.name ?? null;
 
   const [type, setType] = useState<EmailType>('communication');
@@ -85,7 +88,9 @@ export default function BulkEmailComposer({
     const d = completionEmailDefaults({ companyName: null, programmeName });
     setType('communication');
     setSubject(''); setBody('');
-    setIntro(d.intro); setPersonalNote(''); setClosing(d.closing);
+    // Clôture pré-remplie depuis la signature de l'organisation (calculée si vide),
+    // jamais de valeur en dur (brief 2, critères 4-6). Éditable pour l'envoi en cours.
+    setIntro(d.intro); setPersonalNote(''); setClosing(computeSignature(currentOrg));
     setOperationExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
     setExcluded(new Set()); setReincludedZero(new Set()); setContactOverride({});
     const docsInit: Record<string, string[]> = {};
@@ -94,7 +99,7 @@ export default function BulkEmailComposer({
     setCommonExtra([]); setCommonExtraInput(''); setExpanded(null);
     setPreviewId(recipients[0]?.id ?? null);
     setBatchId(null); setResults(null);
-  }, [open, recipients, programmeName]);
+  }, [open, recipients, programmeName, currentOrg]);
 
   // ── Résolution / construction par destinataire ────────────────────────────
   const effectiveContact = (r: ComposerRecipient) => contactOverride[r.id] ?? (r.contact_name ?? '');
@@ -113,12 +118,14 @@ export default function BulkEmailComposer({
         subject: applyVariables(subject, vars),
         body: applyVariables(body, vars),
         closing: applyVariables(closing, vars),
+        logoUrl: currentOrg?.logo_url,
       });
     }
     return buildCompletionEmail({
       companyName: r.company_name, contactName: effectiveContact(r), programmeName,
       recoveryUrl: RECOVERY_URL_PLACEHOLDER, expiresAt: operationExpiresAt,
       requestedDocs: docsFor(r),
+      logoUrl: currentOrg?.logo_url,
       fields: {
         subject: applyVariables(subject, vars),
         intro: applyVariables(intro, vars),

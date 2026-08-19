@@ -13,6 +13,10 @@ export interface Organization {
   secondary_color: string | null;
   settings: Record<string, any>;
   is_active: boolean;
+  // Identité d'émission des e-mails (brief 2) — null → repli calculé au rendu.
+  email_signature: string | null;
+  email_sender_name: string | null;
+  email_reply_to: string | null;
 }
 
 export interface OrgMembership {
@@ -67,7 +71,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           role,
           organizations:organization_id (
             id, name, slug, type, country, logo_url,
-            primary_color, secondary_color, settings, is_active
+            primary_color, secondary_color, settings, is_active,
+            email_signature, email_sender_name, email_reply_to
           )
         `)
         .eq('user_id', user.id)

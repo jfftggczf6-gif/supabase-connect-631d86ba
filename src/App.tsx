@@ -15,6 +15,7 @@ import CandidatureRecoveryAdminPage from "./pages/admin/CandidatureRecoveryAdmin
 import AddEntrepreneurAdminPage from "./pages/admin/AddEntrepreneurAdminPage";
 import CandidatureRecovery from "./pages/CandidatureRecovery";
 import MembersPage from "./pages/org/MembersPage";
+import CommunicationSettingsPage from "./pages/org/CommunicationSettingsPage";
 import InvitationAcceptPage from "./pages/InvitationAcceptPage";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/admin/add-entrepreneur" element={<ProtectedRoute><RequireSuperAdmin><AddEntrepreneurAdminPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/admin/knowledge-review" element={<ProtectedRoute><RequireSuperAdmin><KnowledgeReviewPage /></RequireSuperAdmin></ProtectedRoute>} />
             <Route path="/organization/members" element={<ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager']}><MembersPage /></RequireRole></ProtectedRoute>} />
+            <Route path="/organization/communication" element={<ProtectedRoute><RequireRole roles={['owner', 'admin']}><CommunicationSettingsPage /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

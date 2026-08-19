@@ -29,6 +29,8 @@ import { toast } from '@/hooks/use-toast';
 import { extractEdgeError } from '@/lib/edge-error';
 import { buildCompletionEmail, completionEmailDefaults } from '@/lib/completion-email';
 import { COMMON_REQUESTED_DOCUMENTS } from '@/lib/common-documents';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { computeSignature } from '@/lib/email-identity';
 
 interface Props {
   candidatureId: string | null;
@@ -48,6 +50,7 @@ const previewRecoveryUrl = () => `${window.location.origin}/candidature/recovery
 export default function CompletionLinkDialog({
   candidatureId, contactEmail, contactName, companyName, programmeName, open, onOpenChange,
 }: Props) {
+  const { currentOrg } = useOrganization();
   const [step, setStep] = useState<'compose' | 'preview'>('compose');
   const [sending, setSending] = useState(false);
   const [link, setLink] = useState<string | null>(null);
@@ -70,11 +73,13 @@ export default function CompletionLinkDialog({
     setSubject(d.subject);
     setIntro(d.intro);
     setPersonalNote('');
-    setClosing(d.closing);
+    // Clôture pré-remplie depuis la signature de l'organisation (calculée si vide),
+    // jamais « — L'équipe ESONO » en dur (brief 2, critères 4-6). Éditable ensuite.
+    setClosing(computeSignature(currentOrg));
     setStep('compose');
     setLink(null); setEmailSent(false); setCopied(false); setSending(false);
     setRequested([]); setCustomInput('');
-  }, [open, companyName, programmeName]);
+  }, [open, companyName, programmeName, currentOrg]);
 
   const toggleDoc = (label: string) =>
     setRequested(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]);
@@ -96,6 +101,7 @@ export default function CompletionLinkDialog({
     contactName,
     programmeName,
     requestedDocs: requested,
+    logoUrl: currentOrg?.logo_url,
     fields: { subject, intro, personalNote, closing },
   };
 

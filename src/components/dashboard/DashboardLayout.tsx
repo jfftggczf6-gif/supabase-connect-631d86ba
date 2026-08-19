@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen, KeyRound, UserPlus } from 'lucide-react';
+import { LogOut, User, Users, ClipboardList, Globe, ChevronDown, Check, Building2, Settings, BarChart3, BookOpen, KeyRound, UserPlus, Mail } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,8 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const showProgrammes = isSuperAdmin || ['owner', 'admin', 'manager'].includes(orgRole || '') || role === 'chef_programme';
   const showOrgSwitcher = memberships.length > 1 || isSuperAdmin;
   const canManageMembers = ['owner', 'admin', 'manager'].includes(orgRole || '') || isSuperAdmin;
+  // Réglages Communication (identité d'émission) : owner/admin uniquement (brief 2, critère 2).
+  const canManageOrg = ['owner', 'admin'].includes(orgRole || '') || isSuperAdmin;
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
 
   const initials = profile?.full_name
@@ -89,6 +91,11 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                         <Users className="h-3.5 w-3.5" /> Membres
                       </DropdownMenuItem>
                     </>
+                  )}
+                  {canManageOrg && (
+                    <DropdownMenuItem onClick={() => navigate('/organization/communication')} className="gap-2 text-xs">
+                      <Mail className="h-3.5 w-3.5" /> Communication
+                    </DropdownMenuItem>
                   )}
                   {isSuperAdmin && (
                     <>
