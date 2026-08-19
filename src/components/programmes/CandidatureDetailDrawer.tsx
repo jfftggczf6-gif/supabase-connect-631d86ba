@@ -11,6 +11,7 @@ import { Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, D
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import CompletionLinkDialog from './CompletionLinkDialog';
+import CandidatureEmailHistory from './CandidatureEmailHistory';
 import { getRecoveryStatus, recoveryBadgeClass } from '@/lib/recovery-status';
 import { safeText, fmt } from '@/lib/candidature-format';
 import { CandidatureDocumentsUploader } from './CandidatureDocumentsUploader';
@@ -819,6 +820,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   </Card>
                   );
                 })()}
+
+                {/* Historique des e-mails envoyés (brief 1, critère 10) */}
+                <Card>
+                  <CardContent className="p-4">
+                    <CandidatureEmailHistory candidatureId={candidatureId} />
+                  </CardContent>
+                </Card>
 
                 {/* La sélection du coach se fait depuis le volet Entreprises
                     après création de l'entreprise (transition selected → enterprise) */}

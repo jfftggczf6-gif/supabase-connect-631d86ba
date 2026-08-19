@@ -16,6 +16,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import ProgrammeStatusBadge from '@/components/programmes/ProgrammeStatusBadge';
 import CandidatureKanban from '@/components/programmes/CandidatureKanban';
 import CandidatureDetailDrawer from '@/components/programmes/CandidatureDetailDrawer';
+import CandidatureListView, { type ListCandidature } from '@/components/programmes/CandidatureListView';
+import BulkEmailComposer, { type ComposerRecipient } from '@/components/programmes/BulkEmailComposer';
 import ProgrammeDashboardTab from '@/components/programmes/ProgrammeDashboardTab';
 import ProgrammeComparatifTab from '@/components/programmes/ProgrammeComparatifTab';
 import ProgrammeReportingTab from '@/components/programmes/ProgrammeReportingTab';
@@ -60,6 +62,10 @@ export default function ProgrammeDetailPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedCandidature, setSelectedCandidature] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Vue candidatures : Kanban (pilotage) ou Liste (sélection + envoi groupé — brief 1).
+  const [candidatureView, setCandidatureView] = useState<'kanban' | 'liste'>('kanban');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerRecipients, setComposerRecipients] = useState<ComposerRecipient[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [starting, setStarting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -627,7 +633,23 @@ export default function ProgrammeDetailPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
+              {/* Basculeur Kanban ↔ Liste — le Kanban et son drag&drop restent inchangés. */}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setCandidatureView('kanban')}
+                  className={`rounded-md border px-3 py-1.5 text-sm ${candidatureView === 'kanban' ? 'bg-violet-600 text-white border-violet-600' : 'bg-background border-input'}`}>Kanban</button>
+                <button type="button" onClick={() => setCandidatureView('liste')}
+                  className={`rounded-md border px-3 py-1.5 text-sm ${candidatureView === 'liste' ? 'bg-violet-600 text-white border-violet-600' : 'bg-background border-input'}`}>Liste</button>
+              </div>
+              {candidatureView === 'kanban' ? (
+                <CandidatureKanban candidatures={candidatures} onCardClick={openDetail} onRefresh={fetchCandidatures} />
+              ) : (
+                <CandidatureListView
+                  candidatures={candidatures as ListCandidature[]}
+                  programme={programme}
+                  onCardClick={openDetail}
+                  onOpenComposer={(rs) => { setComposerRecipients(rs as ComposerRecipient[]); setComposerOpen(true); }}
+                />
+              )}
               <details className="mt-2">
                 <summary className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">{t('candidature.table_view')} ({candidatures.length})</summary>
                 <Table className="mt-2">
@@ -907,6 +929,14 @@ export default function ProgrammeDetailPage() {
         onUpdated={fetchCandidatures}
         candidatureIds={candidatures.map(c => c.id)}
         onNavigate={(cId) => setSelectedCandidature(cId)}
+      />
+
+      <BulkEmailComposer
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        recipients={composerRecipients}
+        programme={programme}
+        onSent={fetchCandidatures}
       />
     </DashboardLayout>
   );
