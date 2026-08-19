@@ -8,15 +8,17 @@
 // Fonction PURE : les variables du corps/objet sont déjà résolues par l'appelant
 // (email-variables.applyVariables), destinataire par destinataire → aperçu = envoi.
 
-import { escMultiline, neutraliserPrefixeObjet } from './email-format';
+import { esc, escMultiline, neutraliserPrefixeObjet } from './email-format';
 
 export interface CommunicationEmailInput {
   /** Objet, variables déjà résolues. Un préfixe « Objet : » est neutralisé. */
   subject: string;
   /** Corps composé par l'utilisateur, variables déjà résolues. */
   body: string;
-  /** Formule de clôture (l'identité d'émission est traitée au brief 2). */
+  /** Formule de clôture. */
   closing?: string;
+  /** Logo d'en-tête de l'organisation émettrice (brief 2, critère 8). */
+  logoUrl?: string | null;
 }
 
 export interface CommunicationEmail {
@@ -35,8 +37,13 @@ export function buildCommunicationEmail(input: CommunicationEmailInput): Communi
     : '';
 
   // Un seul <p> pour le corps ; escMultiline préserve paragraphes et lignes vides.
+  const logoHtml = input.logoUrl
+    ? `<img src="${esc(input.logoUrl)}" alt="" style="max-height:48px; margin-bottom:16px;">`
+    : '';
+
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color:#1a2744;">
+      ${logoHtml}
       <p>${escMultiline(body)}</p>
       ${closingHtml}
     </div>

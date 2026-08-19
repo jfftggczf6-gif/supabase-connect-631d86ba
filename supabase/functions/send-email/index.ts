@@ -4,6 +4,7 @@ import {
   verifierOperation,
   ALLOWLIST_ACTIVE,
 } from "../_shared/email-garde-fou.ts";
+import { resolveEmissionIdentity } from "../_shared/email-identity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,10 +98,12 @@ serve(async (req) => {
 
     // 2. Émetteur = utilisateur du JWT (transmis automatiquement par invoke()).
     let sent_by: string | null = null;
+    let authEmail: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       const { data: u } = await admin.auth.getUser(authHeader.replace("Bearer ", ""));
       sent_by = u?.user?.id ?? null;
+      authEmail = u?.user?.email ?? null;
     }
 
     // 3. Compte des envois du jour pour l'org → plafond quotidien.
@@ -145,7 +148,28 @@ serve(async (req) => {
       return json({ error: motif, refuse_par_garde_fou: true }, 422);
     }
 
-    // 5. Envoi réel bloquant, puis journalisation du résultat capturé.
+    // 5. Identité d'émission (brief 2) : from = nom d'expéditeur de l'org ; reply_to
+    //    = cascade correspondance utilisateur → e-mail JWT → org.email_reply_to →
+    //    BLOCAGE (422). S'applique aux deux types, relance comprise (critère 14).
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("name, email_sender_name, email_reply_to")
+      .eq("id", organization_id)
+      .maybeSingle();
+    let correspondenceEmail: string | null = null;
+    if (sent_by) {
+      const { data: prof } = await admin
+        .from("profiles").select("correspondence_email").eq("user_id", sent_by).maybeSingle();
+      correspondenceEmail = prof?.correspondence_email ?? null;
+    }
+    const identite = resolveEmissionIdentity({ org: orgRow, correspondenceEmail, authEmail });
+    if (!identite.ok) {
+      return json({ error: identite.raison, blocage_reply_to: true }, 422);
+    }
+    payload.from = identite.from;
+    payload.reply_to = identite.reply_to;
+
+    // 6. Envoi réel bloquant, puis journalisation du résultat capturé.
     const r = await envoyerViaResend(RESEND_API_KEY, payload);
     await admin.from("candidature_emails").insert({
       candidature_id, organization_id, type: typeEnvoi,

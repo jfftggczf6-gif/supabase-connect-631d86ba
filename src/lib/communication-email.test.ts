@@ -44,6 +44,13 @@ describe('buildCommunicationEmail (brief 1)', () => {
     expect(html).toContain('&lt;script&gt;');
   });
 
+  it('critère 8 : rend le logo d\'en-tête de l\'org quand fourni, rien sinon', () => {
+    const avec = buildCommunicationEmail({ ...base, logoUrl: 'https://ex.co/logo.png' });
+    expect(avec.html).toContain('<img src="https://ex.co/logo.png"');
+    const sans = buildCommunicationEmail(base);
+    expect(sans.html).not.toContain('<img');
+  });
+
   it('corps vide autorisé mais sans contenu parasite', () => {
     const { html, text } = buildCommunicationEmail({ subject: 'x', body: '', closing: '' });
     expect(html).toContain('<div');

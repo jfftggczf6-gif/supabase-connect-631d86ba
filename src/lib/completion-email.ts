@@ -32,6 +32,8 @@ export interface CompletionEmailInput {
   requestedDocs?: string[];
   /** Champs éditables ; chacun absent → défaut du gabarit. */
   fields?: CompletionEmailFields;
+  /** Logo d'en-tête de l'organisation émettrice (brief 2, critère 8). */
+  logoUrl?: string | null;
 }
 
 export interface CompletionEmail {
@@ -147,6 +149,7 @@ export function buildCompletionEmail(input: CompletionEmailInput): CompletionEma
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color:#1a2744;">
+      ${input.logoUrl ? `<img src="${esc(input.logoUrl)}" alt="" style="max-height:48px; margin-bottom:16px;">` : ''}
       <h2>${esc(subject)}</h2>
       <p>${greeting}</p>
       <p>${escMultiline(intro)}</p>

@@ -19,6 +19,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifierOperation, ALLOWLIST_ACTIVE } from "../_shared/email-garde-fou.ts";
+import { resolveEmissionIdentity } from "../_shared/email-identity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +148,28 @@ serve(async (req) => {
       return jsonRes({ error: "Émission réservée aux owner/admin/manager de l'organisation." }, 403);
     }
 
+    // Identité d'émission (brief 2) : from = nom d'expéditeur de l'org (calculé si
+    // vide) ; reply_to = cascade correspondance utilisateur → e-mail JWT →
+    // org.email_reply_to → BLOCAGE. S'applique aux deux types (critère 14).
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("name, email_sender_name, email_reply_to")
+      .eq("id", organization_id)
+      .maybeSingle();
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("correspondence_email")
+      .eq("user_id", sent_by)
+      .maybeSingle();
+    const identite = resolveEmissionIdentity({
+      org: orgRow,
+      correspondenceEmail: prof?.correspondence_email,
+      authEmail: u.user.email,
+    });
+    if (!identite.ok) {
+      return jsonRes({ error: identite.raison, blocage_reply_to: true }, 422);
+    }
+
     // Compte du jour pour l'org (fuseau Africa/Abidjan, 'failed' exclu) → plafond quotidien.
     const jourLocal = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Abidjan" }).format(new Date());
     const debutJour = `${jourLocal}T00:00:00+00:00`;
@@ -245,10 +268,11 @@ serve(async (req) => {
       }
 
       const payload: Record<string, unknown> = {
-        from: "ESONO <noreply@esono.tech>",
+        from: identite.from,
         to: [to],
         subject: r.subject,
         html,
+        reply_to: identite.reply_to,
       };
       if (text) payload.text = text;
 

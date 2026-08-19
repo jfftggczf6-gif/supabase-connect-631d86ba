@@ -207,6 +207,12 @@ describe('buildCompletionEmail', () => {
     });
   });
 
+  it('brief 2 critère 8 : rend le logo d\'en-tête de l\'org quand fourni, rien sinon', () => {
+    const avec = buildCompletionEmail({ ...base, logoUrl: 'https://ex.co/ovo.png' });
+    expect(avec.html).toContain('<img src="https://ex.co/ovo.png"');
+    expect(buildCompletionEmail(base).html).not.toContain('<img');
+  });
+
   // ── Non-régression ───────────────────────────────────────────────────────
   it('non-régression : un envoi sans modif reproduit le message historique + la liste des docs', () => {
     const { subject, html } = buildCompletionEmail({
