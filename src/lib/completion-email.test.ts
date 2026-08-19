@@ -160,6 +160,53 @@ describe('buildCompletionEmail', () => {
     });
   });
 
+  // ── Brief 3 : objet, titre du corps, fidélité de mise en forme ───────────
+  describe('brief 3 — objet répercuté, préfixe neutralisé, mise en forme fidèle', () => {
+    it('critère 2 : neutralise un préfixe « Objet : » saisi', () => {
+      const { subject } = buildCompletionEmail({ ...base, fields: { subject: 'Objet : Suite à votre candidature' } });
+      expect(subject).toBe('Suite à votre candidature');
+    });
+
+    it('critère 2 : « objet: » sans espace, insensible à la casse', () => {
+      const { subject } = buildCompletionEmail({ ...base, fields: { subject: 'objet:Rappel de dossier' } });
+      expect(subject).toBe('Rappel de dossier');
+    });
+
+    it('critère 3 : le titre du corps est l\'objet saisi, jamais le titre par défaut contradictoire', () => {
+      const { html } = buildCompletionEmail({ ...base, fields: { subject: 'Suite à votre candidature au programme' } });
+      expect(html).toContain('<h2>Suite à votre candidature au programme</h2>');
+      expect(html).not.toContain('<h2>Complétez votre candidature</h2>');
+    });
+
+    it('critère 3 : sans objet saisi, le titre du corps reprend le sujet effectif', () => {
+      const { subject, html } = buildCompletionEmail(base);
+      expect(html).toContain(`<h2>${subject}</h2>`);
+    });
+
+    it('critère 1 : l\'objet reçu ne contient jamais le préfixe « Objet : »', () => {
+      const { subject } = buildCompletionEmail({ ...base, fields: { subject: 'Objet :   Documents manquants' } });
+      expect(subject).toBe('Documents manquants');
+      expect(subject.toLowerCase()).not.toContain('objet :');
+    });
+
+    it('critère 5 : préserve sauts de ligne et lignes vides du mot personnel en <br>', () => {
+      const { html } = buildCompletionEmail({ ...base, fields: { personalNote: 'Ligne 1\nLigne 2\n\nLigne 4' } });
+      expect(html).toContain('Ligne 1<br>');
+      expect(html).toMatch(/Ligne 2<br>\s*<br>\s*Ligne 4/); // ligne vide = double <br>
+    });
+
+    it('critère 5 : préserve les sauts de ligne de l\'intro', () => {
+      const { html } = buildCompletionEmail({ ...base, fields: { intro: 'Para A\nPara B' } });
+      expect(html).toContain('Para A<br>');
+    });
+
+    it('critère 8 : esc PUIS nl2br — une injection avec saut de ligne reste échappée', () => {
+      const { html } = buildCompletionEmail({ ...base, fields: { personalNote: '<b>x</b>\ny' } });
+      expect(html).not.toContain('<b>x</b>');
+      expect(html).toContain('&lt;b&gt;x&lt;/b&gt;<br>');
+    });
+  });
+
   // ── Non-régression ───────────────────────────────────────────────────────
   it('non-régression : un envoi sans modif reproduit le message historique + la liste des docs', () => {
     const { subject, html } = buildCompletionEmail({

@@ -37,11 +37,32 @@ function api(body: Record<string, unknown>) {
   });
 }
 
+/** États terminaux distincts du lien (complet / expiré / révoqué-utilisé). */
+type LinkState = 'open' | 'complete' | 'expired' | 'revoked';
+
+/** Écran centré générique pour les états terminaux du lien. */
+function StateScreen({ icon, title, text }: { icon: JSX.Element; title: string; text: JSX.Element | string }) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <Card className="max-w-md w-full">
+        <CardContent className="p-8 text-center space-y-3">
+          {icon}
+          <h1 className="text-xl font-semibold">{title}</h1>
+          <p className="text-sm text-muted-foreground">{text}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CandidatureRecovery() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
   const [info, setInfo] = useState<RecoveryInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [linkState, setLinkState] = useState<LinkState | null>(null);
+  const [completeMeta, setCompleteMeta] = useState<{ company_name?: string; programme_name?: string | null }>({});
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Un fichier sélectionné par pièce demandée (clé = libellé du slot).
   const [slotFiles, setSlotFiles] = useState<Record<string, File>>({});
@@ -54,20 +75,26 @@ export default function CandidatureRecovery() {
   const slotInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const freeInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Charge l'état du lien. `silent` : rafraîchissement après un dépôt partiel,
+  // sans repasser par l'écran de chargement plein.
+  const loadInfo = async (opts?: { silent?: boolean }) => {
     if (!token) { setError('Lien invalide'); setLoading(false); return; }
-    (async () => {
-      try {
-        const resp = await api({ action: 'info', token });
-        const data = await resp.json();
-        if (!resp.ok) { setError(data.error || 'Lien invalide'); setLoading(false); return; }
-        setInfo(data);
-      } catch (e: any) {
-        setError(e.message || 'Erreur de connexion');
-      }
-      setLoading(false);
-    })();
-  }, [token]);
+    try {
+      const resp = await api({ action: 'info', token });
+      const data = await resp.json();
+      if (!resp.ok) { if (!opts?.silent) setError(data.error || 'Lien invalide'); return; }
+      const st = (data.state as LinkState) || 'open';
+      setLinkState(st);
+      if (st === 'open') setInfo(data);
+      else if (st === 'complete') setCompleteMeta({ company_name: data.company_name, programme_name: data.programme_name });
+    } catch (e: any) {
+      if (!opts?.silent) setError(e.message || 'Erreur de connexion');
+    } finally {
+      if (!opts?.silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => { setLoading(true); loadInfo(); }, [token]);
 
   const requested = info
     ? buildRequestedDocuments({
@@ -137,7 +164,17 @@ export default function CandidatureRecovery() {
         setUploading(false);
         return;
       }
-      setSubmitted(true);
+      if (data.complete) {
+        setSubmitted(true); // toutes les pièces demandées ont été reçues
+      } else {
+        // Dépôt partiel : le lien reste ouvert (critère 12). On vide les fichiers en
+        // attente, on rafraîchit la checklist (les pièces déposées passent en
+        // « fourni ») et on invite à compléter le reste.
+        setSlotFiles({});
+        setFreeFiles([]);
+        setNotice("Documents transmis. Il reste des pièces demandées à fournir — ajoute-les ci-dessous, ou reviens plus tard via ce même lien.");
+        await loadInfo({ silent: true });
+      }
     } catch (e: any) {
       setError(e.message || 'Erreur inconnue');
     }
@@ -149,6 +186,45 @@ export default function CandidatureRecovery() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  // ── Dossier déjà complet (critères 9-10) : ton positif, rien à faire,
+  //    aucune mention d'erreur ni d'invitation à contacter un support.
+  if (linkState === 'complete') {
+    return (
+      <StateScreen
+        icon={<CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />}
+        title="Dossier déjà complet"
+        text={
+          <>
+            {completeMeta.company_name ? <>Le dossier de <strong>{completeMeta.company_name}</strong> est complet. </> : null}
+            Toutes les pièces demandées ont bien été reçues — tu n'as rien à faire.
+          </>
+        }
+      />
+    );
+  }
+
+  // ── Lien expiré (critère 11) : distinct du dossier complet et du lien révoqué.
+  if (linkState === 'expired') {
+    return (
+      <StateScreen
+        icon={<AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />}
+        title="Lien expiré"
+        text="Ce lien de dépôt a expiré. Demande un nouveau lien à ton chef de programme pour compléter ton dossier."
+      />
+    );
+  }
+
+  // ── Lien révoqué / déjà utilisé (critère 11) : distinct de l'expiration.
+  if (linkState === 'revoked') {
+    return (
+      <StateScreen
+        icon={<AlertTriangle className="h-12 w-12 text-slate-400 mx-auto" />}
+        title="Lien non valide"
+        text="Ce lien n'est plus valide — il a peut-être été remplacé par un lien plus récent. Rapproche-toi de ton chef de programme pour obtenir le bon lien."
+      />
     );
   }
 
@@ -208,6 +284,12 @@ export default function CandidatureRecovery() {
             )}
           </CardContent>
         </Card>
+
+        {notice && (
+          <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded p-3">
+            {notice}
+          </p>
+        )}
 
         {/* Documents demandés (formulaire + sur-mesure) */}
         {requested.length > 0 && (

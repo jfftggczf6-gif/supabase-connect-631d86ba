@@ -50,6 +50,24 @@ function esc(s: string | null | undefined): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Rend un texte multi-lignes en HTML en préservant sauts de ligne et lignes
+ * vides : on échappe D'ABORD (esc), PUIS on convertit les \n en <br>.
+ * L'ordre est critique — faire l'inverse (nl2br puis esc) échapperait les <br>
+ * qu'on vient d'ajouter tout en laissant passer le HTML saisi = injection.
+ */
+function escMultiline(s: string | null | undefined): string {
+  return esc(s).replace(/\r\n?/g, '\n').replace(/\n/g, '<br>\n');
+}
+
+/**
+ * Neutralise un préfixe « Objet : » (ou « Objet: ») recopié depuis un modèle :
+ * le champ n'attend que l'intitulé, jamais le libellé « Objet : ».
+ */
+function neutraliserPrefixeObjet(s: string): string {
+  return s.replace(/^\s*objet\s*:\s*/i, '').trim();
+}
+
 function formatExpiry(iso: string): string | null {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
@@ -88,9 +106,12 @@ export function buildCompletionEmail(input: CompletionEmailInput): CompletionEma
   const defaults = completionEmailDefaults({ companyName, programmeName });
 
   // Champs éditables : fallback vers le défaut du gabarit si absent ou vide.
-  // Le sujet est un en-tête (plein texte) → jamais passé dans le HTML, donc non
-  // échappé (sinon un « & » légitime deviendrait « &amp; » dans la ligne objet).
-  const subject = fields?.subject?.trim() ? fields.subject : defaults.subject;
+  // Objet : on neutralise d'abord un éventuel préfixe « Objet : » recopié, puis
+  // on retombe sur le défaut si l'utilisateur n'a rien saisi d'utile (filet ;
+  // le composeur bloque déjà l'objet vide côté saisie). Le sujet est un en-tête
+  // (plein texte) → jamais échappé (sinon un « & » deviendrait « &amp; »).
+  const subjectSaisi = fields?.subject?.trim() ? neutraliserPrefixeObjet(fields.subject) : '';
+  const subject = subjectSaisi || defaults.subject;
   const intro = fields?.intro?.trim() ? fields.intro : defaults.intro;
   const closing = fields?.closing?.trim() ? fields.closing : defaults.closing;
   // Mot personnel : réellement optionnel — absent/vide → bloc omis (pas de défaut).
@@ -114,7 +135,7 @@ export function buildCompletionEmail(input: CompletionEmailInput): CompletionEma
     : '';
 
   const personalNoteHtml = personalNote
-    ? `<p style="background:#f5f3ff; border-left:3px solid #7c3aed; padding:10px 12px; border-radius:4px;">${esc(personalNote)}</p>`
+    ? `<p style="background:#f5f3ff; border-left:3px solid #7c3aed; padding:10px 12px; border-radius:4px;">${escMultiline(personalNote)}</p>`
     : '';
   const personalNoteText = personalNote ? `\n${esc(personalNote)}\n` : '';
 
@@ -126,9 +147,9 @@ export function buildCompletionEmail(input: CompletionEmailInput): CompletionEma
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color:#1a2744;">
-      <h2>Complétez votre candidature</h2>
+      <h2>${esc(subject)}</h2>
       <p>${greeting}</p>
-      <p>${esc(intro)}</p>
+      <p>${escMultiline(intro)}</p>
       ${personalNoteHtml}
       ${docsHtml}
       <p>Merci de cliquer sur le bouton ci-dessous pour déposer les documents manquants :</p>

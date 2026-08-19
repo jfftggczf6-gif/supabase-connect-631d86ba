@@ -3,10 +3,11 @@
 // Dérivé UNIQUEMENT des colonnes déjà présentes sur `candidatures`
 // (aucune donnée ajoutée) :
 //   - recovery_token / recovery_expires_at : un lien a été généré/envoyé
-//   - recovery_used_at : rempli quand le candidat a complété (l'EF
-//     candidature-recovery met used_at=now() à la soumission, et le
-//     réinitialise à null quand on régénère un lien — c'est donc la source
-//     de vérité du lien COURANT).
+//   - recovery_used_at : rempli quand le candidat a COMPLÉTÉ toutes les pièces
+//     demandées (l'EF candidature-recovery met used_at=now() uniquement au dépôt
+//     qui complète le dossier ; les dépôts partiels laissent le lien ouvert, et un
+//     lien générique sans pièces demandées ne le remplit jamais), et le réinitialise
+//     à null quand on régénère un lien — c'est donc la source de vérité du lien COURANT.
 //
 // États :
 //   completed → le candidat a re-déposé ses documents

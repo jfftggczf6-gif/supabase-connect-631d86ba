@@ -108,6 +108,11 @@ export default function CompletionLinkDialog({
 
   const handleSend = async () => {
     if (!candidatureId) return;
+    // Filet : l'objet vide est déjà bloqué en amont (bouton Aperçu désactivé).
+    if (!subject.trim()) {
+      toast({ title: 'Objet manquant', description: "L'objet de l'e-mail est obligatoire.", variant: 'destructive' });
+      return;
+    }
     setSending(true);
 
     // 1. Génère le lien signé — SEULEMENT ici, au clic « Envoyer ».
@@ -132,8 +137,11 @@ export default function CompletionLinkDialog({
         recoveryUrl: data.recovery_url,
         expiresAt: data.expires_at ?? null,
       });
+      // candidature_id + type déclenchent, côté EF, le garde-fou (allowlist +
+      // plafonds) et la journalisation dans candidature_emails. L'org et l'émetteur
+      // sont dérivés serveur (candidature + JWT) — jamais transmis par le front.
       const { data: emailData, error: emailErr } = await supabase.functions.invoke('send-email', {
-        body: { to, subject: mail.subject, html: mail.html, text: mail.text },
+        body: { to, subject: mail.subject, html: mail.html, text: mail.text, candidature_id: candidatureId, type: 'relance' },
       });
       const emailErrMsg = await extractEdgeError(emailErr, emailData);
       if (emailErrMsg) {
@@ -156,6 +164,8 @@ export default function CompletionLinkDialog({
   };
 
   const to = contactEmail;
+  // Objet obligatoire (critère 4) : bloque l'aperçu et l'envoi tant qu'il est vide.
+  const subjectVide = !subject.trim();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -234,8 +244,20 @@ export default function CompletionLinkDialog({
             {/* Champs éditables du message */}
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
-                <Label htmlFor="cl-subject" className="text-xs">Objet</Label>
-                <Input id="cl-subject" value={subject} onChange={e => setSubject(e.target.value)} className="text-sm" />
+                <Label htmlFor="cl-subject" className="text-xs">
+                  Objet <span className="text-muted-foreground font-normal">— l'intitulé seul, sans « Objet : »</span>
+                </Label>
+                <Input
+                  id="cl-subject"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  placeholder="Ex. : Documents manquants pour votre candidature"
+                  aria-invalid={subjectVide}
+                  className="text-sm"
+                />
+                {subjectVide && (
+                  <p className="text-xs text-destructive">L'objet est obligatoire.</p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="cl-intro" className="text-xs">Message d'introduction</Label>
@@ -325,7 +347,12 @@ export default function CompletionLinkDialog({
           ) : (
             <>
               <Button variant="outline" onClick={() => handleClose(false)} disabled={sending}>Annuler</Button>
-              <Button onClick={() => setStep('preview')} disabled={!candidatureId} className="gap-2">
+              <Button
+                onClick={() => setStep('preview')}
+                disabled={!candidatureId || subjectVide}
+                title={subjectVide ? "L'objet est obligatoire" : undefined}
+                className="gap-2"
+              >
                 <Eye className="h-4 w-4" /> Aperçu
               </Button>
             </>

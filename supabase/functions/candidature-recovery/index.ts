@@ -33,6 +33,31 @@ function generateToken(): string {
     .reduce((acc, b) => acc + b.toString(16).padStart(2, '0'), '');
 }
 
+/** Libellés des pièces effectivement reçues (un document avec un fichier). */
+function labelsRecus(documents: any): Set<string> {
+  const arr = Array.isArray(documents) ? documents : [];
+  return new Set(
+    arr
+      .filter((d: any) => d && d.field_label && (d.storage_path || d.file_name))
+      .map((d: any) => String(d.field_label).trim()),
+  );
+}
+
+/**
+ * « Dossier complet » (décision acquise) : recovery_requested_docs NON VIDE et
+ * TOUTES ses pièces reçues. Vide = lien générique → jamais complet
+ * automatiquement (il vit jusqu'à l'expiration 7j). La complétude globale du
+ * dossier n'entre pas en jeu : seules les pièces explicitement demandées comptent.
+ */
+function dossierComplet(recoveryRequestedDocs: any, documents: any): boolean {
+  const requested = (Array.isArray(recoveryRequestedDocs) ? recoveryRequestedDocs : [])
+    .map((s: any) => String(s).trim())
+    .filter(Boolean);
+  if (requested.length === 0) return false;
+  const recus = labelsRecus(documents);
+  return requested.every((label: string) => recus.has(label));
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -133,11 +158,26 @@ serve(async (req: Request) => {
         .eq("recovery_token", token)
         .maybeSingle();
 
-      if (!cand) return jsonRes({ error: "Lien invalide ou expiré" }, 404);
-      if (cand.recovery_used_at) return jsonRes({ error: "Ce lien a déjà été utilisé" }, 410);
-      if (cand.recovery_expires_at && new Date(cand.recovery_expires_at) < new Date()) {
-        return jsonRes({ error: "Ce lien a expiré. Demande un nouveau lien à ton chef de programme." }, 410);
+      // Résolution de l'état du lien (trois situations terminales distinctes,
+      // renvoyées via `state` pour que la page affiche trois messages distincts) :
+      //   revoked  = token inconnu/remplacé, ou ancien lien à usage unique consommé
+      //   complete = toutes les pièces demandées reçues (rien à faire)
+      //   expired  = passé la date d'expiration
+      // Ordre : 'complete' prime sur 'expired' — si tout est reçu, le message utile
+      // est « c'est bon », pas « expiré ».
+      if (!cand) return jsonRes({ state: 'revoked' });
+      if (dossierComplet(cand.recovery_requested_docs, cand.documents)) {
+        return jsonRes({
+          state: 'complete',
+          company_name: cand.company_name,
+          contact_name: cand.contact_name,
+          programme_name: (cand.programmes as any)?.name || null,
+        });
       }
+      if (cand.recovery_expires_at && new Date(cand.recovery_expires_at) < new Date()) {
+        return jsonRes({ state: 'expired' });
+      }
+      if (cand.recovery_used_at) return jsonRes({ state: 'revoked' });
 
       // Documents déjà attachés (on renvoie storage_path : la page renverra la
       // liste FUSIONNÉE complète à la soumission, sans perdre l'existant).
@@ -165,6 +205,7 @@ serve(async (req: Request) => {
 
       return jsonRes({
         success: true,
+        state: 'open',
         candidature_id: cand.id,
         company_name: cand.company_name,
         contact_name: cand.contact_name,
@@ -193,10 +234,13 @@ serve(async (req: Request) => {
 
       const { data: cand } = await adminClient
         .from("candidatures")
-        .select("id, recovery_expires_at, recovery_used_at")
+        .select("id, recovery_expires_at, recovery_used_at, recovery_requested_docs, documents")
         .eq("recovery_token", token)
         .maybeSingle();
       if (!cand) return jsonRes({ error: "Lien invalide" }, 404);
+      if (dossierComplet(cand.recovery_requested_docs, cand.documents)) {
+        return jsonRes({ error: "Dossier déjà complet", state: 'complete' }, 409);
+      }
       if (cand.recovery_used_at) return jsonRes({ error: "Ce lien a déjà été utilisé" }, 410);
       if (cand.recovery_expires_at && new Date(cand.recovery_expires_at) < new Date()) {
         return jsonRes({ error: "Ce lien a expiré" }, 410);
@@ -238,10 +282,14 @@ serve(async (req: Request) => {
 
       const { data: cand } = await adminClient
         .from("candidatures")
-        .select("id, recovery_expires_at, recovery_used_at")
+        .select("id, recovery_expires_at, recovery_used_at, recovery_requested_docs, documents")
         .eq("recovery_token", token)
         .maybeSingle();
       if (!cand) return jsonRes({ error: "Lien invalide" }, 404);
+      // Dépôt refusé si le dossier est déjà complet (critère 9).
+      if (dossierComplet(cand.recovery_requested_docs, cand.documents)) {
+        return jsonRes({ error: "Dossier déjà complet — aucun dépôt nécessaire.", state: 'complete' }, 409);
+      }
       if (cand.recovery_used_at) return jsonRes({ error: "Ce lien a déjà été utilisé" }, 410);
       if (cand.recovery_expires_at && new Date(cand.recovery_expires_at) < new Date()) {
         return jsonRes({ error: "Ce lien a expiré" }, 410);
@@ -262,14 +310,21 @@ serve(async (req: Request) => {
         }
       }
 
-      // Met à jour les documents et marque le token comme utilisé
+      // Le lien ne se ferme (recovery_used_at) QUE si ce dépôt complète TOUTES les
+      // pièces demandées. Un dépôt partiel le laisse ouvert (critère 12) ; un lien
+      // générique sans pièces demandées ne se ferme jamais (décision 1).
+      // recovery_used_at reste ainsi la source de vérité « dossier complété » pour le
+      // badge de la fiche (src/lib/recovery-status.ts) — ne pas dissocier les deux.
+      const complet = dossierComplet(cand.recovery_requested_docs, newDocuments);
+      const patch: Record<string, unknown> = {
+        documents: newDocuments,
+        updated_at: new Date().toISOString(),
+      };
+      if (complet) patch.recovery_used_at = new Date().toISOString();
+
       const { error: updErr } = await adminClient
         .from("candidatures")
-        .update({
-          documents: newDocuments,
-          recovery_used_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(patch)
         .eq("id", cand.id);
       if (updErr) return jsonRes({ error: updErr.message }, 500);
 
@@ -291,7 +346,9 @@ serve(async (req: Request) => {
         }).catch(() => {}); // non-bloquant : si le re-screen échoue, le user voit quand même son rattrapage validé
       } catch (_) { /* non-bloquant */ }
 
-      return jsonRes({ success: true });
+      // `complete` = ce dépôt a-t-il complété toutes les pièces demandées ? Permet à
+      // la page d'afficher « dossier complété » vs « il reste des pièces » (critère 12).
+      return jsonRes({ success: true, complete: complet });
     }
 
     return jsonRes({ error: "Action inconnue" }, 400);
