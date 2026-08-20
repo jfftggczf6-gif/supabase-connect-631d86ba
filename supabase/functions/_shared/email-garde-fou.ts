@@ -15,8 +15,13 @@
 
 export type TypeEnvoi = "relance" | "communication";
 
-/** Tant que vrai : les types soumis à l'allowlist (cf. ALLOWLIST_PAR_TYPE) sont bridés. */
-export const ALLOWLIST_ACTIVE = true;
+/**
+ * Tant que vrai : les types soumis à l'allowlist (cf. ALLOWLIST_PAR_TYPE) sont bridés.
+ * LEVÉE le 20/08/2026 sur feu vert explicite (recette du chantier effectuée) :
+ * les communications peuvent désormais atteindre de vrais candidats. Les PLAFONDS
+ * (30/opération, 150/jour/org) restent en vigueur — cf. plus bas.
+ */
+export const ALLOWLIST_ACTIVE = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // À QUELS TYPES L'ALLOWLIST S'APPLIQUE — décision structurante, à lire telle quelle.
