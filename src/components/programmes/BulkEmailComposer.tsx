@@ -49,13 +49,16 @@ type EmailType = 'communication' | 'relance';
 interface SendResult { candidature_id: string; to: string | null; statut: 'sent' | 'failed' | 'refused' | 'skipped'; error?: string }
 
 export default function BulkEmailComposer({
-  open, onOpenChange, recipients, programme, onSent,
+  open, onOpenChange, recipients, programme, onSent, soloMode = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   recipients: ComposerRecipient[];
   programme: any;
   onSent?: () => void;
+  /** Mode mono-destinataire (bouton « Envoyer un message » depuis la fiche) :
+      communication uniquement, pas de sélecteur de type, pas de liste de destinataires. */
+  soloMode?: boolean;
 }) {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
@@ -296,7 +299,9 @@ export default function BulkEmailComposer({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-violet-600" />
-            Envoi groupé — {recipients.length} destinataire{recipients.length > 1 ? 's' : ''}
+            {soloMode
+              ? 'Envoyer un message'
+              : `Envoi groupé — ${recipients.length} destinataire${recipients.length > 1 ? 's' : ''}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -331,23 +336,30 @@ export default function BulkEmailComposer({
         ) : (
           /* ── Composition ─────────────────────────────────────────────── */
           <div className="space-y-4 text-sm">
-            {/* Type d'envoi (critère 1) */}
-            <div className="space-y-1">
-              <Label className="text-xs">Type d'envoi</Label>
-              <div className="flex gap-2">
-                {(['communication', 'relance'] as EmailType[]).map((t) => (
-                  <button
-                    key={t} type="button" onClick={() => setType(t)}
-                    className={`rounded-md border px-3 py-1.5 text-sm ${type === t ? 'bg-violet-600 text-white border-violet-600' : 'bg-background border-input'}`}
-                  >
-                    {t === 'communication' ? 'Communication' : 'Relance documentaire'}
-                  </button>
-                ))}
+            {/* Type d'envoi (critère 1). En soloMode : communication forcée, pas de sélecteur. */}
+            {soloMode ? (
+              <p className="text-sm text-muted-foreground">
+                Message à <strong>{recipients[0]?.company_name || recipients[0]?.contact_name || '—'}</strong>
+                {recipients[0]?.contact_email ? <> · {recipients[0].contact_email}</> : null}
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <Label className="text-xs">Type d'envoi</Label>
+                <div className="flex gap-2">
+                  {(['communication', 'relance'] as EmailType[]).map((t) => (
+                    <button
+                      key={t} type="button" onClick={() => setType(t)}
+                      className={`rounded-md border px-3 py-1.5 text-sm ${type === t ? 'bg-violet-600 text-white border-violet-600' : 'bg-background border-input'}`}
+                    >
+                      {t === 'communication' ? 'Communication' : 'Relance documentaire'}
+                    </button>
+                  ))}
+                </div>
+                {type === 'communication'
+                  ? <p className="text-[11px] text-muted-foreground">Message libre, sans bouton ni lien de dépôt.</p>
+                  : <p className="text-[11px] text-muted-foreground">Chaque destinataire reçoit son propre lien de dépôt (échéance commune).</p>}
               </div>
-              {type === 'communication'
-                ? <p className="text-[11px] text-muted-foreground">Message libre, sans bouton ni lien de dépôt.</p>
-                : <p className="text-[11px] text-muted-foreground">Chaque destinataire reçoit son propre lien de dépôt (échéance commune).</p>}
-            </div>
+            )}
 
             {/* Objet + variables */}
             <div className="space-y-1">
@@ -411,7 +423,8 @@ export default function BulkEmailComposer({
               </div>
             )}
 
-            {/* Destinataires : inclusion + (relance) docs par destinataire */}
+            {/* Destinataires — masqués en soloMode (destinataire unique implicite) */}
+            {!soloMode && (
             <div className="rounded-lg border">
               <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center justify-between">
                 <span>Destinataires · {included.length} inclus / {recipients.length}</span>
@@ -456,6 +469,7 @@ export default function BulkEmailComposer({
                 })}
               </div>
             </div>
+            )}
 
             {/* Alertes pré-envoi */}
             {problemes.length > 0 && (

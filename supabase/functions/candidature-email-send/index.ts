@@ -122,7 +122,7 @@ serve(async (req) => {
     const ids = [...new Set(recipients.map((r) => String(r.candidature_id)))];
     const { data: cands, error: candErr } = await admin
       .from("candidatures")
-      .select("id, organization_id, contact_email")
+      .select("id, organization_id, contact_email, assigned_coach_id")
       .in("id", ids);
     if (candErr) return jsonRes({ error: candErr.message }, 500);
     const byId = new Map((cands ?? []).map((c: any) => [c.id, c]));
@@ -131,9 +131,21 @@ serve(async (req) => {
     if (orgs.size > 1) return jsonRes({ error: "Une opération d'envoi ne peut cibler qu'une seule organisation." }, 400);
     const organization_id = [...orgs][0] as string;
 
-    // AUTORISATION D'ÉMISSION : owner/admin/manager de l'org émettrice, ou super_admin
-    // (même périmètre que la policy INSERT du journal ; l'EF tourne en service role,
-    // donc c'est ici qu'on garde la porte — pas la RLS). Bloque tout cross-tenant.
+    // AUTORISATION D'ÉMISSION (vérifiée ICI, côté serveur — masquer un bouton n'est
+    // pas une protection). Autorisé si :
+    //   · super_admin, OU
+    //   · owner/admin/manager de l'org émettrice, OU
+    //   · coach assigné de TOUS les destinataires de l'opération.
+    // EFFET DE BORD ASSUMÉ : « coach assigné de TOUS » ⇒ un coach assigné à N
+    // candidatures peut faire un ENVOI GROUPÉ sur ces N-là depuis la vue liste. C'est
+    // voulu (il écrit aux entreprises qu'il suit, le journal trace, le garde-fou tient).
+    // Un coach assigné à une PARTIE seulement est refusé sur l'opération ENTIÈRE,
+    // jamais partiellement servi.
+    //
+    // ⚠ MIROIR FRONT — src/lib/email-emission-auth.ts (estAutoriseEmission, testé).
+    // Cette règle est DUPLIQUÉE dans la lib front ; aucun test ne relie les deux
+    // copies. TOUTE modification ici DOIT être répercutée à l'identique dans
+    // email-emission-auth.ts, et inversement. Ne jamais toucher l'une sans l'autre.
     const { data: membership } = await admin
       .from("organization_members")
       .select("role")
@@ -142,10 +154,14 @@ serve(async (req) => {
       .eq("is_active", true)
       .maybeSingle();
     const { data: estSuperAdmin } = await admin.rpc("has_role", { _user_id: sent_by, _role: "super_admin" });
-    const autoriseEmission = estSuperAdmin === true
-      || ["owner", "admin", "manager"].includes((membership?.role as string) ?? "");
-    if (!autoriseEmission) {
-      return jsonRes({ error: "Émission réservée aux owner/admin/manager de l'organisation." }, 403);
+    const superAdmin = estSuperAdmin === true;
+    const orgManager = ["owner", "admin", "manager"].includes((membership?.role as string) ?? "");
+    const recipientCoachIds = recipients.map((r) => (byId.get(String(r.candidature_id))?.assigned_coach_id ?? null));
+    const coachDeTous = recipientCoachIds.length > 0 && recipientCoachIds.every((c: any) => !!c && c === sent_by);
+    if (!(superAdmin || orgManager || coachDeTous)) {
+      return jsonRes({
+        error: "Émission réservée aux owner/admin/manager de l'organisation, ou au coach assigné de TOUS les destinataires.",
+      }, 403);
     }
 
     // Identité d'émission (brief 2) : from = nom d'expéditeur de l'org (calculé si

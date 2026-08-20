@@ -7,11 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, Building2, TrendingUp, Users, Target, ShieldAlert, BarChart3, Briefcase, Mail } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, Building2, TrendingUp, Users, Target, ShieldAlert, BarChart3, Briefcase, Mail, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import CompletionLinkDialog from './CompletionLinkDialog';
 import CandidatureEmailHistory from './CandidatureEmailHistory';
+import BulkEmailComposer, { type ComposerRecipient } from './BulkEmailComposer';
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrentRole } from '@/hooks/useCurrentRole';
 import { getRecoveryStatus, recoveryBadgeClass } from '@/lib/recovery-status';
 import { safeText, fmt } from '@/lib/candidature-format';
 import { CandidatureDocumentsUploader } from './CandidatureDocumentsUploader';
@@ -31,6 +34,10 @@ interface Props {
 
 export default function CandidatureDetailDrawer({ candidatureId, open, onOpenChange, coaches, onUpdated, candidatureIds = [], onNavigate }: Props) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { role, isSuperAdmin } = useCurrentRole();
+  const [showMessageComposer, setShowMessageComposer] = useState(false);
+  const [emailSentTick, setEmailSentTick] = useState(0);
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -225,6 +232,17 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                       <Mail className="h-3.5 w-3.5" />
                       Lien pour compléter
                     </Button>
+                    {/* Bouton « Envoyer un message » (communication mono-destinataire).
+                        Visibilité = owner/admin/manager OU coach assigné ; l'autorisation
+                        RÉELLE est re-vérifiée côté EF (candidature-email-send). */}
+                    {(isSuperAdmin
+                      || ['owner', 'admin', 'manager'].includes(role || '')
+                      || (detail?.assigned_coach_id && detail.assigned_coach_id === user?.id)) && (
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowMessageComposer(true)} disabled={saving} title="Envoyer un message à ce candidat">
+                        <Send className="h-3.5 w-3.5" />
+                        Envoyer un message
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => updateCandidature('move', { new_status: 'pre_selected' })} disabled={saving}>{t('candidature.preselect')}</Button>
                     <Button size="sm" onClick={() => updateCandidature('move', { new_status: 'selected' })} disabled={saving}>{t('candidature.select')}</Button>
                     <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateCandidature('move', { new_status: 'rejected' })} disabled={saving}>{t('candidature.reject')}</Button>
@@ -824,7 +842,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {/* Historique des e-mails envoyés (brief 1, critère 10) */}
                 <Card>
                   <CardContent className="p-4">
-                    <CandidatureEmailHistory candidatureId={candidatureId} />
+                    <CandidatureEmailHistory key={emailSentTick} candidatureId={candidatureId} />
                   </CardContent>
                 </Card>
 
@@ -856,6 +874,26 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
       programmeName={detail?.programme?.name ?? null}
       open={showCompletionLink}
       onOpenChange={setShowCompletionLink}
+    />
+
+    {/* Bouton « Envoyer un message » : composeur en mode mono-destinataire
+        (communication). MÊME chemin d'envoi que le groupé — garde-fou, plafonds,
+        journalisation, identité — via BulkEmailComposer → candidature-email-send. */}
+    <BulkEmailComposer
+      open={showMessageComposer}
+      onOpenChange={setShowMessageComposer}
+      soloMode
+      recipients={detail && candidatureId ? [{
+        id: candidatureId,
+        company_name: detail.company_name ?? null,
+        contact_name: detail.contact_name ?? null,
+        contact_email: detail.contact_email ?? null,
+        form_data: detail.form_data ?? null,
+        documents: Array.isArray(detail.documents) ? detail.documents : null,
+        status: detail.status ?? '',
+      } as ComposerRecipient] : []}
+      programme={{ name: detail?.programme?.name ?? programmeName, form_fields: detail?.programme?.form_fields }}
+      onSent={() => { setEmailSentTick((n) => n + 1); onUpdated(); }}
     />
     </>
   );
