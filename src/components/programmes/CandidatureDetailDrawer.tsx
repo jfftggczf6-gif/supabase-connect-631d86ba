@@ -372,7 +372,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         {fiche.pays && (
                           <div className="p-2 bg-muted/50 rounded text-center">
                             <p className="font-bold text-sm">{fiche.pays}</p>
-                            <p className="text-muted-foreground">{fiche.ville || 'Pays'}</p>
+                            <p className="text-muted-foreground">{fiche.ville || L.label('champ.pays')}</p>
                           </div>
                         )}
                       </div>
@@ -597,11 +597,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 {marche.barriere_entree && <Badge variant="outline" className="text-[10px]">Barrière : {marche.barriere_entree}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
-                                {marche.marche_cible && <p><strong>Marché :</strong> {marche.marche_cible}</p>}
-                                {marche.taille_estimee && <p><strong>Taille :</strong> {marche.taille_estimee}</p>}
-                                {marche.positionnement && <p><strong>Positionnement :</strong> {marche.positionnement}</p>}
-                                {marche.concurrence && <p><strong>Concurrence :</strong> {marche.concurrence}</p>}
-                                {marche.avantage_competitif && <p><strong>Avantage :</strong> {marche.avantage_competitif}</p>}
+                                {marche.marche_cible && <p><strong>{L.label('champ.marche')} :</strong> {marche.marche_cible}</p>}
+                                {marche.taille_estimee && <p><strong>{L.label('champ.taille')} :</strong> {marche.taille_estimee}</p>}
+                                {marche.positionnement && <p><strong>{L.label('champ.positionnement')} :</strong> {marche.positionnement}</p>}
+                                {marche.concurrence && <p><strong>{L.label('champ.concurrence')} :</strong> {marche.concurrence}</p>}
+                                {marche.avantage_competitif && <p><strong>{L.label('champ.avantage')} :</strong> {marche.avantage_competitif}</p>}
                               </div>
                             </CardContent>
                           </Card>
@@ -615,11 +615,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <h4 className="font-semibold text-sm">{t('screening.team_governance')}</h4>
                                 {equipe.gouvernance && <Badge variant="outline" className="text-[10px]">{equipe.gouvernance}</Badge>}
-                                {equipe.key_man_risk && <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">Key-man risk</Badge>}
+                                {equipe.key_man_risk && <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">{L.label('champ.key_man_risk')}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
-                                {equipe.profil_dirigeant && <p><strong>Dirigeant :</strong> {equipe.profil_dirigeant}</p>}
-                                {equipe.equipe_direction && <p><strong>Équipe :</strong> {equipe.equipe_direction}</p>}
+                                {equipe.profil_dirigeant && <p><strong>{L.label('champ.dirigeant')} :</strong> {equipe.profil_dirigeant}</p>}
+                                {equipe.equipe_direction && <p><strong>{L.label('champ.equipe')} :</strong> {equipe.equipe_direction}</p>}
                                 {equipe.commentaire && <p className="text-muted-foreground">{equipe.commentaire}</p>}
                               </div>
                             </CardContent>
@@ -658,8 +658,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 )}
                               </div>
                               <div className="text-xs space-y-1">
-                                {impact.emplois_projetes && <p><strong>Projection :</strong> {impact.emplois_projetes}</p>}
-                                {impact.beneficiaires_directs && <p><strong>Bénéficiaires :</strong> {impact.beneficiaires_directs}</p>}
+                                {impact.emplois_projetes && <p><strong>{L.label('champ.projection')} :</strong> {impact.emplois_projetes}</p>}
+                                {impact.beneficiaires_directs && <p><strong>{L.label('champ.beneficiaires')} :</strong> {impact.beneficiaires_directs}</p>}
                                 {Array.isArray(impact.odd_potentiels) && impact.odd_potentiels.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {impact.odd_potentiels.map((o: string, i: number) => <Badge key={i} variant="outline" className="text-[10px]">{o}</Badge>)}
@@ -689,13 +689,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 {besoin.type_adapte && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{besoin.type_adapte}</p>
-                                    <p className="text-muted-foreground">Type adapté</p>
+                                    <p className="text-muted-foreground">{L.label('champ.type_adapte')}</p>
                                   </div>
                                 )}
                                 {besoin.coherence_vs_ca && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className={`font-bold ${enumIs(besoin.coherence_vs_ca, 'Cohérent') ? 'text-emerald-600' : enumIncludes(besoin.coherence_vs_ca, 'Élevé') ? 'text-red-600' : ''}`}>{L.enumLabel('coherence_vs_ca', besoin.coherence_vs_ca)}</p>
-                                    <p className="text-muted-foreground">vs CA</p>
+                                    <p className="text-muted-foreground">{L.label('champ.vs_ca')}</p>
                                   </div>
                                 )}
                                 {besoin.capacite_absorption && (
@@ -707,7 +707,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               </div>
                               {Array.isArray(besoin.utilisation_prevue) && besoin.utilisation_prevue.length > 0 && (
                                 <div className="text-xs mb-1">
-                                  <p className="font-medium mb-0.5">Utilisation prévue</p>
+                                  <p className="font-medium mb-0.5">{L.label('champ.utilisation')}</p>
                                   <ul className="list-disc pl-4 space-y-0.5">{besoin.utilisation_prevue.map((u: string, i: number) => <li key={i}>{u}</li>)}</ul>
                                 </div>
                               )}
@@ -757,11 +757,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 }`}>{traction.niveau_preuve}</Badge>
                               )}
                               <div className="text-xs space-y-1">
-                                {traction.anciennete && <p><strong>Ancienneté :</strong> {traction.anciennete}</p>}
-                                {traction.evolution_ca && <p><strong>Évolution CA :</strong> {traction.evolution_ca}</p>}
+                                {traction.anciennete && <p><strong>{L.label('champ.anciennete')} :</strong> {traction.anciennete}</p>}
+                                {traction.evolution_ca && <p><strong>{L.label('champ.evolution_ca')} :</strong> {traction.evolution_ca}</p>}
                                 {Array.isArray(traction.preuves_tangibles) && traction.preuves_tangibles.length > 0 && (
                                   <div>
-                                    <p className="font-medium mt-1">Preuves</p>
+                                    <p className="font-medium mt-1">{L.label('champ.preuves')}</p>
                                     <ul className="list-disc pl-4 space-y-0.5">{traction.preuves_tangibles.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
                                   </div>
                                 )}
@@ -800,12 +800,12 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 <Card>
                   <CardContent className="p-4 space-y-1 text-sm">
                     <h4 className="font-semibold text-sm mb-2">{t('candidature.contact')}</h4>
-                    <p><strong>Nom :</strong> {detail.contact_name || '—'}</p>
-                    <p><strong>Email :</strong> {detail.contact_email || '—'}</p>
-                    {detail.contact_phone && <p><strong>Tél :</strong> {detail.contact_phone}</p>}
+                    <p><strong>{L.label('champ.nom')} :</strong> {detail.contact_name || '—'}</p>
+                    <p><strong>{L.label('champ.email')} :</strong> {detail.contact_email || '—'}</p>
+                    {detail.contact_phone && <p><strong>{L.label('champ.tel')} :</strong> {detail.contact_phone}</p>}
                     {detail.form_data?.secteur && <p><strong>Secteur :</strong> {detail.form_data.secteur}</p>}
-                    {detail.form_data?.pays && <p><strong>Pays :</strong> {detail.form_data.pays}</p>}
-                    {detail.form_data?.effectif && <p><strong>Effectif :</strong> {Number(detail.form_data.effectif).toLocaleString('fr-FR')}</p>}
+                    {detail.form_data?.pays && <p><strong>{L.label('champ.pays')} :</strong> {detail.form_data.pays}</p>}
+                    {detail.form_data?.effectif && <p><strong>{L.label('champ.effectif')} :</strong> {Number(detail.form_data.effectif).toLocaleString('fr-FR')}</p>}
                     {detail.form_data?.ca && <p><strong>CA :</strong> {Number(detail.form_data.ca).toLocaleString('fr-FR')}</p>}
                   </CardContent>
                 </Card>
@@ -824,7 +824,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   return (
                     <Card>
                       <CardContent className="p-4">
-                        <h4 className="font-semibold text-sm mb-2">Réponses au formulaire</h4>
+                        <h4 className="font-semibold text-sm mb-2">{L.label('section.reponses_form')}</h4>
                         <div className="space-y-2.5 text-sm">
                           {entries.map(([k, v]) => (
                             <div key={k}>

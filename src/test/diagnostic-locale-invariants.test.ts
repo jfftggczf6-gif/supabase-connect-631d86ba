@@ -243,27 +243,3 @@ describe('référentiel de libellés', () => {
     expect(enL.enumLabel('fiabilite', 'Inattendue')).toBe('Inattendue');
   });
 });
-
-describe('anti-dérive référentiel', () => {
-  it('le repli TS reflète exactement le seed SQL (category=ui)', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const { DEFAULT_UI_LABELS } = await import('@/lib/diagnostic-labels');
-
-    const sql = fs.readFileSync(
-      path.resolve(__dirname, '../../supabase/migrations/20260910180000_diagnostic_labels.sql'),
-      'utf-8',
-    );
-    const block = sql.split("insert into public.diagnostic_labels (key, category, fr, en) values")[1];
-    const re = /\('([^']+)',\s*'ui',\s*'((?:[^']|'')*)',\s*'((?:[^']|'')*)'\)/g;
-
-    const fromSql: Record<string, { fr: string; en: string }> = {};
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(block)) !== null) {
-      fromSql[m[1]] = { fr: m[2].replace(/''/g, "'"), en: m[3].replace(/''/g, "'") };
-    }
-
-    expect(Object.keys(fromSql).length).toBeGreaterThan(50);
-    expect(DEFAULT_UI_LABELS).toEqual(fromSql);
-  });
-});

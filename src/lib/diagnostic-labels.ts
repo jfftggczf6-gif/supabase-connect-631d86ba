@@ -56,82 +56,18 @@ export function enumIncludes(value: unknown, fragment: string): boolean {
 }
 
 
-/**
- * Repli statique des libellés d'INTERFACE.
- *
- * Le référentiel en base est la source ; ceci garantit qu'un écran ou un extract
- * ne dégrade jamais vers une clé technique (« doc.extract_titre ») si la table
- * est injoignable — RLS, réseau, ou appel direct au builder en test.
- *
- * ⚠️ MIROIR de la migration 20260910180000_diagnostic_labels.sql (category='ui').
- * Le test diagnostic-locale-invariants compare les deux et échoue en cas de dérive.
- */
-export const DEFAULT_UI_LABELS: Record<string, { fr: string; en: string }> = {
-  'doc.reporting_titre': { fr: 'Reporting de candidatures', en: 'Application report' },
-  'doc.extract_titre': { fr: 'Extract candidature', en: 'Application extract' },
-  'doc.candidature': { fr: 'Candidature', en: 'Application' },
-  'doc.programme': { fr: 'Programme', en: 'Programme' },
-  'section.fiche': { fr: 'Fiche entreprise', en: 'Company profile' },
-  'section.dimensions': { fr: 'Dimensions diagnostiques', en: 'Diagnostic dimensions' },
-  'section.indicateurs': { fr: 'Indicateurs financiers', en: 'Financial indicators' },
-  'section.marche': { fr: 'Marché & positionnement', en: 'Market & positioning' },
-  'section.equipe': { fr: 'Équipe & gouvernance', en: 'Team & governance' },
-  'section.impact': { fr: 'Impact mesurable', en: 'Measurable impact' },
-  'section.besoin': { fr: 'Besoin de financement', en: 'Funding need' },
-  'section.risques': { fr: 'Risques programme', en: 'Programme risks' },
-  'section.traction': { fr: 'Traction & preuves', en: 'Traction & evidence' },
-  'section.benchmark': { fr: 'Benchmark sectoriel', en: 'Sector benchmark' },
-  'section.matching': { fr: 'Matching critères programme', en: 'Programme criteria match' },
-  'section.points_forts': { fr: 'Points forts', en: 'Strengths' },
-  'section.vigilance': { fr: 'Points de vigilance', en: 'Points of attention' },
-  'section.incoherences': { fr: 'Incohérences détectées', en: 'Detected inconsistencies' },
-  'section.synthese': { fr: 'Synthèse', en: 'Summary' },
-  'section.resume_comite': { fr: 'Résumé pour le comité', en: 'Committee summary' },
-  'champ.nom': { fr: 'Nom', en: 'Name' },
-  'champ.pays': { fr: 'Pays', en: 'Country' },
-  'champ.contact': { fr: 'Contact', en: 'Contact' },
-  'champ.email': { fr: 'Email', en: 'Email' },
-  'champ.tel': { fr: 'Tél', en: 'Phone' },
-  'champ.anciennete': { fr: 'Ancienneté', en: 'Age' },
-  'champ.effectif': { fr: 'Effectif', en: 'Headcount' },
-  'champ.employes': { fr: 'Employés', en: 'Employees' },
-  'champ.taille': { fr: 'Taille', en: 'Size' },
-  'champ.ca_annuel': { fr: 'CA annuel', en: 'Annual revenue' },
-  'champ.croissance': { fr: 'Croissance', en: 'Growth' },
-  'champ.marge': { fr: 'Marge', en: 'Margin' },
-  'champ.rentabilite': { fr: 'Rentabilité', en: 'Profitability' },
-  'champ.tresorerie': { fr: 'Trésorerie', en: 'Cash position' },
-  'champ.endettement': { fr: 'Endettement', en: 'Leverage' },
-  'champ.marche': { fr: 'Marché', en: 'Market' },
-  'champ.positionnement': { fr: 'Positionnement', en: 'Positioning' },
-  'champ.concurrence': { fr: 'Concurrence', en: 'Competition' },
-  'champ.avantage': { fr: 'Avantage', en: 'Advantage' },
-  'champ.equipe': { fr: 'Équipe', en: 'Team' },
-  'champ.dirigeant': { fr: 'Dirigeant', en: 'Founder / CEO' },
-  'champ.key_man_risk': { fr: 'Key-man risk', en: 'Key-man risk' },
-  'champ.emplois_actuels': { fr: 'Emplois actuels', en: 'Current jobs' },
-  'champ.femmes': { fr: 'Femmes', en: 'Women' },
-  'champ.jeunes': { fr: 'Jeunes', en: 'Youth' },
-  'champ.beneficiaires': { fr: 'Bénéficiaires', en: 'Beneficiaries' },
-  'champ.absorption': { fr: 'Absorption', en: 'Absorption capacity' },
-  'champ.type_adapte': { fr: 'Type adapté', en: 'Suitable instrument' },
-  'champ.vs_ca': { fr: 'vs CA', en: 'vs revenue' },
-  'champ.evolution_ca': { fr: 'Évolution CA', en: 'Revenue trend' },
-  'champ.projection': { fr: 'Projection', en: 'Projection' },
-  'champ.preuves': { fr: 'Preuves', en: 'Evidence' },
-  'champ.score_ia': { fr: 'Score IA', en: 'AI score' },
-  'champ.documents': { fr: 'Documents', en: 'Documents' },
-  'matching.valides': { fr: 'Validés', en: 'Met' },
-  'matching.partiels': { fr: 'Partiels', en: 'Partially met' },
-  'matching.non_remplis': { fr: 'Non remplis', en: 'Not met' },
-  'etat.non_renseigne': { fr: 'Non renseigné', en: 'Not provided' },
-  'etat.donnees_decl': { fr: 'Données déclaratives', en: 'Self-reported data' },
-  'etat.aucun_diagnostic': { fr: 'Diagnostic à générer', en: 'Diagnostic to be generated' },
-};
-
 // ── Consultation ────────────────────────────────────────────────────────────
 
+export class LabelReferentialUnavailable extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LabelReferentialUnavailable';
+  }
+}
+
 export interface LabelLookup {
+  /** Nombre de libellés chargés. 0 = référentiel injoignable. */
+  size: number;
   /** Libellé d'interface par clé. Repli : la clé elle-même, visible donc corrigeable. */
   label: (key: string) => string;
   /**
@@ -151,11 +87,14 @@ export function buildLookup(rows: DiagnosticLabelRow[], locale: Locale): LabelLo
   const pick = (r: DiagnosticLabelRow) => (locale === 'en' ? r.en : r.fr);
 
   return {
+    size: rows.length,
     label: (key) => {
       const row = byKey.get(key);
       if (row) return pick(row);
-      const fallback = DEFAULT_UI_LABELS[key];
-      if (fallback) return locale === 'en' ? fallback.en : fallback.fr;
+      // Pas de repli. Un libellé manquant doit se voir : la clé technique
+      // apparaît, et `assertUsable()` refuse de rendre un document dans ce cas.
+      // Un repli français silencieux protégeait le test, pas le lecteur — il
+      // faisait sortir un PDF « anglais » entièrement en français.
       return key;
     },
     enumLabel: (category, storedValue) => {

@@ -92,6 +92,20 @@ Tu reçois un objet JSON contenant UNIQUEMENT de la prose extraite d'un diagnost
 6. CHAÎNE VIDE PRÉSERVÉE. Une valeur vide ou nulle en entrée ressort vide ou nulle.
 7. Si la langue cible est celle du texte source, tu renvoies le texte inchangé.
 
+═══ GLOSSAIRE JURIDIQUE — GHANA ═══
+Le français de départ décrit souvent des formalités OHADA. Ne les transpose pas
+mot à mot vers un vocabulaire ghanéen inexact.
+
+- Le CERTIFICAT DE COMMENCEMENT D'ACTIVITÉ n'existe plus au Ghana : il est
+  supprimé depuis le Companies Act 2019 (Act 992). N'écris JAMAIS
+  « certificate to commence business » ni « certificate of commencement of
+  business ». Le seul document constitutif est le CERTIFICATE OF INCORPORATION,
+  délivré par l'OFFICE OF THE REGISTRAR OF COMPANIES (ORC).
+- Pour les comptes annuels, la formulation exigible est
+  « audited financial statements filed with the ORC ».
+  N'écris PAS « certified financial statements » : « certified » ne correspond à
+  aucune exigence ghanéenne et laisserait croire à une formalité qui n'existe pas.
+
 Réponds UNIQUEMENT par le JSON, sans balise de code, sans commentaire.$SYS$,
 $USR$Langue cible : {{locale_name}} (code {{locale}}).
 

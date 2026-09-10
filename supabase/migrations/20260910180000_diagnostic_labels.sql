@@ -248,4 +248,13 @@ insert into public.diagnostic_labels (key, category, fr, en) values
   -- Repli / états
   ('etat.non_renseigne',    'ui', 'Non renseigné',        'Not provided'),
   ('etat.donnees_decl',     'ui', 'Données déclaratives', 'Self-reported data'),
+  ('champ.utilisation',       'ui', 'Utilisation prévue',            'Planned use'),
+  ('champ.profil_coach',      'ui', 'Profil coach idéal',            'Ideal coach profile'),
+  ('champ.priorites',         'ui', 'Priorités si sélectionnée',     'Priorities if selected'),
+  ('champ.conditions',        'ui', 'Conditions préalables',         'Preconditions'),
+  ('section.reponses_form',   'ui', 'Réponses au formulaire',        'Application form answers'),
+  ('doc.recap_score',         'ui', 'Récapitulatif — trié par Score IA', 'Summary — sorted by AI score'),
+  ('doc.repartition_statut',  'ui', 'Répartition par statut',        'Breakdown by status'),
+  ('doc.repartition_secteur', 'ui', 'Répartition par secteur',       'Breakdown by sector'),
+
   ('etat.aucun_diagnostic', 'ui', 'Diagnostic à générer', 'Diagnostic to be generated');
