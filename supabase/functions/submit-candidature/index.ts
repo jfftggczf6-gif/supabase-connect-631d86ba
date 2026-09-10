@@ -114,13 +114,19 @@ serve(async (req) => {
         .eq("id", body.candidature_id)
         .single();
       if (cand?.programme_id) {
-        const ok = await dispatchScreening(supabase, {
+        const dispatch = await dispatchScreening(supabase, {
           programmeId: cand.programme_id,
           candidatureIds: [cand.id],
           organizationId: cand.organization_id,
           preferVision: false,
         });
-        if (!ok) await markScreeningError(supabase, cand.id, "Dispatch worker échoué (update_documents)");
+        if (!dispatch.ok) {
+          await markScreeningError(
+            supabase, cand.id,
+            dispatch.error || "Dispatch worker échoué (update_documents)",
+            dispatch.jobId,
+          );
+        }
       }
 
       return jsonRes({ success: true });
@@ -207,8 +213,12 @@ serve(async (req) => {
       organizationId: prog.organization_id,
       preferVision: false,
     });
-    if (!dispatched) {
-      await markScreeningError(supabase, candidature.id, "Dispatch worker échoué (auto-screen)");
+    if (!dispatched.ok) {
+      await markScreeningError(
+        supabase, candidature.id,
+        dispatched.error || "Dispatch worker échoué (auto-screen)",
+        dispatched.jobId,
+      );
     }
 
     return jsonRes({ success: true, candidature_id: candidature.id });
