@@ -118,15 +118,21 @@ serve(async (req) => {
       if (updErr) return jsonRes({ error: `Mise à jour échouée : ${updErr.message}` }, 500);
 
       // Re-diagnostic : un seul dispatch, haute fidélité (prefer_vision).
-      const ok = await dispatchScreening(supabase, {
+      const dispatch = await dispatchScreening(supabase, {
         programmeId: programme.id,
         candidatureIds: [cand.id],
         organizationId: programme.organization_id,
         preferVision: true,
       });
-      if (!ok) await markScreeningError(supabase, cand.id, "Dispatch worker échoué (add-candidature-documents)");
+      if (!dispatch.ok) {
+        await markScreeningError(
+          supabase, cand.id,
+          dispatch.error || "Dispatch worker échoué (add-candidature-documents)",
+          dispatch.jobId,
+        );
+      }
 
-      return jsonRes({ ok: true, added: stamped.length, total: merged.length, screening_dispatched: ok });
+      return jsonRes({ ok: true, added: stamped.length, total: merged.length, screening_dispatched: dispatch.ok });
     }
 
     return jsonRes({ error: "Action inconnue" }, 400);
