@@ -27,10 +27,24 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-// Le builder est appelé directement : il n'a besoin d'aucune session. Sans ce
-// mock, le vrai client Supabase démarre son auto-refresh sous jsdom et laisse
-// une rejection non gérée — vitest signale alors un risque de faux positif sur
-// TOUTE la suite, ce qui est précisément ce qu'un garde-fou ne doit pas causer.
+// Stub de module, pas capture de rejection.
+//
+// Le référentiel n'est PAS résolu par le builder : il lui est injecté par
+// `__setRenderContext(locale, rows)`. Ce stub ne sert donc pas à fournir des
+// libellés — le test n'en a pas besoin.
+//
+// Ce qu'il compense est un couplage de MODULE : `buildHtml` partage son fichier
+// avec `resolveDiagnostics` et les quatre points d'entrée d'export, qui importent
+// le client Supabase. Importer le builder pur construit donc le client, qui
+// démarre son auto-refresh sous jsdom et laisse une rejection non gérée — vitest
+// signale alors un risque de faux positif sur TOUTE la suite, ce qu'un garde-fou
+// ne doit surtout pas causer.
+//
+// Le découplage réel est de sortir les fonctions pures dans leur propre module,
+// avec l'état de rendu qu'elles portent. Ce n'est pas une modification mécanique
+// et ce n'est pas le sujet de ce commit : c'est consigné dans les points ouverts
+// du brief. En attendant, ce stub est aligné sur export-single-candidature.test,
+// qui fait déjà exactement la même chose pour la même raison.
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
 }));
