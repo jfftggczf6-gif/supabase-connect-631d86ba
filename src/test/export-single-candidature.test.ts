@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 
 // export-candidature-report-pdf importe transitivement le client Supabase
 // (via export-pdf) → on le mocke pour tester les builders purs sans réveiller GoTrue.
@@ -7,6 +7,14 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 import { buildSingleHtml, buildHtml, singleExtractFilename } from "@/lib/export-candidature-report-pdf";
+import { __setRenderContext } from "@/lib/export-candidature-report-pdf";
+import { seedLabelRows } from "./helpers/label-seed";
+
+// Le builder est appelé directement, donc hors du chemin `beginRender()`. On lui
+// fournit le contexte de rendu RÉEL (seed SQL), au lieu de compter sur un repli
+// statique : le repli protégeait le test pendant que le lecteur, lui, recevait
+// un document faux.
+beforeAll(() => __setRenderContext("fr", seedLabelRows()));
 
 const cand = {
   company_name: "ABEL FOOD SAS",

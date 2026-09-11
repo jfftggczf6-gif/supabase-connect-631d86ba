@@ -20,6 +20,9 @@ import { safeText, fmt } from '@/lib/candidature-format';
 import { CandidatureDocumentsUploader } from './CandidatureDocumentsUploader';
 import { mergeDocuments, type CandidatureDoc } from '@/lib/candidature-docs';
 import { exportSingleCandidaturePdf, exportSingleCandidatureWord } from '@/lib/export-candidature-report-pdf';
+import { buildLookup, enumIs, enumIncludes, type DiagnosticLabelRow, type Locale } from '@/lib/diagnostic-labels';
+import { loadDiagnosticLabels } from '@/lib/diagnostic-labels-loader';
+import { diagnosticForLocale } from '@/lib/diagnostic-prose';
 import { DownloadAllZipButton } from '@/components/common/DownloadAllZipButton';
 
 interface Props {
@@ -50,6 +53,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   const [optimisticDocs, setOptimisticDocs] = useState<CandidatureDoc[]>([]);
   const [programmeName, setProgrammeName] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
+  // Langue d'affichage du diagnostic. Indépendante de la langue de l'interface :
+  // un analyste francophone peut vouloir relire un dossier en anglais avant de
+  // l'envoyer à un bailleur anglophone.
+  const [diagLocale, setDiagLocale] = useState<Locale>('fr');
+  const [labelRows, setLabelRows] = useState<DiagnosticLabelRow[]>([]);
+  const [render, setRender] = useState<{ prose: any } | null>(null);
+  const [rendering, setRendering] = useState(false);
 
   useEffect(() => {
     if (!candidatureId || !open) { setDetail(null); setShowMore(false); setOptimisticDocs([]); setProgrammeName(''); return; }
@@ -71,6 +81,26 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
     })();
   }, [candidatureId, open]);
 
+  // Référentiel de libellés : chargé une fois, mis en cache par le module.
+  useEffect(() => { loadDiagnosticLabels().then(setLabelRows); }, []);
+
+  // Rendu linguistique de la prose. Aucun rendu pour 'fr' : la prose française
+  // EST screening_data (cf. diagnostic-prose.ts).
+  useEffect(() => {
+    if (!candidatureId || !open || diagLocale === 'fr') { setRender(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('candidature_diagnostic_renders')
+        .select('prose, source_screening_date')
+        .eq('candidature_id', candidatureId)
+        .eq('locale', diagLocale)
+        .maybeSingle();
+      if (!cancelled) setRender(data ? { prose: (data as any).prose } : null);
+    })();
+    return () => { cancelled = true; };
+  }, [candidatureId, open, diagLocale]);
+
   const updateCandidature = async (action: string, extra: Record<string, any> = {}) => {
     setSaving(true);
     const { data, error } = await supabase.functions.invoke('update-candidature', {
@@ -91,7 +121,10 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
     }
   };
 
-  const s = detail?.screening_data || {};
+  // Le déterministe (score, montants, statuts) vient TOUJOURS de screening_data :
+  // diagnosticForLocale ne remplace que les chemins de PROSE_PATHS.
+  const s = diagnosticForLocale(detail?.screening_data, diagLocale, render) as any;
+  const L = buildLookup(labelRows, diagLocale);
   const dims = s.diagnostic_dimensions || s.dimensions || s.scores_dimensions;
   const matching = s.matching_criteres;
   const reco = s.recommandation_accompagnement || s.recommandation;
@@ -118,7 +151,50 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl">{detail?.company_name || 'Candidature'}</DialogTitle>
+            <DialogTitle className="text-xl">{detail?.company_name || L.label('doc.candidature')}</DialogTitle>
+            {/* Langue du DIAGNOSTIC seulement. Les réponses au formulaire ne sont
+                jamais traduites : ce sont les mots du candidat. */}
+            <div className="flex items-center gap-1 ml-3" role="group" aria-label="Langue du diagnostic">
+              {(['fr', 'en'] as Locale[]).map((lc) => (
+                <Button
+                  key={lc}
+                  size="sm"
+                  variant={diagLocale === lc ? 'default' : 'outline'}
+                  className="h-7 px-2 text-[11px] uppercase"
+                  onClick={() => setDiagLocale(lc)}
+                >{lc}</Button>
+              ))}
+              {/* Rendu absent pour la langue choisie : on le propose plutôt que
+                  d'afficher silencieusement du français sous un bouton « EN ». */}
+              {diagLocale !== 'fr' && !render && detail?.screening_data && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 px-2 text-[11px]"
+                  disabled={rendering}
+                  onClick={async () => {
+                    setRendering(true);
+                    const { data, error } = await supabase.functions.invoke('render-diagnostic', {
+                      body: { candidature_id: candidatureId, locale: diagLocale },
+                    });
+                    setRendering(false);
+                    if (error || data?.error) {
+                      toast({ title: 'Erreur', description: data?.error || error?.message, variant: 'destructive' });
+                      return;
+                    }
+                    const { data: row } = await supabase
+                      .from('candidature_diagnostic_renders')
+                      .select('prose')
+                      .eq('candidature_id', candidatureId)
+                      .eq('locale', diagLocale)
+                      .maybeSingle();
+                    if (row) setRender({ prose: (row as any).prose });
+                  }}
+                >
+                  {rendering ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Générer la version EN'}
+                </Button>
+              )}
+            </div>
             {candidatureIds.length > 1 && onNavigate && candidatureId && (
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground mr-2">
@@ -193,14 +269,14 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 {/* Extract de CETTE fiche (PDF/Word), indépendant du reporting agrégé */}
                 <Button size="sm" variant="outline" className="gap-1.5" disabled={exportingPdf} title="Exporter cette fiche en PDF" onClick={async () => {
                   setExportingPdf(true);
-                  try { await exportSingleCandidaturePdf(detail, programmeName); }
+                  try { await exportSingleCandidaturePdf(detail, programmeName, diagLocale); }
                   catch (e: any) { toast({ title: 'Export PDF impossible', description: e?.message, variant: 'destructive' }); }
                   finally { setExportingPdf(false); }
                 }}>
                   {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Extract PDF
                 </Button>
                 <Button size="sm" variant="outline" className="gap-1.5" title="Exporter cette fiche en Word" onClick={() => {
-                  try { exportSingleCandidatureWord(detail, programmeName); }
+                  try { await exportSingleCandidatureWord(detail, programmeName, diagLocale); }
                   catch (e: any) { toast({ title: 'Export Word impossible', description: e?.message, variant: 'destructive' }); }
                 }}>
                   <FileText className="h-3.5 w-3.5" /> Extract Word
@@ -284,19 +360,19 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         {fiche.effectif_declare != null && (
                           <div className="p-2 bg-muted/50 rounded text-center">
                             <p className="font-bold text-sm">{fiche.effectif_declare}</p>
-                            <p className="text-muted-foreground">Employés</p>
+                            <p className="text-muted-foreground">{L.label('champ.employes')}</p>
                           </div>
                         )}
                         {fiche.anciennete_ans != null && (
                           <div className="p-2 bg-muted/50 rounded text-center">
                             <p className="font-bold text-sm">{fiche.anciennete_ans} ans</p>
-                            <p className="text-muted-foreground">Ancienneté</p>
+                            <p className="text-muted-foreground">{L.label('champ.anciennete')}</p>
                           </div>
                         )}
                         {fiche.pays && (
                           <div className="p-2 bg-muted/50 rounded text-center">
                             <p className="font-bold text-sm">{fiche.pays}</p>
-                            <p className="text-muted-foreground">{fiche.ville || 'Pays'}</p>
+                            <p className="text-muted-foreground">{fiche.ville || L.label('champ.pays')}</p>
                           </div>
                         )}
                       </div>
@@ -464,49 +540,49 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
                                 <h4 className="font-semibold text-sm">{t('screening.financial_indicators')}</h4>
                                 {indFin.fiabilite && <Badge variant="outline" className={`text-[10px] ${
-                                  indFin.fiabilite === 'Élevée' ? 'text-emerald-700' : indFin.fiabilite === 'Faible' ? 'text-red-700' : 'text-amber-700'
-                                }`}>{indFin.fiabilite}</Badge>}
+                                  enumIs(indFin.fiabilite, 'Élevée') ? 'text-emerald-700' : enumIs(indFin.fiabilite, 'Faible') ? 'text-red-700' : 'text-amber-700'
+                                }`}>{L.enumLabel('fiabilite', indFin.fiabilite)}</Badge>}
                               </div>
                               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
                                 {indFin.ca_annuel != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{fmt(indFin.ca_annuel)}</p>
-                                    <p className="text-muted-foreground">CA annuel</p>
+                                    <p className="text-muted-foreground">{L.label('champ.ca_annuel')}</p>
                                   </div>
                                 )}
                                 {indFin.croissance_ca_pct != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className={`font-bold ${indFin.croissance_ca_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{indFin.croissance_ca_pct}%</p>
-                                    <p className="text-muted-foreground">Croissance</p>
+                                    <p className="text-muted-foreground">{L.label('champ.croissance')}</p>
                                   </div>
                                 )}
                                 {indFin.marge_estimee_pct != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{indFin.marge_estimee_pct}%</p>
-                                    <p className="text-muted-foreground">Marge</p>
+                                    <p className="text-muted-foreground">{L.label('champ.marge')}</p>
                                   </div>
                                 )}
                                 {indFin.rentabilite && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className={`font-bold ${indFin.rentabilite === 'Rentable' ? 'text-emerald-600' : indFin.rentabilite === 'Déficitaire' ? 'text-red-600' : ''}`}>{indFin.rentabilite}</p>
-                                    <p className="text-muted-foreground">Rentabilité</p>
+                                    <p className={`font-bold ${enumIs(indFin.rentabilite, 'Rentable') ? 'text-emerald-600' : enumIs(indFin.rentabilite, 'Déficitaire') ? 'text-red-600' : ''}`}>{L.enumLabel('rentabilite', indFin.rentabilite)}</p>
+                                    <p className="text-muted-foreground">{L.label('champ.rentabilite')}</p>
                                   </div>
                                 )}
                                 {indFin.tresorerie_estimee && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className={`font-bold ${indFin.tresorerie_estimee === 'Critique' ? 'text-red-600' : indFin.tresorerie_estimee === 'Tendue' ? 'text-amber-600' : ''}`}>{indFin.tresorerie_estimee}</p>
-                                    <p className="text-muted-foreground">Trésorerie</p>
+                                    <p className={`font-bold ${enumIs(indFin.tresorerie_estimee, 'Critique') ? 'text-red-600' : enumIs(indFin.tresorerie_estimee, 'Tendue') ? 'text-amber-600' : ''}`}>{L.enumLabel('tresorerie', indFin.tresorerie_estimee)}</p>
+                                    <p className="text-muted-foreground">{L.label('champ.tresorerie')}</p>
                                   </div>
                                 )}
                                 {indFin.niveau_endettement && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className={`font-bold ${indFin.niveau_endettement === 'Élevé' ? 'text-red-600' : ''}`}>{indFin.niveau_endettement}</p>
-                                    <p className="text-muted-foreground">Endettement</p>
+                                    <p className={`font-bold ${enumIs(indFin.niveau_endettement, 'Élevé') ? 'text-red-600' : ''}`}>{L.enumLabel('endettement', indFin.niveau_endettement)}</p>
+                                    <p className="text-muted-foreground">{L.label('champ.endettement')}</p>
                                   </div>
                                 )}
                               </div>
                               {indFin.commentaire && <p className="text-xs text-muted-foreground">{indFin.commentaire}</p>}
-                              <p className="text-[10px] text-muted-foreground mt-1">{indFin.source_donnees || 'Données déclaratives'}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">{indFin.source_donnees || L.label('etat.donnees_decl')}</p>
                             </CardContent>
                           </Card>
                         )}
@@ -521,11 +597,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 {marche.barriere_entree && <Badge variant="outline" className="text-[10px]">Barrière : {marche.barriere_entree}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
-                                {marche.marche_cible && <p><strong>Marché :</strong> {marche.marche_cible}</p>}
-                                {marche.taille_estimee && <p><strong>Taille :</strong> {marche.taille_estimee}</p>}
-                                {marche.positionnement && <p><strong>Positionnement :</strong> {marche.positionnement}</p>}
-                                {marche.concurrence && <p><strong>Concurrence :</strong> {marche.concurrence}</p>}
-                                {marche.avantage_competitif && <p><strong>Avantage :</strong> {marche.avantage_competitif}</p>}
+                                {marche.marche_cible && <p><strong>{L.label('champ.marche')} :</strong> {marche.marche_cible}</p>}
+                                {marche.taille_estimee && <p><strong>{L.label('champ.taille')} :</strong> {marche.taille_estimee}</p>}
+                                {marche.positionnement && <p><strong>{L.label('champ.positionnement')} :</strong> {marche.positionnement}</p>}
+                                {marche.concurrence && <p><strong>{L.label('champ.concurrence')} :</strong> {marche.concurrence}</p>}
+                                {marche.avantage_competitif && <p><strong>{L.label('champ.avantage')} :</strong> {marche.avantage_competitif}</p>}
                               </div>
                             </CardContent>
                           </Card>
@@ -539,11 +615,11 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <h4 className="font-semibold text-sm">{t('screening.team_governance')}</h4>
                                 {equipe.gouvernance && <Badge variant="outline" className="text-[10px]">{equipe.gouvernance}</Badge>}
-                                {equipe.key_man_risk && <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">Key-man risk</Badge>}
+                                {equipe.key_man_risk && <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">{L.label('champ.key_man_risk')}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
-                                {equipe.profil_dirigeant && <p><strong>Dirigeant :</strong> {equipe.profil_dirigeant}</p>}
-                                {equipe.equipe_direction && <p><strong>Équipe :</strong> {equipe.equipe_direction}</p>}
+                                {equipe.profil_dirigeant && <p><strong>{L.label('champ.dirigeant')} :</strong> {equipe.profil_dirigeant}</p>}
+                                {equipe.equipe_direction && <p><strong>{L.label('champ.equipe')} :</strong> {equipe.equipe_direction}</p>}
                                 {equipe.commentaire && <p className="text-muted-foreground">{equipe.commentaire}</p>}
                               </div>
                             </CardContent>
@@ -565,25 +641,25 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 {impact.emplois_actuels != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{impact.emplois_actuels}</p>
-                                    <p className="text-muted-foreground">Emplois actuels</p>
+                                    <p className="text-muted-foreground">{L.label('champ.emplois_actuels')}</p>
                                   </div>
                                 )}
                                 {impact.pct_femmes != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{impact.pct_femmes}%</p>
-                                    <p className="text-muted-foreground">Femmes</p>
+                                    <p className="text-muted-foreground">{L.label('champ.femmes')}</p>
                                   </div>
                                 )}
                                 {impact.pct_jeunes != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{impact.pct_jeunes}%</p>
-                                    <p className="text-muted-foreground">Jeunes</p>
+                                    <p className="text-muted-foreground">{L.label('champ.jeunes')}</p>
                                   </div>
                                 )}
                               </div>
                               <div className="text-xs space-y-1">
-                                {impact.emplois_projetes && <p><strong>Projection :</strong> {impact.emplois_projetes}</p>}
-                                {impact.beneficiaires_directs && <p><strong>Bénéficiaires :</strong> {impact.beneficiaires_directs}</p>}
+                                {impact.emplois_projetes && <p><strong>{L.label('champ.projection')} :</strong> {impact.emplois_projetes}</p>}
+                                {impact.beneficiaires_directs && <p><strong>{L.label('champ.beneficiaires')} :</strong> {impact.beneficiaires_directs}</p>}
                                 {Array.isArray(impact.odd_potentiels) && impact.odd_potentiels.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {impact.odd_potentiels.map((o: string, i: number) => <Badge key={i} variant="outline" className="text-[10px]">{o}</Badge>)}
@@ -613,25 +689,25 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 {besoin.type_adapte && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className="font-bold">{besoin.type_adapte}</p>
-                                    <p className="text-muted-foreground">Type adapté</p>
+                                    <p className="text-muted-foreground">{L.label('champ.type_adapte')}</p>
                                   </div>
                                 )}
                                 {besoin.coherence_vs_ca && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className={`font-bold ${besoin.coherence_vs_ca === 'Cohérent' ? 'text-emerald-600' : besoin.coherence_vs_ca.includes('Élevé') ? 'text-red-600' : ''}`}>{besoin.coherence_vs_ca}</p>
-                                    <p className="text-muted-foreground">vs CA</p>
+                                    <p className={`font-bold ${enumIs(besoin.coherence_vs_ca, 'Cohérent') ? 'text-emerald-600' : enumIncludes(besoin.coherence_vs_ca, 'Élevé') ? 'text-red-600' : ''}`}>{L.enumLabel('coherence_vs_ca', besoin.coherence_vs_ca)}</p>
+                                    <p className="text-muted-foreground">{L.label('champ.vs_ca')}</p>
                                   </div>
                                 )}
                                 {besoin.capacite_absorption && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
                                     <p className={`font-bold ${besoin.capacite_absorption === 'Faible' ? 'text-red-600' : ''}`}>{besoin.capacite_absorption}</p>
-                                    <p className="text-muted-foreground">Absorption</p>
+                                    <p className="text-muted-foreground">{L.label('champ.absorption')}</p>
                                   </div>
                                 )}
                               </div>
                               {Array.isArray(besoin.utilisation_prevue) && besoin.utilisation_prevue.length > 0 && (
                                 <div className="text-xs mb-1">
-                                  <p className="font-medium mb-0.5">Utilisation prévue</p>
+                                  <p className="font-medium mb-0.5">{L.label('champ.utilisation')}</p>
                                   <ul className="list-disc pl-4 space-y-0.5">{besoin.utilisation_prevue.map((u: string, i: number) => <li key={i}>{u}</li>)}</ul>
                                 </div>
                               )}
@@ -653,10 +729,10 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                   <div key={i} className="p-2 rounded bg-muted/30 text-xs">
                                     <div className="flex items-center gap-2 mb-0.5">
                                       <Badge variant="outline" className={`text-[10px] ${
-                                        r.probabilite === 'élevée' ? 'border-red-300 text-red-700' :
-                                        r.probabilite === 'moyenne' ? 'border-amber-300 text-amber-700' :
+                                        enumIs(r.probabilite, 'élevée') ? 'border-red-300 text-red-700' :
+                                        enumIs(r.probabilite, 'moyenne') ? 'border-amber-300 text-amber-700' :
                                         'border-gray-300'
-                                      }`}>{r.probabilite || '?'}</Badge>
+                                      }`}>{L.enumLabel('probabilite', r.probabilite) || '?'}</Badge>
                                       <span className="font-medium">{r.risque}</span>
                                       {r.type && <Badge variant="outline" className="text-[9px]">{r.type}</Badge>}
                                     </div>
@@ -677,15 +753,15 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               {traction.niveau_preuve && (
                                 <Badge variant="outline" className={`text-[10px] mb-2 ${
                                   traction.niveau_preuve === 'Solide' ? 'text-emerald-700' :
-                                  traction.niveau_preuve === 'Déclaratif uniquement' ? 'text-red-700' : 'text-amber-700'
+                                  enumIs(traction.niveau_preuve, 'Déclaratif uniquement') ? 'text-red-700' : 'text-amber-700'
                                 }`}>{traction.niveau_preuve}</Badge>
                               )}
                               <div className="text-xs space-y-1">
-                                {traction.anciennete && <p><strong>Ancienneté :</strong> {traction.anciennete}</p>}
-                                {traction.evolution_ca && <p><strong>Évolution CA :</strong> {traction.evolution_ca}</p>}
+                                {traction.anciennete && <p><strong>{L.label('champ.anciennete')} :</strong> {traction.anciennete}</p>}
+                                {traction.evolution_ca && <p><strong>{L.label('champ.evolution_ca')} :</strong> {traction.evolution_ca}</p>}
                                 {Array.isArray(traction.preuves_tangibles) && traction.preuves_tangibles.length > 0 && (
                                   <div>
-                                    <p className="font-medium mt-1">Preuves</p>
+                                    <p className="font-medium mt-1">{L.label('champ.preuves')}</p>
                                     <ul className="list-disc pl-4 space-y-0.5">{traction.preuves_tangibles.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
                                   </div>
                                 )}
@@ -724,12 +800,12 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 <Card>
                   <CardContent className="p-4 space-y-1 text-sm">
                     <h4 className="font-semibold text-sm mb-2">{t('candidature.contact')}</h4>
-                    <p><strong>Nom :</strong> {detail.contact_name || '—'}</p>
-                    <p><strong>Email :</strong> {detail.contact_email || '—'}</p>
-                    {detail.contact_phone && <p><strong>Tél :</strong> {detail.contact_phone}</p>}
+                    <p><strong>{L.label('champ.nom')} :</strong> {detail.contact_name || '—'}</p>
+                    <p><strong>{L.label('champ.email')} :</strong> {detail.contact_email || '—'}</p>
+                    {detail.contact_phone && <p><strong>{L.label('champ.tel')} :</strong> {detail.contact_phone}</p>}
                     {detail.form_data?.secteur && <p><strong>Secteur :</strong> {detail.form_data.secteur}</p>}
-                    {detail.form_data?.pays && <p><strong>Pays :</strong> {detail.form_data.pays}</p>}
-                    {detail.form_data?.effectif && <p><strong>Effectif :</strong> {Number(detail.form_data.effectif).toLocaleString('fr-FR')}</p>}
+                    {detail.form_data?.pays && <p><strong>{L.label('champ.pays')} :</strong> {detail.form_data.pays}</p>}
+                    {detail.form_data?.effectif && <p><strong>{L.label('champ.effectif')} :</strong> {Number(detail.form_data.effectif).toLocaleString('fr-FR')}</p>}
                     {detail.form_data?.ca && <p><strong>CA :</strong> {Number(detail.form_data.ca).toLocaleString('fr-FR')}</p>}
                   </CardContent>
                 </Card>
@@ -748,7 +824,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   return (
                     <Card>
                       <CardContent className="p-4">
-                        <h4 className="font-semibold text-sm mb-2">Réponses au formulaire</h4>
+                        <h4 className="font-semibold text-sm mb-2">{L.label('section.reponses_form')}</h4>
                         <div className="space-y-2.5 text-sm">
                           {entries.map(([k, v]) => (
                             <div key={k}>
