@@ -27,3 +27,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Données réelles de candidature tirées de la prod pour les contrôles
+# d'invariance. Ne doivent JAMAIS entrer dans le dépôt : diagnostics nominatifs
+# d'entreprises candidates. Le test se désactive proprement en leur absence.
+src/test/fixtures-raw.json
+src/test/fixtures/renders-en.json

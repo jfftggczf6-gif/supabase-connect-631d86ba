@@ -1,4 +1,18 @@
-// render-diagnostic — rend la PROSE d'un diagnostic de candidature dans une langue cible.
+// render-diagnostic — DISPATCHE le rendu de la prose d'un diagnostic au worker Railway.
+//
+// Cette fonction ne rend plus elle-même. Mesuré le 11/09 : 173 s d'exécution
+// contre un plafond de 150 s à la passerelle Supabase. La fonction terminait et
+// écrivait correctement, mais l'appelant recevait un IDLE_TIMEOUT 504 : le
+// succès était indiscernable de l'échec. Sur un lot, un opérateur qui relance
+// paie un second rendu, un opérateur qui abandonne laisse un rendu valide
+// inexploité.
+//
+// Elle crée donc un job ai_jobs et rend la main immédiatement (202). L'état du
+// rendu se lit en base — ai_jobs.status et candidature_diagnostic_renders —
+// sans interpréter aucun code HTTP.
+//
+// C'est elle qui extrait la prose (extractProse), pas le worker : porter
+// PROSE_PATHS en Python créerait un troisième miroir de la même liste.
 //
 // INVARIANT : candidatures.screening_data n'est JAMAIS écrit par cette fonction.
 // Le rendu va dans candidature_diagnostic_renders, indexé par (candidature, langue).
@@ -126,95 +140,77 @@ serve(async (req) => {
       .maybeSingle();
     if (!prompt) return jsonRes({ error: "Prompt RENDER_DIAGNOSTIC actif introuvable dans ai_prompts" }, 500);
 
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) return jsonRes({ error: "ANTHROPIC_API_KEY non configurée" }, 500);
+    const railwayUrl = Deno.env.get("RAILWAY_AI_URL");
+    const railwayKey = Deno.env.get("RAILWAY_AI_KEY");
+    if (!railwayUrl || !railwayKey) {
+      return jsonRes({ error: "RAILWAY_AI_URL / RAILWAY_AI_KEY non configurés" }, 500);
+    }
 
-    // ── Seule la prose part au modèle ──
+    // ── Seule la prose part au rendu ──
     const prose = extractProse(sd);
     if (Object.keys(prose).length === 0) {
       return jsonRes({ error: "Aucune prose extraite du diagnostic" }, 409);
     }
 
-    const userPrompt = prompt.user_prompt_template
-      .replace("{{locale}}", locale)
-      .replace("{{locale_name}}", LOCALE_NAMES[locale])
-      .replace("{{prose_json}}", JSON.stringify(prose, null, 2));
-
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: prompt.model,
-        max_tokens: prompt.max_tokens,
-        temperature: Number(prompt.temperature),
-        system: prompt.system_prompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      return jsonRes({ error: `Appel modèle échoué : ${resp.status} ${text.slice(0, 300)}` }, 502);
-    }
-
-    const payload = await resp.json();
-    const raw = (payload.content || [])
-      .filter((b: any) => b?.type === "text")
-      .map((b: any) => b.text)
-      .join("\n")
-      .trim();
-
-    let rendered: Record<string, unknown>;
-    try {
-      const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-      const start = cleaned.indexOf("{");
-      const end = cleaned.lastIndexOf("}");
-      if (start === -1 || end <= start) throw new Error("pas de JSON dans la réponse");
-      rendered = JSON.parse(cleaned.slice(start, end + 1));
-    } catch (e: any) {
-      // Pas de réparation partielle ici : un rendu tronqué produirait un texte
-      // amputé présenté comme complet. On échoue, l'ancien rendu (s'il existe) survit.
-      return jsonRes({ error: `Réponse modèle illisible : ${e.message}` }, 502);
-    }
-
-    const usage = payload.usage || {};
-    const cost = ((usage.input_tokens || 0) * 3 + (usage.output_tokens || 0) * 15) / 1_000_000;
-
-    const { data: saved, error: saveErr } = await supabase
-      .from("candidature_diagnostic_renders")
-      .upsert({
-        candidature_id: candidatureId,
-        locale,
-        prose: rendered,
-        prompt_code: prompt.code,
-        prompt_version: prompt.version,
-        model: prompt.model,
-        source_screening_date: cand.screening_date,
-        input_tokens: usage.input_tokens ?? null,
-        output_tokens: usage.output_tokens ?? null,
-        cost_usd: Number(cost.toFixed(4)),
-        organization_id: cand.organization_id ?? programme.organization_id ?? null,
-        created_by: user.id,
-        created_at: new Date().toISOString(),
-      }, { onConflict: "candidature_id,locale" })
-      .select("id")
-      .maybeSingle();
-
-    if (saveErr) return jsonRes({ error: `Enregistrement du rendu échoué : ${saveErr.message}` }, 500);
-
-    return jsonRes({
-      ok: true,
-      render_id: saved?.id ?? null,
+    const jobPayload = {
+      candidature_id: candidatureId,
       locale,
-      prompt_code: prompt.code,
-      prompt_version: prompt.version,
-      model: prompt.model,
-      usage: { input_tokens: usage.input_tokens ?? null, output_tokens: usage.output_tokens ?? null, cost_usd: Number(cost.toFixed(4)) },
-    });
+      prose,
+      organization_id: cand.organization_id ?? programme.organization_id ?? null,
+      created_by: user.id,
+    };
+
+    // 1. Job d'abord : il porte l'état, y compris si le POST échoue ensuite.
+    const { data: job, error: jobErr } = await supabase
+      .from("ai_jobs")
+      .insert({
+        agent_name: "render-diagnostic",
+        payload: jobPayload,
+        status: "pending",
+        organization_id: jobPayload.organization_id,
+        candidature_id: candidatureId,
+        programme_id: programme.id,
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) {
+      return jsonRes({ error: `INSERT ai_jobs échoué : ${jobErr?.message ?? "inconnu"}` }, 500);
+    }
+
+    // 2. Dispatch fire-and-forget. Le worker répond 202 et travaille en fond.
+    try {
+      const resp = await fetch(`${railwayUrl}/run-agent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Worker-API-Key": railwayKey },
+        body: JSON.stringify({ agent_name: "render-diagnostic", job_id: job.id, payload: jobPayload }),
+      });
+      if (!resp.ok && resp.status !== 202) {
+        const text = await resp.text().catch(() => "");
+        const reason = `worker dispatch échoué : ${resp.status} ${text.slice(0, 200)}`;
+        await supabase.from("ai_jobs").update({
+          status: "error", error_kind: "dispatch", error_message: reason,
+          finished_at: new Date().toISOString(),
+        }).eq("id", job.id);
+        return jsonRes({ error: reason, job_id: job.id }, 502);
+      }
+    } catch (e: any) {
+      const reason = `worker injoignable : ${e.message}`;
+      await supabase.from("ai_jobs").update({
+        status: "error", error_kind: "dispatch", error_message: reason,
+        finished_at: new Date().toISOString(),
+      }).eq("id", job.id);
+      return jsonRes({ error: reason, job_id: job.id }, 502);
+    }
+
+    // 202 : accepté, pas terminé. L'appelant suit l'état via ai_jobs.
+    return jsonRes({
+      accepted: true,
+      job_id: job.id,
+      candidature_id: candidatureId,
+      locale,
+      message: "Rendu dispatché au worker. Suivre ai_jobs.status, puis lire candidature_diagnostic_renders.",
+    }, 202);
+
   } catch (e: any) {
     console.error("[render-diagnostic]", e);
     return jsonRes({ error: e?.message || "Erreur inconnue" }, 500);

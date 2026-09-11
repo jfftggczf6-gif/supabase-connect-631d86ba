@@ -50,6 +50,11 @@ comment on column public.candidature_diagnostic_renders.source_screening_date is
 create index cdr_candidature_idx on public.candidature_diagnostic_renders (candidature_id);
 create index cdr_org_idx on public.candidature_diagnostic_renders (organization_id);
 
+-- Note RLS : auth.uid() est enveloppé dans (select …) pour n'être évalué qu'une
+-- fois par requête au lieu d'une fois par ligne (règle Supabase security-rls-
+-- performance). Les migrations antérieures du dépôt l'appellent nu ; on ne les
+-- reprend pas ici, mais on ne propage pas le défaut.
+
 alter table public.candidature_diagnostic_renders enable row level security;
 
 -- Lecture : quiconque peut déjà voir la candidature peut en voir le rendu.
@@ -65,15 +70,15 @@ create policy "cdr_read_scoped_to_candidature"
       join public.programmes p on p.id = c.programme_id
       where c.id = candidature_diagnostic_renders.candidature_id
         and (
-          public.has_role(auth.uid(), 'super_admin')
+          public.has_role((select auth.uid()), 'super_admin')
           or exists (
             select 1 from public.organization_members om
-            where om.user_id = auth.uid()
+            where om.user_id = (select auth.uid())
               and om.is_active
               and om.organization_id = p.organization_id
               and om.role in ('owner', 'admin', 'manager')
           )
-          or p.chef_programme_id = auth.uid()
+          or p.chef_programme_id = (select auth.uid())
         )
     )
   );

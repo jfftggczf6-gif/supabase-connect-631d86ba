@@ -78,8 +78,25 @@ const UNIT_CANON: Record<string, string> = {
 export function extractNumericTokens(text: string): NumericToken[] {
   if (!text) return [];
   const out: NumericToken[] = [];
-  // Nombre : chiffres avec séparateurs de groupe/décimale éventuels.
-  const re = /(\d[\d\s   .,]*\d|\d)\s*([%×a-zA-Z]{1,6})?/g;
+  // Nombre, puis unité éventuelle. `[\s-]*` franchit le trait d'union composé :
+  // « 3-year history » doit donner la même unité que « 3 ans ». Sans cela la
+  // forme composée anglaise perdait son unité et produisait un faux écart.
+  // Le trait d'union de plage (« 6-12 ») reste sans effet : le groupe d'unité
+  // n'accepte aucun chiffre, donc « 6 » ressort simplement sans unité.
+  // Alternation ORDONNÉE, du plus spécifique au plus général. Une classe de
+  // caractères permissive (`[\d\s.,]*`) avalait « 22,289,209, 8 documents »
+  // comme UN seul nombre : deux valeurs séparées par « , » fusionnaient, ce qui
+  // pouvait aussi bien masquer un écart qu'en inventer un.
+  // Chaque forme exige désormais des groupes de 3 chiffres exacts.
+  const re = new RegExp(
+    '(' + [
+      String.raw`\d{1,3}(?:,\d{3})+(?:\.\d+)?`,                    // 22,289,209 · 1,234.56
+      String.raw`\d{1,3}(?:\.\d{3})+(?:,\d+)?`,                    // 22.289.209
+      String.raw`\d{1,3}(?:[\s   ]\d{3})+(?:[.,]\d+)?`, // 22 289 209 · 1 234,56
+      String.raw`\d+(?:[.,]\d+)?`,                                 // 84,39 · 21.4 · 8
+    ].map((x) => x).join('|') + String.raw`)[\s-]*([%×a-zA-Z]{1,6})?`,
+    'g',
+  );
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const rawNum = m[1];
@@ -130,4 +147,52 @@ export function diffMultisets(a: Map<string, number>, b: Map<string, number>): M
     if (cb > ca) onlyInB.push({ token: k, count: cb - ca });
   }
   return { onlyInA, onlyInB, equal: onlyInA.length === 0 && onlyInB.length === 0 };
+}
+
+
+// ── Comparaison : valeurs d'abord, unités ensuite ───────────────────────────
+//
+// L'unité accolée ne peut PAS servir de critère bloquant entre deux langues :
+// sa composition diffère légitimement. « 3 ans » devient « 3 financial years »
+// — l'unité se perd parce que « financial » s'intercale — et « 6-12 derniers
+// mois » devient « the last 6-12 months », où l'ordre des mots change
+// l'attachement. Dans les deux cas la VALEUR est identique, et c'est elle qui
+// porte le sens : un montant, un ratio, un comptage de pièces.
+//
+// D'où la séparation : les valeurs en égalité stricte (bloquant), les unités
+// en écart signalé (informatif). Un nombre altéré, arrondi ou omis reste
+// attrapé par le contrôle des valeurs.
+
+/** Multiensemble des VALEURS seules, unité ignorée. Contrôle bloquant. */
+export function numericValueMultiset(prose: unknown): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const s of flattenProse(prose)) {
+    for (const t of extractNumericTokens(s)) {
+      counts.set(t.value, (counts.get(t.value) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+export interface ProseComparison {
+  /** Vrai si toutes les valeurs numériques coïncident. Seul critère bloquant. */
+  valeursIdentiques: boolean;
+  ecartValeurs: MultisetDiff;
+  /** Écarts d'unité accolée. Informatif : ne bloque jamais. */
+  ecartUnites: MultisetDiff;
+  nbValeursDistinctes: number;
+}
+
+/** Compare deux proses : valeurs en strict, unités en secondaire. */
+export function compareProse(proseFr: unknown, proseEn: unknown): ProseComparison {
+  const vFr = numericValueMultiset(proseFr);
+  const vEn = numericValueMultiset(proseEn);
+  const ecartValeurs = diffMultisets(vFr, vEn);
+  const ecartUnites = diffMultisets(numericMultiset(proseFr), numericMultiset(proseEn));
+  return {
+    valeursIdentiques: ecartValeurs.equal,
+    ecartValeurs,
+    ecartUnites,
+    nbValeursDistinctes: vFr.size,
+  };
 }

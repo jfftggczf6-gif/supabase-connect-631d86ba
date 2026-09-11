@@ -45,6 +45,11 @@ create unique index ai_prompts_one_active_per_code
   on public.ai_prompts (code)
   where is_active;
 
+-- Note RLS : auth.uid() est enveloppé dans (select …) pour n'être évalué qu'une
+-- fois par requête au lieu d'une fois par ligne (règle Supabase security-rls-
+-- performance). Les migrations antérieures du dépôt l'appellent nu ; on ne les
+-- reprend pas ici, mais on ne propage pas le défaut.
+
 alter table public.ai_prompts enable row level security;
 
 create policy "ai_prompts_read_authenticated"
@@ -52,8 +57,8 @@ create policy "ai_prompts_read_authenticated"
 
 create policy "ai_prompts_write_super_admin"
   on public.ai_prompts for all to authenticated
-  using (public.has_role(auth.uid(), 'super_admin'))
-  with check (public.has_role(auth.uid(), 'super_admin'));
+  using (public.has_role((select auth.uid()), 'super_admin'))
+  with check (public.has_role((select auth.uid()), 'super_admin'));
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- RENDER_DIAGNOSTIC v1
