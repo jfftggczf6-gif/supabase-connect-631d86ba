@@ -206,7 +206,7 @@ function blockEquipe(e: any): string {
   if (!e) return '';
   const pills =
     (e.gouvernance ? `<span class="pill">${esc(e.gouvernance)}</span>` : '') +
-    (e.key_man_risk ? `<span class="pill danger">{L.label('champ.key_man_risk')}</span>` : '');
+    (e.key_man_risk ? `<span class="pill danger">${L.label('champ.key_man_risk')}</span>` : '');
   const inner =
     pills +
     kvLine(L.label('champ.dirigeant'), e.profil_dirigeant) +
@@ -244,7 +244,7 @@ function blockBesoin(b: any): string {
     b.capacite_absorption ? tile(esc(b.capacite_absorption), L.label('champ.absorption')) : '',
   ].filter(Boolean).join('');
   const util = Array.isArray(b.utilisation_prevue) && b.utilisation_prevue.length
-    ? `<p class="kv"><strong>{L.label('champ.utilisation')} :</strong></p>${bulletList(b.utilisation_prevue)}`
+    ? `<p class="kv"><strong>${L.label('champ.utilisation')} :</strong></p>${bulletList(b.utilisation_prevue)}`
     : '';
   const inner =
     (tiles ? `<div class="tiles">${tiles}</div>` : '') +
@@ -271,7 +271,7 @@ function blockTraction(t: any): string {
     kvLine(L.label('champ.anciennete'), t.anciennete) +
     kvLine(L.label('champ.evolution_ca'), t.evolution_ca) +
     (Array.isArray(t.preuves_tangibles) && t.preuves_tangibles.length
-      ? `<p class="kv"><strong>{L.label('champ.preuves')} :</strong></p>${bulletList(t.preuves_tangibles)}` : '');
+      ? `<p class="kv"><strong>${L.label('champ.preuves')} :</strong></p>${bulletList(t.preuves_tangibles)}` : '');
   return card(L.label('section.traction'), inner);
 }
 
@@ -347,10 +347,10 @@ function blockRecommandation(r: any): string {
   const inner =
     (avis ? `<span class="reco-avis">${esc(avis)}</span>` : '') +
     (r.justification ? `<p>${esc(r.justification)}</p>` : '') +
-    (Array.isArray(r.priorites_si_selectionnee) && r.priorites_si_selectionnee.length ? `<p class="kv"><strong>{L.label('champ.priorites')} :</strong></p>${bulletList(r.priorites_si_selectionnee)}` : '') +
-    (Array.isArray(r.conditions_prealables) && r.conditions_prealables.length ? `<p class="kv"><strong>{L.label('champ.conditions')} :</strong></p>${bulletList(r.conditions_prealables)}` : '') +
+    (Array.isArray(r.priorites_si_selectionnee) && r.priorites_si_selectionnee.length ? `<p class="kv"><strong>${L.label('champ.priorites')} :</strong></p>${bulletList(r.priorites_si_selectionnee)}` : '') +
+    (Array.isArray(r.conditions_prealables) && r.conditions_prealables.length ? `<p class="kv"><strong>${L.label('champ.conditions')} :</strong></p>${bulletList(r.conditions_prealables)}` : '') +
     (r.potentiel_6_mois ? `<p class="kv"><strong>Potentiel 6 mois :</strong> ${esc(r.potentiel_6_mois)}</p>` : '') +
-    (r.profil_coach_ideal ? `<p class="kv"><strong>{L.label('champ.profil_coach')} :</strong> ${esc(r.profil_coach_ideal)}</p>` : '');
+    (r.profil_coach_ideal ? `<p class="kv"><strong>${L.label('champ.profil_coach')} :</strong> ${esc(r.profil_coach_ideal)}</p>` : '');
   return inner ? `<div class="card reco"><h4>Recommandation d'accompagnement</h4>${inner}</div>` : '';
 }
 
@@ -421,7 +421,7 @@ function ficheHtml(c: any, index: number): string {
       <div class="fiche-score">
         ${scoreBadge}
         <div class="score-meta">
-          <span class="score-lbl">{L.label('champ.score_ia')}</span>
+          <span class="score-lbl">${L.label('champ.score_ia')}</span>
           ${tag}
           <span class="status-lbl">${esc(statusLabel(c.status))}</span>
         </div>
@@ -489,19 +489,19 @@ function dashboardHtml(candidatures: any[]): string {
     <div class="agg">
       <div class="agg-total"><p class="agg-n">${total}</p><p class="agg-l">candidatures</p></div>
       <div class="agg-block">
-        <p class="agg-h">{L.label('doc.repartition_statut')}</p>
+        <p class="agg-h">${L.label('doc.repartition_statut')}</p>
         <div class="chips">${statusChips || '<span class="muted">—</span>'}</div>
       </div>
       <div class="agg-block">
-        <p class="agg-h">{L.label('doc.repartition_secteur')}</p>
+        <p class="agg-h">${L.label('doc.repartition_secteur')}</p>
         <div class="chips">${sectorChips || '<span class="muted">—</span>'}</div>
       </div>
     </div>
 
-    <h3 class="tbl-title">{L.label('doc.recap_score')}</h3>
+    <h3 class="tbl-title">${L.label('doc.recap_score')}</h3>
     <table class="recap">
       <thead><tr>
-        <th>Entreprise</th><th>Secteur</th><th class="center">{L.label('champ.score_ia')}</th><th>Statut</th><th>Localisation</th><th>Sourcing projet</th>
+        <th>Entreprise</th><th>Secteur</th><th class="center">${L.label('champ.score_ia')}</th><th>Statut</th><th>Localisation</th><th>Sourcing projet</th>
       </tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="center muted">Aucune candidature</td></tr>'}</tbody>
     </table>
