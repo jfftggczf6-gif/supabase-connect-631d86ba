@@ -197,9 +197,57 @@ export function candidatureComplete(): Record<string, any> {
 
 import { extractProse } from '@/lib/diagnostic-prose';
 
+/**
+ * Traductions VERROUILLÉES par le bloc de terminologie de RENDER_DIAGNOSTIC v3.
+ * Elles sont ici pour que le test échoue si le prompt et le test divergent :
+ * `diagnostic-prompt-terminologie.test.ts` compare les deux listes.
+ */
+export const VOCABULAIRE_VERROUILLE: Record<string, string> = {
+  // diagnostic_dimensions[].label — appréciations rédigées par le modèle
+  'Mature': 'Mature',
+  'En croissance': 'Growing',
+  'Démarrage': 'Early-stage',
+  'Pré-démarrage': 'Pre-launch',
+  'Solide': 'Solid',
+  'Correcte': 'Adequate',
+  'Fragile': 'Fragile',
+  'Insuffisante': 'Insufficient',
+  'Insuffisant': 'Insufficient',
+  'Fort': 'Strong',
+  'Forte': 'Strong',
+  'Modéré': 'Moderate',
+  'Modérée': 'Moderate',
+  'Limité': 'Limited',
+  'Limitée': 'Limited',
+  'Significatif': 'Significant',
+  'Significative': 'Significant',
+  'Faible': 'Low',
+  'Non évaluable': 'Not assessable',
+  'Excellent': 'Excellent',
+  'Bon': 'Good',
+  'Moyen': 'Average',
+  // risques_programme[].type — les cinq du schéma producteur
+  'financier': 'financial',
+  'opérationnel': 'operational',
+  'réputationnel': 'reputational',
+  'exécution': 'execution',
+  'concentration': 'concentration',
+};
+
 /** Prose anglaise du dossier : la sortie attendue du modèle de rendu. */
 export function proseEnComplet(): Record<string, any> {
-  return extractProse(screeningDataComplet());
+  const prose: any = extractProse(screeningDataComplet());
+
+  // Classe C — champs passés en prose le 12/09, vocabulaire verrouillé.
+  for (const cle of Object.keys(prose.diagnostic_dimensions ?? {})) {
+    const fr = prose.diagnostic_dimensions[cle]?.label;
+    if (fr) prose.diagnostic_dimensions[cle].label = VOCABULAIRE_VERROUILLE[fr] ?? fr;
+  }
+  for (const r of prose.risques_programme ?? []) {
+    if (r?.type) r.type = VOCABULAIRE_VERROUILLE[r.type] ?? r.type;
+  }
+
+  return prose;
 }
 
 /** Toutes les valeurs de chaîne du dossier — sert à distinguer donnée et libellé. */

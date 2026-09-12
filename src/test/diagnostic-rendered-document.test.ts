@@ -315,3 +315,27 @@ describe('D3 — libellés traduits, ou déclarés identiques', () => {
     expect(partCode('Neutral committee summary over three documented years.')).toBe('');
   });
 });
+
+// ═══ Classe C — libellé de dimension et type de risque, rendus par le modèle ═
+
+describe('classe C — libellé de dimension et type de risque suivent la langue', () => {
+  it('le libellé de dimension rendu par le modèle sort en anglais', () => {
+    expect(TEXTE_EN.some((s) => s.includes('Growing'))).toBe(true);
+    expect(TEXTE_EN.some((s) => s.includes('En croissance'))).toBe(false);
+    expect(TEXTE_FR.some((s) => s.includes('En croissance'))).toBe(true);
+  });
+
+  it('le type de risque rendu par le modèle sort en anglais', () => {
+    expect(TEXTE_EN.some((s) => s.includes('operational'))).toBe(true);
+    expect(TEXTE_EN.some((s) => s.includes('opérationnel'))).toBe(false);
+    expect(TEXTE_FR.some((s) => s.includes('opérationnel'))).toBe(true);
+  });
+
+  it('la CLÉ de dimension, elle, reste structurelle et passe par le référentiel', () => {
+    // C'est la distinction qui justifie l'arbitrage : la clé est du schéma, le
+    // libellé est une appréciation. La clé ne part jamais au modèle.
+    expect(TEXTE_EN.some((s) => s.includes('Financial capacity'))).toBe(true);
+    expect(TEXTE_EN.some((s) => s.includes('capacite financiere'))).toBe(false);
+    expect(TEXTE_FR.some((s) => s.includes('Capacité financière'))).toBe(true);
+  });
+});
