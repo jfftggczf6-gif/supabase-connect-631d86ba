@@ -125,6 +125,17 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
   // diagnosticForLocale ne remplace que les chemins de PROSE_PATHS.
   const s = diagnosticForLocale(detail?.screening_data, diagLocale, render) as any;
   const L = buildLookup(labelRows, diagLocale);
+  // Le français insère une espace avant les deux-points, l'anglais non. Écrit en
+  // dur, ce détail signait chaque ligne du diagnostic anglais comme traduite.
+  const sep = diagLocale === 'en' ? ':' : ' :';
+  // Les clés de dimension sont STRUCTURELLES (schéma), pas des valeurs du modèle :
+  // elles passent par le référentiel, jamais par le rendu linguistique. Repli sur
+  // la clé dé-soulignée si le schéma gagne une dimension avant le référentiel.
+  const dimensionLabel = (cle: string): string => {
+    const k = `dimension.${cle}`;
+    const libelle = L.label(k);
+    return libelle === k ? cle.replace(/_/g, ' ') : libelle;
+  };
   const dims = s.diagnostic_dimensions || s.dimensions || s.scores_dimensions;
   const matching = s.matching_criteres;
   const reco = s.recommandation_accompagnement || s.recommandation;
@@ -348,13 +359,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                       <div className="flex items-center gap-2 mb-3">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
                         <h4 className="font-semibold text-sm">{t('screening.company_profile')}</h4>
-                        {fiche.stade && <Badge variant="outline" className="text-[10px]">{fiche.stade}</Badge>}
+                        {fiche.stade && <Badge variant="outline" className="text-[10px]">{L.enumLabel('stade', fiche.stade)}</Badge>}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-2">
                         {fiche.ca_declare != null && (
                           <div className="p-2 bg-muted/50 rounded text-center">
-                            <p className="font-bold text-sm">{fmt(fiche.ca_declare)}</p>
-                            <p className="text-muted-foreground">CA {fiche.ca_devise || ''}</p>
+                            <p className="font-bold text-sm">{fmt(fiche.ca_declare, '', diagLocale)}</p>
+                            <p className="text-muted-foreground">{L.label('champ.ca')} {fiche.ca_devise || ''}</p>
                           </div>
                         )}
                         {fiche.effectif_declare != null && (
@@ -365,7 +376,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                         )}
                         {fiche.anciennete_ans != null && (
                           <div className="p-2 bg-muted/50 rounded text-center">
-                            <p className="font-bold text-sm">{fiche.anciennete_ans} ans</p>
+                            <p className="font-bold text-sm">{fiche.anciennete_ans} {L.label('unite.ans')}</p>
                             <p className="text-muted-foreground">{L.label('champ.anciennete')}</p>
                           </div>
                         )}
@@ -393,7 +404,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                           return (
                             <div key={k} className="space-y-1">
                               <div className="flex justify-between text-xs">
-                                <span className="capitalize">{k.replace(/_/g, ' ')}{label ? ` — ${label}` : ''}</span>
+                                <span>{dimensionLabel(k)}{label ? ` — ${label}` : ''}</span>
                                 <span className="font-medium">{score}/100</span>
                               </div>
                               <Progress value={score} className="h-2" />
@@ -478,7 +489,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               (inc.severite || '').includes('BLOQUANT') ? 'border-red-300 text-red-700' :
                               (inc.severite || '').includes('ATTENTION') ? 'border-amber-300 text-amber-700' :
                               'border-gray-300'
-                            }`}>{inc.severite || 'INFO'}</Badge>
+                            }`}>{L.enumLabel('severite', inc.severite || 'INFO')}</Badge>
                             <span>{inc.observation || ''}</span>
                           </div>
                         ))}
@@ -492,7 +503,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                   <Card className="bg-muted/50">
                     <CardContent className="p-4">
                       <h4 className="font-semibold text-sm mb-2">{t('screening.recommendation')}</h4>
-                      {reco.verdict && <Badge variant="outline" className="mb-2">{reco.verdict}</Badge>}
+                      {(reco.avis || reco.verdict) && <Badge variant="outline" className="mb-2">{L.enumLabel('avis', reco.avis || reco.verdict)}</Badge>}
                       {reco.justification && <p className="text-sm mb-2">{reco.justification}</p>}
                       {typeof reco === 'string' && <p className="text-sm">{reco}</p>}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 text-xs">
@@ -509,8 +520,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                           </div>
                         )}
                       </div>
-                      {reco.potentiel_6_mois && <p className="text-xs mt-2"><strong>{t('screening.potential_6m')} :</strong> {reco.potentiel_6_mois}</p>}
-                      {reco.profil_coach_ideal && <p className="text-xs"><strong>{t('screening.coach_profile')} :</strong> {reco.profil_coach_ideal}</p>}
+                      {reco.potentiel_6_mois && <p className="text-xs mt-2"><strong>{t('screening.potential_6m')}{sep}</strong> {reco.potentiel_6_mois}</p>}
+                      {reco.profil_coach_ideal && <p className="text-xs"><strong>{t('screening.coach_profile')}{sep}</strong> {reco.profil_coach_ideal}</p>}
                     </CardContent>
                   </Card>
                 )}
@@ -546,7 +557,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
                                 {indFin.ca_annuel != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className="font-bold">{fmt(indFin.ca_annuel)}</p>
+                                    <p className="font-bold">{fmt(indFin.ca_annuel, '', diagLocale)}</p>
                                     <p className="text-muted-foreground">{L.label('champ.ca_annuel')}</p>
                                   </div>
                                 )}
@@ -594,14 +605,14 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <div className="flex items-center gap-2 mb-2">
                                 <Target className="h-4 w-4 text-muted-foreground" />
                                 <h4 className="font-semibold text-sm">{t('screening.market_positioning')}</h4>
-                                {marche.barriere_entree && <Badge variant="outline" className="text-[10px]">Barrière : {marche.barriere_entree}</Badge>}
+                                {marche.barriere_entree && <Badge variant="outline" className="text-[10px]">{L.label('champ.barriere_entree')}{sep} {L.enumLabel('barriere_entree', marche.barriere_entree)}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
-                                {marche.marche_cible && <p><strong>{L.label('champ.marche')} :</strong> {marche.marche_cible}</p>}
-                                {marche.taille_estimee && <p><strong>{L.label('champ.taille')} :</strong> {marche.taille_estimee}</p>}
-                                {marche.positionnement && <p><strong>{L.label('champ.positionnement')} :</strong> {marche.positionnement}</p>}
-                                {marche.concurrence && <p><strong>{L.label('champ.concurrence')} :</strong> {marche.concurrence}</p>}
-                                {marche.avantage_competitif && <p><strong>{L.label('champ.avantage')} :</strong> {marche.avantage_competitif}</p>}
+                                {marche.marche_cible && <p><strong>{L.label('champ.marche')}{sep}</strong> {marche.marche_cible}</p>}
+                                {marche.taille_estimee && <p><strong>{L.label('champ.taille')}{sep}</strong> {marche.taille_estimee}</p>}
+                                {marche.positionnement && <p><strong>{L.label('champ.positionnement')}{sep}</strong> {marche.positionnement}</p>}
+                                {marche.concurrence && <p><strong>{L.label('champ.concurrence')}{sep}</strong> {marche.concurrence}</p>}
+                                {marche.avantage_competitif && <p><strong>{L.label('champ.avantage')}{sep}</strong> {marche.avantage_competitif}</p>}
                               </div>
                             </CardContent>
                           </Card>
@@ -614,12 +625,12 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <div className="flex items-center gap-2 mb-2">
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <h4 className="font-semibold text-sm">{t('screening.team_governance')}</h4>
-                                {equipe.gouvernance && <Badge variant="outline" className="text-[10px]">{equipe.gouvernance}</Badge>}
+                                {equipe.gouvernance && <Badge variant="outline" className="text-[10px]">{L.enumLabel('gouvernance', equipe.gouvernance)}</Badge>}
                                 {equipe.key_man_risk && <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">{L.label('champ.key_man_risk')}</Badge>}
                               </div>
                               <div className="text-xs space-y-1.5">
-                                {equipe.profil_dirigeant && <p><strong>{L.label('champ.dirigeant')} :</strong> {equipe.profil_dirigeant}</p>}
-                                {equipe.equipe_direction && <p><strong>{L.label('champ.equipe')} :</strong> {equipe.equipe_direction}</p>}
+                                {equipe.profil_dirigeant && <p><strong>{L.label('champ.dirigeant')}{sep}</strong> {equipe.profil_dirigeant}</p>}
+                                {equipe.equipe_direction && <p><strong>{L.label('champ.equipe')}{sep}</strong> {equipe.equipe_direction}</p>}
                                 {equipe.commentaire && <p className="text-muted-foreground">{equipe.commentaire}</p>}
                               </div>
                             </CardContent>
@@ -634,8 +645,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                                 <h4 className="font-semibold text-sm">{t('screening.measurable_impact')}</h4>
                                 {impact.mesurabilite && <Badge variant="outline" className={`text-[10px] ${
-                                  impact.mesurabilite === 'Forte' ? 'text-emerald-700' : impact.mesurabilite === 'Faible' ? 'text-red-700' : 'text-amber-700'
-                                }`}>Mesurabilité : {impact.mesurabilite}</Badge>}
+                                  enumIs(impact.mesurabilite, 'Forte') ? 'text-emerald-700' : enumIs(impact.mesurabilite, 'Faible') ? 'text-red-700' : 'text-amber-700'
+                                }`}>{L.label('champ.mesurabilite')}{sep} {L.enumLabel('mesurabilite', impact.mesurabilite)}</Badge>}
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                                 {impact.emplois_actuels != null && (
@@ -658,8 +669,8 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 )}
                               </div>
                               <div className="text-xs space-y-1">
-                                {impact.emplois_projetes && <p><strong>{L.label('champ.projection')} :</strong> {impact.emplois_projetes}</p>}
-                                {impact.beneficiaires_directs && <p><strong>{L.label('champ.beneficiaires')} :</strong> {impact.beneficiaires_directs}</p>}
+                                {impact.emplois_projetes && <p><strong>{L.label('champ.projection')}{sep}</strong> {impact.emplois_projetes}</p>}
+                                {impact.beneficiaires_directs && <p><strong>{L.label('champ.beneficiaires')}{sep}</strong> {impact.beneficiaires_directs}</p>}
                                 {Array.isArray(impact.odd_potentiels) && impact.odd_potentiels.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {impact.odd_potentiels.map((o: string, i: number) => <Badge key={i} variant="outline" className="text-[10px]">{o}</Badge>)}
@@ -682,13 +693,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                                 {besoin.montant_demande != null && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className="font-bold">{fmt(besoin.montant_demande)}</p>
-                                    <p className="text-muted-foreground">Montant {besoin.montant_devise || ''}</p>
+                                    <p className="font-bold">{fmt(besoin.montant_demande, '', diagLocale)}</p>
+                                    <p className="text-muted-foreground">{L.label('champ.montant')} {besoin.montant_devise || ''}</p>
                                   </div>
                                 )}
                                 {besoin.type_adapte && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className="font-bold">{besoin.type_adapte}</p>
+                                    <p className="font-bold">{L.enumLabel('type_adapte', besoin.type_adapte)}</p>
                                     <p className="text-muted-foreground">{L.label('champ.type_adapte')}</p>
                                   </div>
                                 )}
@@ -700,7 +711,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                                 )}
                                 {besoin.capacite_absorption && (
                                   <div className="p-2 bg-muted/50 rounded text-center text-xs">
-                                    <p className={`font-bold ${besoin.capacite_absorption === 'Faible' ? 'text-red-600' : ''}`}>{besoin.capacite_absorption}</p>
+                                    <p className={`font-bold ${enumIs(besoin.capacite_absorption, 'Faible') ? 'text-red-600' : ''}`}>{L.enumLabel('absorption', besoin.capacite_absorption)}</p>
                                     <p className="text-muted-foreground">{L.label('champ.absorption')}</p>
                                   </div>
                                 )}
@@ -752,13 +763,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <h4 className="font-semibold text-sm mb-2">{t('screening.traction_proof')}</h4>
                               {traction.niveau_preuve && (
                                 <Badge variant="outline" className={`text-[10px] mb-2 ${
-                                  traction.niveau_preuve === 'Solide' ? 'text-emerald-700' :
+                                  enumIs(traction.niveau_preuve, 'Solide') ? 'text-emerald-700' :
                                   enumIs(traction.niveau_preuve, 'Déclaratif uniquement') ? 'text-red-700' : 'text-amber-700'
-                                }`}>{traction.niveau_preuve}</Badge>
+                                }`}>{L.enumLabel('niveau_preuve', traction.niveau_preuve)}</Badge>
                               )}
                               <div className="text-xs space-y-1">
-                                {traction.anciennete && <p><strong>{L.label('champ.anciennete')} :</strong> {traction.anciennete}</p>}
-                                {traction.evolution_ca && <p><strong>{L.label('champ.evolution_ca')} :</strong> {traction.evolution_ca}</p>}
+                                {traction.anciennete && <p><strong>{L.label('champ.anciennete')}{sep}</strong> {traction.anciennete}</p>}
+                                {traction.evolution_ca && <p><strong>{L.label('champ.evolution_ca')}{sep}</strong> {traction.evolution_ca}</p>}
                                 {Array.isArray(traction.preuves_tangibles) && traction.preuves_tangibles.length > 0 && (
                                   <div>
                                     <p className="font-medium mt-1">{L.label('champ.preuves')}</p>
@@ -778,9 +789,9 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                               <div className="flex items-center gap-2 text-xs">
                                 {benchmark.position_vs_secteur && (
                                   <Badge variant="outline" className={`${
-                                    benchmark.position_vs_secteur === 'Au-dessus' ? 'text-emerald-700' :
-                                    benchmark.position_vs_secteur === 'En-dessous' ? 'text-red-700' : 'text-amber-700'
-                                  }`}>{benchmark.position_vs_secteur}</Badge>
+                                    enumIs(benchmark.position_vs_secteur, 'Au-dessus') ? 'text-emerald-700' :
+                                    enumIs(benchmark.position_vs_secteur, 'En-dessous') ? 'text-red-700' : 'text-amber-700'
+                                  }`}>{L.enumLabel('position_vs_secteur', benchmark.position_vs_secteur)}</Badge>
                                 )}
                                 {benchmark.commentaire && <span className="text-muted-foreground">{benchmark.commentaire}</span>}
                               </div>
@@ -800,13 +811,13 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 <Card>
                   <CardContent className="p-4 space-y-1 text-sm">
                     <h4 className="font-semibold text-sm mb-2">{t('candidature.contact')}</h4>
-                    <p><strong>{L.label('champ.nom')} :</strong> {detail.contact_name || '—'}</p>
-                    <p><strong>{L.label('champ.email')} :</strong> {detail.contact_email || '—'}</p>
-                    {detail.contact_phone && <p><strong>{L.label('champ.tel')} :</strong> {detail.contact_phone}</p>}
-                    {detail.form_data?.secteur && <p><strong>Secteur :</strong> {detail.form_data.secteur}</p>}
-                    {detail.form_data?.pays && <p><strong>{L.label('champ.pays')} :</strong> {detail.form_data.pays}</p>}
-                    {detail.form_data?.effectif && <p><strong>{L.label('champ.effectif')} :</strong> {Number(detail.form_data.effectif).toLocaleString('fr-FR')}</p>}
-                    {detail.form_data?.ca && <p><strong>CA :</strong> {Number(detail.form_data.ca).toLocaleString('fr-FR')}</p>}
+                    <p><strong>{L.label('champ.nom')}{sep}</strong> {detail.contact_name || '—'}</p>
+                    <p><strong>{L.label('champ.email')}{sep}</strong> {detail.contact_email || '—'}</p>
+                    {detail.contact_phone && <p><strong>{L.label('champ.tel')}{sep}</strong> {detail.contact_phone}</p>}
+                    {detail.form_data?.secteur && <p><strong>{L.label('champ.secteur')}{sep}</strong> {detail.form_data.secteur}</p>}
+                    {detail.form_data?.pays && <p><strong>{L.label('champ.pays')}{sep}</strong> {detail.form_data.pays}</p>}
+                    {detail.form_data?.effectif && <p><strong>{L.label('champ.effectif')}{sep}</strong> {fmt(Number(detail.form_data.effectif), '', diagLocale)}</p>}
+                    {detail.form_data?.ca && <p><strong>{L.label('champ.ca')}{sep}</strong> {fmt(Number(detail.form_data.ca), '', diagLocale)}</p>}
                   </CardContent>
                 </Card>
 

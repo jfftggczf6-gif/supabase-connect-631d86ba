@@ -53,6 +53,8 @@ const ALLOWLIST: { value: string; why: string }[] = [
   { value: 'moyenne', why: 'valeur stockée (probabilite) comparée par enumIs pour la couleur' },
   { value: 'Forte', why: 'valeur stockée (mesurabilite) comparée par enumIs pour la couleur' },
   { value: 'Solide', why: 'valeur stockée (niveau_preuve) comparée par enumIs pour la couleur' },
+  { value: 'Au-dessus', why: 'valeur stockée (benchmark.position_vs_secteur) comparée par enumIs, affichée via enumLabel' },
+  { value: 'En-dessous', why: 'valeur stockée (benchmark.position_vs_secteur) comparée par enumIs, affichée via enumLabel' },
   { value: 'INFO', why: 'valeur stockée (incoherences.severite) comparée pour la couleur du badge' },
   { value: 'ATTENTION', why: 'valeur stockée (incoherences.severite) comparée pour la couleur du badge' },
   { value: 'BLOQUANT', why: 'valeur stockée (incoherences.severite) comparée pour la couleur du badge' },

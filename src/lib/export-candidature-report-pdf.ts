@@ -56,6 +56,29 @@ export function __setRenderContext(locale: Locale, rows: any[]): void {
   L = buildLookup(rows, locale);
 }
 
+/**
+ * Deux-points d'un couple libellé/valeur. Le français insère une espace avant,
+ * l'anglais non : « Fiabilité : Élevée » mais « Reliability: High ». Écrit en
+ * dur, ce détail typographique signait le document anglais comme traduit du
+ * français à chaque ligne de la fiche.
+ */
+function colon(): string {
+  return LOC === 'en' ? ':' : ' :';
+}
+
+/**
+ * Libellé d'une clé de dimension (`maturite_business`…). Ce sont des clés
+ * STRUCTURELLES du schéma, pas des valeurs produites par le modèle : elles
+ * passent par le référentiel, jamais par le rendu linguistique, sinon elles
+ * varieraient d'un dossier à l'autre. Repli sur la clé dé-soulignée si le
+ * schéma gagne une dimension avant que le référentiel ne la connaisse.
+ */
+function dimensionLabel(cle: string): string {
+  const k = `dimension.${cle}`;
+  const libelle = L.label(k);
+  return libelle === k ? cle.replace(/_/g, ' ') : libelle;
+}
+
 /** Locale BCP-47 pour toLocaleString / toLocaleDateString. */
 function intlLocale(): string {
   return LOC === 'en' ? 'en-GB' : 'fr-FR';
@@ -131,7 +154,7 @@ function tile(value: string, label: string): string {
 function kvLine(label: string, value: any): string {
   const v = value == null || String(value).trim() === '' ? '' : String(value);
   if (!v) return '';
-  return `<p class="kv"><strong>${esc(label)} :</strong> <span>${esc(v)}</span></p>`;
+  return `<p class="kv"><strong>${esc(label)}${colon()}</strong> <span>${esc(v)}</span></p>`;
 }
 
 function bulletList(items: any[]): string {
@@ -146,13 +169,13 @@ function bulletList(items: any[]): string {
 function blockFicheEntreprise(f: any): string {
   if (!f) return '';
   const tiles = [
-    f.ca_declare != null ? tile(esc(num(f.ca_declare)), `CA ${f.ca_devise || ''}`.trim()) : '',
+    f.ca_declare != null ? tile(esc(num(f.ca_declare)), `${L.label('champ.ca')} ${f.ca_devise || ''}`.trim()) : '',
     f.effectif_declare != null ? tile(esc(String(f.effectif_declare)), L.label('champ.employes')) : '',
-    f.anciennete_ans != null ? tile(esc(`${f.anciennete_ans} ans`), L.label('champ.anciennete')) : '',
+    f.anciennete_ans != null ? tile(esc(`${f.anciennete_ans} ${L.label('unite.ans')}`), L.label('champ.anciennete')) : '',
     f.pays ? tile(esc(f.pays), f.ville || L.label('champ.pays')) : '',
   ].filter(Boolean).join('');
   const inner =
-    (f.stade ? `<span class="pill">${esc(f.stade)}</span>` : '') +
+    (f.stade ? `<span class="pill">${esc(L.enumLabel('stade', f.stade))}</span>` : '') +
     (tiles ? `<div class="tiles">${tiles}</div>` : '') +
     (f.description_activite ? `<p class="muted">${esc(f.description_activite)}</p>` : '');
   return card(L.label('section.fiche'), inner);
@@ -165,7 +188,7 @@ function blockDimensions(dims: any): string {
     const label = (v && v.label) ? ` — ${esc(v.label)}` : '';
     const pct = Math.max(0, Math.min(100, Number(score) || 0));
     return `<div class="dim">
-      <div class="dim-head"><span>${esc(k.replace(/_/g, ' '))}${label}</span><span class="dim-score">${esc(String(score))}/100</span></div>
+      <div class="dim-head"><span>${esc(dimensionLabel(k))}${label}</span><span class="dim-score">${esc(String(score))}/100</span></div>
       <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
     </div>`;
   }).join('');
@@ -178,12 +201,12 @@ function blockIndicateurs(ind: any): string {
     ind.ca_annuel != null ? tile(esc(num(ind.ca_annuel)), L.label('champ.ca_annuel')) : '',
     ind.croissance_ca_pct != null ? tile(esc(`${ind.croissance_ca_pct}%`), L.label('champ.croissance')) : '',
     ind.marge_estimee_pct != null ? tile(esc(`${ind.marge_estimee_pct}%`), L.label('champ.marge')) : '',
-    ind.rentabilite ? tile(esc(ind.rentabilite), L.label('champ.rentabilite')) : '',
-    ind.tresorerie_estimee ? tile(esc(ind.tresorerie_estimee), L.label('champ.tresorerie')) : '',
-    ind.niveau_endettement ? tile(esc(ind.niveau_endettement), L.label('champ.endettement')) : '',
+    ind.rentabilite ? tile(esc(L.enumLabel('rentabilite', ind.rentabilite)), L.label('champ.rentabilite')) : '',
+    ind.tresorerie_estimee ? tile(esc(L.enumLabel('tresorerie', ind.tresorerie_estimee)), L.label('champ.tresorerie')) : '',
+    ind.niveau_endettement ? tile(esc(L.enumLabel('endettement', ind.niveau_endettement)), L.label('champ.endettement')) : '',
   ].filter(Boolean).join('');
   const inner =
-    (ind.fiabilite ? `<span class="pill">Fiabilité : ${esc(ind.fiabilite)}</span>` : '') +
+    (ind.fiabilite ? `<span class="pill">${esc(L.label('champ.fiabilite'))}${colon()} ${esc(L.enumLabel('fiabilite', ind.fiabilite))}</span>` : '') +
     (tiles ? `<div class="tiles">${tiles}</div>` : '') +
     (ind.commentaire ? `<p class="muted">${esc(ind.commentaire)}</p>` : '') +
     (ind.source_donnees ? `<p class="tiny">${esc(ind.source_donnees)}</p>` : '');
@@ -193,7 +216,7 @@ function blockIndicateurs(ind: any): string {
 function blockMarche(m: any): string {
   if (!m) return '';
   const inner =
-    (m.barriere_entree ? `<span class="pill">Barrière : ${esc(m.barriere_entree)}</span>` : '') +
+    (m.barriere_entree ? `<span class="pill">${esc(L.label('champ.barriere_entree'))}${colon()} ${esc(L.enumLabel('barriere_entree', m.barriere_entree))}</span>` : '') +
     kvLine(L.label('champ.marche'), m.marche_cible) +
     kvLine(L.label('champ.taille'), m.taille_estimee) +
     kvLine(L.label('champ.positionnement'), m.positionnement) +
@@ -205,7 +228,7 @@ function blockMarche(m: any): string {
 function blockEquipe(e: any): string {
   if (!e) return '';
   const pills =
-    (e.gouvernance ? `<span class="pill">${esc(e.gouvernance)}</span>` : '') +
+    (e.gouvernance ? `<span class="pill">${esc(L.enumLabel('gouvernance', e.gouvernance))}</span>` : '') +
     (e.key_man_risk ? `<span class="pill danger">${L.label('champ.key_man_risk')}</span>` : '');
   const inner =
     pills +
@@ -226,7 +249,7 @@ function blockImpact(im: any): string {
     ? `<div class="pills">${im.odd_potentiels.map((o: string) => `<span class="pill">${esc(o)}</span>`).join('')}</div>`
     : '';
   const inner =
-    (im.mesurabilite ? `<span class="pill">Mesurabilité : ${esc(im.mesurabilite)}</span>` : '') +
+    (im.mesurabilite ? `<span class="pill">${esc(L.label('champ.mesurabilite'))}${colon()} ${esc(L.enumLabel('mesurabilite', im.mesurabilite))}</span>` : '') +
     (tiles ? `<div class="tiles">${tiles}</div>` : '') +
     kvLine(L.label('champ.projection'), im.emplois_projetes) +
     kvLine(L.label('champ.beneficiaires'), im.beneficiaires_directs) +
@@ -238,13 +261,13 @@ function blockImpact(im: any): string {
 function blockBesoin(b: any): string {
   if (!b) return '';
   const tiles = [
-    b.montant_demande != null ? tile(esc(num(b.montant_demande)), `Montant ${b.montant_devise || ''}`.trim()) : '',
-    b.type_adapte ? tile(esc(b.type_adapte), L.label('champ.type_adapte')) : '',
-    b.coherence_vs_ca ? tile(esc(b.coherence_vs_ca), L.label('champ.vs_ca')) : '',
-    b.capacite_absorption ? tile(esc(b.capacite_absorption), L.label('champ.absorption')) : '',
+    b.montant_demande != null ? tile(esc(num(b.montant_demande)), `${L.label('champ.montant')} ${b.montant_devise || ''}`.trim()) : '',
+    b.type_adapte ? tile(esc(L.enumLabel('type_adapte', b.type_adapte)), L.label('champ.type_adapte')) : '',
+    b.coherence_vs_ca ? tile(esc(L.enumLabel('coherence_vs_ca', b.coherence_vs_ca)), L.label('champ.vs_ca')) : '',
+    b.capacite_absorption ? tile(esc(L.enumLabel('absorption', b.capacite_absorption)), L.label('champ.absorption')) : '',
   ].filter(Boolean).join('');
   const util = Array.isArray(b.utilisation_prevue) && b.utilisation_prevue.length
-    ? `<p class="kv"><strong>${L.label('champ.utilisation')} :</strong></p>${bulletList(b.utilisation_prevue)}`
+    ? `<p class="kv"><strong>${L.label('champ.utilisation')}${colon()}</strong></p>${bulletList(b.utilisation_prevue)}`
     : '';
   const inner =
     (tiles ? `<div class="tiles">${tiles}</div>` : '') +
@@ -257,9 +280,9 @@ function blockRisques(risques: any[]): string {
   if (!Array.isArray(risques) || risques.length === 0) return '';
   const items = risques.map((r: any) => `
     <div class="risk">
-      <p><span class="pill">${esc(r.probabilite || '?')}</span> <strong>${esc(r.risque || '')}</strong>${r.type ? ` <span class="pill">${esc(r.type)}</span>` : ''}</p>
-      ${r.impact_programme ? `<p class="muted">Impact : ${esc(r.impact_programme)}</p>` : ''}
-      ${r.mitigation ? `<p class="mitig">Mitigation : ${esc(r.mitigation)}</p>` : ''}
+      <p><span class="pill">${esc(L.enumLabel('probabilite', r.probabilite) || '?')}</span> <strong>${esc(r.risque || '')}</strong>${r.type ? ` <span class="pill">${esc(r.type)}</span>` : ''}</p>
+      ${r.impact_programme ? `<p class="muted">${esc(L.label('champ.impact_programme'))}${colon()} ${esc(r.impact_programme)}</p>` : ''}
+      ${r.mitigation ? `<p class="mitig">${esc(L.label('champ.mitigation'))}${colon()} ${esc(r.mitigation)}</p>` : ''}
     </div>`).join('');
   return card(L.label('section.risques'), items);
 }
@@ -267,18 +290,18 @@ function blockRisques(risques: any[]): string {
 function blockTraction(t: any): string {
   if (!t) return '';
   const inner =
-    (t.niveau_preuve ? `<span class="pill">${esc(t.niveau_preuve)}</span>` : '') +
+    (t.niveau_preuve ? `<span class="pill">${esc(L.enumLabel('niveau_preuve', t.niveau_preuve))}</span>` : '') +
     kvLine(L.label('champ.anciennete'), t.anciennete) +
     kvLine(L.label('champ.evolution_ca'), t.evolution_ca) +
     (Array.isArray(t.preuves_tangibles) && t.preuves_tangibles.length
-      ? `<p class="kv"><strong>${L.label('champ.preuves')} :</strong></p>${bulletList(t.preuves_tangibles)}` : '');
+      ? `<p class="kv"><strong>${L.label('champ.preuves')}${colon()}</strong></p>${bulletList(t.preuves_tangibles)}` : '');
   return card(L.label('section.traction'), inner);
 }
 
 function blockBenchmark(bk: any): string {
   if (!bk) return '';
   const inner =
-    (bk.position_vs_secteur ? `<span class="pill">${esc(bk.position_vs_secteur)}</span>` : '') +
+    (bk.position_vs_secteur ? `<span class="pill">${esc(L.enumLabel('position_vs_secteur', bk.position_vs_secteur))}</span>` : '') +
     (bk.commentaire ? `<p class="muted">${esc(bk.commentaire)}</p>` : '');
   return card(L.label('section.benchmark'), inner);
 }
@@ -319,7 +342,7 @@ function blockPointsVigilance(items: any[]): string {
   if (!Array.isArray(items) || items.length === 0) return '';
   const li = items.map((p) => {
     const t = esc(safeText(p));
-    const r = (p && typeof p === 'object') ? (p.risque ? ` — Risque : ${esc(p.risque)}` : (p.detail ? ` — ${esc(p.detail)}` : '')) : '';
+    const r = (p && typeof p === 'object') ? (p.risque ? ` — ${esc(L.label('champ.risque'))}${colon()} ${esc(p.risque)}` : (p.detail ? ` — ${esc(p.detail)}` : '')) : '';
     return t ? `<li>${t}${r ? `<span class="pf-d">${r}</span>` : ''}</li>` : '';
   }).filter(Boolean).join('');
   return li ? card(L.label('section.vigilance'), `<ul class="pf">${li}</ul>`) : '';
@@ -333,7 +356,7 @@ function blockIncoherences(items: any[]): string {
     const obs = (inc && inc.observation) ? esc(inc.observation) : esc(safeText(inc));
     if (!obs) return '';
     const cls = sev.includes('BLOQUANT') ? 'sev-ko' : sev.includes('ATTENTION') ? 'sev-warn' : 'sev-info';
-    return `<div class="inc"><span class="sev ${cls}">${esc(sev)}</span><span>${obs}</span></div>`;
+    return `<div class="inc"><span class="sev ${cls}">${esc(L.enumLabel('severite', sev))}</span><span>${obs}</span></div>`;
   }).filter(Boolean).join('');
   return li ? card(L.label('section.incoherences'), li) : '';
 }
@@ -341,17 +364,17 @@ function blockIncoherences(items: any[]): string {
 // Recommandation d'accompagnement — l'encart de décision (pleine largeur).
 function blockRecommandation(r: any): string {
   if (!r || typeof r !== 'object') {
-    return (typeof r === 'string' && r.trim()) ? `<div class="card reco"><h4>Recommandation d'accompagnement</h4><p>${esc(r)}</p></div>` : '';
+    return (typeof r === 'string' && r.trim()) ? `<div class="card reco"><h4>${esc(L.label('section.recommandation'))}</h4><p>${esc(r)}</p></div>` : '';
   }
   const avis = r.avis || r.verdict;
   const inner =
-    (avis ? `<span class="reco-avis">${esc(avis)}</span>` : '') +
+    (avis ? `<span class="reco-avis">${esc(L.enumLabel('avis', avis))}</span>` : '') +
     (r.justification ? `<p>${esc(r.justification)}</p>` : '') +
-    (Array.isArray(r.priorites_si_selectionnee) && r.priorites_si_selectionnee.length ? `<p class="kv"><strong>${L.label('champ.priorites')} :</strong></p>${bulletList(r.priorites_si_selectionnee)}` : '') +
-    (Array.isArray(r.conditions_prealables) && r.conditions_prealables.length ? `<p class="kv"><strong>${L.label('champ.conditions')} :</strong></p>${bulletList(r.conditions_prealables)}` : '') +
-    (r.potentiel_6_mois ? `<p class="kv"><strong>Potentiel 6 mois :</strong> ${esc(r.potentiel_6_mois)}</p>` : '') +
-    (r.profil_coach_ideal ? `<p class="kv"><strong>${L.label('champ.profil_coach')} :</strong> ${esc(r.profil_coach_ideal)}</p>` : '');
-  return inner ? `<div class="card reco"><h4>Recommandation d'accompagnement</h4>${inner}</div>` : '';
+    (Array.isArray(r.priorites_si_selectionnee) && r.priorites_si_selectionnee.length ? `<p class="kv"><strong>${L.label('champ.priorites')}${colon()}</strong></p>${bulletList(r.priorites_si_selectionnee)}` : '') +
+    (Array.isArray(r.conditions_prealables) && r.conditions_prealables.length ? `<p class="kv"><strong>${L.label('champ.conditions')}${colon()}</strong></p>${bulletList(r.conditions_prealables)}` : '') +
+    (r.potentiel_6_mois ? `<p class="kv"><strong>${esc(L.label('champ.potentiel_6_mois'))}${colon()}</strong> ${esc(r.potentiel_6_mois)}</p>` : '') +
+    (r.profil_coach_ideal ? `<p class="kv"><strong>${L.label('champ.profil_coach')}${colon()}</strong> ${esc(r.profil_coach_ideal)}</p>` : '');
+  return inner ? `<div class="card reco"><h4>${esc(L.label('section.recommandation'))}</h4>${inner}</div>` : '';
 }
 
 function blockContact(c: any): string {
@@ -373,7 +396,7 @@ function ficheHtml(c: any, index: number): string {
   const scoreBadge = score != null
     ? `<div class="score-badge" style="background:${color}">${esc(String(score))}</div>`
     : `<div class="score-badge na">—</div>`;
-  const tag = s.classification ? `<span class="class-tag">${esc(s.classification)}</span>` : '';
+  const tag = s.classification ? `<span class="class-tag">${esc(L.enumLabel('classification', s.classification))}</span>` : '';
 
   const reco = s.recommandation_accompagnement || s.recommandation;
 
@@ -408,14 +431,14 @@ function ficheHtml(c: any, index: number): string {
   // Garde-fou : screening incomplet/absent → mention, jamais de page vide.
   const hasDiag = !!(primary || secondaryDiag);
   const noDiag = !hasDiag
-    ? `<div class="card"><p class="muted">Diagnostic IA ${hasError ? 'en erreur' : 'non disponible'} — données non disponibles pour cette candidature.</p></div>`
+    ? `<div class="card"><p class="muted">${esc(L.label(hasError ? 'etat.diagnostic_erreur' : 'etat.diagnostic_indisponible'))}</p></div>`
     : '';
 
   return `
   <section class="fiche">
     <div class="fiche-head">
       <div class="fiche-title">
-        <span class="fiche-idx">Fiche ${index}</span>
+        <span class="fiche-idx">${esc(L.label('doc.fiche'))} ${index}</span>
         <h2>${esc(c.company_name || L.label('doc.candidature'))}</h2>
       </div>
       <div class="fiche-score">
@@ -467,7 +490,7 @@ function dashboardHtml(candidatures: any[]): string {
     const s = c.screening_data || {};
     const score = c.screening_score;
     const scoreCell = score != null
-      ? `<span class="score-pin" style="background:${scoreColor(score)}">${esc(String(score))}</span>${s.classification ? ` <span class="tag-sm">${esc(s.classification)}</span>` : ''}`
+      ? `<span class="score-pin" style="background:${scoreColor(score)}">${esc(String(score))}</span>${s.classification ? ` <span class="tag-sm">${esc(L.enumLabel('classification', s.classification))}</span>` : ''}`
       : '<span class="muted">—</span>';
     const sec = (c.form_data && c.form_data.secteur)
       || (s.fiche_entreprise && s.fiche_entreprise.secteur_activite) || '—';
@@ -487,7 +510,7 @@ function dashboardHtml(candidatures: any[]): string {
   return `
   <section class="dashboard">
     <div class="agg">
-      <div class="agg-total"><p class="agg-n">${total}</p><p class="agg-l">candidatures</p></div>
+      <div class="agg-total"><p class="agg-n">${total}</p><p class="agg-l">${esc(L.label('doc.candidatures'))}</p></div>
       <div class="agg-block">
         <p class="agg-h">${L.label('doc.repartition_statut')}</p>
         <div class="chips">${statusChips || '<span class="muted">—</span>'}</div>
@@ -501,9 +524,9 @@ function dashboardHtml(candidatures: any[]): string {
     <h3 class="tbl-title">${L.label('doc.recap_score')}</h3>
     <table class="recap">
       <thead><tr>
-        <th>Entreprise</th><th>Secteur</th><th class="center">${L.label('champ.score_ia')}</th><th>Statut</th><th>Localisation</th><th>Sourcing projet</th>
+        <th>${esc(L.label('champ.entreprise'))}</th><th>${esc(L.label('champ.secteur'))}</th><th class="center">${esc(L.label('champ.score_ia'))}</th><th>${esc(L.label('champ.statut'))}</th><th>${esc(L.label('champ.localisation'))}</th><th>${esc(L.label('champ.sourcing'))}</th>
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" class="center muted">Aucune candidature</td></tr>'}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" class="center muted">${esc(L.label('doc.aucune_candidature'))}</td></tr>`}</tbody>
     </table>
   </section>`;
 }
@@ -526,13 +549,13 @@ export function buildHtml(candidatures: any[], programmeName: string, opts?: { s
   // Extract d'une seule fiche : en-tête dédié, pas de page cohorte agrégée, et la
   // fiche ne saute pas à la page 2 (page-break-before neutralisé).
   const singleName = single ? esc(candidatures[0]?.company_name || L.label('doc.candidature')) : '';
-  const docTitle = single ? `Extract — ${singleName}` : `Reporting de candidatures — ${esc(programmeName)}`;
+  const docTitle = single ? `${L.label('doc.extract')} — ${singleName}` : `${L.label('doc.reporting_titre')} — ${esc(programmeName)}`;
   const headerTitle = single ? L.label('doc.extract_titre') : L.label('doc.reporting_titre');
   const headerSub = single
     ? `${esc(programmeName)} — ${singleName} — ${esc(date)}`
-    : `${esc(programmeName)} — ${candidatures.length} candidature(s) — ${esc(date)}`;
+    : `${esc(programmeName)} — ${candidatures.length} ${esc(L.label('doc.candidatures'))} — ${esc(date)}`;
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+  return `<!DOCTYPE html><html lang="${LOC}"><head><meta charset="utf-8">
 <title>${docTitle}</title>
 <style>
   @page { size: A4; margin: 18mm; }
@@ -636,7 +659,7 @@ export function buildHtml(candidatures: any[], programmeName: string, opts?: { s
   </div>
   ${single ? '' : dashboardHtml(candidatures)}
   ${fiches}
-  <p class="tiny center" style="margin-top:24px;">Généré par ESONO BIS Studio — Document confidentiel — ${esc(date)}</p>
+  <p class="tiny center" style="margin-top:24px;">${esc(L.label('doc.pied_confidentiel'))} — ${esc(date)}</p>
 </body></html>`;
 }
 
