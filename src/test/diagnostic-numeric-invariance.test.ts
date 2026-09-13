@@ -13,8 +13,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   canonicalNumber, extractNumericTokens, numericMultiset, diffMultisets, flattenProse,
-  compareProse, numericValueMultiset, violationsGlossaire, separateursEtrangers,
+  compareProse, numericValueMultiset,
 } from '@/lib/numeric-tokens';
+import { violationsGlossaire, separateursEtrangers } from '@/lib/prose-controls';
 import { extractProse } from '@/lib/diagnostic-prose';
 
 describe('normalisation des séparateurs', () => {

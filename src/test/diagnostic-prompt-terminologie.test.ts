@@ -25,7 +25,8 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeEnum } from '@/lib/diagnostic-labels';
 import { seedLabelRows } from './helpers/label-seed';
-import { vocabulaireVerrouille, systemPromptV3 } from './helpers/terminologie-seed';
+import { vocabulaireVerrouille, systemPromptV3, abreviationsProscritesDuPrompt, versionPrompt } from './helpers/terminologie-seed';
+import { ABREVIATIONS_PROSCRITES, SIGLES_INVARIANTS } from '@/lib/prose-controls';
 
 const VOCABULAIRE = vocabulaireVerrouille();
 const ENUMS = seedLabelRows().filter((r) => r.match_fr);
@@ -145,5 +146,67 @@ describe('concordance entre diagnostic_labels et le bloc de terminologie', () =>
       ENUMS.some((r) => normalizeEnum(r.fr) === normalizeEnum(t)),
     );
     expect(recouvrements.length, 'aucun recouvrement : l\'assertion ne prouve rien').toBeGreaterThanOrEqual(5);
+  });
+});
+
+
+// ═══ Bloc C — abréviations françaises proscrites ════════════════════════════
+//
+// Le prompt PORTE le registre (consigne au modèle) et prose-controls.ts le
+// CONTRÔLE (assertion sur le rendu). Deux endroits, un seul contenu possible :
+// s'ils divergent, le modèle serait instruit d'une règle et jugé sur une autre.
+// C'est la même exigence que pour le vocabulaire verrouillé du bloc A.
+
+describe('bloc C — le prompt et le détecteur disent la même chose', () => {
+  const DU_PROMPT = abreviationsProscritesDuPrompt();
+
+  it('le bloc C existe et n\'est pas vide', () => {
+    expect(Object.keys(DU_PROMPT).length).toBeGreaterThanOrEqual(14);
+  });
+
+  it('toute abréviation proscrite au prompt est contrôlée par le détecteur', () => {
+    const manquantes = Object.keys(DU_PROMPT).filter((a) => !(a in ABREVIATIONS_PROSCRITES));
+    expect(
+      manquantes,
+      `abréviations interdites au modèle mais non contrôlées au rendu : ${manquantes.join(', ')}.\n` +
+      `Le modèle serait instruit d'une règle et jugé sur une autre.`,
+    ).toEqual([]);
+  });
+
+  it('toute abréviation contrôlée est aussi interdite au prompt', () => {
+    const manquantes = Object.keys(ABREVIATIONS_PROSCRITES).filter((a) => !(a in DU_PROMPT));
+    expect(
+      manquantes,
+      `abréviations contrôlées au rendu mais non interdites au modèle : ${manquantes.join(', ')}.\n` +
+      `Le rendu échouerait sur une règle que le modèle n'a jamais reçue.`,
+    ).toEqual([]);
+  });
+
+  it('les équivalents anglais concordent', () => {
+    const divergences: string[] = [];
+    for (const [fr, en] of Object.entries(DU_PROMPT)) {
+      const attendu = ABREVIATIONS_PROSCRITES[fr];
+      if (attendu && attendu.toLowerCase() !== en.toLowerCase()) {
+        divergences.push(`« ${fr} » → prompt « ${en} » / détecteur « ${attendu} »`);
+      }
+    }
+    expect(divergences, divergences.join('\n')).toEqual([]);
+  });
+
+  it('le prompt rappelle que les sigles d\'institutions ne sont pas concernés', () => {
+    // Sans cette phrase, le modèle pourrait traduire « ORC » ou « GRA », qui
+    // sont des noms propres. Le détecteur les déclare invariants ; le prompt
+    // doit le dire aussi.
+    const corps = systemPromptV3();
+    expect(corps).toMatch(/ne sont pas concern|NE SONT PAS concern/i);
+    for (const sigle of ['ORC', 'GRA', 'ISO', 'EUR']) {
+      expect(sigle in SIGLES_INVARIANTS, `${sigle} devrait être déclaré invariant`).toBe(true);
+    }
+  });
+
+  it('les tests valident bien la version de prompt la plus récente', () => {
+    // Garde contre le mode de défaillance le plus bête : une version ajoutée en
+    // base pendant que les tests continuent de valider la précédente.
+    expect(versionPrompt()).toBeGreaterThanOrEqual(4);
   });
 });
