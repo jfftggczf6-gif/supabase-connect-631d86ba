@@ -53,8 +53,8 @@ export default function KnowledgeReviewPage() {
       supabase.from('knowledge_pending_review' as any).select('*').eq('status', 'pending').order('quality_score', { ascending: false }),
       supabase.from('knowledge_enrichment_log' as any).select('*').order('run_date', { ascending: false }).limit(10),
     ]);
-    setPending(pendingData || []);
-    setRuns(runData || []);
+    setPending((pendingData as unknown as PendingDoc[]) || []);
+    setRuns((runData as unknown as EnrichmentRun[]) || []);
     setLoading(false);
   };
 

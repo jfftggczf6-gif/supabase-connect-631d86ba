@@ -250,7 +250,7 @@ export async function runPipelineFromClient(
           score: existingDeliv.score || null,
           trigger_reason: force ? 'force_regeneration' : 'pipeline_update',
           generated_by: 'pipeline_snapshot',
-        });
+        } as any);
 
         if (error) {
           console.warn('deliverable_versions snapshot failed', {

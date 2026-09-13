@@ -396,20 +396,20 @@ export default function PublicCandidatureForm() {
                         onChange={e => {
                           const files = e.target.files;
                           if (files) {
-                            const existing = Array.isArray(fileUploads[field.label]) ? fileUploads[field.label] : fileUploads[field.label] ? [fileUploads[field.label]] : [];
+                            const existing: File[] = Array.isArray(fileUploads[field.label]) ? (fileUploads[field.label] as File[]) : fileUploads[field.label] ? [fileUploads[field.label] as File] : [];
                             setFileUploads(prev => ({ ...prev, [field.label]: [...existing, ...Array.from(files)] as any }));
                           }
                         }}
                       />
                       {fileUploads[field.label] ? (
                         <div className="space-y-1">
-                          {(Array.isArray(fileUploads[field.label]) ? fileUploads[field.label] : [fileUploads[field.label]]).map((f: File, fi: number) => (
+                          {((Array.isArray(fileUploads[field.label]) ? fileUploads[field.label] : [fileUploads[field.label]]) as File[]).map((f: File, fi: number) => (
                             <div key={fi} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
                               <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                               <span className="text-sm truncate flex-1">{f.name}</span>
                               <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
                               <button type="button" onClick={() => {
-                                const arr = Array.isArray(fileUploads[field.label]) ? [...fileUploads[field.label]] : [fileUploads[field.label]];
+                                const arr: File[] = Array.isArray(fileUploads[field.label]) ? [...(fileUploads[field.label] as File[])] : [fileUploads[field.label] as File];
                                 arr.splice(fi, 1);
                                 if (arr.length === 0) {
                                   setFileUploads(prev => { const n = { ...prev }; delete n[field.label]; return n; });
