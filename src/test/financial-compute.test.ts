@@ -30,7 +30,8 @@ function projection(annee: string, ca: number, ebitda: number, cashflow: number,
     impots: 20,
     resultat_net: opts.resultat_net ?? ebitda - 100,
     cashflow,
-  };
+    ...(opts as any),
+  } as Projection;
 }
 
 const fiscalUEMOA = { tva: 18, is: 25, devise: "FCFA", currency_iso: "XOF", exchange_rate_eur: 656 };

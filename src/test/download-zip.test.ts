@@ -17,7 +17,7 @@ describe("buildZipBlob", () => {
   it("un fichier en échec (fetch null/throw) n'empêche pas les autres", async () => {
     const files = [
       { name: "ok.pdf", fetch: async () => new Blob(["x"]) },
-      { name: "null.pdf", fetch: async () => null },
+      { name: "null.pdf", fetch: async (): Promise<Blob | null> => null },
       { name: "boom.pdf", fetch: async () => { throw new Error("boom"); } },
     ];
     const { added, failed } = await buildZipBlob(files);

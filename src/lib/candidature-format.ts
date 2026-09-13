@@ -9,10 +9,18 @@ export function safeText(v: any): string {
   return v.titre || v.label || v.detail || v.description || v.name || JSON.stringify(v);
 }
 
-/** Formate un nombre en fr-FR, '—' si absent, avec suffixe optionnel. */
-export function fmt(v: number | null | undefined, suffix = ''): string {
+/**
+ * Formate un nombre selon la locale de LECTURE, '—' si absent, suffixe optionnel.
+ *
+ * Le `fr-FR` était figé. Dans un diagnostic lu en anglais, les nombres
+ * déterministes — CA, montant demandé, effectif — sortaient donc en groupement
+ * français (« 22 289 209 »), à côté d'une prose rendue en groupement anglais
+ * (« 22,289,209 »). Deux conventions dans le même dossier, sur le même chiffre :
+ * un lecteur de comité y voit deux valeurs, pas deux formatages.
+ */
+export function fmt(v: number | null | undefined, suffix = '', locale: 'fr' | 'en' = 'fr'): string {
   if (v == null) return '—';
-  return v.toLocaleString('fr-FR') + (suffix ? ` ${suffix}` : '');
+  return v.toLocaleString(locale === 'en' ? 'en-GB' : 'fr-FR') + (suffix ? ` ${suffix}` : '');
 }
 
 /**

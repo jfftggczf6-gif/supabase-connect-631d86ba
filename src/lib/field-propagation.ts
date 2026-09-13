@@ -193,7 +193,7 @@ export async function propagateCorrection(
       original_value: getNestedValue(deliv.data as any, target.fieldPath),
       corrected_value: newValue,
       correction_reason: `Propagation automatique depuis ${sourceType}.${fieldPath}`,
-    } as any).catch(() => {});
+    } as any).then(() => {}, () => {});
 
     result.propagated.push({ type: target.type, fieldPath: target.fieldPath });
   }

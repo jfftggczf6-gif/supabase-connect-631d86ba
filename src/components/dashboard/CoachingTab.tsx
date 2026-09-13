@@ -167,7 +167,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName, viewMode = '
         .from('deliverables')
         .select('id, data')
         .eq('enterprise_id', enterpriseId)
-        .eq('type', correction.deliverable)
+        .eq('type', correction.deliverable as any)
         .maybeSingle();
 
       if (!deliv?.data) {
@@ -211,7 +211,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName, viewMode = '
           corrected_value: correction.value,
           correction_reason: correction.info,
           corrected_by: user?.id,
-        });
+        } as any);
       } catch { /* non-blocking */ }
 
       // Mark as applied
@@ -279,7 +279,7 @@ export default function CoachingTab({ enterpriseId, enterpriseName, viewMode = '
           has_file: !!file,
           corrections_count: iaResult?.corrections?.filter(c => c.applied).length || 0,
         },
-      } as any).then(() => {}).catch(() => {});
+      } as any).then(() => {}, () => {});
 
       toast.success(t('coaching.note_saved'));
       resetForm();

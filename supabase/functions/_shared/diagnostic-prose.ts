@@ -55,7 +55,24 @@ export const PROSE_PATHS: readonly string[] = [
   'constats_par_scope.legal_conformite[].piste',
   'constats_par_scope.legal_conformite[].source',
 
-  // Dimensions — constats seulement. Les .score et .label restent déterministes.
+  // Dimensions — constats, données manquantes ET libellé qualitatif.
+  //
+  // `.label` est passé en PROSE le 12/09. C'est une APPRÉCIATION rédigée par le
+  // modèle (« En croissance », « Insuffisante »), pas une clé de schéma : laissée
+  // déterministe, elle sortait en français dans un document anglais, entre deux
+  // phrases anglaises. Vérifié avant de la déplacer : AUCUN site ne la compare,
+  // les quatre usages l'interpolent pour l'affichage. Le `.score`, lui, reste
+  // déterministe — c'est un nombre, il n'a pas de langue.
+  //
+  // En contrepartie le vocabulaire est VERROUILLÉ dans RENDER_DIAGNOSTIC v3 :
+  // un adjectif isolé part au rendu sans contexte, donc « Fort » pourrait revenir
+  // Strong, High ou Robust selon la section. Un comité lirait une gradation là où
+  // il n'y a qu'une variation de traduction.
+  'diagnostic_dimensions.maturite_business.label',
+  'diagnostic_dimensions.capacite_financiere.label',
+  'diagnostic_dimensions.potentiel_croissance.label',
+  'diagnostic_dimensions.impact_social.label',
+  'diagnostic_dimensions.qualite_dossier.label',
   'diagnostic_dimensions.maturite_business.constats[]',
   'diagnostic_dimensions.maturite_business.donnees_manquantes[]',
   'diagnostic_dimensions.capacite_financiere.constats[]',
@@ -109,7 +126,14 @@ export const PROSE_PATHS: readonly string[] = [
   'besoin_financement.utilisation_prevue[]',
   'besoin_financement.commentaire',
 
-  // Risques — libellés, pas type ni probabilité
+  // Risques — libellés ET type. Pas la probabilité.
+  //
+  // `.type` est passé en PROSE le 12/09, même raisonnement que `.label` : c'est
+  // un mot rédigé (« opérationnel », « réputationnel ») affiché tel quel, que
+  // personne ne compare. La `probabilite`, elle, reste déterministe : elle EST
+  // comparée (enumIs) pour la couleur du badge, et son habillage passe par
+  // enumLabel. Les cinq types du schéma producteur sont verrouillés dans v3.
+  'risques_programme[].type',
   'risques_programme[].risque',
   'risques_programme[].impact_programme',
   'risques_programme[].mitigation',

@@ -15,6 +15,7 @@ import {
   canonicalNumber, extractNumericTokens, numericMultiset, diffMultisets, flattenProse,
   compareProse, numericValueMultiset,
 } from '@/lib/numeric-tokens';
+import { violationsGlossaire, separateursEtrangers } from '@/lib/prose-controls';
 import { extractProse } from '@/lib/diagnostic-prose';
 
 describe('normalisation des séparateurs', () => {
@@ -144,24 +145,6 @@ describe('invariance numérique fr ↔ en', () => {
 
 import fs from 'node:fs';
 import path from 'node:path';
-
-const PROSCRIT = [
-  /certificate\s+to\s+commence\s+business/i,
-  /certificate\s+of\s+commencement\s+of\s+business/i,
-  /certified\s+financial\s+statements/i,
-];
-
-function violationsGlossaire(prose: unknown): string[] {
-  const found: string[] = [];
-  for (const s of flattenProse(prose)) {
-    for (const re of PROSCRIT) {
-      const m = s.match(re);
-      if (m) found.push(m[0]);
-    }
-  }
-  return found;
-}
-
 
 // Deux formats acceptés, pour éviter une étape de préparation manuelle :
 //   - fixtures-raw.json      : { candidature, screening_data, prose_en }[]
@@ -327,18 +310,6 @@ describe('deux nombres séparés par une virgule ne fusionnent pas', () => {
 // « 250 000 » deux fois et « 250,000 » une fois dans le même document anglais.
 // Un normaliseur déterministe passe côté worker AVANT l'écriture ; cette
 // assertion vérifie le résultat côté lecture.
-
-/** Séparateurs d'une autre locale subsistant dans un rendu EN. */
-function separateursEtrangers(prose: unknown): string[] {
-  const trouves: string[] = [];
-  for (const s of flattenProse(prose)) {
-    // espace (y compris insécable/fine) utilisé comme séparateur de milliers
-    for (const m of s.matchAll(/\d[\s   ]\d{3}(?!\d)/g)) trouves.push(m[0]);
-    // virgule décimale : une virgule suivie de 1 ou 2 chiffres seulement
-    for (const m of s.matchAll(/\d,\d{1,2}(?!\d)/g)) trouves.push(m[0]);
-  }
-  return trouves;
-}
 
 describe('aucun séparateur français dans un rendu EN', () => {
   const dossiers = chargerDossiers();

@@ -105,7 +105,7 @@ export default function DeliverableReformulator({
             original_value: currentText,
             corrected_value: preview,
             correction_reason: `Reformulation IA : ${instruction}`,
-          });
+          } as any);
         } catch { /* non-blocking */ }
       }
 
