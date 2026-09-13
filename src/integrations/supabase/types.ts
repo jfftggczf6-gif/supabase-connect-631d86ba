@@ -10,10 +10,82 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      _backup_deliverables_manual: {
+        Row: {
+          backed_up_at: string | null
+          data: Json | null
+          id: string | null
+          reason: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          data?: Json | null
+          id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          data?: Json | null
+          id?: string | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      _backup_renders_20260913: {
+        Row: {
+          candidature_id: string | null
+          cost_usd: number | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          input_tokens: number | null
+          locale: string | null
+          model: string | null
+          organization_id: string | null
+          output_tokens: number | null
+          prompt_code: string | null
+          prompt_version: number | null
+          prose: Json | null
+          source_screening_date: string | null
+        }
+        Insert: {
+          candidature_id?: string | null
+          cost_usd?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          input_tokens?: number | null
+          locale?: string | null
+          model?: string | null
+          organization_id?: string | null
+          output_tokens?: number | null
+          prompt_code?: string | null
+          prompt_version?: number | null
+          prose?: Json | null
+          source_screening_date?: string | null
+        }
+        Update: {
+          candidature_id?: string | null
+          cost_usd?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          input_tokens?: number | null
+          locale?: string | null
+          model?: string | null
+          organization_id?: string | null
+          output_tokens?: number | null
+          prompt_code?: string | null
+          prompt_version?: number | null
+          prose?: Json | null
+          source_screening_date?: string | null
+        }
+        Relationships: []
+      }
       activity_log: {
         Row: {
           action: string
@@ -178,6 +250,399 @@ export type Database = {
           },
         ]
       }
+      ai_jobs: {
+        Row: {
+          agent_name: string
+          candidature_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_kind: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          organization_id: string | null
+          payload: Json
+          programme_id: string | null
+          result: Json | null
+          started_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          agent_name: string
+          candidature_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id?: string | null
+          payload?: Json
+          programme_id?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          agent_name?: string
+          candidature_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id?: string | null
+          payload?: Json
+          programme_id?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_jobs_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompts: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          max_tokens: number
+          model: string
+          system_prompt: string
+          temperature: number
+          user_prompt_template: string
+          version: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_tokens?: number
+          model: string
+          system_prompt: string
+          temperature?: number
+          user_prompt_template: string
+          version: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_tokens?: number
+          model?: string
+          system_prompt?: string
+          temperature?: number
+          user_prompt_template?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      c2_dico: {
+        Row: {
+          axe_cascade: string | null
+          cascade_autorisee: boolean
+          duree_validite_jours: number | null
+          est_famille: boolean
+          mode_veille: string
+          nature: string
+          parametre: string
+          plancher_preuve: string
+          requiert_zone_infra: boolean
+          unite_attendue: string
+        }
+        Insert: {
+          axe_cascade?: string | null
+          cascade_autorisee?: boolean
+          duree_validite_jours?: number | null
+          est_famille?: boolean
+          mode_veille: string
+          nature: string
+          parametre: string
+          plancher_preuve: string
+          requiert_zone_infra?: boolean
+          unite_attendue: string
+        }
+        Update: {
+          axe_cascade?: string | null
+          cascade_autorisee?: boolean
+          duree_validite_jours?: number | null
+          est_famille?: boolean
+          mode_veille?: string
+          nature?: string
+          parametre?: string
+          plancher_preuve?: string
+          requiert_zone_infra?: boolean
+          unite_attendue?: string
+        }
+        Relationships: []
+      }
+      c2_geo: {
+        Row: {
+          axe: string
+          pays: string
+          zone: string
+        }
+        Insert: {
+          axe: string
+          pays: string
+          zone: string
+        }
+        Update: {
+          axe?: string
+          pays?: string
+          zone?: string
+        }
+        Relationships: []
+      }
+      c2_parametres: {
+        Row: {
+          cle_reference: string | null
+          created_at: string | null
+          date_debut: string
+          date_fin: string | null
+          date_releve: string
+          id: string
+          niveau_preuve: string
+          parametre: string
+          perimetre: string
+          secteur: string
+          seuil_devise: string | null
+          seuil_max: number | null
+          seuil_min: number | null
+          source: string
+          source_url: string
+          unite: string
+          valeur: number
+          zone_infra: string
+        }
+        Insert: {
+          cle_reference?: string | null
+          created_at?: string | null
+          date_debut: string
+          date_fin?: string | null
+          date_releve: string
+          id?: string
+          niveau_preuve: string
+          parametre: string
+          perimetre: string
+          secteur?: string
+          seuil_devise?: string | null
+          seuil_max?: number | null
+          seuil_min?: number | null
+          source: string
+          source_url: string
+          unite: string
+          valeur: number
+          zone_infra?: string
+        }
+        Update: {
+          cle_reference?: string | null
+          created_at?: string | null
+          date_debut?: string
+          date_fin?: string | null
+          date_releve?: string
+          id?: string
+          niveau_preuve?: string
+          parametre?: string
+          perimetre?: string
+          secteur?: string
+          seuil_devise?: string | null
+          seuil_max?: number | null
+          seuil_min?: number | null
+          source?: string
+          source_url?: string
+          unite?: string
+          valeur?: number
+          zone_infra?: string
+        }
+        Relationships: []
+      }
+      c2_pays_attributs: {
+        Row: {
+          attribut: string
+          date_releve: string
+          niveau_preuve: string
+          pays: string
+          source: string
+          source_url: string
+          valeur_texte: string
+        }
+        Insert: {
+          attribut: string
+          date_releve: string
+          niveau_preuve: string
+          pays: string
+          source: string
+          source_url: string
+          valeur_texte: string
+        }
+        Update: {
+          attribut?: string
+          date_releve?: string
+          niveau_preuve?: string
+          pays?: string
+          source?: string
+          source_url?: string
+          valeur_texte?: string
+        }
+        Relationships: []
+      }
+      candidature_diagnostic_renders: {
+        Row: {
+          candidature_id: string
+          cost_usd: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          input_tokens: number | null
+          locale: string
+          model: string
+          organization_id: string | null
+          output_tokens: number | null
+          prompt_code: string
+          prompt_version: number
+          prose: Json
+          source_screening_date: string | null
+        }
+        Insert: {
+          candidature_id: string
+          cost_usd?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_tokens?: number | null
+          locale: string
+          model: string
+          organization_id?: string | null
+          output_tokens?: number | null
+          prompt_code: string
+          prompt_version: number
+          prose: Json
+          source_screening_date?: string | null
+        }
+        Update: {
+          candidature_id?: string
+          cost_usd?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_tokens?: number | null
+          locale?: string
+          model?: string
+          organization_id?: string | null
+          output_tokens?: number | null
+          prompt_code?: string
+          prompt_version?: number
+          prose?: Json
+          source_screening_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidature_diagnostic_renders_candidature_id_fkey"
+            columns: ["candidature_id"]
+            isOneToOne: false
+            referencedRelation: "candidatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidature_diagnostic_renders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidature_emails: {
+        Row: {
+          batch_id: string | null
+          body_html: string
+          candidature_id: string
+          created_at: string
+          delivery_status: string
+          error: string | null
+          id: string
+          organization_id: string
+          provider_message_id: string | null
+          sent_at: string
+          sent_by: string | null
+          subject: string
+          type: string
+        }
+        Insert: {
+          batch_id?: string | null
+          body_html: string
+          candidature_id: string
+          created_at?: string
+          delivery_status?: string
+          error?: string | null
+          id?: string
+          organization_id: string
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          subject: string
+          type: string
+        }
+        Update: {
+          batch_id?: string | null
+          body_html?: string
+          candidature_id?: string
+          created_at?: string
+          delivery_status?: string
+          error?: string | null
+          id?: string
+          organization_id?: string
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          subject?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidature_emails_candidature_id_fkey"
+            columns: ["candidature_id"]
+            isOneToOne: false
+            referencedRelation: "candidatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidature_emails_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidatures: {
         Row: {
           assigned_coach_id: string | null
@@ -194,6 +659,10 @@ export type Database = {
           id: string
           organization_id: string
           programme_id: string
+          recovery_expires_at: string | null
+          recovery_requested_docs: Json
+          recovery_token: string | null
+          recovery_used_at: string | null
           screening_data: Json | null
           screening_date: string | null
           screening_score: number | null
@@ -216,6 +685,10 @@ export type Database = {
           id?: string
           organization_id: string
           programme_id: string
+          recovery_expires_at?: string | null
+          recovery_requested_docs?: Json
+          recovery_token?: string | null
+          recovery_used_at?: string | null
           screening_data?: Json | null
           screening_date?: string | null
           screening_score?: number | null
@@ -238,6 +711,10 @@ export type Database = {
           id?: string
           organization_id?: string
           programme_id?: string
+          recovery_expires_at?: string | null
+          recovery_requested_docs?: Json
+          recovery_token?: string | null
+          recovery_used_at?: string | null
           screening_data?: Json | null
           screening_date?: string | null
           screening_score?: number | null
@@ -382,6 +859,130 @@ export type Database = {
           },
           {
             foreignKeyName: "coaching_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      country_ref: {
+        Row: {
+          aliases: string[]
+          iso2: string
+          iso3: string | null
+          langue: string
+          nom_en: string
+          nom_fr: string
+        }
+        Insert: {
+          aliases?: string[]
+          iso2: string
+          iso3?: string | null
+          langue: string
+          nom_en: string
+          nom_fr: string
+        }
+        Update: {
+          aliases?: string[]
+          iso2?: string
+          iso3?: string | null
+          langue?: string
+          nom_en?: string
+          nom_fr?: string
+        }
+        Relationships: []
+      }
+      credit_dossiers: {
+        Row: {
+          analyste_id: string | null
+          classification_diagnostic: string | null
+          classification_monitoring: string | null
+          conseiller_id: string | null
+          created_at: string | null
+          date_decaissement: string | null
+          devise: string | null
+          duree_mois: number | null
+          encours_actuel: number | null
+          enterprise_id: string
+          funding_line_id: string | null
+          id: string
+          metadata: Json | null
+          montant_decaisse: number | null
+          montant_demande: number | null
+          numero: string | null
+          organization_id: string
+          pipeline_status: string
+          produit_retenu_code: string | null
+          retard_jours: number | null
+          type_credit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          analyste_id?: string | null
+          classification_diagnostic?: string | null
+          classification_monitoring?: string | null
+          conseiller_id?: string | null
+          created_at?: string | null
+          date_decaissement?: string | null
+          devise?: string | null
+          duree_mois?: number | null
+          encours_actuel?: number | null
+          enterprise_id: string
+          funding_line_id?: string | null
+          id?: string
+          metadata?: Json | null
+          montant_decaisse?: number | null
+          montant_demande?: number | null
+          numero?: string | null
+          organization_id: string
+          pipeline_status?: string
+          produit_retenu_code?: string | null
+          retard_jours?: number | null
+          type_credit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          analyste_id?: string | null
+          classification_diagnostic?: string | null
+          classification_monitoring?: string | null
+          conseiller_id?: string | null
+          created_at?: string | null
+          date_decaissement?: string | null
+          devise?: string | null
+          duree_mois?: number | null
+          encours_actuel?: number | null
+          enterprise_id?: string
+          funding_line_id?: string | null
+          id?: string
+          metadata?: Json | null
+          montant_decaisse?: number | null
+          montant_demande?: number | null
+          numero?: string | null
+          organization_id?: string
+          pipeline_status?: string
+          produit_retenu_code?: string | null
+          retard_jours?: number | null
+          type_credit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_dossiers_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_dossiers_funding_line_id_fkey"
+            columns: ["funding_line_id"]
+            isOneToOne: false
+            referencedRelation: "funding_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_dossiers_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -712,6 +1313,88 @@ export type Database = {
           },
         ]
       }
+      diagnostic_labels: {
+        Row: {
+          category: string
+          created_at: string
+          en: string
+          fr: string
+          key: string
+          match_fr: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          en: string
+          fr: string
+          key: string
+          match_fr?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          en?: string
+          fr?: string
+          key?: string
+          match_fr?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      enterprise_coach_invitations: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          enterprise_id: string
+          id: string
+          invitation_id: string
+          organization_id: string
+          role: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          enterprise_id: string
+          id?: string
+          invitation_id: string
+          organization_id: string
+          role?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          enterprise_id?: string
+          id?: string
+          invitation_id?: string
+          organization_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enterprise_coach_invitations_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enterprise_coach_invitations_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "organization_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enterprise_coach_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enterprise_coaches: {
         Row: {
           assigned_at: string | null
@@ -762,6 +1445,203 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enterprise_financial_canonical: {
+        Row: {
+          base_year: number
+          besoin_financement_total: number | null
+          bfr_initial: number | null
+          ca_projected: Json | null
+          ca_y: number | null
+          ca_y_minus_1: number | null
+          ca_y_minus_2: number | null
+          capex_prevu: number | null
+          capitaux_propres_actuels: number | null
+          cashflow_projected: Json | null
+          coherence_last_check_at: string | null
+          coherence_status: string
+          coherence_validated: boolean | null
+          coherence_warnings: Json | null
+          composition_besoin: Json | null
+          couverture_interets: number | null
+          currency: string
+          currency_iso: string
+          cycle_tresorerie_jours: number | null
+          dette_financiere_actuelle: number | null
+          dscr_moyen: number | null
+          duree_pret_utilisee_dscr: number | null
+          ebitda_projected: Json | null
+          ebitda_y: number | null
+          ebitda_y_minus_1: number | null
+          ebitda_y_minus_2: number | null
+          enterprise_id: string
+          enterprise_value_dcf: number | null
+          equity_value_dcf: number | null
+          financement_deja_obtenu: number | null
+          inflation_used: number | null
+          last_updated_at: string
+          last_updated_by: string
+          methode_privilegiee: string | null
+          multiple_ca_retenu: number | null
+          multiple_ebitda_retenu: number | null
+          payback_years: number | null
+          restructuration_dette: number | null
+          resultat_net_projected: Json | null
+          resultat_net_y: number | null
+          resultat_net_y_minus_1: number | null
+          resultat_net_y_minus_2: number | null
+          roi_pct: number | null
+          runway_mois: number | null
+          source_deliverables: Json | null
+          terminal_value: number | null
+          tresorerie_actuelle: number | null
+          tri_pct: number | null
+          valeur_par_ca: number | null
+          valeur_par_ebitda: number | null
+          valorisation_basse: number | null
+          valorisation_haute: number | null
+          valorisation_mediane: number | null
+          van: number | null
+          version: number
+          wacc_capped: boolean | null
+          wacc_components: Json | null
+          wacc_pct: number | null
+          wacc_raw: number | null
+          zone_monetaire: string | null
+        }
+        Insert: {
+          base_year: number
+          besoin_financement_total?: number | null
+          bfr_initial?: number | null
+          ca_projected?: Json | null
+          ca_y?: number | null
+          ca_y_minus_1?: number | null
+          ca_y_minus_2?: number | null
+          capex_prevu?: number | null
+          capitaux_propres_actuels?: number | null
+          cashflow_projected?: Json | null
+          coherence_last_check_at?: string | null
+          coherence_status?: string
+          coherence_validated?: boolean | null
+          coherence_warnings?: Json | null
+          composition_besoin?: Json | null
+          couverture_interets?: number | null
+          currency: string
+          currency_iso: string
+          cycle_tresorerie_jours?: number | null
+          dette_financiere_actuelle?: number | null
+          dscr_moyen?: number | null
+          duree_pret_utilisee_dscr?: number | null
+          ebitda_projected?: Json | null
+          ebitda_y?: number | null
+          ebitda_y_minus_1?: number | null
+          ebitda_y_minus_2?: number | null
+          enterprise_id: string
+          enterprise_value_dcf?: number | null
+          equity_value_dcf?: number | null
+          financement_deja_obtenu?: number | null
+          inflation_used?: number | null
+          last_updated_at?: string
+          last_updated_by: string
+          methode_privilegiee?: string | null
+          multiple_ca_retenu?: number | null
+          multiple_ebitda_retenu?: number | null
+          payback_years?: number | null
+          restructuration_dette?: number | null
+          resultat_net_projected?: Json | null
+          resultat_net_y?: number | null
+          resultat_net_y_minus_1?: number | null
+          resultat_net_y_minus_2?: number | null
+          roi_pct?: number | null
+          runway_mois?: number | null
+          source_deliverables?: Json | null
+          terminal_value?: number | null
+          tresorerie_actuelle?: number | null
+          tri_pct?: number | null
+          valeur_par_ca?: number | null
+          valeur_par_ebitda?: number | null
+          valorisation_basse?: number | null
+          valorisation_haute?: number | null
+          valorisation_mediane?: number | null
+          van?: number | null
+          version?: number
+          wacc_capped?: boolean | null
+          wacc_components?: Json | null
+          wacc_pct?: number | null
+          wacc_raw?: number | null
+          zone_monetaire?: string | null
+        }
+        Update: {
+          base_year?: number
+          besoin_financement_total?: number | null
+          bfr_initial?: number | null
+          ca_projected?: Json | null
+          ca_y?: number | null
+          ca_y_minus_1?: number | null
+          ca_y_minus_2?: number | null
+          capex_prevu?: number | null
+          capitaux_propres_actuels?: number | null
+          cashflow_projected?: Json | null
+          coherence_last_check_at?: string | null
+          coherence_status?: string
+          coherence_validated?: boolean | null
+          coherence_warnings?: Json | null
+          composition_besoin?: Json | null
+          couverture_interets?: number | null
+          currency?: string
+          currency_iso?: string
+          cycle_tresorerie_jours?: number | null
+          dette_financiere_actuelle?: number | null
+          dscr_moyen?: number | null
+          duree_pret_utilisee_dscr?: number | null
+          ebitda_projected?: Json | null
+          ebitda_y?: number | null
+          ebitda_y_minus_1?: number | null
+          ebitda_y_minus_2?: number | null
+          enterprise_id?: string
+          enterprise_value_dcf?: number | null
+          equity_value_dcf?: number | null
+          financement_deja_obtenu?: number | null
+          inflation_used?: number | null
+          last_updated_at?: string
+          last_updated_by?: string
+          methode_privilegiee?: string | null
+          multiple_ca_retenu?: number | null
+          multiple_ebitda_retenu?: number | null
+          payback_years?: number | null
+          restructuration_dette?: number | null
+          resultat_net_projected?: Json | null
+          resultat_net_y?: number | null
+          resultat_net_y_minus_1?: number | null
+          resultat_net_y_minus_2?: number | null
+          roi_pct?: number | null
+          runway_mois?: number | null
+          source_deliverables?: Json | null
+          terminal_value?: number | null
+          tresorerie_actuelle?: number | null
+          tri_pct?: number | null
+          valeur_par_ca?: number | null
+          valeur_par_ebitda?: number | null
+          valorisation_basse?: number | null
+          valorisation_haute?: number | null
+          valorisation_mediane?: number | null
+          van?: number | null
+          version?: number
+          wacc_capped?: boolean | null
+          wacc_components?: Json | null
+          wacc_pct?: number | null
+          wacc_raw?: number | null
+          zone_monetaire?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enterprise_financial_canonical_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: true
+            referencedRelation: "enterprises"
             referencedColumns: ["id"]
           },
         ]
@@ -819,6 +1699,7 @@ export type Database = {
       }
       enterprises: {
         Row: {
+          banque_metadata: Json | null
           base_year: number | null
           city: string | null
           coach_id: string | null
@@ -847,11 +1728,13 @@ export type Database = {
           phase: string | null
           score_ir: number | null
           sector: string | null
+          source_acquisition: string | null
           updated_at: string
           uploaded_files: Json | null
           user_id: string
         }
         Insert: {
+          banque_metadata?: Json | null
           base_year?: number | null
           city?: string | null
           coach_id?: string | null
@@ -880,11 +1763,13 @@ export type Database = {
           phase?: string | null
           score_ir?: number | null
           sector?: string | null
+          source_acquisition?: string | null
           updated_at?: string
           uploaded_files?: Json | null
           user_id: string
         }
         Update: {
+          banque_metadata?: Json | null
           base_year?: number | null
           city?: string | null
           coach_id?: string | null
@@ -913,6 +1798,7 @@ export type Database = {
           phase?: string | null
           score_ir?: number | null
           sector?: string | null
+          source_acquisition?: string | null
           updated_at?: string
           uploaded_files?: Json | null
           user_id?: string
@@ -920,6 +1806,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "enterprises_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funding_lines: {
+        Row: {
+          bailleur: string | null
+          capacite_totale: number | null
+          code: string
+          created_at: string | null
+          criteres_eligibilite: Json | null
+          devise: string | null
+          id: string
+          is_active: boolean | null
+          kpi_a_reporter: string[] | null
+          label: string
+          metadata: Json | null
+          montant_deploye: number | null
+          organization_id: string
+          taux_partage_risque: number | null
+          taux_preferentiel: number | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          bailleur?: string | null
+          capacite_totale?: number | null
+          code: string
+          created_at?: string | null
+          criteres_eligibilite?: Json | null
+          devise?: string | null
+          id?: string
+          is_active?: boolean | null
+          kpi_a_reporter?: string[] | null
+          label: string
+          metadata?: Json | null
+          montant_deploye?: number | null
+          organization_id: string
+          taux_partage_risque?: number | null
+          taux_preferentiel?: number | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          bailleur?: string | null
+          capacite_totale?: number | null
+          code?: string
+          created_at?: string | null
+          criteres_eligibilite?: Json | null
+          devise?: string | null
+          id?: string
+          is_active?: boolean | null
+          kpi_a_reporter?: string[] | null
+          label?: string
+          metadata?: Json | null
+          montant_deploye?: number | null
+          organization_id?: string
+          taux_partage_risque?: number | null
+          taux_preferentiel?: number | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_lines_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1155,6 +2109,35 @@ export type Database = {
           },
         ]
       }
+      investment_memos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deal_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deal_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_memos_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_base: {
         Row: {
           auto_refresh: boolean | null
@@ -1317,6 +2300,75 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          category: string | null
+          chunk_index: number
+          content: string
+          country: string | null
+          created_at: string | null
+          embedding: string | null
+          id: string
+          kb_entry_id: string | null
+          org_entry_id: string | null
+          publication_date: string | null
+          sector: string | null
+          source: string | null
+          source_url: string | null
+          title: string | null
+          token_count: number | null
+        }
+        Insert: {
+          category?: string | null
+          chunk_index: number
+          content: string
+          country?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          kb_entry_id?: string | null
+          org_entry_id?: string | null
+          publication_date?: string | null
+          sector?: string | null
+          source?: string | null
+          source_url?: string | null
+          title?: string | null
+          token_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          chunk_index?: number
+          content?: string
+          country?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          kb_entry_id?: string | null
+          org_entry_id?: string | null
+          publication_date?: string | null
+          sector?: string | null
+          source?: string | null
+          source_url?: string | null
+          title?: string | null
+          token_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_kb_entry_id_fkey"
+            columns: ["kb_entry_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_org_entry_id_fkey"
+            columns: ["org_entry_id"]
+            isOneToOne: false
+            referencedRelation: "organization_knowledge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_country_data: {
         Row: {
           acces_credit_pme_pct: number | null
@@ -1449,6 +2501,105 @@ export type Database = {
           taux_usure?: number | null
           taxe_apprentissage_pct?: number | null
           zone_monetaire?: string | null
+        }
+        Relationships: []
+      }
+      knowledge_enrichment_log: {
+        Row: {
+          auto_ingested: number
+          cost_usd: number
+          created_at: string
+          details: Json | null
+          id: string
+          new_discovered: number
+          pending_review: number
+          rejected: number
+          run_date: string
+          sources_refreshed: number
+        }
+        Insert: {
+          auto_ingested?: number
+          cost_usd?: number
+          created_at?: string
+          details?: Json | null
+          id?: string
+          new_discovered?: number
+          pending_review?: number
+          rejected?: number
+          run_date?: string
+          sources_refreshed?: number
+        }
+        Update: {
+          auto_ingested?: number
+          cost_usd?: number
+          created_at?: string
+          details?: Json | null
+          id?: string
+          new_discovered?: number
+          pending_review?: number
+          rejected?: number
+          run_date?: string
+          sources_refreshed?: number
+        }
+        Relationships: []
+      }
+      knowledge_pending_review: {
+        Row: {
+          ai_reasoning: string | null
+          ai_summary: string | null
+          category: string | null
+          content: string
+          country: string | null
+          created_at: string
+          id: string
+          quality_score: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sector: string | null
+          source: string | null
+          source_url: string | null
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          content: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          quality_score?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sector?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_reasoning?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          content?: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          quality_score?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sector?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1638,16 +2789,207 @@ export type Database = {
         }
         Relationships: []
       }
+      memo_section_validations: {
+        Row: {
+          action: string
+          actor_id: string
+          actor_role: string | null
+          comment: string | null
+          created_at: string
+          from_status: Database["public"]["Enums"]["memo_section_status"] | null
+          id: string
+          section_id: string
+          to_status: Database["public"]["Enums"]["memo_section_status"]
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["memo_section_status"]
+            | null
+          id?: string
+          section_id: string
+          to_status: Database["public"]["Enums"]["memo_section_status"]
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["memo_section_status"]
+            | null
+          id?: string
+          section_id?: string
+          to_status?: Database["public"]["Enums"]["memo_section_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_section_validations_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "memo_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memo_sections: {
+        Row: {
+          content_json: Json | null
+          content_md: string | null
+          created_at: string
+          id: string
+          last_edited_at: string | null
+          last_edited_by: string | null
+          position: number
+          section_code: Database["public"]["Enums"]["memo_section_code"]
+          source_doc_ids: string[] | null
+          status: Database["public"]["Enums"]["memo_section_status"]
+          title: string | null
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          content_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
+          position: number
+          section_code: Database["public"]["Enums"]["memo_section_code"]
+          source_doc_ids?: string[] | null
+          status?: Database["public"]["Enums"]["memo_section_status"]
+          title?: string | null
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          content_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
+          position?: number
+          section_code?: Database["public"]["Enums"]["memo_section_code"]
+          source_doc_ids?: string[] | null
+          status?: Database["public"]["Enums"]["memo_section_status"]
+          title?: string | null
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_sections_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "memo_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memo_versions: {
+        Row: {
+          classification: string | null
+          created_at: string
+          error_message: string | null
+          generated_at: string | null
+          generated_by_agent: string | null
+          generated_by_user_id: string | null
+          id: string
+          is_snapshot: boolean
+          label: string
+          memo_id: string
+          overall_score: number | null
+          parent_version_id: string | null
+          snapshot_label: string | null
+          snapshot_of_version_id: string | null
+          snapshot_taken_at: string | null
+          snapshot_taken_by: string | null
+          stage: Database["public"]["Enums"]["pe_deal_stage"]
+          status: Database["public"]["Enums"]["memo_version_status"]
+        }
+        Insert: {
+          classification?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          is_snapshot?: boolean
+          label: string
+          memo_id: string
+          overall_score?: number | null
+          parent_version_id?: string | null
+          snapshot_label?: string | null
+          snapshot_of_version_id?: string | null
+          snapshot_taken_at?: string | null
+          snapshot_taken_by?: string | null
+          stage: Database["public"]["Enums"]["pe_deal_stage"]
+          status?: Database["public"]["Enums"]["memo_version_status"]
+        }
+        Update: {
+          classification?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          is_snapshot?: boolean
+          label?: string
+          memo_id?: string
+          overall_score?: number | null
+          parent_version_id?: string | null
+          snapshot_label?: string | null
+          snapshot_of_version_id?: string | null
+          snapshot_taken_at?: string | null
+          snapshot_taken_by?: string | null
+          stage?: Database["public"]["Enums"]["pe_deal_stage"]
+          status?: Database["public"]["Enums"]["memo_version_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_versions_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "investment_memos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "memo_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_versions_snapshot_of_version_id_fkey"
+            columns: ["snapshot_of_version_id"]
+            isOneToOne: false
+            referencedRelation: "memo_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_invitations: {
         Row: {
           accepted_at: string | null
           created_at: string | null
           email: string
+          enterprise_id: string | null
           expires_at: string
           id: string
           invited_by: string | null
           organization_id: string
           personal_message: string | null
+          programme_ids: string[]
           revoked_at: string | null
           role: string
           token: string
@@ -1656,11 +2998,13 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string | null
           email: string
+          enterprise_id?: string | null
           expires_at?: string
           id?: string
           invited_by?: string | null
           organization_id: string
           personal_message?: string | null
+          programme_ids?: string[]
           revoked_at?: string | null
           role: string
           token?: string
@@ -1669,18 +3013,86 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string | null
           email?: string
+          enterprise_id?: string | null
           expires_at?: string
           id?: string
           invited_by?: string | null
           organization_id?: string
           personal_message?: string | null
+          programme_ids?: string[]
           revoked_at?: string | null
           role?: string
           token?: string
         }
         Relationships: [
           {
+            foreignKeyName: "organization_invitations_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "organization_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_knowledge: {
+        Row: {
+          category: string
+          content: string
+          country: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          organization_id: string
+          sector: string | null
+          source: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          content: string
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          organization_id: string
+          sector?: string | null
+          source?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          organization_id?: string
+          sector?: string | null
+          source?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_knowledge_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1726,11 +3138,136 @@ export type Database = {
           },
         ]
       }
+      organization_presets: {
+        Row: {
+          branding: Json | null
+          config_banque: Json | null
+          constats_config: Json | null
+          created_at: string | null
+          criteres_conformite: Json | null
+          devise: string | null
+          fund_segment: string | null
+          horizon_projection: number | null
+          id: string
+          langue: string
+          livrables_actifs: string[] | null
+          matching_config: Json | null
+          modules_desactives: string[] | null
+          onboarding_completed: boolean | null
+          onboarding_data: Json | null
+          organization_id: string
+          scoring_weights: Json | null
+          templates_custom: Json | null
+          updated_at: string | null
+          workflow_overrides: Json | null
+        }
+        Insert: {
+          branding?: Json | null
+          config_banque?: Json | null
+          constats_config?: Json | null
+          created_at?: string | null
+          criteres_conformite?: Json | null
+          devise?: string | null
+          fund_segment?: string | null
+          horizon_projection?: number | null
+          id?: string
+          langue?: string
+          livrables_actifs?: string[] | null
+          matching_config?: Json | null
+          modules_desactives?: string[] | null
+          onboarding_completed?: boolean | null
+          onboarding_data?: Json | null
+          organization_id: string
+          scoring_weights?: Json | null
+          templates_custom?: Json | null
+          updated_at?: string | null
+          workflow_overrides?: Json | null
+        }
+        Update: {
+          branding?: Json | null
+          config_banque?: Json | null
+          constats_config?: Json | null
+          created_at?: string | null
+          criteres_conformite?: Json | null
+          devise?: string | null
+          fund_segment?: string | null
+          horizon_projection?: number | null
+          id?: string
+          langue?: string
+          livrables_actifs?: string[] | null
+          matching_config?: Json | null
+          modules_desactives?: string[] | null
+          onboarding_completed?: boolean | null
+          onboarding_data?: Json | null
+          organization_id?: string
+          scoring_weights?: Json | null
+          templates_custom?: Json | null
+          updated_at?: string | null
+          workflow_overrides?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_workflows: {
+        Row: {
+          created_at: string | null
+          etape_id: string
+          id: string
+          is_active: boolean | null
+          label: string
+          ordre: number
+          organization_id: string
+          roles: string[] | null
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          etape_id: string
+          id?: string
+          is_active?: boolean | null
+          label: string
+          ordre: number
+          organization_id: string
+          roles?: string[] | null
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          etape_id?: string
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          ordre?: number
+          organization_id?: string
+          roles?: string[] | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_workflows_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
+          code: string | null
           country: string | null
           created_at: string | null
           created_by: string | null
+          email_reply_to: string | null
+          email_sender_name: string | null
+          email_signature: string | null
           id: string
           is_active: boolean | null
           logo_url: string | null
@@ -1743,9 +3280,13 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          code?: string | null
           country?: string | null
           created_at?: string | null
           created_by?: string | null
+          email_reply_to?: string | null
+          email_sender_name?: string | null
+          email_signature?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -1758,9 +3299,13 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          code?: string | null
           country?: string | null
           created_at?: string | null
           created_by?: string | null
+          email_reply_to?: string | null
+          email_sender_name?: string | null
+          email_signature?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -1774,9 +3319,502 @@ export type Database = {
         }
         Relationships: []
       }
+      pe_dd_checklist: {
+        Row: {
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at: string
+          deal_id: string
+          due_date: string | null
+          evidence_doc_ids: string[]
+          id: string
+          item_description: string | null
+          item_label: string
+          organization_id: string
+          position: number
+          responsable_user_id: string | null
+          status: Database["public"]["Enums"]["pe_dd_checklist_status"]
+          updated_at: string
+          verification_note: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          deal_id: string
+          due_date?: string | null
+          evidence_doc_ids?: string[]
+          id?: string
+          item_description?: string | null
+          item_label: string
+          organization_id: string
+          position?: number
+          responsable_user_id?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_checklist_status"]
+          updated_at?: string
+          verification_note?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          deal_id?: string
+          due_date?: string | null
+          evidence_doc_ids?: string[]
+          id?: string
+          item_description?: string | null
+          item_label?: string
+          organization_id?: string
+          position?: number
+          responsable_user_id?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_checklist_status"]
+          updated_at?: string
+          verification_note?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_dd_checklist_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_checklist_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_dd_findings: {
+        Row: {
+          applied_to_memo_at: string | null
+          applied_to_memo_by: string | null
+          body: string
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at: string
+          created_by: string
+          deal_id: string
+          evidence_doc_ids: string[]
+          finding_type: Database["public"]["Enums"]["pe_dd_finding_type"]
+          id: string
+          impacts_section_codes: string[]
+          organization_id: string
+          recommendation: string | null
+          related_checklist_id: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["pe_dd_severity"]
+          source: string
+          source_doc_id: string | null
+          source_page: number | null
+          source_paragraph: string | null
+          status: Database["public"]["Enums"]["pe_dd_finding_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          applied_to_memo_at?: string | null
+          applied_to_memo_by?: string | null
+          body: string
+          category: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          created_by: string
+          deal_id: string
+          evidence_doc_ids?: string[]
+          finding_type?: Database["public"]["Enums"]["pe_dd_finding_type"]
+          id?: string
+          impacts_section_codes?: string[]
+          organization_id: string
+          recommendation?: string | null
+          related_checklist_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: Database["public"]["Enums"]["pe_dd_severity"]
+          source?: string
+          source_doc_id?: string | null
+          source_page?: number | null
+          source_paragraph?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_finding_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          applied_to_memo_at?: string | null
+          applied_to_memo_by?: string | null
+          body?: string
+          category?: Database["public"]["Enums"]["pe_dd_category"]
+          created_at?: string
+          created_by?: string
+          deal_id?: string
+          evidence_doc_ids?: string[]
+          finding_type?: Database["public"]["Enums"]["pe_dd_finding_type"]
+          id?: string
+          impacts_section_codes?: string[]
+          organization_id?: string
+          recommendation?: string | null
+          related_checklist_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["pe_dd_severity"]
+          source?: string
+          source_doc_id?: string | null
+          source_page?: number | null
+          source_paragraph?: string | null
+          status?: Database["public"]["Enums"]["pe_dd_finding_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_dd_findings_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_findings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_findings_related_checklist_id_fkey"
+            columns: ["related_checklist_id"]
+            isOneToOne: false
+            referencedRelation: "pe_dd_checklist"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_dd_findings_source_doc_id_fkey"
+            columns: ["source_doc_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deal_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_deal_documents: {
+        Row: {
+          category: string | null
+          created_at: string
+          dd_report_cabinet: string | null
+          dd_report_pages: number | null
+          dd_report_type:
+            | Database["public"]["Enums"]["pe_dd_report_type"]
+            | null
+          deal_id: string
+          filename: string
+          id: string
+          is_dd_report: boolean
+          mime_type: string | null
+          organization_id: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          dd_report_cabinet?: string | null
+          dd_report_pages?: number | null
+          dd_report_type?:
+            | Database["public"]["Enums"]["pe_dd_report_type"]
+            | null
+          deal_id: string
+          filename: string
+          id?: string
+          is_dd_report?: boolean
+          mime_type?: string | null
+          organization_id: string
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          dd_report_cabinet?: string | null
+          dd_report_pages?: number | null
+          dd_report_type?:
+            | Database["public"]["Enums"]["pe_dd_report_type"]
+            | null
+          deal_id?: string
+          filename?: string
+          id?: string
+          is_dd_report?: boolean
+          mime_type?: string | null
+          organization_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_deal_documents_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_deal_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_deal_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          deal_id: string
+          from_stage: Database["public"]["Enums"]["pe_deal_stage"] | null
+          id: string
+          reason: string | null
+          to_stage: Database["public"]["Enums"]["pe_deal_stage"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          deal_id: string
+          from_stage?: Database["public"]["Enums"]["pe_deal_stage"] | null
+          id?: string
+          reason?: string | null
+          to_stage: Database["public"]["Enums"]["pe_deal_stage"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          deal_id?: string
+          from_stage?: Database["public"]["Enums"]["pe_deal_stage"] | null
+          id?: string
+          reason?: string | null
+          to_stage?: Database["public"]["Enums"]["pe_deal_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_deal_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_deals: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          deal_ref: string
+          enterprise_id: string | null
+          id: string
+          lead_analyst_id: string | null
+          lost_reason: string | null
+          organization_id: string
+          score_360: number | null
+          source: Database["public"]["Enums"]["pe_deal_source"] | null
+          source_detail: string | null
+          stage: Database["public"]["Enums"]["pe_deal_stage"]
+          ticket_demande: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          deal_ref: string
+          enterprise_id?: string | null
+          id?: string
+          lead_analyst_id?: string | null
+          lost_reason?: string | null
+          organization_id: string
+          score_360?: number | null
+          source?: Database["public"]["Enums"]["pe_deal_source"] | null
+          source_detail?: string | null
+          stage?: Database["public"]["Enums"]["pe_deal_stage"]
+          ticket_demande?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          deal_ref?: string
+          enterprise_id?: string | null
+          id?: string
+          lead_analyst_id?: string | null
+          lost_reason?: string | null
+          organization_id?: string
+          score_360?: number | null
+          source?: Database["public"]["Enums"]["pe_deal_source"] | null
+          source_detail?: string | null
+          stage?: Database["public"]["Enums"]["pe_deal_stage"]
+          ticket_demande?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_deals_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_deals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_team_assignments: {
+        Row: {
+          analyst_user_id: string
+          assigned_by: string | null
+          created_at: string | null
+          id: string
+          im_user_id: string
+          is_active: boolean | null
+          organization_id: string
+        }
+        Insert: {
+          analyst_user_id: string
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          im_user_id: string
+          is_active?: boolean | null
+          organization_id: string
+        }
+        Update: {
+          analyst_user_id?: string
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          im_user_id?: string
+          is_active?: boolean | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_team_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_valuation: {
+        Row: {
+          ai_justification: string | null
+          ancc_assets: Json
+          ancc_liabilities: Json
+          ancc_outputs: Json
+          created_at: string
+          currency: string | null
+          dcf_inputs: Json
+          dcf_outputs: Json
+          dcf_projections: Json
+          dcf_terminal: Json
+          deal_id: string
+          error_message: string | null
+          generated_at: string | null
+          generated_by_agent: string | null
+          generated_by_user_id: string | null
+          id: string
+          multiples_comparables: Json
+          multiples_outputs: Json
+          organization_id: string
+          status: string
+          synthesis: Json
+          updated_at: string
+        }
+        Insert: {
+          ai_justification?: string | null
+          ancc_assets?: Json
+          ancc_liabilities?: Json
+          ancc_outputs?: Json
+          created_at?: string
+          currency?: string | null
+          dcf_inputs?: Json
+          dcf_outputs?: Json
+          dcf_projections?: Json
+          dcf_terminal?: Json
+          deal_id: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          multiples_comparables?: Json
+          multiples_outputs?: Json
+          organization_id: string
+          status?: string
+          synthesis?: Json
+          updated_at?: string
+        }
+        Update: {
+          ai_justification?: string | null
+          ancc_assets?: Json
+          ancc_liabilities?: Json
+          ancc_outputs?: Json
+          created_at?: string
+          currency?: string | null
+          dcf_inputs?: Json
+          dcf_outputs?: Json
+          dcf_projections?: Json
+          dcf_terminal?: Json
+          deal_id?: string
+          error_message?: string | null
+          generated_at?: string | null
+          generated_by_agent?: string | null
+          generated_by_user_id?: string | null
+          id?: string
+          multiples_comparables?: Json
+          multiples_outputs?: Json
+          organization_id?: string
+          status?: string
+          synthesis?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_valuation_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "pe_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_valuation_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
+          correspondence_email: string | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -1787,6 +3825,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          correspondence_email?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -1797,6 +3836,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          correspondence_email?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -2016,9 +4056,11 @@ export type Database = {
           default_fields: Json
           description: string | null
           end_date: string | null
+          form_base_lang: string
           form_fields: Json | null
           form_presentation: string | null
           form_slug: string | null
+          form_translations: Json
           id: string
           last_report: Json | null
           last_report_at: string | null
@@ -2048,9 +4090,11 @@ export type Database = {
           default_fields?: Json
           description?: string | null
           end_date?: string | null
+          form_base_lang?: string
           form_fields?: Json | null
           form_presentation?: string | null
           form_slug?: string | null
+          form_translations?: Json
           id?: string
           last_report?: Json | null
           last_report_at?: string | null
@@ -2080,9 +4124,11 @@ export type Database = {
           default_fields?: Json
           description?: string | null
           end_date?: string | null
+          form_base_lang?: string
           form_fields?: Json | null
           form_presentation?: string | null
           form_slug?: string | null
+          form_translations?: Json
           id?: string
           last_report?: Json | null
           last_report_at?: string | null
@@ -2224,10 +4270,43 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_couverture_pays: {
+        Row: {
+          detail: string | null
+          iso2: string | null
+          nom_fr: string | null
+          socle_servis: number | null
+          socle_total: number | null
+          statut_socle: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      c2_resolve: {
+        Args: {
+          p_ca?: number
+          p_exercice?: string
+          p_param: string
+          p_pays: string
+          p_secteur?: string
+          p_zone_infra?: string
+        }
+        Returns: {
+          niveau_preuve: string
+          niveau_resolution: string
+          perimetre: string
+          unite: string
+          valeur: number
+        }[]
+      }
+      can_access_documents_object: { Args: { _name: string }; Returns: boolean }
+      can_see_pe_deal: {
+        Args: { p_deal_id: string; p_user_id: string }
+        Returns: boolean
+      }
       check_slug_available: { Args: { p_slug: string }; Returns: boolean }
+      country_slug: { Args: { input: string }; Returns: string }
       get_metering_org_detail: {
         Args: { p_org_id: string; period_end: string; period_start: string }
         Returns: {
@@ -2252,8 +4331,16 @@ export type Database = {
           total_cost: number
         }[]
       }
+      get_pe_role: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: string
+      }
       get_user_organizations: { Args: never; Returns: string[] }
       get_user_role_in: { Args: { org_id: string }; Returns: string }
+      has_enterprise_access: {
+        Args: { _enterprise_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2264,6 +4351,14 @@ export type Database = {
       is_coach_of_enterprise: { Args: { ent_id: string }; Returns: boolean }
       is_member_of: { Args: { org_id: string }; Returns: boolean }
       is_owner_or_admin_of: { Args: { org_id: string }; Returns: boolean }
+      is_pe_md_or_owner: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_supervising_analyst: {
+        Args: { p_analyst_user: string; p_im_user: string; p_org_id: string }
+        Returns: boolean
+      }
       link_enterprise_to_coach_by_email: {
         Args: { enterprise_email: string }
         Returns: string
@@ -2281,6 +4376,27 @@ export type Database = {
           slug: string
           type: string
         }[]
+      }
+      pe_create_memo_snapshot: {
+        Args: { p_label: string; p_user_id: string; p_version_id: string }
+        Returns: string
+      }
+      resolve_country: {
+        Args: { input: string }
+        Returns: {
+          aliases: string[]
+          iso2: string
+          iso3: string | null
+          langue: string
+          nom_en: string
+          nom_fr: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "country_ref"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       search_knowledge: {
         Args: {
@@ -2302,6 +4418,31 @@ export type Database = {
           title: string
         }[]
       }
+      search_knowledge_chunks: {
+        Args: {
+          filter_country?: string
+          filter_organization_id?: string
+          filter_sector?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          chunk_index: number
+          content: string
+          country: string
+          id: string
+          kb_entry_id: string
+          org_entry_id: string
+          publication_date: string
+          sector: string
+          similarity: number
+          source: string
+          source_url: string
+          title: string
+        }[]
+      }
     }
     Enums: {
       app_role:
@@ -2312,6 +4453,12 @@ export type Database = {
         | "analyste"
         | "investment_manager"
         | "managing_director"
+        | "conseiller_pme"
+        | "analyste_credit"
+        | "directeur_agence"
+        | "direction_pme"
+        | "directeur_pme"
+        | "partner"
       deliverable_type:
         | "bmc_analysis"
         | "bmc_html"
@@ -2337,6 +4484,29 @@ export type Database = {
         | "investment_memo"
         | "plan_ovo_excel"
         | "plan_financier"
+        | "diagnostic_bancabilite"
+        | "credit_readiness_pack"
+        | "note_credit"
+        | "teaser_anonymise"
+      memo_section_code:
+        | "executive_summary"
+        | "shareholding_governance"
+        | "top_management"
+        | "services"
+        | "competition_market"
+        | "unit_economics"
+        | "financials_pnl"
+        | "financials_balance"
+        | "investment_thesis"
+        | "support_requested"
+        | "esg_risks"
+        | "annexes"
+      memo_section_status:
+        | "draft"
+        | "pending_validation"
+        | "validated"
+        | "needs_revision"
+      memo_version_status: "generating" | "ready" | "validated" | "rejected"
       module_code:
         | "bmc"
         | "sic"
@@ -2351,8 +4521,55 @@ export type Database = {
         | "pitch_deck"
         | "investment_memo"
         | "plan_financier"
+        | "diagnostic_bancabilite"
+        | "credit_readiness_pack"
+        | "note_credit"
+        | "teaser_anonymise"
       module_status: "not_started" | "in_progress" | "completed"
       operating_mode: "reconstruction" | "due_diligence"
+      pe_dd_category:
+        | "financier"
+        | "juridique"
+        | "commercial"
+        | "operationnel"
+        | "rh"
+        | "esg"
+        | "fiscal"
+        | "it"
+      pe_dd_checklist_status: "pending" | "verified" | "red_flag" | "na"
+      pe_dd_finding_status: "open" | "mitigated" | "accepted" | "rejected"
+      pe_dd_finding_type:
+        | "confirmation"
+        | "adjustment"
+        | "red_flag"
+        | "informative"
+      pe_dd_report_type:
+        | "financiere"
+        | "juridique"
+        | "esg"
+        | "fiscale"
+        | "operationnelle"
+        | "commerciale"
+        | "autre"
+      pe_dd_severity: "Critical" | "High" | "Medium" | "Low"
+      pe_deal_source:
+        | "reseau_pe"
+        | "inbound"
+        | "dfi"
+        | "banque"
+        | "mandat_ba"
+        | "conference"
+        | "autre"
+      pe_deal_stage:
+        | "sourcing"
+        | "pre_screening"
+        | "analyse"
+        | "note_ic1"
+        | "dd"
+        | "note_ic_finale"
+        | "closing"
+        | "portfolio"
+        | "lost"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2368,12 +4585,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2397,11 +4614,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2422,11 +4639,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2447,11 +4664,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2464,11 +4681,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2488,6 +4705,12 @@ export const Constants = {
         "analyste",
         "investment_manager",
         "managing_director",
+        "conseiller_pme",
+        "analyste_credit",
+        "directeur_agence",
+        "direction_pme",
+        "directeur_pme",
+        "partner",
       ],
       deliverable_type: [
         "bmc_analysis",
@@ -2514,7 +4737,32 @@ export const Constants = {
         "investment_memo",
         "plan_ovo_excel",
         "plan_financier",
+        "diagnostic_bancabilite",
+        "credit_readiness_pack",
+        "note_credit",
+        "teaser_anonymise",
       ],
+      memo_section_code: [
+        "executive_summary",
+        "shareholding_governance",
+        "top_management",
+        "services",
+        "competition_market",
+        "unit_economics",
+        "financials_pnl",
+        "financials_balance",
+        "investment_thesis",
+        "support_requested",
+        "esg_risks",
+        "annexes",
+      ],
+      memo_section_status: [
+        "draft",
+        "pending_validation",
+        "validated",
+        "needs_revision",
+      ],
+      memo_version_status: ["generating", "ready", "validated", "rejected"],
       module_code: [
         "bmc",
         "sic",
@@ -2529,11 +4777,61 @@ export const Constants = {
         "pitch_deck",
         "investment_memo",
         "plan_financier",
+        "diagnostic_bancabilite",
+        "credit_readiness_pack",
+        "note_credit",
+        "teaser_anonymise",
       ],
       module_status: ["not_started", "in_progress", "completed"],
       operating_mode: ["reconstruction", "due_diligence"],
+      pe_dd_category: [
+        "financier",
+        "juridique",
+        "commercial",
+        "operationnel",
+        "rh",
+        "esg",
+        "fiscal",
+        "it",
+      ],
+      pe_dd_checklist_status: ["pending", "verified", "red_flag", "na"],
+      pe_dd_finding_status: ["open", "mitigated", "accepted", "rejected"],
+      pe_dd_finding_type: [
+        "confirmation",
+        "adjustment",
+        "red_flag",
+        "informative",
+      ],
+      pe_dd_report_type: [
+        "financiere",
+        "juridique",
+        "esg",
+        "fiscale",
+        "operationnelle",
+        "commerciale",
+        "autre",
+      ],
+      pe_dd_severity: ["Critical", "High", "Medium", "Low"],
+      pe_deal_source: [
+        "reseau_pe",
+        "inbound",
+        "dfi",
+        "banque",
+        "mandat_ba",
+        "conference",
+        "autre",
+      ],
+      pe_deal_stage: [
+        "sourcing",
+        "pre_screening",
+        "analyse",
+        "note_ic1",
+        "dd",
+        "note_ic_finale",
+        "closing",
+        "portfolio",
+        "lost",
+      ],
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
