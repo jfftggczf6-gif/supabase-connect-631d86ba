@@ -85,7 +85,7 @@ const RENDER_EN = {
   },
   fiche_entreprise: { description_activite: 'Processing of local spices.' },
   diagnostic_dimensions: {
-    maturite_business: { constats: ['Three documented financial years'], donnees_manquantes: [] },
+    maturite_business: { constats: ['Three documented financial years'], donnees_manquantes: [] as string[] },
     capacite_financiere: { constats: ['Stable gross margin'], donnees_manquantes: ['Cost breakdown'] },
   },
   indicateurs_financiers: {
@@ -106,7 +106,7 @@ const RENDER_EN = {
   traction: { anciennete: '4 years', evolution_ca: '+84.39%', preuves_tangibles: ['2025 invoices'] },
   recommandation_accompagnement: {
     justification: 'Cash position to be secured before disbursement.',
-    priorites_si_selectionnee: ['Formalise accounting'], conditions_prealables: [],
+    priorites_si_selectionnee: ['Formalise accounting'], conditions_prealables: [] as string[],
     potentiel_6_mois: 'Good', profil_coach_ideal: 'Food-processing expert',
   },
 };
