@@ -1248,7 +1248,7 @@ export function computeIndicateurs(
 
   // Cycle tréso et runway (from current year)
   const cycle = cy ? 0 : 0; // computed in ratios
-  const runway = null; // computed in ratios
+  const runway: number | null = null; // computed in ratios
 
   return {
     van,

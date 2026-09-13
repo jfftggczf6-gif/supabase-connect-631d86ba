@@ -14,7 +14,7 @@ let inflight: Promise<DiagnosticLabelRow[]> | null = null;
 export async function loadDiagnosticLabels(): Promise<DiagnosticLabelRow[]> {
   if (cache) return cache;
   if (inflight) return inflight;
-  inflight = supabase
+  inflight = Promise.resolve(supabase
     .from('diagnostic_labels')
     .select('key, category, fr, en, match_fr')
     .then(({ data, error }) => {
@@ -25,7 +25,7 @@ export async function loadDiagnosticLabels(): Promise<DiagnosticLabelRow[]> {
       }
       cache = (data as DiagnosticLabelRow[]) || [];
       return cache;
-    });
+    }));
   return inflight;
 }
 

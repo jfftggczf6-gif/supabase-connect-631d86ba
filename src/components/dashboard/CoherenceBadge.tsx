@@ -38,7 +38,7 @@ export default function CoherenceBadge({ enterpriseId, showWhenClean = false }: 
         .select('coherence_validated, coherence_warnings, coherence_last_check_at')
         .eq('enterprise_id', enterpriseId)
         .maybeSingle();
-      if (active) setData(row as CanonicalCoherence | null);
+      if (active) setData((row as unknown) as CanonicalCoherence | null);
     })();
     return () => {
       active = false;

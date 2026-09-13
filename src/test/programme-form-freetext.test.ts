@@ -10,7 +10,7 @@ describe("cleanFreeTextOptions", () => {
       required: false,
       options: ["A", "Autre"],
       freeTextOptions: { Autre: "Précisez", Supprimée: "x" },
-    });
+    } as any);
     expect(r).toEqual({ Autre: "Précisez" });
   });
 
@@ -22,12 +22,12 @@ describe("cleanFreeTextOptions", () => {
       required: false,
       options: ["A"],
       freeTextOptions: { Autre: "x" },
-    });
+    } as any);
     expect(r).toBeUndefined();
   });
 
   it("retourne undefined si le champ n'a pas de freeTextOptions", () => {
-    const r = cleanFreeTextOptions({ id: "1", type: "select", label: "Q", required: false, options: ["A"] });
+    const r = cleanFreeTextOptions({ id: "1", type: "select", label: "Q", required: false, options: ["A"] } as any);
     expect(r).toBeUndefined();
   });
 });

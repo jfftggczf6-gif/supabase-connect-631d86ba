@@ -65,7 +65,7 @@ import { describe, it, expect, vi } from 'vitest';
 // du brief. En attendant, ce stub est aligné sur export-single-candidature.test,
 // qui fait déjà exactement la même chose pour la même raison.
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
+  supabase: { auth: { getSession: async () => ({ data: { session: null as any } }) } },
 }));
 
 import { buildSingleHtml, buildHtml, __setRenderContext } from '@/lib/export-candidature-report-pdf';

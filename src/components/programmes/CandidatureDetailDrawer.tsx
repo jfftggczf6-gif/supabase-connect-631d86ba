@@ -286,7 +286,7 @@ export default function CandidatureDetailDrawer({ candidatureId, open, onOpenCha
                 }}>
                   {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Extract PDF
                 </Button>
-                <Button size="sm" variant="outline" className="gap-1.5" title="Exporter cette fiche en Word" onClick={() => {
+                <Button size="sm" variant="outline" className="gap-1.5" title="Exporter cette fiche en Word" onClick={async () => {
                   try { await exportSingleCandidatureWord(detail, programmeName, diagLocale); }
                   catch (e: any) { toast({ title: 'Export Word impossible', description: e?.message, variant: 'destructive' }); }
                 }}>
