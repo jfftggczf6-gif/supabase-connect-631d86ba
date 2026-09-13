@@ -124,6 +124,22 @@ describe('registre des abréviations françaises — le doublon de sécurité', 
     }
   });
 
+  it('deuxième arbitrage, sur le troisième dossier rendu', () => {
+    // Le rendu de la candidature Sweet Life du 12/09 a remonté six sigles
+    // nouveaux d'un coup. C'est le coût annoncé de la règle — un dossier neuf
+    // apporte ses institutions et ses normes — et c'est aussi sa valeur : il a
+    // fallu les regarder une fois, et aucun n'était français.
+    const prose = {
+      a: 'Export quality certifications (HACCP, BRC, IFS).',
+      b: 'Recommendation by COLEAD, an organisation recognised in agricultural export support.',
+      c: 'Assess repayment capacity (DSCR) and tonnes of CO2 avoided, with GHG reduction.',
+    };
+    expect(siglesNonDeclares(prose)).toEqual([]);
+    for (const s of ['BRC', 'IFS', 'COLEAD', 'DSCR', 'GHG', 'CO2']) {
+      expect(s in SIGLES_INVARIANTS, `${s} devrait être déclaré`).toBe(true);
+    }
+  });
+
   it('ne signale rien sur une prose anglaise propre', () => {
     const prose = { a: 'Revenue of at least 30,000 EUR, audited statements filed with the ORC.' };
     expect(abreviationsFrancaises(prose)).toEqual([]);

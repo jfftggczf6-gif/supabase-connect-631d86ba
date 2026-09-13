@@ -28,6 +28,13 @@ interface Candidature {
   company_name: string;
   status: string;
   screening_score?: number | null;
+  // Date de dépôt. Affichée sur la carte parce que le nom d'entreprise ne suffit
+  // pas à identifier un dossier : la cohorte Ghana porte DEUX candidatures
+  // « Sweet Life Group Ghana Ltd », que rien ne distinguait à l'écran hors leurs
+  // scores 42 et 52. Un membre de comité ne pouvait pas savoir qu'il regardait
+  // deux dépôts de la même entreprise. Le cas n'est pas isolé : 7 groupes sur
+  // 102 candidatures, jusqu'à 4 dépôts pour une même entreprise.
+  submitted_at?: string | null;
   contact_email?: string;
   assigned_coach_id?: string | null;
   // Lien pour compléter (recovery) — déjà renvoyés par list-candidatures (select *)
@@ -60,6 +67,7 @@ function DroppableColumn({ col, children }: { col: typeof COLUMN_IDS[number]; ch
 }
 
 function KanbanCard({ c, onClick }: { c: Candidature; onClick: () => void }) {
+  const { i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: c.id,
     data: { type: 'card', status: c.status },
@@ -74,6 +82,11 @@ function KanbanCard({ c, onClick }: { c: Candidature; onClick: () => void }) {
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card className="p-3 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow" onClick={onClick}>
         <p className="font-medium text-sm truncate">{c.company_name || 'Sans nom'}</p>
+        {c.submitted_at && (
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {new Date(c.submitted_at).toLocaleDateString(i18n.language === 'en' ? 'en-GB' : 'fr-FR')}
+          </p>
+        )}
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {c.screening_score != null && (
             <Badge variant="outline" className={c.screening_score >= 70 ? 'border-emerald-300 text-emerald-700' : c.screening_score >= 40 ? 'border-amber-300 text-amber-700' : 'border-red-300 text-red-700'}>

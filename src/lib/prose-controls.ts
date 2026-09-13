@@ -94,9 +94,14 @@ export const SIGLES_INVARIANTS: Record<string, string> = {
   KPI: 'key performance indicator — terme anglais', ESG: 'environnement social gouvernance — international',
   ROI: 'return on investment — terme anglais', IRR: 'internal rate of return — terme anglais',
   NPV: 'net present value — terme anglais', NGO: 'non-governmental organisation — terme anglais',
+  DSCR: 'debt service coverage ratio — terme anglais',
+  GHG: 'greenhouse gas — terme anglais',
+  CO2: 'formule chimique, invariante par langue',
 
   // Normes et référentiels
   ISO: 'organisation internationale de normalisation', HACCP: 'norme de sécurité alimentaire',
+  BRC: 'British Retail Consortium — norme de sécurité alimentaire',
+  IFS: 'International Featured Standards — norme de sécurité alimentaire',
   GMP: 'good manufacturing practices — norme', CE: 'marquage de conformité européenne',
   SDG: 'sustainable development goals — traduit depuis ODD',
 
@@ -108,6 +113,7 @@ export const SIGLES_INVARIANTS: Record<string, string> = {
   PAYE: 'pay as you earn — régime fiscal ghanéen', GIZ: 'coopération allemande',
   USAID: 'agence de coopération américaine', USDA: "département américain de l'agriculture",
   IDF: 'International Diabetes Federation', AFD: 'Agence française de développement',
+  COLEAD: "organisation d'appui à l'export agricole (UE-ACP), nom propre",
   IFC: 'International Finance Corporation', EIB: 'European Investment Bank',
 
   // Zones géographiques
