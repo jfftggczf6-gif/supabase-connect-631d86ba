@@ -196,43 +196,23 @@ export function candidatureComplete(): Record<string, any> {
 // une prose anglaise, sinon il testerait un chemin qui n'existe pas.
 
 import { extractProse } from '@/lib/diagnostic-prose';
+import { vocabulaireVerrouille } from './terminologie-seed';
 
 /**
- * Traductions VERROUILLÉES par le bloc de terminologie de RENDER_DIAGNOSTIC v3.
- * Elles sont ici pour que le test échoue si le prompt et le test divergent :
- * `diagnostic-prompt-terminologie.test.ts` compare les deux listes.
+ * Traductions verrouillées, LUES DANS LE PROMPT v3 — jamais recopiées ici.
+ *
+ * Recopier la table dans le test créerait une deuxième vérité sur le sujet même
+ * où l'on en garantit une seule. Le prompt est la source ; le test le lit.
+ *
+ * Périmètre : exactement les valeurs déclarées par SCREENING_SCHEMA pour les deux
+ * champs passés en prose (`diagnostic_dimensions.*.label`, `risques_programme[]
+ * .type`). La première rédaction contenait des variantes de genre inventées —
+ * « Forte », « Modérée », « Limitée », « Significative » — et l'une d'elles a
+ * produit le défaut qu'on cherchait à éviter : « Forte » verrouillé sur « Strong »
+ * alors que diagnostic_labels le rend « High » pour barriere_entree. Le mécanisme
+ * censé empêcher la seconde vérité en créait une.
  */
-export const VOCABULAIRE_VERROUILLE: Record<string, string> = {
-  // diagnostic_dimensions[].label — appréciations rédigées par le modèle
-  'Mature': 'Mature',
-  'En croissance': 'Growing',
-  'Démarrage': 'Early-stage',
-  'Pré-démarrage': 'Pre-launch',
-  'Solide': 'Solid',
-  'Correcte': 'Adequate',
-  'Fragile': 'Fragile',
-  'Insuffisante': 'Insufficient',
-  'Insuffisant': 'Insufficient',
-  'Fort': 'Strong',
-  'Forte': 'Strong',
-  'Modéré': 'Moderate',
-  'Modérée': 'Moderate',
-  'Limité': 'Limited',
-  'Limitée': 'Limited',
-  'Significatif': 'Significant',
-  'Significative': 'Significant',
-  'Faible': 'Low',
-  'Non évaluable': 'Not assessable',
-  'Excellent': 'Excellent',
-  'Bon': 'Good',
-  'Moyen': 'Average',
-  // risques_programme[].type — les cinq du schéma producteur
-  'financier': 'financial',
-  'opérationnel': 'operational',
-  'réputationnel': 'reputational',
-  'exécution': 'execution',
-  'concentration': 'concentration',
-};
+export const VOCABULAIRE_VERROUILLE: Record<string, string> = vocabulaireVerrouille();
 
 /** Prose anglaise du dossier : la sortie attendue du modèle de rendu. */
 export function proseEnComplet(): Record<string, any> {

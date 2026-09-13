@@ -196,3 +196,50 @@ export function compareProse(proseFr: unknown, proseEn: unknown): ProseCompariso
     nbValeursDistinctes: vFr.size,
   };
 }
+
+// ── Contrôles de sortie sur une prose rendue ────────────────────────────────
+//
+// Ces deux contrôles vivaient dans le fichier de test. Ils en sortent parce
+// qu'ils doivent s'exécuter sur DEUX chemins : la suite de tests, et la
+// vérification d'un rendu réel produit en base. Deux implémentations d'une même
+// règle finiraient par diverger, et c'est la vérification sur données réelles
+// qui serait fausse — celle dont on a le plus besoin.
+
+/** Formulations proscrites par le glossaire juridique Ghana (Act 992). */
+export const FORMULATIONS_PROSCRITES: readonly RegExp[] = [
+  /certificate\s+to\s+commence\s+business/i,
+  /certificate\s+of\s+commencement\s+of\s+business/i,
+  /certified\s+financial\s+statements/i,
+];
+
+/** Occurrences de formulations proscrites dans une prose. */
+export function violationsGlossaire(prose: unknown): string[] {
+  const trouvees: string[] = [];
+  for (const s of flattenProse(prose)) {
+    for (const re of FORMULATIONS_PROSCRITES) {
+      const m = s.match(re);
+      if (m) trouvees.push(m[0]);
+    }
+  }
+  return trouvees;
+}
+
+/**
+ * Séparateurs d'une autre locale subsistant dans un rendu EN.
+ *
+ * Le rendu section par section traduit chaque section isolément : rien ne
+ * garantit la cohérence de formatage entre elles. Constaté sur RUJO v2 —
+ * « 250 000 » deux fois et « 250,000 » une fois dans le même document anglais.
+ * Un normaliseur déterministe passe côté worker AVANT l'écriture ; cette
+ * fonction vérifie le résultat côté lecture.
+ */
+export function separateursEtrangers(prose: unknown): string[] {
+  const trouves: string[] = [];
+  for (const s of flattenProse(prose)) {
+    // espace (y compris insécable/fine) utilisée comme séparateur de milliers
+    for (const m of s.matchAll(/\d[\s   ]\d{3}(?!\d)/g)) trouves.push(m[0]);
+    // virgule décimale : une virgule suivie de 1 ou 2 chiffres seulement
+    for (const m of s.matchAll(/\d,\d{1,2}(?!\d)/g)) trouves.push(m[0]);
+  }
+  return trouves;
+}
