@@ -141,7 +141,7 @@ export default function CreateCohorteDialog({ open, onOpenChange }: Props) {
     const pendingOptions: CoachOption[] = (invites || []).map((i: any) => ({
       kind: 'pending' as const,
       invitation_id: i.id,
-      full_name: null,
+      full_name: null as string | null,
       email: i.email,
     }));
     setAvailableCoaches([...memberOptions, ...pendingOptions]);

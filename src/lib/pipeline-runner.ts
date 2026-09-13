@@ -504,7 +504,7 @@ export async function runPipelineFromClient(
               await supabase.from('deliverables')
                 .update({ data: mergedData })
                 .eq('id', freshDeliv.id)
-                .catch(() => {});
+                .then(() => {}, () => {});
             }
           }
 
