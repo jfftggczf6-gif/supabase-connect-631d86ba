@@ -36,7 +36,7 @@ const SCREENING = {
     stade: 'Croissance (2-5 ans)', description_activite: 'Transformation d\'épices locales.',
   },
   diagnostic_dimensions: {
-    maturite_business: { score: 65, label: 'En croissance', constats: ['Trois exercices documentés'], donnees_manquantes: [] },
+    maturite_business: { score: 65, label: 'En croissance', constats: ['Trois exercices documentés'], donnees_manquantes: [] as string[] },
     capacite_financiere: { score: 58, label: 'Correcte', constats: ['Marge brute stable'], donnees_manquantes: ['Détail des charges'] },
   },
   indicateurs_financiers: {
@@ -69,7 +69,7 @@ const SCREENING = {
   traction: { anciennete: '4 ans', evolution_ca: '+84,39 %', preuves_tangibles: ['Factures 2025'], niveau_preuve: 'Partiel' },
   recommandation_accompagnement: {
     avis: 'FAVORABLE SOUS RÉSERVE', justification: 'Trésorerie à sécuriser avant décaissement.',
-    priorites_si_selectionnee: ['Structurer la comptabilité'], conditions_prealables: [],
+    priorites_si_selectionnee: ['Structurer la comptabilité'], conditions_prealables: [] as string[],
     potentiel_6_mois: 'Bon', profil_coach_ideal: 'Expert agroalimentaire',
   },
 } as const;

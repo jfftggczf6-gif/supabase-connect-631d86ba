@@ -396,7 +396,7 @@ export default function PublicCandidatureForm() {
                         onChange={e => {
                           const files = e.target.files;
                           if (files) {
-                            const existing: File[] = Array.isArray(fileUploads[field.label]) ? (fileUploads[field.label] as File[]) : fileUploads[field.label] ? [fileUploads[field.label] as File] : [];
+                            const existing: File[] = Array.isArray(fileUploads[field.label]) ? (fileUploads[field.label] as File[]) : fileUploads[field.label] ? [fileUploads[field.label] as unknown as File] : [];
                             setFileUploads(prev => ({ ...prev, [field.label]: [...existing, ...Array.from(files)] as any }));
                           }
                         }}
@@ -409,7 +409,7 @@ export default function PublicCandidatureForm() {
                               <span className="text-sm truncate flex-1">{f.name}</span>
                               <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
                               <button type="button" onClick={() => {
-                                const arr: File[] = Array.isArray(fileUploads[field.label]) ? [...(fileUploads[field.label] as File[])] : [fileUploads[field.label] as File];
+                                const arr: File[] = Array.isArray(fileUploads[field.label]) ? [...(fileUploads[field.label] as File[])] : [fileUploads[field.label] as unknown as File];
                                 arr.splice(fi, 1);
                                 if (arr.length === 0) {
                                   setFileUploads(prev => { const n = { ...prev }; delete n[field.label]; return n; });
