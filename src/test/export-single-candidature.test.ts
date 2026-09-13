@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 // export-candidature-report-pdf importe transitivement le client Supabase
 // (via export-pdf) → on le mocke pour tester les builders purs sans réveiller GoTrue.
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
+  supabase: { auth: { getSession: async () => ({ data: { session: null as any } }) } },
 }));
 
 import { buildSingleHtml, buildHtml, singleExtractFilename } from "@/lib/export-candidature-report-pdf";

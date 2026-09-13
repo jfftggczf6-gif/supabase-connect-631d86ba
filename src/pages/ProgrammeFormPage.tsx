@@ -129,7 +129,7 @@ export default function ProgrammeFormPage() {
       setPartnerLogos(Array.isArray((data as any).partner_logos) ? (data as any).partner_logos as PartnerLogo[] : []);
       setDefaultFields(mergeDefaultFields((data as any).default_fields));
       const existing: FormField[] = Array.isArray(data.form_fields) && data.form_fields.length > 0
-        ? data.form_fields as FormField[]
+        ? (data.form_fields as unknown as FormField[])
         : [{ id: 'default-file', type: 'file', label: 'Documents à joindre (business plan, états financiers, etc.)', required: false }];
       setFormFields(existing);
       setStartDate(data.start_date || '');
