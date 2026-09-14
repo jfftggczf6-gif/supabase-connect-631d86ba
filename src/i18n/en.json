@@ -431,7 +431,10 @@
     "public_connection_error": "Connection error",
     "public_submit_error": "Error during submission",
     "public_upload_error": "Could not upload {{count}} file(s): {{files}}. Your application was NOT saved. Check your connection and try again, or contact support.",
-    "public_docs_error": "Error while saving documents: {{error}}. Please try again."
+    "public_docs_error": "Error while saving documents: {{error}}. Please try again.",
+    "public_draft_restored": "We found your answers, saved on {{date}} on this device. Pick up where you left off.",
+    "public_draft_discard": "Start over",
+    "public_draft_notice": "Your answers are saved automatically on this device as you type. If you close this page, you will find them again when you return."
   },
   "dashboard_programme": {
     "enterprises": "Programme enterprises",

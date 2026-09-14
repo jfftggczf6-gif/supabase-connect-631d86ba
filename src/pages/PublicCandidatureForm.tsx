@@ -11,6 +11,7 @@ import { Loader2, CheckCircle2, XCircle, Upload, X, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { getSortedCountries } from '@/lib/countries';
+import { enregistrer as enregistrerBrouillon, lire as lireBrouillon, effacer as effacerBrouillon } from '@/lib/candidature-draft';
 import { SECTORS } from '@/lib/sectors';
 import { mergeDefaultFields } from '@/lib/default-fields';
 import { FreeTextPrecision } from '@/components/programme/FreeTextPrecision';
@@ -40,6 +41,9 @@ export default function PublicCandidatureForm() {
   // Langue choisie par le candidat sur CE formulaire (null = pas encore choisi
   // → on affiche la langue de base du formulaire).
   const [displayLang, setDisplayLang] = useState<string | null>(null);
+  // Brouillon restauré à l'ouverture : on le signale au candidat plutôt que de
+  // repeupler ses champs en silence. Il doit pouvoir repartir de zéro.
+  const [brouillonRestaure, setBrouillonRestaure] = useState<string | null>(null);
 
   // Bilingue : langue de rédaction du formulaire + traductions (repli sur la base
   // si absentes → comportement identique à aujourd'hui). Utilisé au rendu ET à la validation.
@@ -235,6 +239,9 @@ export default function PublicCandidatureForm() {
         }
       }
 
+      // Soumis : le brouillon n'a plus d'objet. On l'efface avant d'afficher la
+      // confirmation, pour qu'un retour sur le formulaire reparte propre.
+      if (slug) effacerBrouillon(slug);
       setSubmitted(true);
     } catch (e: any) {
       console.error('[PublicCandidatureForm] submit error:', e);
@@ -244,6 +251,50 @@ export default function PublicCandidatureForm() {
   };
 
   const setField = (key: string, val: any) => setFormData(f => ({ ...f, [key]: val }));
+
+  // ── Brouillon local ───────────────────────────────────────────────────────
+  //
+  // Signalé le 14/09 : « le formulaire se bloque ou devient vide ; en actualisant,
+  // la page revient au début et toutes les informations saisies sont effacées ».
+  // La cause du blocage n'est pas reproduite. La PERTE, elle, était certaine :
+  // rien n'était sauvegardé. Ce formulaire compte 22 questions personnalisées.
+  //
+  // Restauration UNE SEULE FOIS, au chargement du programme : au-delà, le
+  // candidat est en train d'écrire et on ne touche plus à ses champs.
+  const brouillonCharge = useRef(false);
+  useEffect(() => {
+    if (!slug || !programme || brouillonCharge.current) return;
+    brouillonCharge.current = true;
+    const b = lireBrouillon(slug);
+    if (!b) return;
+    setCompanyName(b.companyName);
+    setContactName(b.contactName);
+    setContactEmail(b.contactEmail);
+    setContactPhone(b.contactPhone);
+    setFormData(b.formData);
+    if (b.displayLang) setDisplayLang(b.displayLang);
+    setBrouillonRestaure(b.enregistreLe);
+  }, [slug, programme]);
+
+  // Sauvegarde à chaque frappe, débattue : on n'écrit pas 40 fois par phrase.
+  // Jamais pendant l'envoi ni après, pour ne pas réécrire ce qu'on vient
+  // d'effacer.
+  useEffect(() => {
+    if (!slug || !programme || submitting || submitted) return;
+    const t = setTimeout(() => {
+      enregistrerBrouillon(slug, {
+        companyName, contactName, contactEmail, contactPhone, formData, displayLang,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [slug, programme, submitting, submitted,
+      companyName, contactName, contactEmail, contactPhone, formData, displayLang]);
+
+  const abandonnerBrouillon = () => {
+    if (slug) effacerBrouillon(slug);
+    setCompanyName(''); setContactName(''); setContactEmail(''); setContactPhone('');
+    setFormData({}); setBrouillonRestaure(null);
+  };
 
   // Précisions « champ libre » : stockées dans la clé sœur `{label}__precisions`,
   // { valeur d'option → texte saisi }. Réponse principale inchangée.
@@ -330,6 +381,22 @@ export default function PublicCandidatureForm() {
         {/* Form */}
         <Card>
           <CardContent className="p-6">
+            {brouillonRestaure && (
+              <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 flex items-start justify-between gap-3">
+                <span>
+                  {t('candidature.public_draft_restored', {
+                    date: new Date(brouillonRestaure).toLocaleString(isEn ? 'en-GB' : 'fr-FR'),
+                  })}
+                </span>
+                <button
+                  type="button"
+                  onClick={abandonnerBrouillon}
+                  className="shrink-0 underline underline-offset-2 hover:no-underline"
+                >
+                  {t('candidature.public_draft_discard')}
+                </button>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Champs par défaut (config par programme : libellé / activé / requis) */}
               {defaultFieldsConfig.map(f => {
@@ -507,6 +574,12 @@ export default function PublicCandidatureForm() {
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('candidature.public_submit')}
               </Button>
+              {/* Dit au candidat que ses réponses survivent à une fermeture de
+                  page. Sans cette phrase, la sauvegarde existe mais personne ne
+                  le sait — et c'est la peur de tout reperdre qui fait renoncer. */}
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {t('candidature.public_draft_notice')}
+              </p>
             </form>
           </CardContent>
         </Card>

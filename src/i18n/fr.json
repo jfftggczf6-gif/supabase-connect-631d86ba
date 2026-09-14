@@ -431,7 +431,10 @@
     "public_connection_error": "Erreur de connexion",
     "public_submit_error": "Erreur lors de la soumission",
     "public_upload_error": "Impossible de téléverser {{count}} fichier(s) : {{files}}. Ta candidature N'A PAS été enregistrée. Vérifie ta connexion et réessaie, ou contacte le support.",
-    "public_docs_error": "Erreur lors de l'enregistrement des documents : {{error}}. Réessaie."
+    "public_docs_error": "Erreur lors de l'enregistrement des documents : {{error}}. Réessaie.",
+    "public_draft_restored": "Nous avons retrouvé vos réponses, enregistrées le {{date}} sur cet appareil. Continuez où vous en étiez.",
+    "public_draft_discard": "Recommencer à zéro",
+    "public_draft_notice": "Vos réponses sont enregistrées automatiquement sur cet appareil au fur et à mesure. Si vous fermez cette page, vous les retrouverez en revenant."
   },
   "dashboard_programme": {
     "enterprises": "Entreprises du programme",

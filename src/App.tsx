@@ -35,6 +35,7 @@ import ProgrammeDetailPage from "./pages/ProgrammeDetailPage";
 import ProgrammeFormPage from "./pages/ProgrammeFormPage";
 import ProgrammeEnterprisePage from "./pages/ProgrammeEnterprisePage";
 import PublicCandidatureForm from "./pages/PublicCandidatureForm";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Settings from "./pages/Settings";
 import KnowledgePage from "./pages/KnowledgePage";
 import KnowledgeReviewPage from "./pages/admin/KnowledgeReviewPage";
@@ -77,7 +78,20 @@ const App = () => (
             <Route path="/programmes/:id/enterprise/:enterpriseId" element={
               <ProtectedRoute><RequireRole roles={['owner', 'admin', 'manager', 'coach', 'analyst']}><ProgrammeEnterprisePage /></RequireRole></ProtectedRoute>
             } />
-            <Route path="/candidature/:slug" element={<PublicCandidatureForm />} />
+            {/* Le formulaire public est le seul écran rempli par quelqu'un qui
+                n'a pas de compte, pas de support, et rien à quoi revenir. Une
+                page blanche l'y fait renoncer — c'est arrivé le 14/09. Son
+                garde-fou porte donc un message propre : le brouillon est
+                conservé sur son appareil, il ne perd rien en rechargeant. */}
+            <Route path="/candidature/:slug" element={
+              <ErrorBoundary reassurance={
+                (document.documentElement.lang || '').startsWith('en')
+                  ? 'Your answers are saved on this device. Reload the page and you will find them again.'
+                  : 'Vos réponses sont enregistrées sur cet appareil. Rechargez la page, vous les retrouverez.'
+              }>
+                <PublicCandidatureForm />
+              </ErrorBoundary>
+            } />
             <Route path="/candidature/recovery/:token" element={<CandidatureRecovery />} />
             <Route path="/livrables" element={
               <ProtectedRoute><Livrables /></ProtectedRoute>
