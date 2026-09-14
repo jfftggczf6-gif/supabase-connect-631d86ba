@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -28,12 +28,17 @@ interface Candidature {
   company_name: string;
   status: string;
   screening_score?: number | null;
-  // Date de dépôt. Affichée sur la carte parce que le nom d'entreprise ne suffit
-  // pas à identifier un dossier : la cohorte Ghana porte DEUX candidatures
-  // « Sweet Life Group Ghana Ltd », que rien ne distinguait à l'écran hors leurs
-  // scores 42 et 52. Un membre de comité ne pouvait pas savoir qu'il regardait
-  // deux dépôts de la même entreprise. Le cas n'est pas isolé : 7 groupes sur
-  // 102 candidatures, jusqu'à 4 dépôts pour une même entreprise.
+  // Date de dépôt. Affichée UNIQUEMENT sur les cartes qui ont un homonyme sur le
+  // même tableau — c'est là, et seulement là, qu'elle sert à quelque chose.
+  //
+  // Elle existe parce que le nom d'entreprise ne suffit pas toujours à identifier
+  // un dossier : la cohorte Ghana porte DEUX candidatures « Sweet Life Group
+  // Ghana Ltd », que rien ne distinguait à l'écran hors leurs scores 42 et 52.
+  // Le cas n'est pas isolé — 7 groupes sur 102 candidatures, jusqu'à 4 dépôts
+  // pour une même entreprise.
+  //
+  // Sur un tableau sans homonyme, la date n'apprend rien et encombre : le
+  // Sénégal compte 55 cartes. On la réserve donc aux cas ambigus.
   submitted_at?: string | null;
   contact_email?: string;
   assigned_coach_id?: string | null;
@@ -66,7 +71,7 @@ function DroppableColumn({ col, children }: { col: typeof COLUMN_IDS[number]; ch
   );
 }
 
-function KanbanCard({ c, onClick }: { c: Candidature; onClick: () => void }) {
+function KanbanCard({ c, onClick, homonyme }: { c: Candidature; onClick: () => void; homonyme: boolean }) {
   const { i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: c.id,
@@ -82,7 +87,7 @@ function KanbanCard({ c, onClick }: { c: Candidature; onClick: () => void }) {
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card className="p-3 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow" onClick={onClick}>
         <p className="font-medium text-sm truncate">{c.company_name || 'Sans nom'}</p>
-        {c.submitted_at && (
+        {homonyme && c.submitted_at && (
           <p className="text-[10px] text-muted-foreground mt-0.5">
             {new Date(c.submitted_at).toLocaleDateString(i18n.language === 'en' ? 'en-GB' : 'fr-FR')}
           </p>
@@ -117,7 +122,27 @@ interface Props {
   onRefresh: () => void;
 }
 
+/** Noms d'entreprise portés par PLUS D'UNE candidature du tableau, normalisés. */
+function nomsEnDoublon(candidatures: Candidature[]): Set<string> {
+  const compte = new Map<string, number>();
+  for (const c of candidatures) {
+    const n = normaliserNom(c.company_name);
+    if (n) compte.set(n, (compte.get(n) ?? 0) + 1);
+  }
+  return new Set([...compte.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+}
+
+/** Minuscules, sans accent, sans ponctuation : « AGRIMAGE Sas » et « agrimage sas »
+ *  sont le même nom, et c'est bien ce qu'un lecteur verrait. */
+function normaliserNom(nom: string | null | undefined): string {
+  return (nom ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export default function CandidatureKanban({ candidatures, onCardClick, onRefresh }: Props) {
+  // Un seul passage sur la liste : la carte n'a pas à interroger ses voisines.
+  const doublons = useMemo(() => nomsEnDoublon(candidatures), [candidatures]);
   const { t } = useTranslation();
   const [confirmReject, setConfirmReject] = useState<{ id: string; name: string } | null>(null);
   const [activeCard, setActiveCard] = useState<Candidature | null>(null);
@@ -199,7 +224,12 @@ export default function CandidatureKanban({ candidatures, onCardClick, onRefresh
                 <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2 min-h-[50px]">
                     {items.map(c => (
-                      <KanbanCard key={c.id} c={c} onClick={() => onCardClick(c.id)} />
+                      <KanbanCard
+                        key={c.id}
+                        c={c}
+                        homonyme={doublons.has(normaliserNom(c.company_name))}
+                        onClick={() => onCardClick(c.id)}
+                      />
                     ))}
                   </div>
                 </SortableContext>
