@@ -101,6 +101,9 @@ serve(async (req) => {
     const userOrgId = bestMem?.organization_id;
     const isAdmin = roleData?.role === "super_admin";
     const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    // Le personnel d'organisation (owner/admin/manager) a le même périmètre que la RLS
+    // (cf. policies candidatures_update / programmes_update : owner, admin, manager).
+    const isOrgStaff = isOwnerOrAdmin || orgRole === "manager";
     const isChef = roleData?.role === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
     if (!isAdmin && !isChef) return jsonRes({ error: "Accès refusé" }, 403);
 
@@ -116,7 +119,7 @@ serve(async (req) => {
       .single();
 
     if (!programme) return jsonRes({ error: "Programme non trouvé" }, 404);
-    const canAccess = isAdmin || (isOwnerOrAdmin && programme.organization_id === userOrgId) || (isChef && programme.chef_programme_id === user.id);
+    const canAccess = isAdmin || (isOrgStaff && programme.organization_id === userOrgId) || (isChef && programme.chef_programme_id === user.id);
     if (!canAccess) return jsonRes({ error: "Accès refusé" }, 403);
 
     // Dispatch au worker Railway. Le worker sélectionne les candidatures

@@ -44,6 +44,9 @@ serve(async (req) => {
     const userOrgId = bestMem?.organization_id;
     const isAdmin = roleData?.role === "super_admin";
     const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    // Le personnel d'organisation (owner/admin/manager) a le même périmètre que la RLS
+    // (cf. policies candidatures_update / programmes_update : owner, admin, manager).
+    const isOrgStaff = isOwnerOrAdmin || orgRole === "manager";
     const isChef = roleData?.role === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
     const isCoach = roleData?.role === "coach" || orgRole === "coach" || orgRole === "analyst";
     if (!isAdmin && !isChef && !isCoach) return jsonRes({ error: "Accès refusé" }, 403);
@@ -71,7 +74,7 @@ serve(async (req) => {
     // Check access: super_admin OU owner/admin dans l'org OU chef_programme du programme OU coach assigné
     if (!isAdmin) {
       const canAccess =
-        (isOwnerOrAdmin && programme?.organization_id === userOrgId) ||
+        (isOrgStaff && programme?.organization_id === userOrgId) ||
         (isChef && programme?.chef_programme_id === user.id) ||
         (isCoach && candidature.assigned_coach_id === user.id);
       if (!canAccess) return jsonRes({ error: "Accès refusé" }, 403);

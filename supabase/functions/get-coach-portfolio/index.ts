@@ -41,6 +41,9 @@ serve(async (req) => {
     const userOrgId = bestMem?.organization_id;
     const isAdmin = roleData?.role === "super_admin";
     const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    // Le personnel d'organisation (owner/admin/manager) a le même périmètre que la RLS
+    // (cf. policies candidatures_update / programmes_update : owner, admin, manager).
+    const isOrgStaff = isOwnerOrAdmin || orgRole === "manager";
     const isChef = roleData?.role === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
     const isCoach = roleData?.role === "coach" || orgRole === "coach" || orgRole === "analyst";
 
@@ -56,7 +59,7 @@ serve(async (req) => {
     if (isCoach && !isChef && targetCoachId !== user.id) return jsonRes({ error: "Accès refusé" }, 403);
     if (!isAdmin && isChef) {
       const { data: prog } = await supabase.from("programmes").select("chef_programme_id, organization_id").eq("id", programme_id).single();
-      const canAccess = (isOwnerOrAdmin && prog?.organization_id === userOrgId) || prog?.chef_programme_id === user.id;
+      const canAccess = (isOrgStaff && prog?.organization_id === userOrgId) || prog?.chef_programme_id === user.id;
       if (!prog || !canAccess) return jsonRes({ error: "Accès refusé" }, 403);
     }
 

@@ -47,6 +47,9 @@ serve(async (req) => {
     const userOrgId = bestMem?.organization_id;
     const isAdmin = userRole === "super_admin";
     const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
+    // Le personnel d'organisation (owner/admin/manager) a le même périmètre que la RLS
+    // (cf. policies candidatures_update / programmes_update : owner, admin, manager).
+    const isOrgStaff = isOwnerOrAdmin || orgRole === "manager";
     const isChefProg = userRole === "chef_programme" || isOwnerOrAdmin || orgRole === "manager";
     const isCoach = userRole === "coach" || orgRole === "coach" || orgRole === "analyst";
 
@@ -65,7 +68,7 @@ serve(async (req) => {
         .eq("id", programme_id)
         .single();
       if (!prog) return jsonRes({ error: "Programme non trouvé" }, 404);
-      const canAccess = (isOwnerOrAdmin && prog.organization_id === userOrgId) ||
+      const canAccess = (isOrgStaff && prog.organization_id === userOrgId) ||
                         (isChefProg && prog.chef_programme_id === user.id) ||
                         isCoach; // coach check is done below via assigned_coach_id filter
       if (!canAccess) return jsonRes({ error: "Accès refusé" }, 403);
