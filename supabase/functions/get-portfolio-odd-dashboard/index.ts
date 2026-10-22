@@ -5,6 +5,7 @@ import {
   corsHeaders, jsonResponse, errorResponse,
 } from "../_shared/helpers_v5.ts";
 import { OVO_IMPACT_KPIS, OVO_FOCUS_SDGS } from "../_shared/ovo-knowledge.ts";
+import { resolveEffectiveRoles } from "../_shared/role-helpers.ts";
 
 serve(async (req) => {
   console.log("[get-portfolio-odd-dashboard] loaded");
@@ -25,9 +26,13 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Role check
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-    const role = roleData?.role;
-    if (!["super_admin", "admin", "manager", "owner"].includes(role)) {
+    // Rôles effectifs : historique (user_roles) ET organisation (organization_members).
+    // L'ancien contrôle comparait user_roles.role à ["super_admin","admin","manager","owner"],
+    // alors que l'énumération app_role ne contient ni admin, ni manager, ni owner : ce sont des
+    // rôles d'ORGANISATION. Seul super_admin pouvait donc passer, et les managers d'organisation
+    // recevaient un 403 sur leur propre cohorte.
+    const roles = await resolveEffectiveRoles(supabase, user.id);
+    if (!roles.isSuperAdmin && !roles.isChefProg) {
       return errorResponse("Accès réservé aux propriétaires, admins et managers", 403);
     }
 

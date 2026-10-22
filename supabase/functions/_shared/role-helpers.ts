@@ -7,7 +7,8 @@
  */
 
 export interface EffectiveRoles {
-  userRole: string | null;           // Ancien rôle global (user_roles)
+  legacyRoles: string[];             // TOUS les rôles historiques du compte (user_roles)
+  userRole: string | null;           // Premier rôle historique — conservé par compatibilité
   orgRole: string | null;            // Rôle dans l'org active (organization_members)
   organizationId: string | null;     // ID de l'org active
   isSuperAdmin: boolean;
@@ -28,7 +29,10 @@ export async function resolveEffectiveRoles(
   overrideOrgId?: string | null
 ): Promise<EffectiveRoles> {
   const [roleRes, orgRes] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+    // Pas de .maybeSingle() ici : un compte peut porter PLUSIEURS rôles historiques
+    // (18 cas en production). maybeSingle() échoue alors et renvoie data: null, ce qui
+    // effaçait silencieusement tous les droits hérités de l'ancien système.
+    supabase.from("user_roles").select("role").eq("user_id", userId),
     overrideOrgId
       ? supabase
           .from("organization_members")
@@ -46,23 +50,26 @@ export async function resolveEffectiveRoles(
           .maybeSingle(),
   ]);
 
-  const userRole = roleRes?.data?.role || null;
+  const legacyRoles: string[] = (roleRes?.data || [])
+    .map((r: any) => r?.role)
+    .filter((r: any): r is string => typeof r === "string");
+  const userRole = legacyRoles[0] || null;
   const orgRole = orgRes?.data?.role || null;
   const organizationId = orgRes?.data?.organization_id || overrideOrgId || null;
 
-  const isSuperAdmin = userRole === "super_admin";
+  const isSuperAdmin = legacyRoles.includes("super_admin");
   const isOwnerOrAdmin = orgRole === "owner" || orgRole === "admin";
   const isChefProg =
-    userRole === "chef_programme" ||
+    legacyRoles.includes("chef_programme") ||
     orgRole === "owner" ||
     orgRole === "admin" ||
     orgRole === "manager";
   const isCoach =
-    userRole === "coach" ||
+    legacyRoles.includes("coach") ||
     orgRole === "coach" ||
     orgRole === "analyst";
 
-  return { userRole, orgRole, organizationId, isSuperAdmin, isChefProg, isCoach, isOwnerOrAdmin };
+  return { legacyRoles, userRole, orgRole, organizationId, isSuperAdmin, isChefProg, isCoach, isOwnerOrAdmin };
 }
 
 /**

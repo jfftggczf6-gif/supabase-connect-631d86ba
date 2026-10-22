@@ -357,3 +357,87 @@ Deno.test("manage-programme · une organisation revendiquée ne vaut pas une app
     );
   });
 });
+
+/**
+ * resolveEffectiveRoles : rôles historiques ET rôles d'organisation.
+ *
+ * Deux défauts réunis dans quatre fonctions (ODD portefeuille, score IR,
+ * checklist pré-CI, matrice de risques), toutes montées sur la page programme :
+ *
+ * 1. `user_roles` était lu avec `.maybeSingle()`. 18 comptes en production
+ *    portent deux rôles : la requête échouait et `data` tombait à `null`,
+ *    effaçant silencieusement tout droit hérité de l'ancien système.
+ * 2. Le contrôle comparait `user_roles.role` à ["super_admin","admin","manager","owner"],
+ *    alors que l'énumération `app_role` ne contient ni `admin`, ni `manager`, ni `owner`
+ *    — ce sont des rôles d'ORGANISATION. Seul `super_admin` pouvait donc passer.
+ */
+
+const APP_ROLE = [
+  "coach", "entrepreneur", "super_admin", "chef_programme", "analyste",
+  "investment_manager", "managing_director", "conseiller_pme", "analyste_credit",
+  "directeur_agence", "direction_pme", "directeur_pme", "partner",
+];
+
+/** Réplique de resolveEffectiveRoles, côté drapeaux. */
+function rolesEffectifs(legacyRoles: string[], orgRole?: string) {
+  return {
+    isSuperAdmin: legacyRoles.includes("super_admin"),
+    isOwnerOrAdmin: orgRole === "owner" || orgRole === "admin",
+    isChefProg:
+      legacyRoles.includes("chef_programme") ||
+      orgRole === "owner" || orgRole === "admin" || orgRole === "manager",
+    isCoach: legacyRoles.includes("coach") || orgRole === "coach" || orgRole === "analyst",
+  };
+}
+
+const admisSurOngletProgramme = (r: ReturnType<typeof rolesEffectifs>) => r.isSuperAdmin || r.isChefProg;
+
+Deno.test("onglets ODD et conformité · le manager d'organisation est admis", async (t) => {
+  await t.step("Karen : deux rôles historiques + manager OVO", () => {
+    assertEquals(
+      admisSurOngletProgramme(rolesEffectifs(["chef_programme", "entrepreneur"], "manager")),
+      true,
+    );
+  });
+
+  await t.step("un rôle historique unique reste pris en compte", () => {
+    assertEquals(admisSurOngletProgramme(rolesEffectifs(["chef_programme"])), true);
+    assertEquals(admisSurOngletProgramme(rolesEffectifs(["super_admin"])), true);
+  });
+
+  await t.step("coach et entrepreneur restent refusés", () => {
+    assertEquals(admisSurOngletProgramme(rolesEffectifs(["coach"], "coach")), false);
+    assertEquals(admisSurOngletProgramme(rolesEffectifs(["entrepreneur"])), false);
+    assertEquals(admisSurOngletProgramme(rolesEffectifs([])), false);
+  });
+});
+
+Deno.test("l'ancien contrôle n'acceptait que super_admin", async (t) => {
+  const ANCIEN = ["super_admin", "admin", "manager", "owner"];
+
+  await t.step("admin, manager et owner n'existent pas dans app_role", () => {
+    for (const r of ["admin", "manager", "owner"]) {
+      assertEquals(APP_ROLE.includes(r), false, `${r} ne devrait pas être un rôle historique`);
+    }
+  });
+
+  await t.step("aucun rôle historique réel ne passait, sauf super_admin", () => {
+    const passants = APP_ROLE.filter((r) => ANCIEN.includes(r));
+    assertEquals(passants, ["super_admin"]);
+  });
+
+  await t.step("Karen était donc refusée, même sans le bug du maybeSingle", () => {
+    assertEquals(ANCIEN.includes("chef_programme"), false);
+  });
+});
+
+Deno.test("maybeSingle sur un compte à deux rôles effaçait les droits", () => {
+  // Comportement PostgREST : `.maybeSingle()` échoue si plus d'une ligne → data: null.
+  const simuleMaybeSingle = (lignes: string[]) => (lignes.length === 1 ? lignes[0] : null);
+
+  assertEquals(simuleMaybeSingle(["chef_programme"]), "chef_programme");
+  assertEquals(simuleMaybeSingle(["chef_programme", "entrepreneur"]), null);
+
+  // Après correctif : la liste complète est conservée.
+  assertEquals(rolesEffectifs(["chef_programme", "entrepreneur"]).isChefProg, true);
+});

@@ -5,6 +5,7 @@ import {
   jsonResponse, errorResponse,
 } from "../_shared/helpers_v5.ts";
 import { IR_SCORE_CATEGORIES } from "../_shared/ovo-knowledge.ts";
+import { resolveEffectiveRoles } from "../_shared/role-helpers.ts";
 
 const SYSTEM_PROMPT = `Tu es un analyste senior d'investissement d'impact spécialisé dans les PME africaines.
 Tu travailles pour OVO, un fonds d'impact qui accompagne des PME en Afrique subsaharienne.
@@ -27,10 +28,14 @@ serve(async (req) => {
 
     // Role check: owner/admin/manager/super_admin only
     const { supabase, user } = ctx;
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-    const role = roleData?.role;
+    // Rôles effectifs : historique (user_roles) ET organisation (organization_members).
+    // L'ancien contrôle comparait user_roles.role à ["super_admin","admin","manager","owner"],
+    // alors que l'énumération app_role ne contient ni admin, ni manager, ni owner : ce sont des
+    // rôles d'ORGANISATION. Seul super_admin pouvait donc passer, et les managers d'organisation
+    // recevaient un 403 sur leur propre cohorte.
+    const roles = await resolveEffectiveRoles(supabase, user.id);
     const isOwner = ent.user_id === user.id;
-    if (!isOwner && !["super_admin", "admin", "manager", "owner"].includes(role)) {
+    if (!isOwner && !roles.isSuperAdmin && !roles.isChefProg) {
       return errorResponse("Accès réservé aux propriétaires, admins et managers", 403);
     }
 
