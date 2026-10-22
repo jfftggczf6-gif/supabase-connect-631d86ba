@@ -21,6 +21,35 @@ serve(async (req) => {
     const programmeId = body.programme_id;
     if (!programmeId) return jsonRes({ error: "programme_id requis" }, 400);
 
+    // ── Cloisonnement multi-tenant ──
+    // Ces requêtes passent par la clé service, qui contourne la RLS : sans ce contrôle,
+    // n'importe quel compte authentifié pouvait lire (et écrire) les données d'un programme
+    // appartenant à une autre organisation, en passant simplement son identifiant.
+    // On vérifie l'APPARTENANCE, pas le rôle : tout membre actif de l'organisation
+    // propriétaire conserve son accès, quel que soit son rôle.
+    const estMembreOuSuperAdmin = async (organisationDuProgramme: string | null) => {
+      const { data: roles } = await supabase
+        .from("user_roles").select("role").eq("user_id", user.id);
+      if ((roles || []).some((r: any) => r.role === "super_admin")) return true;
+      if (!organisationDuProgramme) return false;
+      const { data: membre } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .eq("organization_id", organisationDuProgramme)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+      return !!membre;
+    };
+
+    const { data: progOrg } = await supabase
+      .from("programmes").select("organization_id").eq("id", programmeId).maybeSingle();
+    if (!progOrg) return jsonRes({ error: "Programme non trouvé" }, 404);
+    if (!(await estMembreOuSuperAdmin(progOrg.organization_id))) {
+      return jsonRes({ error: "Accès refusé" }, 403);
+    }
+
     // Get enterprises via candidatures
     const { data: cands } = await supabase.from("candidatures").select("enterprise_id").eq("programme_id", programmeId).eq("status", "selected");
     const entIds = (cands || []).map(c => c.enterprise_id).filter(Boolean);

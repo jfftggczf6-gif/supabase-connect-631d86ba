@@ -67,6 +67,41 @@ serve(async (req) => {
     if (body.programme_id) {
       const { data: progData } = await supabase.from("programmes").select("organization_id").eq("id", body.programme_id).maybeSingle();
       progOrgId = progData?.organization_id || null;
+    } else if (body.kpi_id) {
+      // `update_value` et `delete` ne transmettent que `kpi_id` : on remonte au programme
+      // par le KPI, sans quoi le contrôle d'appartenance ci-dessous refuserait à tort.
+      const { data: kpiData } = await supabase
+        .from("programme_kpis")
+        .select("programmes:programme_id(organization_id)")
+        .eq("id", body.kpi_id)
+        .maybeSingle();
+      progOrgId = (kpiData as any)?.programmes?.organization_id || null;
+    }
+
+    // ── Cloisonnement multi-tenant ──
+    // Ces requêtes passent par la clé service, qui contourne la RLS : sans ce contrôle,
+    // n'importe quel compte authentifié pouvait lire (et écrire) les données d'un programme
+    // appartenant à une autre organisation, en passant simplement son identifiant.
+    // On vérifie l'APPARTENANCE, pas le rôle : tout membre actif de l'organisation
+    // propriétaire conserve son accès, quel que soit son rôle.
+    const estMembreOuSuperAdmin = async (organisationDuProgramme: string | null) => {
+      const { data: roles } = await supabase
+        .from("user_roles").select("role").eq("user_id", user.id);
+      if ((roles || []).some((r: any) => r.role === "super_admin")) return true;
+      if (!organisationDuProgramme) return false;
+      const { data: membre } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .eq("organization_id", organisationDuProgramme)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+      return !!membre;
+    };
+
+    if (!(await estMembreOuSuperAdmin(progOrgId))) {
+      return jsonRes({ error: "Accès refusé" }, 403);
     }
 
     if (action === "list") {

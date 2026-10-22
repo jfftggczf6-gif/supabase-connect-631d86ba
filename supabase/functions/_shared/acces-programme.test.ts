@@ -441,3 +441,52 @@ Deno.test("maybeSingle sur un compte à deux rôles effaçait les droits", () =>
   // Après correctif : la liste complète est conservée.
   assertEquals(rolesEffectifs(["chef_programme", "entrepreneur"]).isChefProg, true);
 });
+
+/**
+ * Onglet Impact : `get-programme-impact` et `manage-programme-kpis` n'avaient
+ * AUCUN contrôle d'autorisation — seulement l'authentification — puis lisaient
+ * et écrivaient avec la clé service, qui contourne la RLS. N'importe quel compte
+ * authentifié pouvait donc atteindre les données d'une autre organisation en
+ * passant son identifiant de programme.
+ *
+ * La garde vérifie l'APPARTENANCE et non le rôle : tout membre actif de
+ * l'organisation propriétaire conserve son accès, quel que soit son rôle.
+ * C'est ce qui rend le correctif sans régression.
+ */
+
+function membreOuSuperAdmin(
+  legacyRoles: string[],
+  orgsDuCompte: string[],
+  organisationDuProgramme: string | null,
+): boolean {
+  if (legacyRoles.includes("super_admin")) return true;
+  if (!organisationDuProgramme) return false;
+  return orgsDuCompte.includes(organisationDuProgramme);
+}
+
+Deno.test("onglet Impact · appartenance plutôt que rôle", async (t) => {
+  await t.step("Karen, manager OVO → programme OVO", () => {
+    assertEquals(membreOuSuperAdmin(["chef_programme", "entrepreneur"], [OVO], OVO), true);
+  });
+
+  await t.step("un coach de l'org garde son accès", () => {
+    assertEquals(membreOuSuperAdmin(["coach"], [OVO], OVO), true);
+  });
+
+  await t.step("un entrepreneur de l'org aussi : aucune régression", () => {
+    assertEquals(membreOuSuperAdmin(["entrepreneur"], [OVO], OVO), true);
+  });
+
+  await t.step("LA FUITE FERMÉE : membre d'une autre organisation", () => {
+    assertEquals(membreOuSuperAdmin(["entrepreneur"], [AUTRE_ORG], OVO), false);
+  });
+
+  await t.step("compte sans aucune organisation", () => {
+    assertEquals(membreOuSuperAdmin(["entrepreneur"], [], OVO), false);
+  });
+
+  await t.step("programme sans organisation → refusé sauf super_admin", () => {
+    assertEquals(membreOuSuperAdmin(["entrepreneur"], [OVO], null), false);
+    assertEquals(membreOuSuperAdmin(["super_admin"], [], null), true);
+  });
+});
