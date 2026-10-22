@@ -78,6 +78,13 @@ serve(async (req) => {
     }
     const userOrgId = body.organization_id || userOrg?.organization_id || null;
     const orgRole = userOrg?.role;
+    // `userOrgId` peut venir du corps de la requête (switcher d'org) : il est REVENDIQUÉ,
+    // pas prouvé. `membreOrgId` est la seule organisation dont l'appartenance active a été
+    // vérifiée en base. Tout contrôle d'accès doit s'appuyer sur celui-ci.
+    const membreOrgId = userOrg?.organization_id || null;
+    const isOrgOwnerAdmin = !!membreOrgId && (orgRole === "owner" || orgRole === "admin");
+    // Personnel d'organisation : lecture sur toute l'org (cf. RLS programmes / candidatures).
+    const isOrgStaff = isOrgOwnerAdmin || (!!membreOrgId && orgRole === "manager");
 
     // Mapping rôle legacy + rôle d'org → capacités
     // owner/admin/manager = équivalent chef_programme (peuvent créer/gérer programmes)
@@ -99,7 +106,7 @@ serve(async (req) => {
     // - manager/chef_programme : uniquement leurs propres programmes
     const canManage = (prog: { chef_programme_id?: string | null; organization_id?: string | null }) => {
       if (isAdmin) return true;
-      if ((orgRole === "owner" || orgRole === "admin") && userOrgId && prog.organization_id === userOrgId) return true;
+      if (isOrgOwnerAdmin && prog.organization_id === membreOrgId) return true;
       if (isChefProg && prog.chef_programme_id === user.id) return true;
       return false;
     };
@@ -186,7 +193,9 @@ serve(async (req) => {
 
       // Check access
       if (!isAdmin) {
-        const canView = canManage(prog) || (isCoach && ["open", "in_progress", "completed"].includes(prog.status));
+        const canView = canManage(prog)
+          || (isOrgStaff && prog.organization_id === membreOrgId)
+          || (isCoach && ["open", "in_progress", "completed"].includes(prog.status));
         if (!canView) return jsonRes({ error: "Accès refusé" }, 403);
       }
 
@@ -207,8 +216,10 @@ serve(async (req) => {
         query = query.eq("organization_id", userOrgId);
       }
 
-      // owner/admin de l'org → voient TOUS les programmes de l'org (pas de filtre supplémentaire)
-      if (orgRole === "owner" || orgRole === "admin") {
+      // owner/admin/manager → voient TOUS les programmes de LEUR organisation.
+      // La condition `userOrgId === membreOrgId` refuse de lister une organisation
+      // simplement revendiquée dans le corps de la requête.
+      if (isOrgStaff && userOrgId === membreOrgId) {
         // pas de filtre additionnel, déjà filtré par organization_id
       } else if (isChefProg) {
         // manager / chef_programme legacy → filtre par leurs programmes

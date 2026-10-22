@@ -221,3 +221,139 @@ Deno.test("régression : l'ancienne règle refusait Olivier sur Ghana", () => {
     (isChef && GHANA.chef_programme_id === OLIVIER);
   assertEquals(ancienCanAccess, false, "c'est bien l'ancien comportement qui produisait le 403");
 });
+
+/**
+ * manage-programme : règle distincte, voulue et documentée dans la fonction.
+ * Le personnel d'organisation VOIT tous les programmes de son organisation ;
+ * il n'en MODIFIE que ceux dont il est chef (owner/admin exceptés).
+ *
+ * Second point, de sécurité : `userOrgId` peut provenir du corps de la requête
+ * (switcher d'organisation côté interface). Il est revendiqué, jamais prouvé.
+ * Les contrôles s'appuient sur `membreOrgId`, issu d'une appartenance active
+ * vérifiée en base.
+ */
+
+type Ctx = {
+  roleHistorique?: string;
+  membre: Membre;
+  orgRevendiquee?: string | null;
+  userId: string;
+};
+
+function contexte(c: Ctx) {
+  const orgRole = c.membre?.role;
+  const membreOrgId = c.membre?.organization_id ?? null;
+  const userOrgId = c.orgRevendiquee ?? membreOrgId ?? null;
+  const isAdmin = c.roleHistorique === "super_admin";
+  const isOrgOwnerAdmin = !!membreOrgId && (orgRole === "owner" || orgRole === "admin");
+  const isOrgStaff = isOrgOwnerAdmin || (!!membreOrgId && orgRole === "manager");
+  const isChefProg =
+    c.roleHistorique === "chef_programme" || orgRole === "owner" || orgRole === "admin" || orgRole === "manager";
+  return { isAdmin, isOrgOwnerAdmin, isOrgStaff, isChefProg, membreOrgId, userOrgId, userId: c.userId };
+}
+
+function listeNonFiltreeSurSesProgrammes(c: Ctx): boolean {
+  const x = contexte(c);
+  return x.isOrgStaff && x.userOrgId === x.membreOrgId;
+}
+
+function peutModifier(c: Ctx, prog: { organization_id: string | null; chef_programme_id: string | null }): boolean {
+  const x = contexte(c);
+  if (x.isAdmin) return true;
+  if (x.isOrgOwnerAdmin && prog.organization_id === x.membreOrgId) return true;
+  if (x.isChefProg && prog.chef_programme_id === x.userId) return true;
+  return false;
+}
+
+Deno.test("manage-programme · la liste s'ouvre à toute l'organisation", async (t) => {
+  await t.step("Karen, manager OVO → liste non filtrée sur ses seuls programmes", () => {
+    assertEquals(
+      listeNonFiltreeSurSesProgrammes({ membre: { role: "manager", organization_id: OVO }, userId: KAREN }),
+      true,
+    );
+  });
+
+  await t.step("owner et admin : inchangés", () => {
+    for (const role of ["owner", "admin"]) {
+      assertEquals(
+        listeNonFiltreeSurSesProgrammes({ membre: { role, organization_id: OVO }, userId: "x" }),
+        true,
+      );
+    }
+  });
+
+  await t.step("coach : toujours filtré", () => {
+    assertEquals(
+      listeNonFiltreeSurSesProgrammes({ membre: { role: "coach", organization_id: OVO }, userId: "c" }),
+      false,
+    );
+  });
+});
+
+Deno.test("manage-programme · l'écriture reste au chef du programme", async (t) => {
+  await t.step("Karen, manager, non chef → ne modifie pas Uganda", () => {
+    assertEquals(
+      peutModifier({ membre: { role: "manager", organization_id: OVO }, userId: KAREN }, UGANDA),
+      false,
+    );
+  });
+
+  await t.step("Francis, manager ET chef de Ghana → modifie Ghana", () => {
+    assertEquals(
+      peutModifier({ membre: { role: "manager", organization_id: OVO }, userId: FRANCIS }, GHANA),
+      true,
+    );
+  });
+
+  await t.step("owner de l'org → modifie tous les programmes de son org", () => {
+    assertEquals(
+      peutModifier({ membre: { role: "owner", organization_id: OVO }, userId: "o" }, UGANDA),
+      true,
+    );
+  });
+});
+
+Deno.test("manage-programme · une organisation revendiquée ne vaut pas une appartenance", async (t) => {
+  await t.step("owner d'OVO réclamant une autre org → liste filtrée sur ses programmes", () => {
+    assertEquals(
+      listeNonFiltreeSurSesProgrammes({
+        membre: { role: "owner", organization_id: OVO },
+        orgRevendiquee: AUTRE_ORG,
+        userId: "o",
+      }),
+      false,
+    );
+  });
+
+  await t.step("owner d'OVO ne modifie pas un programme d'une autre org", () => {
+    assertEquals(
+      peutModifier(
+        { membre: { role: "owner", organization_id: OVO }, orgRevendiquee: AUTRE_ORG, userId: "o" },
+        PROG_AUTRE_ORG,
+      ),
+      false,
+    );
+  });
+
+  await t.step("manager d'OVO réclamant une autre org → liste filtrée", () => {
+    assertEquals(
+      listeNonFiltreeSurSesProgrammes({
+        membre: { role: "manager", organization_id: OVO },
+        orgRevendiquee: AUTRE_ORG,
+        userId: OLIVIER,
+      }),
+      false,
+    );
+  });
+
+  await t.step("réclamer sa propre organisation reste valide", () => {
+    assertEquals(
+      listeNonFiltreeSurSesProgrammes({
+        membre: { role: "manager", organization_id: OVO },
+        orgRevendiquee: OVO,
+        userId: OLIVIER,
+      }),
+      true,
+    );
+  });
+});
