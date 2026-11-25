@@ -16,6 +16,17 @@ function jsonRes(data: any, status = 200) {
 }
 
 /**
+ * ⏸️ PAUSE (25/11/2026, demande Philippe) : la notification email à l'équipe à
+ * chaque nouvelle candidature est suspendue. Le ciblage par organisation
+ * (owner/admin/manager) arrosait des personnes non concernées par le programme.
+ * Le code est conservé tel quel. Pour réactiver sans redéployer : définir le
+ * secret NOTIFY_TEAM_NEW_CANDIDATURE=true sur le projet.
+ */
+function isTeamNotificationEnabled(): boolean {
+  return Deno.env.get("NOTIFY_TEAM_NEW_CANDIDATURE") === "true";
+}
+
+/**
  * Notifie l'équipe (chef de programme + owner/admin/manager de l'org) qu'une
  * nouvelle candidature est arrivée. Emails dédupliqués, envoi en parallèle,
  * NON bloquant (toute erreur est avalée pour ne jamais casser la soumission).
@@ -203,7 +214,12 @@ serve(async (req) => {
     console.log(`[submit-candidature] ✅ ${company_name} → ${prog.name} (${candidature.id})`);
 
     // Notifier l'équipe (chef de programme + managers de l'org). Non bloquant.
-    await notifyTeamNewCandidature(supabase, prog, { company_name, contact_name: contact_name || null, contact_email });
+    // ⏸️ En pause depuis le 25/11/2026 — voir isTeamNotificationEnabled().
+    if (isTeamNotificationEnabled()) {
+      await notifyTeamNewCandidature(supabase, prog, { company_name, contact_name: contact_name || null, contact_email });
+    } else {
+      console.log("[notify] notification équipe en pause (NOTIFY_TEAM_NEW_CANDIDATURE != true)");
+    }
 
     // Auto-screen → dispatch worker Railway (parsing OCR + Claude jusqu'au bout,
     // sans l'éviction du waitUntil qui laissait les candidatures en NULL).
